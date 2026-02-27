@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.whl
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env/
+Pipfile.lock
+
+# uv / pip
+uv.lock
+pip-wheel-metadata/
+
+# Configuration utilisateur (contient données perso)
+~/.uexinfo/
+.uexinfo/
+
+# Cache local (données régénérées automatiquement)
+data/commodities/*.json
+data/locations/*.json
+data/terminals/*.json
+*.cache
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Playwright
+playwright/.cache/
+playwright-report/
+test-results/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Distribution
+dist/
+*.spec
+
+# Variables d'environnement
+.env
+.env.local
+.env.*.local
+
+# Windows
+desktop.ini
+$RECYCLE.BIN/
+
+# Jupyter
+.ipynb_checkpoints/
