@@ -1,0 +1,9 @@
+requests>=2.31
+prompt_toolkit>=3.0
+rich>=13.0
+beautifulsoup4>=4.12
+tomli-w>=1.0
+appdirs>=1.4
+
+# Optionnel — scraping sc-trade.tools (Phase 4)
+# playwright>=1.40

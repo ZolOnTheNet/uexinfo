@@ -1,0 +1,59 @@
+"""Configuration utilisateur — lecture/écriture ~/.uexinfo/config.toml"""
+from __future__ import annotations
+
+import tomllib
+import tomli_w
+from copy import deepcopy
+from pathlib import Path
+
+import appdirs
+
+APP_NAME = "uexinfo"
+
+CONFIG_PATH = Path(appdirs.user_config_dir(APP_NAME)) / "config.toml"
+
+DEFAULT: dict = {
+    "profile": {"username": ""},
+    "ships": {"available": [], "current": ""},
+    "cargo": {},
+    "position": {"current": "", "destination": ""},
+    "filters": {
+        "systems": [],
+        "planets": [],
+        "stations": [],
+        "terminals": [],
+        "cities": [],
+        "outposts": [],
+    },
+    "trade": {
+        "min_profit_per_scu": 0,
+        "min_margin_percent": 0,
+        "max_distance": 0,
+        "illegal_commodities": False,
+    },
+    "cache": {"ttl_static": 86400, "ttl_prices": 300},
+}
+
+
+def load() -> dict:
+    if not CONFIG_PATH.exists():
+        return deepcopy(DEFAULT)
+    with open(CONFIG_PATH, "rb") as f:
+        data = tomllib.load(f)
+    merged = deepcopy(DEFAULT)
+    _deep_merge(merged, data)
+    return merged
+
+
+def save(cfg: dict) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "wb") as f:
+        tomli_w.dump(cfg, f)
+
+
+def _deep_merge(base: dict, override: dict) -> None:
+    for k, v in override.items():
+        if k in base and isinstance(base[k], dict) and isinstance(v, dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v

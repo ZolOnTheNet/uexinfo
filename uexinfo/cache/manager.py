@@ -1,0 +1,217 @@
+"""Gestion du cache local — données statiques UEX."""
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+
+import appdirs
+from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+
+from uexinfo.cache.models import Commodity, Planet, StarSystem, Terminal
+
+APP_NAME = "uexinfo"
+DATA_DIR = Path(appdirs.user_data_dir(APP_NAME))
+
+_STATIC_FILES = {
+    "commodities": "commodities.json",
+    "terminals": "terminals.json",
+    "star_systems": "star_systems.json",
+    "planets": "planets.json",
+}
+
+_console = Console()
+
+
+class CacheManager:
+    def __init__(self, ttl_static: int = 86400):
+        self.ttl_static = ttl_static
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        self.commodities: list[Commodity] = []
+        self.terminals: list[Terminal] = []
+        self.star_systems: list[StarSystem] = []
+        self.planets: list[Planet] = []
+
+    @property
+    def is_loaded(self) -> bool:
+        return bool(self.commodities or self.terminals)
+
+    def load(self, force: bool = False) -> None:
+        """Charge les données statiques, télécharge si expiré."""
+        if not force and not self._is_expired("commodities"):
+            self._load_from_disk()
+            return
+        try:
+            self._download()
+        except Exception as e:
+            if self._has_disk_data():
+                _console.print(f"[yellow]⚠ Téléchargement échoué ({e}) — données en cache utilisées[/yellow]")
+                self._load_from_disk()
+            else:
+                raise
+
+    def _is_expired(self, key: str) -> bool:
+        path = DATA_DIR / _STATIC_FILES[key]
+        if not path.exists():
+            return True
+        return (time.time() - path.stat().st_mtime) > self.ttl_static
+
+    def _has_disk_data(self) -> bool:
+        return any((DATA_DIR / f).exists() for f in _STATIC_FILES.values())
+
+    def _download(self) -> None:
+        from uexinfo.api.uex_client import UEXClient
+        client = UEXClient()
+
+        steps = [
+            ("commodities", "Commodités",  client.get_commodities,  self._parse_commodity),
+            ("terminals",   "Terminaux",   client.get_terminals,    self._parse_terminal),
+            ("star_systems","Systèmes",    client.get_star_systems, self._parse_star_system),
+            ("planets",     "Planètes",    client.get_planets,      self._parse_planet),
+        ]
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold cyan]{task.description:<20}"),
+            BarColumn(bar_width=30),
+            TextColumn("[dim]{task.fields[count]}"),
+            console=_console,
+            transient=True,
+        ) as progress:
+            task = progress.add_task("Mise à jour cache UEX", total=len(steps), count="")
+            for key, label, fetch_fn, parse_fn in steps:
+                progress.update(task, description=label)
+                raw = fetch_fn()
+                parsed = [parse_fn(d) for d in raw]
+                self._save(key, raw)
+                setattr(self, key if key != "star_systems" else "star_systems", parsed)
+                # manual assignment for clarity
+                if key == "commodities":
+                    self.commodities = parsed
+                elif key == "terminals":
+                    self.terminals = parsed
+                elif key == "star_systems":
+                    self.star_systems = parsed
+                elif key == "planets":
+                    self.planets = parsed
+                progress.update(task, advance=1, count=f"{len(raw)} entrées")
+
+        _console.print(
+            f"[green]✓[/green] Cache mis à jour — "
+            f"[cyan]{len(self.commodities)}[/cyan] commodités, "
+            f"[cyan]{len(self.terminals)}[/cyan] terminaux"
+        )
+
+    def _load_from_disk(self) -> None:
+        mapping = {
+            "commodities": (self._parse_commodity, "commodities"),
+            "terminals":   (self._parse_terminal,   "terminals"),
+            "star_systems":(self._parse_star_system,"star_systems"),
+            "planets":     (self._parse_planet,      "planets"),
+        }
+        for key, (parse_fn, attr) in mapping.items():
+            path = DATA_DIR / _STATIC_FILES[key]
+            if path.exists():
+                with open(path, encoding="utf-8") as f:
+                    raw = json.load(f)
+                setattr(self, attr, [parse_fn(d) for d in raw])
+
+    def _save(self, key: str, data: list) -> None:
+        path = DATA_DIR / _STATIC_FILES[key]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+
+    # ── Parsers ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_commodity(d: dict) -> Commodity:
+        return Commodity(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            code=d.get("code") or "",
+            kind=d.get("kind") or "",
+            weight_scu=float(d.get("weight_scu") or 1.0),
+            price_buy=float(d.get("price_buy") or 0),
+            price_sell=float(d.get("price_sell") or 0),
+            is_buyable=int(d.get("is_buyable") or 0),
+            is_sellable=int(d.get("is_sellable") or 0),
+            is_illegal=int(d.get("is_illegal") or 0),
+            is_available=int(d.get("is_available") or 1),
+            is_refinable=int(d.get("is_refinable") or 0),
+            is_extractable=int(d.get("is_extractable") or 0),
+        )
+
+    @staticmethod
+    def _parse_terminal(d: dict) -> Terminal:
+        return Terminal(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            code=d.get("code") or "",
+            type=d.get("type") or "",
+            id_star_system=int(d.get("id_star_system") or 0),
+            star_system_name=d.get("star_system_name") or "",
+            planet_name=d.get("planet_name") or "",
+            orbit_name=d.get("orbit_name") or "",
+            city_name=d.get("city_name") or "",
+            space_station_name=d.get("space_station_name") or "",
+            max_container_size=int(d.get("max_container_size") or 0),
+            is_available=int(d.get("is_available") or 1),
+            is_player_owned=int(d.get("is_player_owned") or 0),
+            has_loading_dock=int(d.get("has_loading_dock") or 0),
+            has_docking_port=int(d.get("has_docking_port") or 0),
+            has_freight_elevator=int(d.get("has_freight_elevator") or 0),
+            is_refinery=int(d.get("is_refinery") or 0),
+        )
+
+    @staticmethod
+    def _parse_star_system(d: dict) -> StarSystem:
+        return StarSystem(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            code=d.get("code") or "",
+            is_available=int(d.get("is_available") or 1),
+        )
+
+    @staticmethod
+    def _parse_planet(d: dict) -> Planet:
+        return Planet(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            id_star_system=int(d.get("id_star_system") or 0),
+            star_system_name=d.get("star_system_name") or "",
+        )
+
+    # ── Recherche ────────────────────────────────────────────────────────────
+
+    def find_commodity(self, query: str) -> Commodity | None:
+        q = query.lower().strip()
+        for c in self.commodities:
+            if c.code.lower() == q or c.name.lower() == q:
+                return c
+        # Partial match
+        for c in self.commodities:
+            if c.name.lower().startswith(q):
+                return c
+        return None
+
+    def find_terminal(self, query: str) -> Terminal | None:
+        q = query.lower().strip()
+        for t in self.terminals:
+            if t.code.lower() == q or t.name.lower() == q:
+                return t
+        for t in self.terminals:
+            if t.name.lower().startswith(q):
+                return t
+        return None
+
+    def search_terminals(self, query: str) -> list[Terminal]:
+        q = query.lower().strip()
+        return [t for t in self.terminals if q in t.name.lower()]
+
+    def cache_age(self, key: str = "commodities") -> int | None:
+        """Retourne l'âge du cache en secondes, None si absent."""
+        path = DATA_DIR / _STATIC_FILES.get(key, f"{key}.json")
+        if not path.exists():
+            return None
+        return int(time.time() - path.stat().st_mtime)
