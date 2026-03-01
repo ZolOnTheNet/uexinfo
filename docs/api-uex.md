@@ -111,8 +111,23 @@ is_player_owned_origin, is_player_owned_destination
 
 | Endpoint                    | Params | Description                         |
 |-----------------------------|--------|-------------------------------------|
+| `/vehicles`                 | —      | Liste complète des vaisseaux (270 entrées) |
 | `/vehicles_purchases_prices`| —      | Prix d'achat vaisseaux par terminal |
 | `/vehicles_rentals_prices`  | —      | Prix de location vaisseaux          |
+
+Champs clés de `/vehicles` :
+```
+id, name ("Cutlass Black"), name_full ("Drake Cutlass Black"), slug
+company_name ("Drake Interplanetary"), id_company
+scu, crew, mass, width, height, length
+pad_type (XS/S/M/L/XL)
+container_sizes ("1,2,4,8,16,32")
+fuel_quantum, fuel_hydrogen
+is_cargo, is_mining, is_salvage, is_military, is_exploration, is_medical
+is_refinery, is_refuel, is_repair, is_scanning, is_racing, is_passenger
+is_concept, is_ground_vehicle, is_spaceship, is_quantum_capable
+url_photo, url_store
+```
 
 ### Factions
 

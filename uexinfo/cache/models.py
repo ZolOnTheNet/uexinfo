@@ -57,6 +57,24 @@ class Terminal:
 
 
 @dataclass
+class Vehicle:
+    id: int
+    name: str           # court : "Cutlass Black"
+    name_full: str      # complet : "Drake Cutlass Black"
+    manufacturer: str = ""
+    scu: int = 0
+    crew: str = "1"
+    pad_type: str = ""
+    container_sizes: str = ""   # ex: "1,2,4,8,16,32"
+    is_cargo: int = 0
+    is_mining: int = 0
+    is_salvage: int = 0
+    is_military: int = 0
+    is_concept: int = 0
+    is_ground_vehicle: int = 0
+
+
+@dataclass
 class Commodity:
     id: int
     name: str

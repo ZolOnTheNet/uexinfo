@@ -7,30 +7,85 @@ from uexinfo.display import colors as C
 
 _COMMANDS = {
     "help":    "Aide générale ou /help <commande>",
-    "config":  "Configuration : vaisseaux, préférences, trade",
+    "config":  "Configuration : vaisseaux, préférences, trade, scan",
     "go":      "Définir la position courante ou destination",
     "lieu":    "Alias de /go",
     "select":  "Filtres actifs (système, planète, station, terminal…)",
+    "player":  "Gérer le joueur : vaisseau, position, destination",
+    "scan":    "Scanner un terminal (OCR screenshot ou log SC-Datarunner)",
     "trade":   "Recherche de commodités et opportunités de trading",
     "route":   "Calcul de routes commerciales rentables",
     "plan":    "Plan de vol multi-étapes",
-    "info":    "Détail d'un terminal / commodité / vaisseau",
+    "info":    "Détail d'un terminal ou d'une commodité",
+    "explore": "Navigation hiérarchique : systèmes, vaisseaux, commodités",
     "refresh": "Rafraîchir le cache (prix, données statiques)",
-    "exit":    "Quitter l'application",
+    "exit":    "Quitter l'application  (/quit et /bye aussi)",
 }
 
 _DETAILS = {
+    "player": (
+        "/player info                      État joueur (vaisseau, position, dest)\n"
+        "/player ship add <nom> [scu]      Ajouter un vaisseau\n"
+        "/player ship set <nom>            Vaisseau actif\n"
+        "/player ship scu <nom> <n>        Capacité cargo en SCU\n"
+        "/player ship remove <nom>         Supprimer un vaisseau\n"
+        "/player @<lieu>                   Définir la position courante\n"
+        "/player dest @<lieu>              Définir la destination\n\n"
+        "@<lieu>  Ex: @gaslight   @stanton.hurston.lorville\n"
+        "         Tab après @ pour compléter."
+    ),
+    "scan": (
+        "/scan                        Dernier screenshot Star Citizen (OCR)\n"
+        "/scan ecran                  Capture la fenêtre SC en direct (ou presse-papiers)\n"
+        "/scan screen                 Alias de /scan ecran\n"
+        "/scan screenshot <fichier>   Scanner un fichier image directement\n"
+        "/scan log [<fichier>]        Parser le log SC-Datarunner\n"
+        "/scan status                 Afficher le dernier résultat\n"
+        "/scan history [n]            Historique des n derniers scans (défaut 5)\n\n"
+        "Priorité /scan ecran : fenêtre SC → presse-papiers → dernier screenshot"
+    ),
     "config": (
-        "/config                          Afficher la configuration\n"
-        "/config ship add <nom>           Ajouter un vaisseau\n"
-        "/config ship remove <nom>        Retirer un vaisseau\n"
-        "/config ship set <nom>           Définir le vaisseau actif\n"
-        "/config ship cargo <nom> <scu>   Définir le cargo en SCU\n"
-        "/config trade profit <aUEC>      Profit minimum par SCU\n"
-        "/config trade margin <pct>       Marge minimale en %\n"
-        "/config trade illegal on|off     Autoriser les commodités illégales\n"
-        "/config cache ttl <secondes>     TTL du cache statique\n"
-        "/config cache clear              Vider le cache"
+        "/config                               Afficher la configuration\n"
+        "/config ship add <nom>[, <nom2>, …]   Ajouter un ou plusieurs vaisseaux\n"
+        "/config ship remove <nom>             Retirer un vaisseau\n"
+        "/config ship set <nom>                Définir le vaisseau actif\n"
+        "/config ship cargo <nom> <scu>        Définir le cargo en SCU\n"
+        "/config trade profit <aUEC>           Profit minimum par SCU\n"
+        "/config trade margin <pct>            Marge minimale en %\n"
+        "/config trade illegal on|off          Autoriser les commodités illégales\n"
+        "/config cache ttl <secondes>          TTL du cache statique\n"
+        "/config cache clear                   Vider le cache\n"
+        "/config scan mode ocr|log|confirm     Mode de scan\n"
+        "/config scan tesseract <path>         Chemin tesseract.exe\n"
+        "/config scan logpath <path>           Chemin app.log SC-Datarunner\n"
+        "/config scan screenshots <path>       Dossier screenshots SC\n"
+        "/config player                        Afficher la config joueur"
+    ),
+    "explore": (
+        "/explore                         Liste des catégories navigables\n"
+        "/explore <système>               Planètes et corps dans le système\n"
+        "/explore <sys>.<corps>           Lieux (stations, villes…)\n"
+        "/explore <sys>.<corps>.<lieu>    Terminaux et infos du lieu\n"
+        "/explore ship                    Fabricants de vaisseaux\n"
+        "/explore ship.<fabricant>        Vaisseaux d'un fabricant\n"
+        "/explore commodity               Catégories de commodités\n"
+        "/explore commodity.<catégorie>   Commodités de la catégorie\n\n"
+        "Navigation par point, Tab complétion à chaque niveau.\n"
+        "Exemples :\n"
+        "  /explore stanton\n"
+        "  /explore stanton.hurston.lorville\n"
+        "  /explore pyro.bloom\n"
+        "  /explore ship.anvil\n"
+        "  /explore commodity.metal"
+    ),
+    "info": (
+        "/info <nom>              Recherche libre (terminal ou commodité)\n"
+        "/info terminal <nom>     Détail d'un terminal (lieu, système…)\n"
+        "/info commodity <nom>    Détail d'une commodité (prix UEX, flags…)\n\n"
+        "Exemples :\n"
+        "  /info GrimHEX\n"
+        "  /info Laranite\n"
+        "  /info terminal Area 18"
     ),
     "go": (
         "/go                    Afficher position et destination\n"

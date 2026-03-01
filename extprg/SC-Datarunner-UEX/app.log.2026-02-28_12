@@ -1,0 +1,1037 @@
+2026-02-28 12:51:42,255 - workers.api_send_worker - DEBUG - Current APISendWorker thread: False
+2026-02-28 12:51:42,413 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.uexcorp.space:443
+2026-02-28 12:51:43,691 - urllib3.connectionpool - DEBUG - https://api.uexcorp.space:443 "POST /2.0/data_submit HTTP/1.1" 200 141
+2026-02-28 12:51:43,692 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["740188","740189","740190"],"date_added":"1772279439","username":"Zol_fr_FSF"},"message":""}
+
+2026-02-28 12:52:23,859 - utils.file_watcher - DEBUG - Current thread on_created: False
+2026-02-28 12:52:23,859 - utils.file_watcher - INFO - New screenshot detected: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-02-28_12-52-23-818.jpg
+2026-02-28 12:52:24,162 - utils.file_watcher - DEBUG - File c:/program files/roberts space industries/starcitizen/live/screenshots\screenshot-2026-02-28_12-52-23-818.jpg size stabilized after 0.1 seconds.
+2026-02-28 12:52:24,162 - utils.file_watcher - DEBUG - File modified: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-02-28_12-52-23-818.jpg
+2026-02-28 12:52:24,183 - ui.main_ui - DEBUG - Current thread screenshot_at_path: True
+2026-02-28 12:52:24,185 - workers.processing_worker - DEBUG - Current ProcessingWorker thread process: False
+2026-02-28 12:52:24,192 - ui.main_ui - DEBUG - Current thread update_cell_on_progress: True
+2026-02-28 12:52:25,655 - image_processing.image_processor - DEBUG - Found 242 good matches
+2026-02-28 12:52:26,126 - image_processing.data_extractor - DEBUG - Starting full data extraction
+2026-02-28 12:52:26,126 - ui.main_ui - DEBUG - Current thread update_cell_on_progress: True
+2026-02-28 12:52:26,126 - image_processing.data_extractor - DEBUG - Starting terminal location extraction
+2026-02-28 12:52:26,130 - pytesseract - DEBUG - ['./dep/Tesseract-OCR/tesseract.exe', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_xyv5hpnb_input.PNG', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_xyv5hpnb', '-c', 'tessedit_create_tsv=1', '--psm', '11', '--oem', '3', '-l', 'eng_sc', '--user-words', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\terminals.user-words']
+2026-02-28 12:52:26,526 - image_processing.data_extractor - DEBUG - Starting to parse OCR data
+2026-02-28 12:52:26,526 - image_processing.data_extractor - DEBUG - Removing garbage from words
+2026-02-28 12:52:26,526 - image_processing.data_extractor - DEBUG - Removing non-alphanumeric words
+2026-02-28 12:52:26,526 - image_processing.data_extractor - DEBUG - Removing single character words
+2026-02-28 12:52:26,526 - image_processing.data_extractor - DEBUG - Joined terminal text: ORBITUARY
+2026-02-28 12:52:26,527 - image_processing.data_extractor - DEBUG - Fuzzy match for terminal: 'Orbituary' with score 100
+2026-02-28 12:52:26,527 - image_processing.data_extractor - INFO - Matched terminal: Orbituary
+2026-02-28 12:52:26,527 - image_processing.data_extractor - DEBUG - Finished terminal location extraction
+2026-02-28 12:52:26,527 - image_processing.data_extractor - DEBUG - Starting commodities extraction
+2026-02-28 12:52:26,539 - pytesseract - DEBUG - ['./dep/Tesseract-OCR/tesseract.exe', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_wrynynfd_input.PNG', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_wrynynfd', '-c', 'tessedit_create_tsv=1', '--psm', '11', '--oem', '3', '-l', 'eng_sc', '--user-words', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\commodities.user-words', '--user-patterns', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\sc.patterns']
+2026-02-28 12:52:27,462 - image_processing.data_extractor - DEBUG - Starting to parse OCR data
+2026-02-28 12:52:27,462 - image_processing.data_extractor - DEBUG - Removing garbage from words
+2026-02-28 12:52:27,462 - image_processing.data_extractor - DEBUG - Merging consecutive words
+2026-02-28 12:52:27,462 - image_processing.data_extractor - DEBUG - Added new word: Waste, confidence: 91.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 93.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 94.50
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 82.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 86.50
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 86.67
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Added new word: ¤457/SCU, confidence: 45.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.25
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 62.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8, confidence: 62.00
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16, confidence: 62.67
+2026-02-28 12:52:27,463 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24, confidence: 63.00
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24 32, confidence: 69.00
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Added new word: Altruciatoxin, confidence: 64.00
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 89.00
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 92.50
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 89.00
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 89.00
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 90.00
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Added new word: H¤6.25879982k/SCU, confidence: 33.00
+2026-02-28 12:52:27,464 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 94.67
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.00
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 79.00
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8, confidence: 78.00
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16, confidence: 67.00
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24, confidence: 61.50
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24 32, confidence: 68.20
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Added new word: Aluminum, confidence: 90.00
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 90.00
+2026-02-28 12:52:27,465 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 93.00
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 89.00
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 89.00
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 89.33
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Added new word: ¤1.55099999/SCU, confidence: 21.00
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.25
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Added new word: 8.16, confidence: 78.00
+2026-02-28 12:52:27,466 - image_processing.data_extractor - DEBUG - Merged words: 8.16 24, confidence: 83.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Merged words: 8.16 24 32, confidence: 87.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Added new word: Argon, confidence: 91.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 93.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 94.50
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 83.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 87.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 88.33
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Added new word: ¤425/SCU, confidence: 89.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 30.00
+2026-02-28 12:52:27,467 - image_processing.data_extractor - DEBUG - Merged words: 1.2 .4.8.16.24, confidence: 28.50
+2026-02-28 12:52:27,468 - image_processing.data_extractor - DEBUG - Added new word: 32, confidence: 95.00
+2026-02-28 12:52:27,468 - image_processing.data_extractor - DEBUG - Parsed and merged 25 words
+2026-02-28 12:52:27,468 - image_processing.data_extractor - DEBUG - Checking and removing 'SHOP QUANTITY'
+2026-02-28 12:52:27,468 - image_processing.data_extractor - DEBUG - Checking word 'Waste' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,468 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,468 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:52:27,468 - image_processing.data_extractor - DEBUG - Checking word '¤457/SCU' for 'SHOP QUANTITY', score: 20
+2026-02-28 12:52:27,469 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,469 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'SHOP QUANTITY', score: 7
+2026-02-28 12:52:27,469 - image_processing.data_extractor - DEBUG - Checking word 'Altruciatoxin' for 'SHOP QUANTITY', score: 38
+2026-02-28 12:52:27,469 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,469 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:52:27,469 - image_processing.data_extractor - DEBUG - Checking word 'H¤6.25879982k/SCU' for 'SHOP QUANTITY', score: 13
+2026-02-28 12:52:27,469 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,469 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'SHOP QUANTITY', score: 7
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word 'Aluminum' for 'SHOP QUANTITY', score: 19
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word '¤1.55099999/SCU' for 'SHOP QUANTITY', score: 15
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word '8.16 24 32' for 'SHOP QUANTITY', score: 9
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word 'Argon' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,470 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:52:27,471 - image_processing.data_extractor - DEBUG - Checking word '¤425/SCU' for 'SHOP QUANTITY', score: 20
+2026-02-28 12:52:27,471 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:52:27,471 - image_processing.data_extractor - DEBUG - Checking word '1.2 .4.8.16.24' for 'SHOP QUANTITY', score: 8
+2026-02-28 12:52:27,471 - image_processing.data_extractor - DEBUG - Checking word '32' for 'SHOP QUANTITY', score: 0
+2026-02-28 12:52:27,471 - image_processing.data_extractor - INFO - Removed 0 'SHOP QUANTITY' instances
+2026-02-28 12:52:27,471 - image_processing.data_extractor - INFO - Determined terminal type: sell
+2026-02-28 12:52:27,471 - image_processing.data_extractor - DEBUG - Removing single character words
+2026-02-28 12:52:27,471 - image_processing.data_extractor - DEBUG - Grouping of multiline words
+2026-02-28 12:52:27,472 - image_processing.data_extractor - DEBUG - Appending: Waste
+2026-02-28 12:52:27,472 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:52:27,473 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:52:27,473 - image_processing.data_extractor - DEBUG - Appending: ¤457/SCU
+2026-02-28 12:52:27,473 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:52:27,473 - image_processing.data_extractor - DEBUG - Appending: 1.2 4.8 16 24 32
+2026-02-28 12:52:27,473 - image_processing.data_extractor - DEBUG - Appending: Altruciatoxin
+2026-02-28 12:52:27,473 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:52:27,473 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:52:27,473 - image_processing.data_extractor - DEBUG - Appending: H¤6.25879982k/SCU
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: 1.2 4.8 16 24 32
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: Aluminum
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: ¤1.55099999/SCU
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: 8.16 24 32
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: Argon
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:52:27,474 - image_processing.data_extractor - DEBUG - Appending: ¤425/SCU
+2026-02-28 12:52:27,475 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:52:27,475 - image_processing.data_extractor - DEBUG - Appending: 1.2 .4.8.16.24
+2026-02-28 12:52:27,475 - image_processing.data_extractor - DEBUG - Appending: 32
+2026-02-28 12:52:27,475 - image_processing.data_extractor - DEBUG - Grouped words into 25 strings
+2026-02-28 12:52:27,476 - image_processing.data_extractor - DEBUG - Checking word: 'Waste' for commodity match, score: 100
+2026-02-28 12:52:27,477 - image_processing.data_extractor - INFO - Extracting commodity starting at index 0 with name: Waste
+2026-02-28 12:52:27,477 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:52:27,477 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:52:27,477 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:52:27,477 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:52:27,477 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:52:27,477 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:52:27,477 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:52:27,477 - image_processing.data_extractor - DEBUG - Checking word: ¤457/scu
+2026-02-28 12:52:27,478 - image_processing.data_extractor - DEBUG - Checking word '¤457/scu' for 'available cargo size (scu)', score: 60
+2026-02-28 12:52:27,478 - image_processing.data_extractor - INFO - Found price: 457
+2026-02-28 12:52:27,478 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:52:27,478 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:52:27,478 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:52:27,478 - image_processing.data_extractor - DEBUG - Checking word: 1.2 4.8 16 24 32
+2026-02-28 12:52:27,480 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'available cargo size (scu)', score: 15
+2026-02-28 12:52:27,481 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Waste', 'id': 79, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 457, 'examined_words': 4}
+2026-02-28 12:52:27,481 - image_processing.data_extractor - INFO - Extracted commodity: Waste
+2026-02-28 12:52:27,482 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:52:27,482 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,483 - image_processing.data_extractor - DEBUG - Checking word: '1.2 4.8 16 24 32' for commodity match, score: 23
+2026-02-28 12:52:27,484 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,485 - image_processing.data_extractor - DEBUG - Checking word: 'Altruciatoxin' for commodity match, score: 100
+2026-02-28 12:52:27,485 - image_processing.data_extractor - INFO - Extracting commodity starting at index 6 with name: Altruciatoxin
+2026-02-28 12:52:27,485 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:52:27,485 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:52:27,485 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:52:27,485 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:52:27,485 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:52:27,485 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:52:27,486 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:52:27,486 - image_processing.data_extractor - DEBUG - Checking word: h¤6.25879982k/scu
+2026-02-28 12:52:27,486 - image_processing.data_extractor - DEBUG - Checking word 'h¤6.25879982k/scu' for 'available cargo size (scu)', score: 30
+2026-02-28 12:52:27,486 - image_processing.data_extractor - INFO - Found price: 6259
+2026-02-28 12:52:27,486 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:52:27,486 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:52:27,486 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:52:27,486 - image_processing.data_extractor - DEBUG - Checking word: 1.2 4.8 16 24 32
+2026-02-28 12:52:27,486 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'available cargo size (scu)', score: 15
+2026-02-28 12:52:27,486 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Altruciatoxin', 'id': 4, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 6259, 'examined_words': 4}
+2026-02-28 12:52:27,486 - image_processing.data_extractor - INFO - Extracted commodity: Altruciatoxin
+2026-02-28 12:52:27,487 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:52:27,488 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,489 - image_processing.data_extractor - DEBUG - Checking word: '1.2 4.8 16 24 32' for commodity match, score: 23
+2026-02-28 12:52:27,489 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Checking word: 'Aluminum' for commodity match, score: 100
+2026-02-28 12:52:27,490 - image_processing.data_extractor - INFO - Extracting commodity starting at index 12 with name: Aluminum
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:52:27,490 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:52:27,490 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Checking word: ¤1.55099999/scu
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Checking word '¤1.55099999/scu' for 'available cargo size (scu)', score: 35
+2026-02-28 12:52:27,490 - image_processing.data_extractor - INFO - Found price: 2
+2026-02-28 12:52:27,490 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:52:27,491 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:52:27,491 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:52:27,491 - image_processing.data_extractor - DEBUG - Checking word: 8.16 24 32
+2026-02-28 12:52:27,491 - image_processing.data_extractor - DEBUG - Checking word '8.16 24 32' for 'available cargo size (scu)', score: 18
+2026-02-28 12:52:27,491 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Aluminum', 'id': 5, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 2, 'examined_words': 4}
+2026-02-28 12:52:27,491 - image_processing.data_extractor - INFO - Extracted commodity: Aluminum
+2026-02-28 12:52:27,492 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:52:27,492 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,494 - image_processing.data_extractor - DEBUG - Checking word: '8.16 24 32' for commodity match, score: 22
+2026-02-28 12:52:27,494 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,495 - image_processing.data_extractor - DEBUG - Checking word: 'Argon' for commodity match, score: 100
+2026-02-28 12:52:27,495 - image_processing.data_extractor - INFO - Extracting commodity starting at index 18 with name: Argon
+2026-02-28 12:52:27,495 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:52:27,495 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:52:27,495 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:52:27,495 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:52:27,495 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:52:27,495 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:52:27,495 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:52:27,495 - image_processing.data_extractor - DEBUG - Checking word: ¤425/scu
+2026-02-28 12:52:27,495 - image_processing.data_extractor - DEBUG - Checking word '¤425/scu' for 'available cargo size (scu)', score: 60
+2026-02-28 12:52:27,495 - image_processing.data_extractor - INFO - Found price: 425
+2026-02-28 12:52:27,496 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:52:27,496 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:52:27,496 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:52:27,496 - image_processing.data_extractor - DEBUG - Checking word: 1.2 .4.8.16.24
+2026-02-28 12:52:27,496 - image_processing.data_extractor - DEBUG - Checking word '1.2 .4.8.16.24' for 'available cargo size (scu)', score: 16
+2026-02-28 12:52:27,496 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Argon', 'id': 111, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 425, 'examined_words': 4}
+2026-02-28 12:52:27,496 - image_processing.data_extractor - INFO - Extracted commodity: Argon
+2026-02-28 12:52:27,497 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:52:27,497 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,498 - image_processing.data_extractor - DEBUG - Checking word: '1.2 .4.8.16.24' for commodity match, score: 24
+2026-02-28 12:52:27,498 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,499 - image_processing.data_extractor - DEBUG - Checking word: '32' for commodity match, score: 29
+2026-02-28 12:52:27,499 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:52:27,499 - image_processing.data_extractor - DEBUG - Total commodities extracted: 4
+2026-02-28 12:52:27,499 - image_processing.data_extractor - DEBUG - Finished commodities extraction
+2026-02-28 12:52:27,500 - image_processing.data_extractor - DEBUG - Finished full data extraction
+2026-02-28 12:52:27,500 - ui.main_ui - DEBUG - Current worker update_cell_on_finished: True
+2026-02-28 12:52:27,500 - ui.main_ui - INFO - Found duplicate commodity 'Aluminum' in submission submitted 107 seconds ago. Removing from current submission.
+2026-02-28 12:52:27,500 - ui.main_ui - INFO - Removed duplicates: Aluminum
+2026-02-28 12:53:13,212 - workers.api_send_worker - DEBUG - Current APISendWorker thread: False
+2026-02-28 12:53:13,358 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.uexcorp.space:443
+2026-02-28 12:53:14,599 - urllib3.connectionpool - DEBUG - https://api.uexcorp.space:443 "POST /2.0/data_submit HTTP/1.1" 200 141
+2026-02-28 12:53:14,599 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["740191","740192","740193"],"date_added":"1772279547","username":"Zol_fr_FSF"},"message":""}
+
+2026-02-28 12:53:20,832 - utils.file_watcher - DEBUG - Current thread on_created: False
+2026-02-28 12:53:20,833 - utils.file_watcher - INFO - New screenshot detected: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-02-28_12-53-20-6A9.jpg
+2026-02-28 12:53:21,134 - utils.file_watcher - DEBUG - File c:/program files/roberts space industries/starcitizen/live/screenshots\screenshot-2026-02-28_12-53-20-6a9.jpg size stabilized after 0.1 seconds.
+2026-02-28 12:53:21,134 - utils.file_watcher - DEBUG - File modified: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-02-28_12-53-20-6A9.jpg
+2026-02-28 12:53:21,154 - ui.main_ui - DEBUG - Current thread screenshot_at_path: True
+2026-02-28 12:53:21,155 - workers.processing_worker - DEBUG - Current ProcessingWorker thread process: False
+2026-02-28 12:53:21,163 - ui.main_ui - DEBUG - Current thread update_cell_on_progress: True
+2026-02-28 12:53:22,438 - image_processing.image_processor - DEBUG - Found 243 good matches
+2026-02-28 12:53:22,880 - image_processing.data_extractor - DEBUG - Starting full data extraction
+2026-02-28 12:53:22,881 - ui.main_ui - DEBUG - Current thread update_cell_on_progress: True
+2026-02-28 12:53:22,881 - image_processing.data_extractor - DEBUG - Starting terminal location extraction
+2026-02-28 12:53:22,887 - pytesseract - DEBUG - ['./dep/Tesseract-OCR/tesseract.exe', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_bckyeozm_input.PNG', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_bckyeozm', '-c', 'tessedit_create_tsv=1', '--psm', '11', '--oem', '3', '-l', 'eng_sc', '--user-words', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\terminals.user-words']
+2026-02-28 12:53:23,293 - image_processing.data_extractor - DEBUG - Starting to parse OCR data
+2026-02-28 12:53:23,294 - image_processing.data_extractor - DEBUG - Removing garbage from words
+2026-02-28 12:53:23,294 - image_processing.data_extractor - DEBUG - Removing non-alphanumeric words
+2026-02-28 12:53:23,294 - image_processing.data_extractor - DEBUG - Removing single character words
+2026-02-28 12:53:23,294 - image_processing.data_extractor - DEBUG - Joined terminal text: ORBITUARY
+2026-02-28 12:53:23,295 - image_processing.data_extractor - DEBUG - Fuzzy match for terminal: 'Orbituary' with score 100
+2026-02-28 12:53:23,295 - image_processing.data_extractor - INFO - Matched terminal: Orbituary
+2026-02-28 12:53:23,295 - image_processing.data_extractor - DEBUG - Finished terminal location extraction
+2026-02-28 12:53:23,295 - image_processing.data_extractor - DEBUG - Starting commodities extraction
+2026-02-28 12:53:23,305 - pytesseract - DEBUG - ['./dep/Tesseract-OCR/tesseract.exe', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_btz7962q_input.PNG', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_btz7962q', '-c', 'tessedit_create_tsv=1', '--psm', '11', '--oem', '3', '-l', 'eng_sc', '--user-words', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\commodities.user-words', '--user-patterns', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\sc.patterns']
+2026-02-28 12:53:24,250 - image_processing.data_extractor - DEBUG - Starting to parse OCR data
+2026-02-28 12:53:24,251 - image_processing.data_extractor - DEBUG - Removing garbage from words
+2026-02-28 12:53:24,251 - image_processing.data_extractor - DEBUG - Merging consecutive words
+2026-02-28 12:53:24,251 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 90.00
+2026-02-28 12:53:24,251 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 93.00
+2026-02-28 12:53:24,251 - image_processing.data_extractor - DEBUG - Added new word: Bioplastic, confidence: 92.00
+2026-02-28 12:53:24,251 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 91.00
+2026-02-28 12:53:24,251 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 91.50
+2026-02-28 12:53:24,251 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 91.67
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Added new word: ¤8674999694/SCU, confidence: 74.00
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 94.67
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.00
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 77.00
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8, confidence: 70.50
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16, confidence: 53.67
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24, confidence: 45.25
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24 32, confidence: 48.60
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Added new word: Borase, confidence: 93.00
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 93.00
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 94.50
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 90.00
+2026-02-28 12:53:24,252 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 89.00
+2026-02-28 12:53:24,254 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 89.33
+2026-02-28 12:53:24,254 - image_processing.data_extractor - DEBUG - Added new word: ¤6.296999934/SCU, confidence: 61.00
+2026-02-28 12:53:24,254 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:53:24,254 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 93.75
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 87.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8, confidence: 87.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16, confidence: 72.33
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24, confidence: 65.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24 32, confidence: 70.80
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Added new word: ConstructionMaterials, confidence: 92.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: ConstructionMaterials 0, confidence: 91.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: ConstructionMaterials 0 SCU, confidence: 92.67
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 91.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 90.50
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 91.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Added new word: H¤14.51500034k/SCU, confidence: 68.00
+2026-02-28 12:53:24,255 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:53:24,256 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:53:24,256 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:53:24,256 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.25
+2026-02-28 12:53:24,256 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 78.00
+2026-02-28 12:53:24,256 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8, confidence: 73.50
+2026-02-28 12:53:24,256 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16, confidence: 64.00
+2026-02-28 12:53:24,256 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24, confidence: 59.25
+2026-02-28 12:53:24,256 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24 32, confidence: 66.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Added new word: Corundum, confidence: 91.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 93.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 94.50
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 91.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 91.50
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 91.33
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Added new word: H¤2.04600000k/SCU, confidence: 69.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.25
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Added new word: 8.16, confidence: 77.00
+2026-02-28 12:53:24,257 - image_processing.data_extractor - DEBUG - Merged words: 8.16 24, confidence: 84.00
+2026-02-28 12:53:24,258 - image_processing.data_extractor - DEBUG - Merged words: 8.16 24 32, confidence: 87.67
+2026-02-28 12:53:24,258 - image_processing.data_extractor - DEBUG - Parsed and merged 23 words
+2026-02-28 12:53:24,258 - image_processing.data_extractor - DEBUG - Checking and removing 'SHOP QUANTITY'
+2026-02-28 12:53:24,258 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:53:24,258 - image_processing.data_extractor - DEBUG - Checking word 'Bioplastic' for 'SHOP QUANTITY', score: 26
+2026-02-28 12:53:24,258 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:53:24,258 - image_processing.data_extractor - DEBUG - Checking word '¤8674999694/SCU' for 'SHOP QUANTITY', score: 15
+2026-02-28 12:53:24,258 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:53:24,259 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'SHOP QUANTITY', score: 7
+2026-02-28 12:53:24,259 - image_processing.data_extractor - DEBUG - Checking word 'Borase' for 'SHOP QUANTITY', score: 21
+2026-02-28 12:53:24,259 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:53:24,259 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:53:24,259 - image_processing.data_extractor - DEBUG - Checking word '¤6.296999934/SCU' for 'SHOP QUANTITY', score: 14
+2026-02-28 12:53:24,259 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:53:24,259 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'SHOP QUANTITY', score: 7
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word 'ConstructionMaterials 0 SCU' for 'SHOP QUANTITY', score: 30
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word 'H¤14.51500034k/SCU' for 'SHOP QUANTITY', score: 13
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'SHOP QUANTITY', score: 7
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word 'Corundum' for 'SHOP QUANTITY', score: 19
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word 'H¤2.04600000k/SCU' for 'SHOP QUANTITY', score: 13
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:53:24,260 - image_processing.data_extractor - DEBUG - Checking word '8.16 24 32' for 'SHOP QUANTITY', score: 9
+2026-02-28 12:53:24,261 - image_processing.data_extractor - INFO - Removed 0 'SHOP QUANTITY' instances
+2026-02-28 12:53:24,261 - image_processing.data_extractor - INFO - Determined terminal type: sell
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Removing single character words
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Grouping of multiline words
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: Bioplastic
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: ¤8674999694/SCU
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: 1.2 4.8 16 24 32
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: Borase
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: ¤6.296999934/SCU
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: 1.2 4.8 16 24 32
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: ConstructionMaterials 0 SCU
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: H¤14.51500034k/SCU
+2026-02-28 12:53:24,261 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:53:24,262 - image_processing.data_extractor - DEBUG - Appending: 1.2 4.8 16 24 32
+2026-02-28 12:53:24,262 - image_processing.data_extractor - DEBUG - Appending: Corundum
+2026-02-28 12:53:24,262 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:53:24,262 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:53:24,262 - image_processing.data_extractor - DEBUG - Appending: H¤2.04600000k/SCU
+2026-02-28 12:53:24,262 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:53:24,262 - image_processing.data_extractor - DEBUG - Appending: 8.16 24 32
+2026-02-28 12:53:24,262 - image_processing.data_extractor - DEBUG - Grouped words into 23 strings
+2026-02-28 12:53:24,263 - image_processing.data_extractor - DEBUG - Checking word: '0 SCU' for commodity match, score: 40
+2026-02-28 12:53:24,263 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Checking word: 'Bioplastic' for commodity match, score: 100
+2026-02-28 12:53:24,264 - image_processing.data_extractor - INFO - Extracting commodity starting at index 1 with name: Bioplastic
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:53:24,264 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Checking word: ¤8674999694/scu
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Checking word '¤8674999694/scu' for 'available cargo size (scu)', score: 35
+2026-02-28 12:53:24,264 - image_processing.data_extractor - INFO - Found price: 8674999694
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:53:24,264 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:53:24,265 - image_processing.data_extractor - DEBUG - Checking word: 1.2 4.8 16 24 32
+2026-02-28 12:53:24,265 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'available cargo size (scu)', score: 15
+2026-02-28 12:53:24,265 - image_processing.data_extractor - DEBUG - Checking word: borase
+2026-02-28 12:53:24,265 - image_processing.data_extractor - DEBUG - Checking word 'borase' for 'available cargo size (scu)', score: 27
+2026-02-28 12:53:24,265 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Bioplastic', 'id': 112, 'quantity': None, 'stock': 'out of stock', 'stock_status': 1, 'price': 8674999694, 'examined_words': 3}
+2026-02-28 12:53:24,265 - image_processing.data_extractor - INFO - Extracted commodity: Bioplastic
+2026-02-28 12:53:24,266 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:53:24,266 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,267 - image_processing.data_extractor - DEBUG - Checking word: '1.2 4.8 16 24 32' for commodity match, score: 23
+2026-02-28 12:53:24,267 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,268 - image_processing.data_extractor - DEBUG - Checking word: 'Borase' for commodity match, score: 100
+2026-02-28 12:53:24,268 - image_processing.data_extractor - INFO - Extracting commodity starting at index 6 with name: Borase
+2026-02-28 12:53:24,268 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:53:24,269 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:53:24,269 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:53:24,269 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:53:24,269 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:53:24,269 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:53:24,269 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:53:24,269 - image_processing.data_extractor - DEBUG - Checking word: ¤6.296999934/scu
+2026-02-28 12:53:24,269 - image_processing.data_extractor - DEBUG - Checking word '¤6.296999934/scu' for 'available cargo size (scu)', score: 33
+2026-02-28 12:53:24,269 - image_processing.data_extractor - INFO - Found price: 6
+2026-02-28 12:53:24,269 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:53:24,269 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:53:24,270 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:53:24,270 - image_processing.data_extractor - DEBUG - Checking word: 1.2 4.8 16 24 32
+2026-02-28 12:53:24,270 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'available cargo size (scu)', score: 15
+2026-02-28 12:53:24,270 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Borase', 'id': 15, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 6, 'examined_words': 4}
+2026-02-28 12:53:24,270 - image_processing.data_extractor - INFO - Extracted commodity: Borase
+2026-02-28 12:53:24,271 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:53:24,271 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,272 - image_processing.data_extractor - DEBUG - Checking word: '1.2 4.8 16 24 32' for commodity match, score: 23
+2026-02-28 12:53:24,272 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,273 - image_processing.data_extractor - DEBUG - Checking word: 'ConstructionMaterials 0 SCU' for commodity match, score: 86
+2026-02-28 12:53:24,273 - image_processing.data_extractor - INFO - Extracting commodity starting at index 12 with name: Construction Materials
+2026-02-28 12:53:24,273 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:53:24,274 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:53:24,274 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:53:24,274 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:53:24,274 - image_processing.data_extractor - DEBUG - Checking word: h¤14.51500034k/scu
+2026-02-28 12:53:24,274 - image_processing.data_extractor - DEBUG - Checking word 'h¤14.51500034k/scu' for 'available cargo size (scu)', score: 29
+2026-02-28 12:53:24,274 - image_processing.data_extractor - INFO - Found price: 14515
+2026-02-28 12:53:24,274 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:53:24,274 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:53:24,274 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:53:24,274 - image_processing.data_extractor - DEBUG - Checking word: 1.2 4.8 16 24 32
+2026-02-28 12:53:24,275 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'available cargo size (scu)', score: 15
+2026-02-28 12:53:24,275 - image_processing.data_extractor - DEBUG - Checking word: corundum
+2026-02-28 12:53:24,275 - image_processing.data_extractor - DEBUG - Checking word 'corundum' for 'available cargo size (scu)', score: 19
+2026-02-28 12:53:24,275 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Construction Materials', 'id': 19, 'quantity': None, 'stock': 'out of stock', 'stock_status': 1, 'price': 14515, 'examined_words': 3}
+2026-02-28 12:53:24,275 - image_processing.data_extractor - INFO - Extracted commodity: Construction Materials
+2026-02-28 12:53:24,276 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:53:24,276 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,278 - image_processing.data_extractor - DEBUG - Checking word: '1.2 4.8 16 24 32' for commodity match, score: 23
+2026-02-28 12:53:24,278 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,279 - image_processing.data_extractor - DEBUG - Checking word: 'Corundum' for commodity match, score: 100
+2026-02-28 12:53:24,280 - image_processing.data_extractor - INFO - Extracting commodity starting at index 17 with name: Corundum
+2026-02-28 12:53:24,280 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:53:24,280 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:53:24,280 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:53:24,280 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:53:24,280 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:53:24,280 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:53:24,280 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:53:24,280 - image_processing.data_extractor - DEBUG - Checking word: h¤2.04600000k/scu
+2026-02-28 12:53:24,280 - image_processing.data_extractor - DEBUG - Checking word 'h¤2.04600000k/scu' for 'available cargo size (scu)', score: 30
+2026-02-28 12:53:24,281 - image_processing.data_extractor - INFO - Found price: 2046
+2026-02-28 12:53:24,281 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:53:24,283 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:53:24,283 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:53:24,283 - image_processing.data_extractor - DEBUG - Checking word: 8.16 24 32
+2026-02-28 12:53:24,283 - image_processing.data_extractor - DEBUG - Checking word '8.16 24 32' for 'available cargo size (scu)', score: 18
+2026-02-28 12:53:24,284 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Corundum', 'id': 22, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 2046, 'examined_words': 4}
+2026-02-28 12:53:24,284 - image_processing.data_extractor - INFO - Extracted commodity: Corundum
+2026-02-28 12:53:24,285 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:53:24,285 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,287 - image_processing.data_extractor - DEBUG - Checking word: '8.16 24 32' for commodity match, score: 22
+2026-02-28 12:53:24,287 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:53:24,287 - image_processing.data_extractor - DEBUG - Total commodities extracted: 4
+2026-02-28 12:53:24,287 - image_processing.data_extractor - DEBUG - Finished commodities extraction
+2026-02-28 12:53:24,287 - image_processing.data_extractor - DEBUG - Finished full data extraction
+2026-02-28 12:53:24,288 - ui.main_ui - DEBUG - Current worker update_cell_on_finished: True
+2026-02-28 12:53:24,288 - ui.main_ui - INFO - Found duplicate commodity 'Corundum' in submission submitted 164 seconds ago. Removing from current submission.
+2026-02-28 12:53:24,288 - ui.main_ui - INFO - Removed duplicates: Corundum
+2026-02-28 12:54:13,144 - workers.api_send_worker - DEBUG - Current APISendWorker thread: False
+2026-02-28 12:54:13,289 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.uexcorp.space:443
+2026-02-28 12:54:14,469 - urllib3.connectionpool - DEBUG - https://api.uexcorp.space:443 "POST /2.0/data_submit HTTP/1.1" 200 140
+2026-02-28 12:54:14,469 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["740194","740195","740196"],"date_added":"1772279604","username":"Zol_fr_FSF"},"message":""}
+
+2026-02-28 12:54:28,615 - utils.file_watcher - DEBUG - Current thread on_created: False
+2026-02-28 12:54:28,615 - utils.file_watcher - INFO - New screenshot detected: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-02-28_12-54-28-F6C.jpg
+2026-02-28 12:54:28,917 - utils.file_watcher - DEBUG - File c:/program files/roberts space industries/starcitizen/live/screenshots\screenshot-2026-02-28_12-54-28-f6c.jpg size stabilized after 0.1 seconds.
+2026-02-28 12:54:28,917 - utils.file_watcher - DEBUG - File modified: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-02-28_12-54-28-F6C.jpg
+2026-02-28 12:54:28,936 - ui.main_ui - DEBUG - Current thread screenshot_at_path: True
+2026-02-28 12:54:28,937 - workers.processing_worker - DEBUG - Current ProcessingWorker thread process: False
+2026-02-28 12:54:28,945 - ui.main_ui - DEBUG - Current thread update_cell_on_progress: True
+2026-02-28 12:54:30,396 - image_processing.image_processor - DEBUG - Found 248 good matches
+2026-02-28 12:54:30,785 - image_processing.data_extractor - DEBUG - Starting full data extraction
+2026-02-28 12:54:30,785 - ui.main_ui - DEBUG - Current thread update_cell_on_progress: True
+2026-02-28 12:54:30,785 - image_processing.data_extractor - DEBUG - Starting terminal location extraction
+2026-02-28 12:54:30,790 - pytesseract - DEBUG - ['./dep/Tesseract-OCR/tesseract.exe', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_eihe7725_input.PNG', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_eihe7725', '-c', 'tessedit_create_tsv=1', '--psm', '11', '--oem', '3', '-l', 'eng_sc', '--user-words', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\terminals.user-words']
+2026-02-28 12:54:31,169 - image_processing.data_extractor - DEBUG - Starting to parse OCR data
+2026-02-28 12:54:31,169 - image_processing.data_extractor - DEBUG - Removing garbage from words
+2026-02-28 12:54:31,169 - image_processing.data_extractor - DEBUG - Removing non-alphanumeric words
+2026-02-28 12:54:31,169 - image_processing.data_extractor - DEBUG - Removing single character words
+2026-02-28 12:54:31,169 - image_processing.data_extractor - DEBUG - Joined terminal text: ORBITUARY
+2026-02-28 12:54:31,170 - image_processing.data_extractor - DEBUG - Fuzzy match for terminal: 'Orbituary' with score 100
+2026-02-28 12:54:31,171 - image_processing.data_extractor - INFO - Matched terminal: Orbituary
+2026-02-28 12:54:31,171 - image_processing.data_extractor - DEBUG - Finished terminal location extraction
+2026-02-28 12:54:31,171 - image_processing.data_extractor - DEBUG - Starting commodities extraction
+2026-02-28 12:54:31,186 - pytesseract - DEBUG - ['./dep/Tesseract-OCR/tesseract.exe', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_2icmodkm_input.PNG', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_2icmodkm', '-c', 'tessedit_create_tsv=1', '--psm', '11', '--oem', '3', '-l', 'eng_sc', '--user-words', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\commodities.user-words', '--user-patterns', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\sc.patterns']
+2026-02-28 12:54:32,195 - image_processing.data_extractor - DEBUG - Starting to parse OCR data
+2026-02-28 12:54:32,195 - image_processing.data_extractor - DEBUG - Removing garbage from words
+2026-02-28 12:54:32,195 - image_processing.data_extractor - DEBUG - Merging consecutive words
+2026-02-28 12:54:32,195 - image_processing.data_extractor - DEBUG - Added new word: Corundum, confidence: 91.00
+2026-02-28 12:54:32,195 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 93.00
+2026-02-28 12:54:32,195 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 94.00
+2026-02-28 12:54:32,195 - image_processing.data_extractor - DEBUG - Added new word: ¤2.04600000k/SCU, confidence: 32.00
+2026-02-28 12:54:32,195 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 90.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 90.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 90.33
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Added new word: 8.16, confidence: 79.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: 8.16 24, confidence: 85.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: 8.16 24 32, confidence: 87.67
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Added new word: Hephaestanite, confidence: 86.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 89.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 92.50
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 75.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 66.50
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 74.33
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Added new word: ¤3.88400006k/SCU, confidence: 56.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:54:32,196 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 93.75
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Added new word: 1.2.4.8, confidence: 69.00
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Merged words: 1.2.4.8 16, confidence: 60.50
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Merged words: 1.2.4.8 16 24, confidence: 57.67
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Merged words: 1.2.4.8 16 24 32, confidence: 66.75
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Added new word: HumanFoodBars, confidence: 85.00
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 89.00
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 92.00
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 89.00
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 89.00
+2026-02-28 12:54:32,197 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 89.67
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Added new word: ¤471/SCU, confidence: 66.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 94.67
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Added new word: 1.2.4.8, confidence: 24.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Merged words: 1.2.4.8 .16.24, confidence: 24.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Added new word: 32, confidence: 94.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Added new word: Fluorine, confidence: 89.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 93.00
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 94.50
+2026-02-28 12:54:32,198 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 68.00
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 80.00
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 84.00
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Added new word: ¤1.20799996k/SCU, confidence: 64.00
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Added new word: AUATI, confidence: 70.00
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Merged words: AUATI ARI, confidence: 78.00
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Merged words: AUATI ARI ECARAACSIZE/STIN, confidence: 67.67
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Parsed and merged 24 words
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Checking and removing 'SHOP QUANTITY'
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Checking word 'Corundum' for 'SHOP QUANTITY', score: 19
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:54:32,199 - image_processing.data_extractor - DEBUG - Checking word '¤2.04600000k/SCU' for 'SHOP QUANTITY', score: 14
+2026-02-28 12:54:32,200 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:54:32,200 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:54:32,200 - image_processing.data_extractor - DEBUG - Checking word '8.16 24 32' for 'SHOP QUANTITY', score: 9
+2026-02-28 12:54:32,200 - image_processing.data_extractor - DEBUG - Checking word 'Hephaestanite' for 'SHOP QUANTITY', score: 31
+2026-02-28 12:54:32,201 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:54:32,201 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:54:32,201 - image_processing.data_extractor - DEBUG - Checking word '¤3.88400006k/SCU' for 'SHOP QUANTITY', score: 14
+2026-02-28 12:54:32,201 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:54:32,201 - image_processing.data_extractor - DEBUG - Checking word '1.2.4.8 16 24 32' for 'SHOP QUANTITY', score: 7
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word 'HumanFoodBars' for 'SHOP QUANTITY', score: 31
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word '¤471/SCU' for 'SHOP QUANTITY', score: 20
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word '1.2.4.8 .16.24' for 'SHOP QUANTITY', score: 8
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word '32' for 'SHOP QUANTITY', score: 0
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word 'Fluorine' for 'SHOP QUANTITY', score: 19
+2026-02-28 12:54:32,202 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:54:32,203 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:54:32,203 - image_processing.data_extractor - DEBUG - Checking word '¤1.20799996k/SCU' for 'SHOP QUANTITY', score: 14
+2026-02-28 12:54:32,203 - image_processing.data_extractor - DEBUG - Checking word 'AUATI ARI ECARAACSIZE/STIN' for 'SHOP QUANTITY', score: 31
+2026-02-28 12:54:32,203 - image_processing.data_extractor - INFO - Removed 0 'SHOP QUANTITY' instances
+2026-02-28 12:54:32,203 - image_processing.data_extractor - INFO - Determined terminal type: sell
+2026-02-28 12:54:32,203 - image_processing.data_extractor - DEBUG - Removing single character words
+2026-02-28 12:54:32,203 - image_processing.data_extractor - DEBUG - Grouping of multiline words
+2026-02-28 12:54:32,203 - image_processing.data_extractor - DEBUG - Appending: Corundum
+2026-02-28 12:54:32,203 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:54:32,203 - image_processing.data_extractor - DEBUG - Appending: ¤2.04600000k/SCU
+2026-02-28 12:54:32,204 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:54:32,204 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:54:32,204 - image_processing.data_extractor - DEBUG - Appending: 8.16 24 32
+2026-02-28 12:54:32,204 - image_processing.data_extractor - DEBUG - Appending: Hephaestanite
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: ¤3.88400006k/SCU
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: 1.2.4.8 16 24 32
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: HumanFoodBars
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: ¤471/SCU
+2026-02-28 12:54:32,205 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:54:32,206 - image_processing.data_extractor - DEBUG - Appending: 1.2.4.8 .16.24
+2026-02-28 12:54:32,206 - image_processing.data_extractor - DEBUG - Appending: 32
+2026-02-28 12:54:32,206 - image_processing.data_extractor - DEBUG - Appending: Fluorine
+2026-02-28 12:54:32,206 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:54:32,206 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:54:32,206 - image_processing.data_extractor - DEBUG - Appending: ¤1.20799996k/SCU
+2026-02-28 12:54:32,206 - image_processing.data_extractor - DEBUG - Appending: AUATI ARI ECARAACSIZE/STIN
+2026-02-28 12:54:32,206 - image_processing.data_extractor - DEBUG - Grouped words into 24 strings
+2026-02-28 12:54:32,207 - image_processing.data_extractor - DEBUG - Checking word: 'Corundum' for commodity match, score: 100
+2026-02-28 12:54:32,207 - image_processing.data_extractor - INFO - Extracting commodity starting at index 0 with name: Corundum
+2026-02-28 12:54:32,207 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:54:32,207 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:54:32,207 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:54:32,207 - image_processing.data_extractor - DEBUG - Checking word: ¤2.04600000k/scu
+2026-02-28 12:54:32,207 - image_processing.data_extractor - DEBUG - Checking word '¤2.04600000k/scu' for 'available cargo size (scu)', score: 33
+2026-02-28 12:54:32,207 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level '¤2.04600000k/scu' resulted in 'out of stock' with score 30
+2026-02-28 12:54:32,208 - image_processing.data_extractor - INFO - Found price: 2046
+2026-02-28 12:54:32,208 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:54:32,208 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:54:32,208 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:54:32,208 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:54:32,208 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:54:32,208 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:54:32,208 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:54:32,208 - image_processing.data_extractor - DEBUG - Checking word: 8.16 24 32
+2026-02-28 12:54:32,209 - image_processing.data_extractor - DEBUG - Checking word '8.16 24 32' for 'available cargo size (scu)', score: 18
+2026-02-28 12:54:32,209 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Corundum', 'id': 22, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 2046, 'examined_words': 4}
+2026-02-28 12:54:32,209 - image_processing.data_extractor - INFO - Extracted commodity: Corundum
+2026-02-28 12:54:32,210 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:54:32,210 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:54:32,211 - image_processing.data_extractor - DEBUG - Checking word: '8.16 24 32' for commodity match, score: 22
+2026-02-28 12:54:32,211 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:54:32,212 - image_processing.data_extractor - DEBUG - Checking word: 'Hephaestanite' for commodity match, score: 100
+2026-02-28 12:54:32,212 - image_processing.data_extractor - INFO - Extracting commodity starting at index 6 with name: Hephaestanite
+2026-02-28 12:54:32,212 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:54:32,212 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:54:32,212 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:54:32,212 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:54:32,213 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Checking word: ¤3.88400006k/scu
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Checking word '¤3.88400006k/scu' for 'available cargo size (scu)', score: 33
+2026-02-28 12:54:32,213 - image_processing.data_extractor - INFO - Found price: 3884
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Checking word: 1.2.4.8 16 24 32
+2026-02-28 12:54:32,213 - image_processing.data_extractor - DEBUG - Checking word '1.2.4.8 16 24 32' for 'available cargo size (scu)', score: 15
+2026-02-28 12:54:32,213 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Hephaestanite', 'id': 39, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 3884, 'examined_words': 4}
+2026-02-28 12:54:32,214 - image_processing.data_extractor - INFO - Extracted commodity: Hephaestanite
+2026-02-28 12:54:32,214 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:54:32,214 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:54:32,215 - image_processing.data_extractor - DEBUG - Checking word: '1.2.4.8 16 24 32' for commodity match, score: 23
+2026-02-28 12:54:32,215 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:54:32,216 - image_processing.data_extractor - DEBUG - Checking word: 'HumanFoodBars' for commodity match, score: 93
+2026-02-28 12:54:32,216 - image_processing.data_extractor - INFO - Extracting commodity starting at index 12 with name: Human Food Bars
+2026-02-28 12:54:32,216 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:54:32,216 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:54:32,217 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:54:32,217 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:54:32,217 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:54:32,217 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:54:32,217 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:54:32,217 - image_processing.data_extractor - DEBUG - Checking word: ¤471/scu
+2026-02-28 12:54:32,217 - image_processing.data_extractor - DEBUG - Checking word '¤471/scu' for 'available cargo size (scu)', score: 60
+2026-02-28 12:54:32,217 - image_processing.data_extractor - INFO - Found price: 471
+2026-02-28 12:54:32,217 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:54:32,217 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:54:32,217 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:54:32,218 - image_processing.data_extractor - DEBUG - Checking word: 1.2.4.8 .16.24
+2026-02-28 12:54:32,218 - image_processing.data_extractor - DEBUG - Checking word '1.2.4.8 .16.24' for 'available cargo size (scu)', score: 16
+2026-02-28 12:54:32,218 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Human Food Bars', 'id': 97, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 471, 'examined_words': 4}
+2026-02-28 12:54:32,218 - image_processing.data_extractor - INFO - Extracted commodity: Human Food Bars
+2026-02-28 12:54:32,219 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:54:32,219 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:54:32,220 - image_processing.data_extractor - DEBUG - Checking word: '1.2.4.8 .16.24' for commodity match, score: 24
+2026-02-28 12:54:32,220 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:54:32,221 - image_processing.data_extractor - DEBUG - Checking word: '32' for commodity match, score: 29
+2026-02-28 12:54:32,221 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:54:32,222 - image_processing.data_extractor - DEBUG - Checking word: 'Fluorine' for commodity match, score: 100
+2026-02-28 12:54:32,222 - image_processing.data_extractor - INFO - Extracting commodity starting at index 19 with name: Fluorine
+2026-02-28 12:54:32,222 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:54:32,222 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:54:32,222 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:54:32,222 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:54:32,222 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:54:32,222 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:54:32,223 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:54:32,223 - image_processing.data_extractor - DEBUG - Checking word: ¤1.20799996k/scu
+2026-02-28 12:54:32,223 - image_processing.data_extractor - DEBUG - Checking word '¤1.20799996k/scu' for 'available cargo size (scu)', score: 33
+2026-02-28 12:54:32,223 - image_processing.data_extractor - INFO - Found price: 1208
+2026-02-28 12:54:32,223 - image_processing.data_extractor - DEBUG - Checking word: auati ari ecaraacsize/stin
+2026-02-28 12:54:32,223 - image_processing.data_extractor - DEBUG - Checking word 'auati ari ecaraacsize/stin' for 'available cargo size (scu)', score: 48
+2026-02-28 12:54:32,223 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Fluorine', 'id': 31, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 1208, 'examined_words': 4}
+2026-02-28 12:54:32,223 - image_processing.data_extractor - INFO - Extracted commodity: Fluorine
+2026-02-28 12:54:32,224 - image_processing.data_extractor - DEBUG - Checking word: 'AUATI ARI ECARAACSIZE/STIN' for commodity match, score: 43
+2026-02-28 12:54:32,224 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:54:32,224 - image_processing.data_extractor - DEBUG - Total commodities extracted: 4
+2026-02-28 12:54:32,224 - image_processing.data_extractor - DEBUG - Finished commodities extraction
+2026-02-28 12:54:32,224 - image_processing.data_extractor - DEBUG - Finished full data extraction
+2026-02-28 12:54:32,226 - ui.main_ui - DEBUG - Current worker update_cell_on_finished: True
+2026-02-28 12:54:32,226 - ui.main_ui - INFO - Found duplicate commodity 'Corundum' in submission submitted 232 seconds ago. Removing from current submission.
+2026-02-28 12:54:32,226 - ui.main_ui - INFO - Removed duplicates: Corundum
+2026-02-28 12:55:07,468 - workers.api_send_worker - DEBUG - Current APISendWorker thread: False
+2026-02-28 12:55:07,619 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.uexcorp.space:443
+2026-02-28 12:55:08,840 - urllib3.connectionpool - DEBUG - https://api.uexcorp.space:443 "POST /2.0/data_submit HTTP/1.1" 200 140
+2026-02-28 12:55:08,841 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["740197","740198","740199"],"date_added":"1772279672","username":"Zol_fr_FSF"},"message":""}
+
+2026-02-28 12:55:28,545 - utils.file_watcher - DEBUG - Current thread on_created: False
+2026-02-28 12:55:28,545 - utils.file_watcher - INFO - New screenshot detected: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-02-28_12-55-28-98B.jpg
+2026-02-28 12:55:28,846 - utils.file_watcher - DEBUG - File c:/program files/roberts space industries/starcitizen/live/screenshots\screenshot-2026-02-28_12-55-28-98b.jpg size stabilized after 0.1 seconds.
+2026-02-28 12:55:28,847 - utils.file_watcher - DEBUG - File modified: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-02-28_12-55-28-98B.jpg
+2026-02-28 12:55:28,869 - ui.main_ui - DEBUG - Current thread screenshot_at_path: True
+2026-02-28 12:55:28,871 - workers.processing_worker - DEBUG - Current ProcessingWorker thread process: False
+2026-02-28 12:55:28,881 - ui.main_ui - DEBUG - Current thread update_cell_on_progress: True
+2026-02-28 12:55:30,346 - image_processing.image_processor - DEBUG - Found 233 good matches
+2026-02-28 12:55:30,798 - image_processing.data_extractor - DEBUG - Starting full data extraction
+2026-02-28 12:55:30,798 - ui.main_ui - DEBUG - Current thread update_cell_on_progress: True
+2026-02-28 12:55:30,798 - image_processing.data_extractor - DEBUG - Starting terminal location extraction
+2026-02-28 12:55:30,802 - pytesseract - DEBUG - ['./dep/Tesseract-OCR/tesseract.exe', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_81vqmd2v_input.PNG', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_81vqmd2v', '-c', 'tessedit_create_tsv=1', '--psm', '11', '--oem', '3', '-l', 'eng_sc', '--user-words', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\terminals.user-words']
+2026-02-28 12:55:31,208 - image_processing.data_extractor - DEBUG - Starting to parse OCR data
+2026-02-28 12:55:31,208 - image_processing.data_extractor - DEBUG - Removing garbage from words
+2026-02-28 12:55:31,208 - image_processing.data_extractor - DEBUG - Removing non-alphanumeric words
+2026-02-28 12:55:31,209 - image_processing.data_extractor - DEBUG - Removing single character words
+2026-02-28 12:55:31,209 - image_processing.data_extractor - DEBUG - Joined terminal text: ORBITUARY
+2026-02-28 12:55:31,209 - image_processing.data_extractor - DEBUG - Fuzzy match for terminal: 'Orbituary' with score 100
+2026-02-28 12:55:31,210 - image_processing.data_extractor - INFO - Matched terminal: Orbituary
+2026-02-28 12:55:31,210 - image_processing.data_extractor - DEBUG - Finished terminal location extraction
+2026-02-28 12:55:31,210 - image_processing.data_extractor - DEBUG - Starting commodities extraction
+2026-02-28 12:55:31,222 - pytesseract - DEBUG - ['./dep/Tesseract-OCR/tesseract.exe', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_6ckygpjv_input.PNG', 'C:\\Users\\GARRIG~1\\AppData\\Local\\Temp\\tess_6ckygpjv', '-c', 'tessedit_create_tsv=1', '--psm', '11', '--oem', '3', '-l', 'eng_sc', '--user-words', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\commodities.user-words', '--user-patterns', 'C:\\Users\\GARRIG~1\\Desktop\\SC-DAT~1\\image_processing\\..\\data\\sc.patterns']
+2026-02-28 12:55:32,203 - image_processing.data_extractor - DEBUG - Starting to parse OCR data
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Removing garbage from words
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Merging consecutive words
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 79.00
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8, confidence: 79.00
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16, confidence: 67.00
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24, confidence: 61.00
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24 32, confidence: 67.80
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Added new word: Agricium, confidence: 91.00
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 87.00
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 91.50
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 90.00
+2026-02-28 12:55:32,204 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 90.00
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 90.67
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Added new word: ¤3.770999904/SCU, confidence: 0.00
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 95.50
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 94.67
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.00
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 74.00
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8, confidence: 74.00
+2026-02-28 12:55:32,205 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16, confidence: 62.33
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24, confidence: 56.50
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16 24 32, confidence: 64.20
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 93.00
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 94.50
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Added new word: Hydrogen, confidence: 92.00
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 91.00
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 90.50
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 90.33
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Added new word: H¤111600005k/SCU, confidence: 70.00
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:55:32,206 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.25
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Added new word: 8, confidence: 44.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Merged words: 8 .16, confidence: 44.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Merged words: 8 .16 24, confidence: 60.33
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Merged words: 8 .16 24 32, confidence: 68.50
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Added new word: Laranite, confidence: 90.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 88.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 92.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 85.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 85.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 87.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Added new word: H¤14.62300014k/SCU, confidence: 41.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:55:32,207 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Added new word: 1.2, confidence: 81.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8, confidence: 73.50
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Merged words: 1.2 4.8 16.24, confidence: 54.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Added new word: 32, confidence: 96.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Added new word: 0, confidence: 92.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Merged words: 0 SCU, confidence: 94.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Added new word: Medical, confidence: 91.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Merged words: Medical Supplies, confidence: 91.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Added new word: Out, confidence: 86.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Merged words: Out of, confidence: 86.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Merged words: Out of Stock, confidence: 87.67
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Added new word: ¤5.29400014k/SCU, confidence: 29.00
+2026-02-28 12:55:32,208 - image_processing.data_extractor - DEBUG - Added new word: AVAILABLE, confidence: 96.00
+2026-02-28 12:55:32,209 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO, confidence: 96.00
+2026-02-28 12:55:32,209 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE, confidence: 95.00
+2026-02-28 12:55:32,209 - image_processing.data_extractor - DEBUG - Merged words: AVAILABLE CARGO SIZE (SCU), confidence: 94.25
+2026-02-28 12:55:32,209 - image_processing.data_extractor - DEBUG - Parsed and merged 25 words
+2026-02-28 12:55:32,209 - image_processing.data_extractor - DEBUG - Checking and removing 'SHOP QUANTITY'
+2026-02-28 12:55:32,209 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'SHOP QUANTITY', score: 7
+2026-02-28 12:55:32,209 - image_processing.data_extractor - DEBUG - Checking word 'Agricium' for 'SHOP QUANTITY', score: 19
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word '¤3.770999904/SCU' for 'SHOP QUANTITY', score: 14
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'SHOP QUANTITY', score: 7
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word 'Hydrogen' for 'SHOP QUANTITY', score: 19
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:55:32,210 - image_processing.data_extractor - DEBUG - Checking word 'H¤111600005k/SCU' for 'SHOP QUANTITY', score: 14
+2026-02-28 12:55:32,211 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:55:32,211 - image_processing.data_extractor - DEBUG - Checking word '8 .16 24 32' for 'SHOP QUANTITY', score: 9
+2026-02-28 12:55:32,211 - image_processing.data_extractor - DEBUG - Checking word 'Laranite' for 'SHOP QUANTITY', score: 38
+2026-02-28 12:55:32,211 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:55:32,211 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:55:32,211 - image_processing.data_extractor - DEBUG - Checking word 'H¤14.62300014k/SCU' for 'SHOP QUANTITY', score: 13
+2026-02-28 12:55:32,211 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:55:32,211 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16.24' for 'SHOP QUANTITY', score: 8
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Checking word '32' for 'SHOP QUANTITY', score: 0
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Checking word '0 SCU' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Checking word 'Medical Supplies' for 'SHOP QUANTITY', score: 28
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Checking word 'Out of Stock' for 'SHOP QUANTITY', score: 40
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Checking word '¤5.29400014k/SCU' for 'SHOP QUANTITY', score: 14
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Checking word 'AVAILABLE CARGO SIZE (SCU)' for 'SHOP QUANTITY', score: 22
+2026-02-28 12:55:32,212 - image_processing.data_extractor - INFO - Removed 0 'SHOP QUANTITY' instances
+2026-02-28 12:55:32,212 - image_processing.data_extractor - INFO - Determined terminal type: sell
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Removing single character words
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Grouping of multiline words
+2026-02-28 12:55:32,212 - image_processing.data_extractor - DEBUG - Appending: 1.2 4.8 16 24 32
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: Agricium
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: ¤3.770999904/SCU
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: 1.2 4.8 16 24 32
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: Hydrogen
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: H¤111600005k/SCU
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: 8 .16 24 32
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: Laranite
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:55:32,213 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: H¤14.62300014k/SCU
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: 1.2 4.8 16.24
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: 32
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: 0 SCU
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: Medical Supplies
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: Out of Stock
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: ¤5.29400014k/SCU
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Appending: AVAILABLE CARGO SIZE (SCU)
+2026-02-28 12:55:32,214 - image_processing.data_extractor - DEBUG - Grouped words into 25 strings
+2026-02-28 12:55:32,216 - image_processing.data_extractor - DEBUG - Checking word: '1.2 4.8 16 24 32' for commodity match, score: 23
+2026-02-28 12:55:32,216 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,217 - image_processing.data_extractor - DEBUG - Checking word: 'Agricium' for commodity match, score: 100
+2026-02-28 12:55:32,218 - image_processing.data_extractor - INFO - Extracting commodity starting at index 1 with name: Agricium
+2026-02-28 12:55:32,218 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:55:32,218 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:55:32,218 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:55:32,218 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:55:32,218 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:55:32,218 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:55:32,218 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:55:32,218 - image_processing.data_extractor - DEBUG - Checking word: ¤3.770999904/scu
+2026-02-28 12:55:32,218 - image_processing.data_extractor - DEBUG - Checking word '¤3.770999904/scu' for 'available cargo size (scu)', score: 33
+2026-02-28 12:55:32,219 - image_processing.data_extractor - INFO - Found price: 4
+2026-02-28 12:55:32,219 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:55:32,219 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:55:32,219 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:55:32,219 - image_processing.data_extractor - DEBUG - Checking word: 1.2 4.8 16 24 32
+2026-02-28 12:55:32,219 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16 24 32' for 'available cargo size (scu)', score: 15
+2026-02-28 12:55:32,219 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Agricium', 'id': 1, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 4, 'examined_words': 4}
+2026-02-28 12:55:32,219 - image_processing.data_extractor - INFO - Extracted commodity: Agricium
+2026-02-28 12:55:32,220 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:55:32,220 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,221 - image_processing.data_extractor - DEBUG - Checking word: '1.2 4.8 16 24 32' for commodity match, score: 23
+2026-02-28 12:55:32,221 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,222 - image_processing.data_extractor - DEBUG - Checking word: '0 SCU' for commodity match, score: 40
+2026-02-28 12:55:32,222 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,223 - image_processing.data_extractor - DEBUG - Checking word: 'Hydrogen' for commodity match, score: 100
+2026-02-28 12:55:32,223 - image_processing.data_extractor - INFO - Extracting commodity starting at index 8 with name: Hydrogen
+2026-02-28 12:55:32,223 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:55:32,223 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:55:32,224 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Checking word: h¤111600005k/scu
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Checking word 'h¤111600005k/scu' for 'available cargo size (scu)', score: 32
+2026-02-28 12:55:32,224 - image_processing.data_extractor - INFO - Found price: 1116
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Checking word: 8 .16 24 32
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Checking word '8 .16 24 32' for 'available cargo size (scu)', score: 18
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Checking word: laranite
+2026-02-28 12:55:32,224 - image_processing.data_extractor - DEBUG - Checking word 'laranite' for 'available cargo size (scu)', score: 31
+2026-02-28 12:55:32,224 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Hydrogen', 'id': 41, 'quantity': None, 'stock': 'out of stock', 'stock_status': 1, 'price': 1116, 'examined_words': 3}
+2026-02-28 12:55:32,224 - image_processing.data_extractor - INFO - Extracted commodity: Hydrogen
+2026-02-28 12:55:32,225 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:55:32,225 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,226 - image_processing.data_extractor - DEBUG - Checking word: '8 .16 24 32' for commodity match, score: 23
+2026-02-28 12:55:32,226 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,227 - image_processing.data_extractor - DEBUG - Checking word: 'Laranite' for commodity match, score: 100
+2026-02-28 12:55:32,227 - image_processing.data_extractor - INFO - Extracting commodity starting at index 13 with name: Laranite
+2026-02-28 12:55:32,227 - image_processing.data_extractor - DEBUG - Checking word: 0 scu
+2026-02-28 12:55:32,227 - image_processing.data_extractor - DEBUG - Checking word '0 scu' for 'available cargo size (scu)', score: 75
+2026-02-28 12:55:32,227 - image_processing.data_extractor - INFO - Found quantity: 0
+2026-02-28 12:55:32,227 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:55:32,228 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Checking word: h¤14.62300014k/scu
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Checking word 'h¤14.62300014k/scu' for 'available cargo size (scu)', score: 29
+2026-02-28 12:55:32,228 - image_processing.data_extractor - INFO - Found price: 14623
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Checking word: 1.2 4.8 16.24
+2026-02-28 12:55:32,228 - image_processing.data_extractor - DEBUG - Checking word '1.2 4.8 16.24' for 'available cargo size (scu)', score: 16
+2026-02-28 12:55:32,228 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Laranite', 'id': 47, 'quantity': 0, 'stock': 'out of stock', 'stock_status': 1, 'price': 14623, 'examined_words': 4}
+2026-02-28 12:55:32,228 - image_processing.data_extractor - INFO - Extracted commodity: Laranite
+2026-02-28 12:55:32,229 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:55:32,229 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,230 - image_processing.data_extractor - DEBUG - Checking word: '1.2 4.8 16.24' for commodity match, score: 25
+2026-02-28 12:55:32,230 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,231 - image_processing.data_extractor - DEBUG - Checking word: '32' for commodity match, score: 29
+2026-02-28 12:55:32,231 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,232 - image_processing.data_extractor - DEBUG - Checking word: '0 SCU' for commodity match, score: 40
+2026-02-28 12:55:32,232 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Checking word: 'Medical Supplies' for commodity match, score: 100
+2026-02-28 12:55:32,233 - image_processing.data_extractor - INFO - Extracting commodity starting at index 21 with name: Medical Supplies
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Checking word: out of stock
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Checking word 'out of stock' for 'available cargo size (scu)', score: 28
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Fuzzy search for stock level 'out of stock' resulted in 'out of stock' with score 100
+2026-02-28 12:55:32,233 - image_processing.data_extractor - INFO - Matched stock level: out of stock with status 1
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Checking word: ¤5.29400014k/scu
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Checking word '¤5.29400014k/scu' for 'available cargo size (scu)', score: 33
+2026-02-28 12:55:32,233 - image_processing.data_extractor - INFO - Found price: 5294
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Checking word: available cargo size (scu)
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Checking word 'available cargo size (scu)' for 'available cargo size (scu)', score: 100
+2026-02-28 12:55:32,233 - image_processing.data_extractor - DEBUG - Found and will remove 'available cargo size (scu)' match: available cargo size (scu)
+2026-02-28 12:55:32,233 - image_processing.data_extractor - INFO - Extracted commodity: {'name': 'Medical Supplies', 'id': 51, 'quantity': None, 'stock': 'out of stock', 'stock_status': 1, 'price': 5294, 'examined_words': 3}
+2026-02-28 12:55:32,233 - image_processing.data_extractor - INFO - Extracted commodity: Medical Supplies
+2026-02-28 12:55:32,234 - image_processing.data_extractor - DEBUG - Checking word: 'AVAILABLE CARGO SIZE (SCU)' for commodity match, score: 44
+2026-02-28 12:55:32,235 - image_processing.data_extractor - DEBUG - No commodity match found, moving to next word
+2026-02-28 12:55:32,235 - image_processing.data_extractor - DEBUG - Total commodities extracted: 4
+2026-02-28 12:55:32,235 - image_processing.data_extractor - DEBUG - Finished commodities extraction
+2026-02-28 12:55:32,235 - image_processing.data_extractor - DEBUG - Finished full data extraction
+2026-02-28 12:55:32,235 - ui.main_ui - DEBUG - Current worker update_cell_on_finished: True
+2026-02-28 12:56:04,042 - workers.api_send_worker - DEBUG - Current APISendWorker thread: False
+2026-02-28 12:56:04,185 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.uexcorp.space:443
+2026-02-28 12:56:05,439 - urllib3.connectionpool - DEBUG - https://api.uexcorp.space:443 "POST /2.0/data_submit HTTP/1.1" 200 142
+2026-02-28 12:56:05,440 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["740200","740201","740202","740203"],"date_added":"1772279732","username":"Zol_fr_FSF"},"message":""}
+
+2026-02-28 12:56:48,858 - ui.main_ui - INFO - Waiting for workers to complete...
+2026-02-28 12:56:48,858 - ui.main_ui - INFO - All workers completed.
+2026-02-28 12:56:48,864 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122254_3tbt_terminal.jpg
+2026-02-28 12:56:48,865 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122435_iuq9_terminal.jpg
+2026-02-28 12:56:48,865 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122541_vlwf_terminal.jpg
+2026-02-28 12:56:48,866 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122745_d01t_terminal.jpg
+2026-02-28 12:56:48,867 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122836_mri5_terminal.jpg
+2026-02-28 12:56:48,868 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123010_by4i_terminal.jpg
+2026-02-28 12:56:48,869 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123059_cauy_terminal.jpg
+2026-02-28 12:56:48,869 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123319_wjad_terminal.jpg
+2026-02-28 12:56:48,870 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123352_y5y9_terminal.jpg
+2026-02-28 12:56:48,870 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_124924_c9nn_terminal.jpg
+2026-02-28 12:56:48,871 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125038_u4h4_terminal.jpg
+2026-02-28 12:56:48,872 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125225_y0ls_terminal.jpg
+2026-02-28 12:56:48,872 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125322_bkny_terminal.jpg
+2026-02-28 12:56:48,873 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125430_886i_terminal.jpg
+2026-02-28 12:56:48,874 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125530_bo4u_terminal.jpg
+2026-02-28 12:56:48,875 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122254_3tbt_commodities.jpg
+2026-02-28 12:56:48,875 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122435_iuq9_commodities.jpg
+2026-02-28 12:56:48,876 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122541_vlwf_commodities.jpg
+2026-02-28 12:56:48,877 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122745_d01t_commodities.jpg
+2026-02-28 12:56:48,877 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122836_mri5_commodities.jpg
+2026-02-28 12:56:48,878 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123010_by4i_commodities.jpg
+2026-02-28 12:56:48,878 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123059_cauy_commodities.jpg
+2026-02-28 12:56:48,879 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123319_wjad_commodities.jpg
+2026-02-28 12:56:48,880 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123352_y5y9_commodities.jpg
+2026-02-28 12:56:48,881 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_124924_c9nn_commodities.jpg
+2026-02-28 12:56:48,881 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125038_u4h4_commodities.jpg
+2026-02-28 12:56:48,882 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125225_y0ls_commodities.jpg
+2026-02-28 12:56:48,882 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125322_bkny_commodities.jpg
+2026-02-28 12:56:48,883 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125430_886i_commodities.jpg
+2026-02-28 12:56:48,884 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125530_bo4u_commodities.jpg
+2026-02-28 12:56:48,885 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122254_3tbt_terminal_ocr.png
+2026-02-28 12:56:48,886 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122435_iuq9_terminal_ocr.png
+2026-02-28 12:56:48,887 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122541_vlwf_terminal_ocr.png
+2026-02-28 12:56:48,887 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122745_d01t_terminal_ocr.png
+2026-02-28 12:56:48,888 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122836_mri5_terminal_ocr.png
+2026-02-28 12:56:48,888 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123010_by4i_terminal_ocr.png
+2026-02-28 12:56:48,889 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123059_cauy_terminal_ocr.png
+2026-02-28 12:56:48,890 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123319_wjad_terminal_ocr.png
+2026-02-28 12:56:48,890 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123352_y5y9_terminal_ocr.png
+2026-02-28 12:56:48,891 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_124924_c9nn_terminal_ocr.png
+2026-02-28 12:56:48,891 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125038_u4h4_terminal_ocr.png
+2026-02-28 12:56:48,892 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125225_y0ls_terminal_ocr.png
+2026-02-28 12:56:48,892 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125322_bkny_terminal_ocr.png
+2026-02-28 12:56:48,893 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125430_886i_terminal_ocr.png
+2026-02-28 12:56:48,894 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125530_bo4u_terminal_ocr.png
+2026-02-28 12:56:48,895 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122254_3tbt_commodities_ocr.png
+2026-02-28 12:56:48,896 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122435_iuq9_commodities_ocr.png
+2026-02-28 12:56:48,896 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122541_vlwf_commodities_ocr.png
+2026-02-28 12:56:48,897 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122745_d01t_commodities_ocr.png
+2026-02-28 12:56:48,897 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_122836_mri5_commodities_ocr.png
+2026-02-28 12:56:48,898 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123010_by4i_commodities_ocr.png
+2026-02-28 12:56:48,899 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123059_cauy_commodities_ocr.png
+2026-02-28 12:56:48,899 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123319_wjad_commodities_ocr.png
+2026-02-28 12:56:48,900 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_123352_y5y9_commodities_ocr.png
+2026-02-28 12:56:48,901 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_124924_c9nn_commodities_ocr.png
+2026-02-28 12:56:48,902 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125038_u4h4_commodities_ocr.png
+2026-02-28 12:56:48,902 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125225_y0ls_commodities_ocr.png
+2026-02-28 12:56:48,903 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125322_bkny_commodities_ocr.png
+2026-02-28 12:56:48,904 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125430_886i_commodities_ocr.png
+2026-02-28 12:56:48,904 - data_management.submission - DEBUG - Removed image: C:\Users\GARRIG~1\Desktop\SC-DAT~1\data_management\..\screenshots\20260228_125530_bo4u_commodities_ocr.png

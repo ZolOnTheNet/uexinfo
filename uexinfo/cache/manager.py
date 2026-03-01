@@ -9,7 +9,7 @@ import appdirs
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
-from uexinfo.cache.models import Commodity, Planet, StarSystem, Terminal
+from uexinfo.cache.models import Commodity, Planet, StarSystem, Terminal, Vehicle
 
 APP_NAME = "uexinfo"
 DATA_DIR = Path(appdirs.user_data_dir(APP_NAME))
@@ -19,6 +19,7 @@ _STATIC_FILES = {
     "terminals": "terminals.json",
     "star_systems": "star_systems.json",
     "planets": "planets.json",
+    "vehicles": "vehicles.json",
 }
 
 _console = Console()
@@ -32,6 +33,7 @@ class CacheManager:
         self.terminals: list[Terminal] = []
         self.star_systems: list[StarSystem] = []
         self.planets: list[Planet] = []
+        self.vehicles: list[Vehicle] = []
 
     @property
     def is_loaded(self) -> bool:
@@ -65,10 +67,11 @@ class CacheManager:
         client = UEXClient()
 
         steps = [
-            ("commodities", "Commodités",  client.get_commodities,  self._parse_commodity),
-            ("terminals",   "Terminaux",   client.get_terminals,    self._parse_terminal),
-            ("star_systems","Systèmes",    client.get_star_systems, self._parse_star_system),
-            ("planets",     "Planètes",    client.get_planets,      self._parse_planet),
+            ("commodities", "Commodités",  client.get_commodities,       self._parse_commodity),
+            ("terminals",   "Terminaux",   client.get_terminals,         self._parse_terminal),
+            ("star_systems","Systèmes",    client.get_star_systems,      self._parse_star_system),
+            ("planets",     "Planètes",    client.get_planets,           self._parse_planet),
+            ("vehicles",    "Vaisseaux",   client.get_vehicles,          None),  # handled specially
         ]
 
         with Progress(
@@ -82,11 +85,28 @@ class CacheManager:
             task = progress.add_task("Mise à jour cache UEX", total=len(steps), count="")
             for key, label, fetch_fn, parse_fn in steps:
                 progress.update(task, description=label)
-                raw = fetch_fn()
-                parsed = [parse_fn(d) for d in raw]
+                try:
+                    raw = fetch_fn()
+                except Exception as e:
+                    progress.update(task, advance=1, count="échec")
+                    if key == "vehicles":
+                        _console.print(f"[yellow]⚠ Vaisseaux non disponibles : {e}[/yellow]")
+                        continue
+                    raise
+
+                if key == "vehicles":
+                    parsed = self._parse_vehicles(raw)
+                    if not parsed and raw:
+                        # Diagnostic : affiche les champs disponibles pour aider au debug
+                        sample_keys = list(raw[0].keys())[:10] if raw else []
+                        _console.print(
+                            f"[yellow]⚠ Vaisseaux : 0 noms extraits sur {len(raw)} entrées. "
+                            f"Champs API : {sample_keys}[/yellow]"
+                        )
+                else:
+                    parsed = [parse_fn(d) for d in raw]
+
                 self._save(key, raw)
-                setattr(self, key if key != "star_systems" else "star_systems", parsed)
-                # manual assignment for clarity
                 if key == "commodities":
                     self.commodities = parsed
                 elif key == "terminals":
@@ -95,7 +115,9 @@ class CacheManager:
                     self.star_systems = parsed
                 elif key == "planets":
                     self.planets = parsed
-                progress.update(task, advance=1, count=f"{len(raw)} entrées")
+                elif key == "vehicles":
+                    self.vehicles = parsed
+                progress.update(task, advance=1, count=f"{len(parsed)} entrées")
 
         _console.print(
             f"[green]✓[/green] Cache mis à jour — "
@@ -105,9 +127,9 @@ class CacheManager:
 
     def _load_from_disk(self) -> None:
         mapping = {
-            "commodities": (self._parse_commodity, "commodities"),
-            "terminals":   (self._parse_terminal,   "terminals"),
-            "star_systems":(self._parse_star_system,"star_systems"),
+            "commodities": (self._parse_commodity,   "commodities"),
+            "terminals":   (self._parse_terminal,    "terminals"),
+            "star_systems":(self._parse_star_system, "star_systems"),
             "planets":     (self._parse_planet,      "planets"),
         }
         for key, (parse_fn, attr) in mapping.items():
@@ -116,6 +138,12 @@ class CacheManager:
                 with open(path, encoding="utf-8") as f:
                     raw = json.load(f)
                 setattr(self, attr, [parse_fn(d) for d in raw])
+        # Vehicles — parsés différemment (déduplication)
+        vpath = DATA_DIR / _STATIC_FILES["vehicles"]
+        if vpath.exists():
+            with open(vpath, encoding="utf-8") as f:
+                raw = json.load(f)
+            self.vehicles = self._parse_vehicles(raw)
 
     def _save(self, key: str, data: list) -> None:
         path = DATA_DIR / _STATIC_FILES[key]
@@ -123,6 +151,33 @@ class CacheManager:
             json.dump(data, f, ensure_ascii=False)
 
     # ── Parsers ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_vehicles(raw: list[dict]) -> list[Vehicle]:
+        """Parse la liste de vaisseaux depuis l'endpoint /vehicles."""
+        vehicles = []
+        for d in raw:
+            name_full = (d.get("name_full") or d.get("name") or "").strip()
+            name      = (d.get("name") or name_full).strip()
+            if not name:
+                continue
+            vehicles.append(Vehicle(
+                id=int(d.get("id") or 0),
+                name=name,
+                name_full=name_full,
+                manufacturer=d.get("company_name") or "",
+                scu=int(d.get("scu") or 0),
+                crew=str(d.get("crew") or "1"),
+                pad_type=d.get("pad_type") or "",
+                container_sizes=d.get("container_sizes") or "",
+                is_cargo=int(d.get("is_cargo") or 0),
+                is_mining=int(d.get("is_mining") or 0),
+                is_salvage=int(d.get("is_salvage") or 0),
+                is_military=int(d.get("is_military") or 0),
+                is_concept=int(d.get("is_concept") or 0),
+                is_ground_vehicle=int(d.get("is_ground_vehicle") or 0),
+            ))
+        return sorted(vehicles, key=lambda v: v.name_full)
 
     @staticmethod
     def _parse_commodity(d: dict) -> Commodity:

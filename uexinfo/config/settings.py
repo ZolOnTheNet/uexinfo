@@ -32,6 +32,19 @@ DEFAULT: dict = {
         "illegal_commodities": False,
     },
     "cache": {"ttl_static": 86400, "ttl_prices": 300},
+    "player": {
+        "username": "",
+        "ships": [],
+        "active_ship": "",
+        "location": "",
+        "destination": "",
+    },
+    "scan": {
+        "mode": "ocr",
+        "tesseract_exe": "",
+        "sc_log_path": "",
+        "sc_screenshots_dir": "",
+    },
 }
 
 

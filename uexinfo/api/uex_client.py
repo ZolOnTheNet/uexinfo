@@ -62,15 +62,24 @@ class UEXClient:
         self,
         id_commodity: int | None = None,
         id_terminal: int | None = None,
+        terminal_code: str | None = None,
+        terminal_name: str | None = None,
     ) -> list[dict]:
-        if not id_commodity and not id_terminal:
-            raise UEXError("id_commodity ou id_terminal requis")
+        if not any([id_commodity, id_terminal, terminal_code, terminal_name]):
+            raise UEXError("id_commodity, id_terminal, terminal_code ou terminal_name requis")
         params: dict = {}
         if id_commodity:
             params["id_commodity"] = id_commodity
         if id_terminal:
             params["id_terminal"] = id_terminal
+        if terminal_code:
+            params["terminal_code"] = terminal_code
+        if terminal_name:
+            params["terminal_name"] = terminal_name
         return self._get("commodities_prices", params)
+
+    def get_vehicles(self) -> list[dict]:
+        return self._get("vehicles")
 
     def get_routes(self, id_terminal_origin: int) -> list[dict]:
         return self._get("commodities_routes", {"id_terminal_origin": id_terminal_origin})

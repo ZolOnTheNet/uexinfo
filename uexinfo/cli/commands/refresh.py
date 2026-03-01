@@ -21,7 +21,8 @@ def cmd_refresh(args: list[str], ctx) -> None:
     elif sub in ("all", "static"):
         _refresh_static(ctx)
     elif sub == "prices":
-        print_info("Les prix sont chargés à la demande — utilisez /trade pour des prix live.")
+        ctx._price_cache.clear()
+        print_ok("Cache prix vidé — les prochaines requêtes iront chercher les données live.")
     elif sub == "sctrade":
         print_info("Intégration sc-trade.tools disponible en Phase 4.")
     else:
@@ -33,6 +34,9 @@ def _refresh_static(ctx) -> None:
         ctx.cache.load(force=True)
     except Exception as e:
         print_error(f"Erreur lors du refresh : {e}")
+        return
+    from uexinfo.location.index import LocationIndex
+    ctx.location_index = LocationIndex(ctx.cache)
 
 
 def _status(ctx) -> None:
