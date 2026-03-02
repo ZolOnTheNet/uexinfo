@@ -125,7 +125,11 @@ def main() -> None:
             else:
                 from uexinfo.cli.commands.scan_editor import ScanEditor
                 from uexinfo.cli.commands.scan import _display_scan
-                editor = ScanEditor(ctx.last_scan, ctx.cache.commodities)
+                editor = ScanEditor(
+                    ctx.last_scan,
+                    commodities    = ctx.cache.commodities,
+                    location_index = ctx.location_index,
+                )
                 result = editor.run()
                 if result is not None:
                     ctx.last_scan = result

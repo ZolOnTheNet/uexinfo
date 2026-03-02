@@ -254,6 +254,28 @@ def _scan_game_window(ctx) -> ScanResult | None:
         tmp_path.unlink(missing_ok=True)
 
 
+def _refine_terminal(result: ScanResult, location_index) -> None:
+    """Affine le nom du terminal OCR par fuzzy match sur le LocationIndex."""
+    raw = result.terminal
+    if not raw:
+        return
+    hits = location_index.search(raw, limit=3, types={"terminal"})
+    if not hits:
+        return
+    try:
+        from rapidfuzz import fuzz
+        best = max(hits, key=lambda h: fuzz.partial_ratio(raw.lower(), h.name.lower()))
+        score = fuzz.partial_ratio(raw.lower(), best.name.lower())
+        if score >= 55:
+            result.terminal = best.name
+    except ImportError:
+        import difflib
+        names = [h.name for h in hits]
+        m = difflib.get_close_matches(raw, names, n=1, cutoff=0.4)
+        if m:
+            result.terminal = m[0]
+
+
 def _scan_image_file(ctx, image_path: Path) -> ScanResult | None:
     from uexinfo.ocr.engine import TesseractEngine
     cfg_scan = ctx.cfg.get("scan", {})
@@ -268,10 +290,18 @@ def _scan_image_file(ctx, image_path: Path) -> ScanResult | None:
     print_info(f"OCR → {image_path.name}")
     try:
         result = engine.extract_from_image(image_path)
-        return result
     except RuntimeError as e:
         print_error(str(e))
         return None
+
+    # Post-OCR : affiner le nom du terminal via LocationIndex
+    if result and ctx.location_index:
+        raw = result.terminal
+        _refine_terminal(result, ctx.location_index)
+        if result.terminal != raw:
+            print_info(f"Terminal : {raw!r} → {result.terminal!r}")
+
+    return result
 
 
 def _store_result(ctx, result: ScanResult) -> None:
@@ -377,6 +407,15 @@ def cmd_scan(args: list[str], ctx) -> None:
             return
         from uexinfo.display import colors as C
         console.print(f"\n[bold]Lignes OCR brutes[/bold] — [{C.DIM}]{image_path.name}[/{C.DIM}]")
+
+        # Zone terminal (haut gauche)
+        console.print(f"[bold]Terminal (zone haut-gauche) :[/bold]")
+        term_lines = engine.debug_terminal(image_path)
+        for tl in term_lines:
+            console.print(f"  {tl}")
+
+        # Zone commodités (panneau droit)
+        console.print(f"\n[bold]Commodités (panneau droit) :[/bold]")
         lines = engine.debug_lines(image_path)
         for i, line in enumerate(lines):
             console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")

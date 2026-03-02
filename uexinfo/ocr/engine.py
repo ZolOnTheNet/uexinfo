@@ -157,8 +157,9 @@ class TesseractEngine:
 
         w, h = img.size
 
-        # Zone 1 : nom du terminal (panneau gauche, bande du nom)
-        term_img = img.crop((int(w * 0.04), int(h * 0.17), int(w * 0.37), int(h * 0.30)))
+        # Zone 1 : nom du terminal — couvre le tiers gauche depuis le haut
+        # (0.17 était trop bas pour "Starlight Station" et équivalents)
+        term_img = img.crop((int(w * 0.01), int(h * 0.04), int(w * 0.45), int(h * 0.35)))
         term_img = ImageOps.invert(term_img.convert("L"))
 
         # Zone 2 : liste des commodités (panneau droit SHOP INVENTORY)
@@ -197,13 +198,47 @@ class TesseractEngine:
     # ── OCR interne ───────────────────────────────────────────────────────────
 
     def _ocr_terminal(self, img) -> str:
-        cfg  = "--psm 7 --oem 3"
-        text = self._pt.image_to_string(img, lang="eng_sc", config=cfg).strip()
+        """Lit le nom du terminal (panneau gauche). Essaie PSM 6 puis PSM 7."""
         known = self._load_words(self.data_dir / "terminals.user-words")
-        if not known:
-            return text
-        lines = [l.strip() for l in text.splitlines() if l.strip()]
-        return self._fuzzy_best(lines, known, cutoff=70) or (lines[0] if lines else "")
+        for psm in (6, 7, 11):
+            text = self._pt.image_to_string(
+                img, lang="eng_sc", config=f"--psm {psm} --oem 3"
+            ).strip()
+            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            if not lines:
+                continue
+            if known:
+                hit = self._fuzzy_best(lines, known, cutoff=65)
+                if hit:
+                    return hit
+            # Retourne les deux premières lignes non-vides comme nom brut
+            return " ".join(lines[:2])
+        return ""
+
+    def debug_terminal(self, image_path: Path) -> list[str]:
+        """Retourne les lignes OCR brutes de la zone terminal (diagnostic)."""
+        from PIL import Image, ImageOps
+        img = Image.open(image_path)
+        w, h = img.size
+        term_img = img.crop((int(w * 0.01), int(h * 0.04), int(w * 0.45), int(h * 0.35)))
+        term_img = ImageOps.invert(term_img.convert("L"))
+
+        env_bak = os.environ.get("TESSDATA_PREFIX")
+        os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
+        try:
+            lines = []
+            for psm in (6, 7):
+                text = self._pt.image_to_string(
+                    term_img, lang="eng_sc", config=f"--psm {psm} --oem 3"
+                ).strip()
+                psm_lines = [l.strip() for l in text.splitlines() if l.strip()]
+                lines.append(f"[PSM {psm}] " + " | ".join(psm_lines) if psm_lines else f"[PSM {psm}] (vide)")
+            return lines
+        finally:
+            if env_bak is None:
+                os.environ.pop("TESSDATA_PREFIX", None)
+            else:
+                os.environ["TESSDATA_PREFIX"] = env_bak
 
     def _ocr_tsv(self, img) -> dict:
         parts = ["--psm 11", "--oem 3"]  # sparse text, comme SC-Datarunner

@@ -48,7 +48,12 @@ class ScanEditor:
     # Largeurs de colonnes : check, nom, stock, qté, prix
     _CW = (3, 26, 12, 6, 9)
 
-    def __init__(self, result: ScanResult, commodities: list | None = None):
+    def __init__(
+        self,
+        result: ScanResult,
+        commodities: list | None = None,
+        location_index=None,
+    ):
         self._source     = result
         self._terminal   = result.terminal
         self._mode       = result.mode          # "sell" | "buy"
@@ -62,8 +67,19 @@ class ScanEditor:
             )
             for sc in result.commodities
         ]
-        # Future : complétion des noms
-        self._known: list[str] = [c.name for c in commodities] if commodities else []
+
+        # Listes pour la complétion
+        self._commodity_names: list[str] = (
+            [c.name for c in commodities] if commodities else []
+        )
+        self._terminal_names: list[str] = (
+            [e.name for e in location_index.search("", limit=999, types={"terminal"})]
+            if location_index else []
+        )
+
+        # État complétion
+        self._completions: list[str] = []
+        self._comp_idx: int = -1        # -1 = pas de sélection
 
         # Cellules dans l'ordre Tab :
         #  ("h","terminal") ("h","mode")
@@ -89,12 +105,70 @@ class ScanEditor:
 
     def _move(self, delta: int) -> None:
         self._cursor = (self._cursor + delta) % len(self._cells)
+        self._completions = []
+        self._comp_idx = -1
 
     def _is_text_cell(self) -> bool:
         c = self._cell
         return c == ("h", "terminal") or (
             c[0] == "r" and c[2] in ("name", "qty", "price")
         )
+
+    # ── Complétion ────────────────────────────────────────────────────────────
+
+    def _current_text(self) -> str:
+        c = self._cell
+        if c == ("h", "terminal"):
+            return self._terminal
+        if c[0] == "r" and c[2] == "name":
+            return self._rows[c[1]].name
+        return ""
+
+    def _pool(self) -> list[str]:
+        c = self._cell
+        if c == ("h", "terminal"):
+            return self._terminal_names
+        if c[0] == "r" and c[2] == "name":
+            return self._commodity_names
+        return []
+
+    def _refresh_completions(self) -> None:
+        q = self._current_text().lower()
+        pool = self._pool()
+        if not q or not pool:
+            self._completions = []
+            self._comp_idx = -1
+            return
+        # Préfixe d'abord, puis sous-chaîne
+        prefix = [n for n in pool if n.lower().startswith(q)]
+        substr = [n for n in pool if q in n.lower() and n not in prefix]
+        self._completions = (prefix + substr)[:6]
+        self._comp_idx = -1
+
+    def _apply_completion(self) -> None:
+        if self._comp_idx < 0 or not self._completions:
+            return
+        selected = self._completions[self._comp_idx]
+        c = self._cell
+        if c == ("h", "terminal"):
+            self._terminal = selected
+        elif c[0] == "r" and c[2] == "name":
+            self._rows[c[1]].name = selected
+
+    def _comp_next(self) -> None:
+        if not self._completions:
+            return
+        self._comp_idx = (self._comp_idx + 1) % len(self._completions)
+        self._apply_completion()
+
+    def _comp_prev(self) -> None:
+        if not self._completions:
+            return
+        if self._comp_idx <= 0:
+            self._comp_idx = -1
+        else:
+            self._comp_idx -= 1
+            self._apply_completion()
 
     # ── Opérations d'édition ─────────────────────────────────────────────────
 
@@ -110,6 +184,7 @@ class ScanEditor:
                 row.qty += ch
             elif c[2] == "price" and ch.isdigit():
                 row.price += ch
+        self._refresh_completions()
 
     def _backspace(self) -> None:
         c = self._cell
@@ -120,6 +195,7 @@ class ScanEditor:
             if c[2] == "name":   row.name  = row.name[:-1]
             elif c[2] == "qty":  row.qty   = row.qty[:-1]
             elif c[2] == "price":row.price = row.price[:-1]
+        self._refresh_completions()
 
     def _clear(self) -> None:
         c = self._cell
@@ -130,6 +206,8 @@ class ScanEditor:
             if c[2] == "name":   row.name  = ""
             elif c[2] == "qty":  row.qty   = ""
             elif c[2] == "price":row.price = ""
+        self._completions = []
+        self._comp_idx = -1
 
     def _toggle(self) -> None:
         c = self._cell
@@ -241,9 +319,21 @@ class ScanEditor:
 
         hr()
 
+        # Complétion (visible uniquement sur champs texte avec des résultats)
+        if self._completions and self._is_text_cell():
+            a("class:comp_lbl", "  ↓ ")
+            for idx, name in enumerate(self._completions):
+                if idx == self._comp_idx:
+                    a("class:comp_sel", f" {name[:24]} ")
+                else:
+                    a("class:comp", f" {name[:24]} ")
+                a("", " ")
+            a("", "\n")
+            hr()
+
         # Aide
         a("class:help",
-          "  Tab/→/Entrée: suiv  ←/Shift+Tab: préc  "
+          "  Tab/→/Entrée: suiv  ←/Shift+Tab: préc  ↓/↑: complétion  "
           "Espace: basculer  Ctrl+D: effacer  Échap: annuler\n")
         hr()
 
@@ -312,6 +402,18 @@ class ScanEditor:
             self._clear()
             event.app.invalidate()
 
+        @kb.add("down")
+        def _comp_down(event):
+            if self._is_text_cell():
+                self._comp_next()
+                event.app.invalidate()
+
+        @kb.add("up")
+        def _comp_up(event):
+            if self._is_text_cell():
+                self._comp_prev()
+                event.app.invalidate()
+
         @kb.add("<any>", filter=is_text)
         def _char(event):
             for kp in event.key_sequence:
@@ -331,14 +433,17 @@ class ScanEditor:
         layout = Layout(Window(content=control, wrap_lines=False))
 
         style = Style.from_dict({
-            "title":   "bold cyan",
-            "lbl":     "bold",
-            "hdr":     "bold",
-            "sep":     "dim",
-            "help":    "dim italic",
-            "focused": "bg:#3c3c3c bold",
-            "btn":     "",
-            "btn_on":  "reverse bold",
+            "title":    "bold cyan",
+            "lbl":      "bold",
+            "hdr":      "bold",
+            "sep":      "dim",
+            "help":     "dim italic",
+            "focused":  "bg:#3c3c3c bold",
+            "btn":      "",
+            "btn_on":   "reverse bold",
+            "comp_lbl": "dim",
+            "comp":     "dim",
+            "comp_sel": "bg:#005f87 bold",
         })
 
         Application(
