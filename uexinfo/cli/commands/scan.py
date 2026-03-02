@@ -135,6 +135,7 @@ def _display_scan(result: ScanResult, ctx) -> None:
         t.add_row(display_name, stock_str, qty_str, price_str, delta_str, margin_str)
 
     console.print(t)
+    console.print(f"[{C.DIM}]  Ctrl+↑ pour éditer[/{C.DIM}]")
 
     # Conseil qualité : si la majorité des prix sont illisibles
     missing = sum(1 for sc in result.commodities if not sc.price)

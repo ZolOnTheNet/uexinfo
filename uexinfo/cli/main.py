@@ -9,6 +9,7 @@ import appdirs
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from rich.console import Console
 
@@ -81,14 +82,28 @@ def main() -> None:
     ctx.player = Player.from_config(cfg.get("player", {}))
     completer = UEXCompleter(ctx=ctx)
 
+    # ── Ctrl+↑ : ouvrir l'éditeur de scan ────────────────────────────────────
+    _edit_pending = [False]
+
+    repl_kb = KeyBindings()
+
+    @repl_kb.add("c-up")
+    def _request_edit(event):
+        _edit_pending[0] = True
+        event.current_buffer.text = ""
+        event.current_buffer.validate_and_handle()
+
+    # ─────────────────────────────────────────────────────────────────────────
+
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     session: PromptSession = PromptSession(
         history=FileHistory(str(HISTORY_FILE)),
         auto_suggest=AutoSuggestFromHistory(),
         completer=completer,
         style=PROMPT_STYLE,
-        complete_while_typing=True,   # dropdown dès la saisie
-        complete_in_thread=True,       # ne bloque pas l'UI
+        key_bindings=repl_kb,
+        complete_while_typing=True,
+        complete_in_thread=True,
     )
 
     _banner()
@@ -101,6 +116,24 @@ def main() -> None:
         except EOFError:
             console.print(f"\n[{C.DIM}]Au revoir, fly safe o7[/{C.DIM}]")
             break
+
+        # ── Traitement Ctrl+↑ ─────────────────────────────────────────────
+        if _edit_pending[0]:
+            _edit_pending[0] = False
+            if ctx.last_scan is None:
+                console.print(f"[{C.WARNING}]⚠  Aucun scan disponible — faites d'abord /scan[/{C.WARNING}]")
+            else:
+                from uexinfo.cli.commands.scan_editor import ScanEditor
+                from uexinfo.cli.commands.scan import _display_scan
+                editor = ScanEditor(ctx.last_scan, ctx.cache.commodities)
+                result = editor.run()
+                if result is not None:
+                    ctx.last_scan = result
+                    ctx.scan_history.append(result)
+                    console.print(f"[bold green]✓  Scan mis à jour[/bold green]")
+                    _display_scan(result, ctx)
+            continue
+        # ─────────────────────────────────────────────────────────────────
 
         line = line.strip()
         if not line:
