@@ -13,6 +13,7 @@ class ScannedCommodity:
     stock: str = ""
     stock_status: int = 0   # 1=out, 2=very low, 3=low, 4=medium, 5=high, 7=max
     price: int = 0          # aUEC/SCU
+    in_demand: bool = False  # True = section INDEMAND (terminal veut mais joueur n'a pas)
 
 
 @dataclass

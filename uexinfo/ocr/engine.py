@@ -41,12 +41,13 @@ def _img_size(image_path: Path) -> tuple[int, int]:
 
 # ── Patterns de parsing ───────────────────────────────────────────────────────
 
-# ø = U+00F8 (symbole monétaire SC), ¤ = fallback ASCII
+# ø = U+00F8 (symbole monétaire SC), ¤ = fallback ASCII, H = misread OCR fréquent de ¤/ø
+# SC[UY] : OCR confond U↔Y en fin de "SCU/SCY"
 _RE_SCU        = re.compile(r"^(\d[\d,]*)\s*SCU$", re.IGNORECASE)
 _RE_SCU_INLINE = re.compile(r"(\d[\d,]*)\s+SCU", re.IGNORECASE)   # * pour "0 SCU"
-_RE_PRICE_K    = re.compile(r"[ø¤]\s*(\d[\d,.]+)\s*K\s*/\s*SCU", re.IGNORECASE)
-_RE_PRICE_M    = re.compile(r"[ø¤]\s*(\d[\d,.]+)\s*M\s*/\s*SCU", re.IGNORECASE)
-_RE_PRICE      = re.compile(r"[ø¤]\s*(\d[\d,.]+)\s*/\s*SCU", re.IGNORECASE)
+_RE_PRICE_K    = re.compile(r"[ø¤H]\s*(\d[\d,.]+)\s*K\s*/\s*SC[UY]", re.IGNORECASE)
+_RE_PRICE_M    = re.compile(r"[ø¤H]\s*(\d[\d,.]+)\s*M\s*/\s*SC[UY]", re.IGNORECASE)
+_RE_PRICE      = re.compile(r"[ø¤H]\s*(\d[\d,.]+)\s*/\s*SC[UY]", re.IGNORECASE)
 
 # Niveaux de stock : label → status_code (1=vide … 7=max)
 _STOCK_LEVELS: list[tuple[str, int]] = [
@@ -62,10 +63,13 @@ _STOCK_LEVELS: list[tuple[str, int]] = [
 # Préfixes d'interface SC à ignorer (sans ancre $ — la ligne peut avoir une suite comme "(SCU)")
 _SKIP_STARTS_RE = re.compile(
     r"^(AVAILABLE\s+CARGO\s+SIZE|SHOP\s+(INVENTORY|QUANTITY)|YOUR\s+INVENTORIES|"
-    r"SELLABLE\s+CARGO|IN\s+DEMAND|IN\s+STOCK|NO\s+DEMAND|CANNOT\s+SELL|"
+    r"SELLABLE\s+CARGO|IN\s*DEMAND|IN\s+STOCK|NO\s+DEMAND|CANNOT\s+SELL|"
     r"LOCAL\s+MARKET\s+VALUE|CURRENT\s+BALANCE|COMMODITIES|BUY\b)",
     re.IGNORECASE,
 )
+# Détection des changements de section du panneau de vente
+_SECTION_SELLABLE_RE = re.compile(r"^SELLABLE\s+CARGO", re.IGNORECASE)
+_SECTION_INDEMAND_RE = re.compile(r"^IN\s*DEMAND", re.IGNORECASE)
 # Suffixes d'interface SC collés aux noms de commodités ("WASTE SHOP QUANTITY")
 _RE_UI_SUFFIX = re.compile(r"\s+SHOP\s+(QUANTITY|INVENTORY)\s*$", re.IGNORECASE)
 # Lignes de bruit pur : chiffres, boutons cargo (1 2 4 8 16 32), symboles seuls
@@ -283,10 +287,20 @@ class TesseractEngine:
         result:  list[ScannedCommodity] = []
         current: ScannedCommodity | None = None
         pending_qty: int | None = None   # SCU peut arriver AVANT le nom dans l'OCR
+        in_demand_section: bool = False  # True après détection INDEMAND
 
         for raw in lines:
             line = raw.strip()
-            if not line or _SKIP_STARTS_RE.match(line) or _SKIP_NOISE_RE.match(line):
+            if not line or _SKIP_NOISE_RE.match(line):
+                continue
+
+            # ── Détection de section avant le skip ────────────────────────────
+            if _SECTION_SELLABLE_RE.match(line):
+                in_demand_section = False
+            elif _SECTION_INDEMAND_RE.match(line):
+                in_demand_section = True
+
+            if _SKIP_STARTS_RE.match(line):
                 continue
 
             # ── Prix + stock (TOUJOURS prioritaires, jamais noms) ─────────────
@@ -327,7 +341,7 @@ class TesseractEngine:
             if name:
                 if current:
                     result.append(current)
-                c = ScannedCommodity(name=name)
+                c = ScannedCommodity(name=name, in_demand=in_demand_section)
                 # SCU parfois sur la même ligne que le nom ("STIMS 1,012 SCU")
                 m2 = _RE_SCU_INLINE.search(line)
                 if m2:

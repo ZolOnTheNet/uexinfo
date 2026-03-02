@@ -1,6 +1,7 @@
 """Commande /scan — scanner les terminaux commerciaux."""
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from uexinfo.cli.commands import register
@@ -65,21 +66,17 @@ def _display_scan(result: ScanResult, ctx) -> None:
         print_warn("Aucune commodité dans ce scan.")
         return
 
-    # Légende Δ selon le mode
-    delta_hdr  = "Δ vs moy vente" if is_sell else "Δ vs moy achat"
-    margin_hdr = "Marge/SCU"
-
+    delta_hdr = "Δ vs moy vente" if is_sell else "Δ vs moy achat"
     t = make_table(
         ("Commodité",  C.LABEL,   "left"),
         ("Stock",      C.NEUTRAL, "left"),
         ("Qté SCU",   C.NEUTRAL, "right"),
         ("Prix/SCU",  C.UEX,     "right"),
         (delta_hdr,   C.NEUTRAL, "right"),
-        (margin_hdr,  C.NEUTRAL, "right"),
+        ("Marge/SCU", C.NEUTRAL, "right"),
     )
 
     for sc in result.commodities:
-        # Résoudre le nom complet UEX
         uex_c = _resolve_uex(sc.name, ctx.cache.commodities)
 
         if uex_c:
@@ -88,31 +85,38 @@ def _display_scan(result: ScanResult, ctx) -> None:
         else:
             display_name = sc.name
 
-        qty_str   = str(sc.quantity) if sc.quantity is not None else f"[{C.DIM}]—[/{C.DIM}]"
-        price_str = f"{sc.price:,} aUEC".replace(",", " ") if sc.price else f"[{C.DIM}]—[/{C.DIM}]"
-        stock_str = _stock_bar(sc.stock_status, sc.stock)
-
         uex_buy  = (uex_c.price_buy  if uex_c else 0) or 0
         uex_sell = (uex_c.price_sell if uex_c else 0) or 0
+        uex_ref  = uex_sell if is_sell else uex_buy
+
+        # Correction facteur-10 : l'OCR perd parfois le séparateur décimal
+        # Ex. ¤6.438k/SCU → H643800020k/SCU → 643800020×1000 vs UEX 6438 → ÷10^8
+        price = sc.price
+        if price and uex_ref:
+            ratio = price / uex_ref
+            if ratio >= 10:
+                exp = round(math.log10(ratio))
+                corrected = round(price / (10 ** exp))
+                if uex_ref * 0.5 <= corrected <= uex_ref * 2:
+                    price = corrected
+
+        qty_str   = str(sc.quantity) if sc.quantity is not None else f"[{C.DIM}]—[/{C.DIM}]"
+        # Prix : ? = OCR a échoué (le prix devrait être là), — = pas de donnée UEX
+        price_str = (
+            f"{price:,} aUEC".replace(",", "\u202f") if price
+            else f"[{C.DIM}]?[/{C.DIM}]"
+        )
+        stock_str = _stock_bar(sc.stock_status, sc.stock)
 
         if is_sell:
-            # VENTE : le prix scanné est ce que la station te paie
-            # Δ vs moy vente UEX : positif = mieux qu'ailleurs (vert), négatif = sous-payé (rouge)
-            uex_ref = uex_sell
             delta_positive_is_good = True
-            # Marge brute : ce que tu reçois ici − ce que ça coûte en moyenne à l'achat
-            margin = (int(uex_buy) - sc.price) * -1 if uex_buy and sc.price else None
+            margin = (int(uex_buy) - price) * -1 if uex_buy and price else None
         else:
-            # ACHAT : le prix scanné est ce que tu paies
-            # Δ vs moy achat UEX : positif = plus cher qu'ailleurs (rouge), négatif = bonne affaire (vert)
-            uex_ref = uex_buy
             delta_positive_is_good = False
-            # Marge potentielle : revente au prix moyen UEX − achat ici
-            margin = (int(uex_sell) - sc.price) if uex_sell and sc.price else None
+            margin = (int(uex_sell) - price) if uex_sell and price else None
 
-        # Δ
-        if uex_ref and sc.price:
-            delta_pct = (sc.price - uex_ref) / uex_ref * 100
+        if uex_ref and price:
+            delta_pct = (price - uex_ref) / uex_ref * 100
             sign  = "+" if delta_pct >= 0 else ""
             good  = (delta_pct > 5) if delta_positive_is_good else (delta_pct < -5)
             bad   = (delta_pct < -5) if delta_positive_is_good else (delta_pct > 5)
@@ -121,7 +125,6 @@ def _display_scan(result: ScanResult, ctx) -> None:
         else:
             delta_str = f"[{C.DIM}]—[/{C.DIM}]"
 
-        # Marge/SCU
         if margin is not None:
             sign  = "+" if margin >= 0 else ""
             color = C.PROFIT if margin > 0 else C.LOSS
@@ -132,6 +135,14 @@ def _display_scan(result: ScanResult, ctx) -> None:
         t.add_row(display_name, stock_str, qty_str, price_str, delta_str, margin_str)
 
     console.print(t)
+
+    # Conseil qualité : si la majorité des prix sont illisibles
+    missing = sum(1 for sc in result.commodities if not sc.price)
+    if missing > 0 and missing >= len(result.commodities) // 2:
+        print_warn(
+            f"{missing}/{len(result.commodities)} prix illisibles — "
+            "refaites le screenshot (terminal bien centré, interface stable)"
+        )
 
 
 def _do_scan(ctx) -> ScanResult | None:
