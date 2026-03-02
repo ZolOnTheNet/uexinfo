@@ -1,16 +1,125 @@
-"""Moteur OCR Tesseract — Mode B."""
+"""Moteur OCR Tesseract — extraction des terminaux SC.
+
+Pipeline (inspiré de SC-Datarunner-UEX) :
+  1. Crop gauche  → terminal name  (PSM 7, terminals.user-words)
+  2. Crop droite  → commodity list (PSM 4, commodities.user-words + sc.patterns)
+  3. TSV image_to_data → lignes triées par position Y
+  4. Machine à états : NOM → SCU → STOCK → PRIX  (4 éléments par commodité)
+"""
 from __future__ import annotations
 
+import os
+import re
+import statistics
 from pathlib import Path
 
 from uexinfo.models.scan_result import ScannedCommodity, ScanResult
 
-_BASE = Path(__file__).parents[2] / "extprg" / "SC-Datarunner-UEX"
+# ── Chemins ──────────────────────────────────────────────────────────────────
 
-_DEFAULT_EXE       = _BASE / "dep" / "Tesseract-OCR" / "tesseract.exe"
-_DEFAULT_DATA      = _BASE / "data"
-_DEFAULT_TESSDATA  = _BASE / "data"   # eng_sc.traineddata se trouve dans data/
+_BASE          = Path(__file__).parents[2] / "extprg" / "SC-Datarunner-UEX"
+_DEFAULT_DATA  = _BASE / "data"
+_WIN_EXE       = _BASE / "dep" / "Tesseract-OCR" / "tesseract.exe"
+_LINUX_EXE     = Path("/usr/bin/tesseract")
 
+
+def _find_exe() -> Path:
+    """Windows bundled .exe > Linux /usr/bin/tesseract > PATH."""
+    if _WIN_EXE.exists():
+        return _WIN_EXE
+    if _LINUX_EXE.exists():
+        return _LINUX_EXE
+    return Path("tesseract")
+
+
+def _img_size(image_path: Path) -> tuple[int, int]:
+    """Retourne (width, height) sans charger toute l'image."""
+    from PIL import Image
+    with Image.open(image_path) as im:
+        return im.size
+
+
+# ── Patterns de parsing ───────────────────────────────────────────────────────
+
+# ø = U+00F8 (symbole monétaire SC), ¤ = fallback ASCII
+_RE_SCU        = re.compile(r"^(\d[\d,]*)\s*SCU$", re.IGNORECASE)
+_RE_SCU_INLINE = re.compile(r"(\d[\d,]*)\s+SCU", re.IGNORECASE)   # * pour "0 SCU"
+_RE_PRICE_K    = re.compile(r"[ø¤]\s*(\d[\d,.]+)\s*K\s*/\s*SCU", re.IGNORECASE)
+_RE_PRICE_M    = re.compile(r"[ø¤]\s*(\d[\d,.]+)\s*M\s*/\s*SCU", re.IGNORECASE)
+_RE_PRICE      = re.compile(r"[ø¤]\s*(\d[\d,.]+)\s*/\s*SCU", re.IGNORECASE)
+
+# Niveaux de stock : label → status_code (1=vide … 7=max)
+_STOCK_LEVELS: list[tuple[str, int]] = [
+    ("max inventory",        7),
+    ("very high inventory",  6),
+    ("high inventory",       5),
+    ("medium inventory",     4),
+    ("low inventory",        3),
+    ("very low inventory",   2),
+    ("out of stock",         1),
+]
+
+# Préfixes d'interface SC à ignorer (sans ancre $ — la ligne peut avoir une suite comme "(SCU)")
+_SKIP_STARTS_RE = re.compile(
+    r"^(AVAILABLE\s+CARGO\s+SIZE|SHOP\s+(INVENTORY|QUANTITY)|YOUR\s+INVENTORIES|"
+    r"SELLABLE\s+CARGO|IN\s+DEMAND|IN\s+STOCK|NO\s+DEMAND|CANNOT\s+SELL|"
+    r"LOCAL\s+MARKET\s+VALUE|CURRENT\s+BALANCE|COMMODITIES|BUY\b)",
+    re.IGNORECASE,
+)
+# Suffixes d'interface SC collés aux noms de commodités ("WASTE SHOP QUANTITY")
+_RE_UI_SUFFIX = re.compile(r"\s+SHOP\s+(QUANTITY|INVENTORY)\s*$", re.IGNORECASE)
+# Lignes de bruit pur : chiffres, boutons cargo (1 2 4 8 16 32), symboles seuls
+_SKIP_NOISE_RE = re.compile(r"^[\d\s()\[\]~\"\'\\¤ø.,:;/\-]+$")
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _parse_price(text: str) -> int | None:
+    """Extrait le prix en aUEC depuis une chaîne OCR. Gère K/M suffixes."""
+    m = _RE_PRICE_K.search(text)
+    if m:
+        try:
+            return round(float(m.group(1).replace(",", ".")) * 1_000)
+        except ValueError:
+            pass
+    m = _RE_PRICE_M.search(text)
+    if m:
+        try:
+            return round(float(m.group(1).replace(",", ".")) * 1_000_000)
+        except ValueError:
+            pass
+    m = _RE_PRICE.search(text)
+    if m:
+        try:
+            return int(m.group(1).replace(",", ""))
+        except ValueError:
+            pass
+    return None
+
+
+def _match_stock(text: str) -> tuple[str, int] | None:
+    """Fuzzy match d'un niveau de stock."""
+    t = text.lower().strip()
+    try:
+        from rapidfuzz import fuzz
+        best, best_score = None, 0
+        for label, status in _STOCK_LEVELS:
+            score = fuzz.ratio(t, label)
+            if score > best_score:
+                best_score, best = score, (label, status)
+        return best if best and best_score >= 65 else None
+    except ImportError:
+        import difflib
+        candidates = [lbl for lbl, _ in _STOCK_LEVELS]
+        m = difflib.get_close_matches(t, candidates, n=1, cutoff=0.65)
+        if m:
+            for label, status in _STOCK_LEVELS:
+                if label == m[0]:
+                    return label, status
+        return None
+
+
+# ── Moteur ────────────────────────────────────────────────────────────────────
 
 class TesseractEngine:
     def __init__(
@@ -19,151 +128,288 @@ class TesseractEngine:
         data_dir: Path | None = None,
         tessdata_dir: Path | None = None,
     ):
-        self.exe = exe or _DEFAULT_EXE
-        self.data_dir = data_dir or _DEFAULT_DATA
-        self.tessdata_dir = tessdata_dir or _DEFAULT_TESSDATA
+        self.exe          = exe          or _find_exe()
+        self.data_dir     = data_dir     or _DEFAULT_DATA
+        self.tessdata_dir = tessdata_dir or _DEFAULT_DATA
 
         try:
             import pytesseract
             pytesseract.pytesseract.tesseract_cmd = str(self.exe)
-            self._pytesseract = pytesseract
+            self._pt = pytesseract
         except ImportError as e:
             raise RuntimeError(
-                "pytesseract n'est pas installé. "
-                "Installez-le avec : pip install pytesseract"
+                "pytesseract non installé — pip install pytesseract"
             ) from e
 
-    def extract_from_image(self, image_path: Path) -> ScanResult | None:
-        """Extrait les données du terminal depuis une capture d'écran.
+    # ── Public ────────────────────────────────────────────────────────────────
 
-        1. Ouvre l'image avec PIL
-        2. Lance Tesseract avec eng_sc + fichiers de patterns SC
-        3. Parse le texte brut → terminal + commodités
-        4. Retourne ScanResult(source="ocr")
-        """
+    def extract_from_image(self, image_path: Path) -> ScanResult | None:
+        from PIL import Image, ImageOps
+
         try:
-            from PIL import Image
             img = Image.open(image_path)
         except Exception as e:
             raise RuntimeError(f"Impossible d'ouvrir l'image : {e}") from e
 
-        user_words = self.data_dir / "commodities.user-words"
-        patterns   = self.data_dir / "sc.patterns"
+        w, h = img.size
 
-        # Passer le dossier tessdata via la variable d'environnement
-        # (évite les problèmes de guillemets dans les args CLI sur Windows)
-        import os
-        env_backup = os.environ.get("TESSDATA_PREFIX")
+        # Zone 1 : nom du terminal (panneau gauche, bande du nom)
+        term_img = img.crop((int(w * 0.04), int(h * 0.17), int(w * 0.37), int(h * 0.30)))
+        term_img = ImageOps.invert(term_img.convert("L"))
+
+        # Zone 2 : liste des commodités (panneau droit SHOP INVENTORY)
+        list_img = img.crop((int(w * 0.58), int(h * 0.12), int(w * 0.99), int(h * 0.99)))
+        list_img = ImageOps.invert(list_img.convert("L"))
+
+        env_bak = os.environ.get("TESSDATA_PREFIX")
         os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
-
-        config_parts = ["--psm 11", "--oem 3"]
-        if user_words.exists():
-            config_parts.append(f'--user-words "{user_words}"')
-        if patterns.exists():
-            config_parts.append(f'--user-patterns "{patterns}"')
-
-        config_str = " ".join(config_parts)
-
         try:
-            text = self._pytesseract.image_to_string(
-                img,
-                lang="eng_sc",
-                config=config_str,
-            )
+            terminal   = self._ocr_terminal(term_img)
+            tsv        = self._ocr_tsv(list_img)
         except Exception as e:
             raise RuntimeError(f"Tesseract a échoué : {e}") from e
         finally:
-            if env_backup is None:
+            if env_bak is None:
                 os.environ.pop("TESSDATA_PREFIX", None)
             else:
-                os.environ["TESSDATA_PREFIX"] = env_backup
+                os.environ["TESSDATA_PREFIX"] = env_bak
 
-        terminal, commodities = self._parse_ocr_text(text)
-        if not terminal:
-            terminal = image_path.stem  # fallback sur le nom de fichier
+        lines       = self._tsv_to_lines(tsv)
+        commodities = self._parse_commodity_lines(lines)
+
+        # Détecter le mode depuis les lignes OCR
+        mode = "sell" if any(
+            re.search(r"(IN\s+DEMAND|SELLABLE\s+CARGO)", l, re.IGNORECASE)
+            for l in lines
+        ) else "buy"
 
         return ScanResult(
-            terminal=terminal,
-            commodities=commodities,
-            source="ocr",
+            terminal    = terminal or image_path.stem,
+            commodities = commodities,
+            source      = "ocr",
+            mode        = mode,
         )
 
-    def _parse_ocr_text(self, text: str) -> tuple[str, list[ScannedCommodity]]:
-        """Extrait le nom de terminal et les commodités depuis le texte OCR brut."""
+    # ── OCR interne ───────────────────────────────────────────────────────────
+
+    def _ocr_terminal(self, img) -> str:
+        cfg  = "--psm 7 --oem 3"
+        text = self._pt.image_to_string(img, lang="eng_sc", config=cfg).strip()
+        known = self._load_words(self.data_dir / "terminals.user-words")
+        if not known:
+            return text
         lines = [l.strip() for l in text.splitlines() if l.strip()]
+        return self._fuzzy_best(lines, known, cutoff=70) or (lines[0] if lines else "")
 
-        terminal = self._match_terminal(lines)
-        commodities = self._match_commodities(lines)
+    def _ocr_tsv(self, img) -> dict:
+        parts = ["--psm 11", "--oem 3"]  # sparse text, comme SC-Datarunner
+        uw  = self.data_dir / "commodities.user-words"
+        pat = self.data_dir / "sc.patterns"
+        if uw.exists():
+            parts.append(f'--user-words "{uw}"')
+        if pat.exists():
+            parts.append(f'--user-patterns "{pat}"')
+        return self._pt.image_to_data(
+            img,
+            lang        = "eng_sc",
+            config      = " ".join(parts),
+            output_type = self._pt.Output.DICT,
+        )
 
-        return terminal, commodities
+    # ── Construction des lignes depuis le TSV ─────────────────────────────────
 
-    def _match_terminal(self, lines: list[str]) -> str:
-        """Fuzzy match du nom de terminal depuis les premières lignes."""
-        # Charger la liste des noms de terminaux connus
-        terminal_words_path = self.data_dir / "terminals.user-words"
-        known: list[str] = []
-        if terminal_words_path.exists():
-            with open(terminal_words_path, encoding="utf-8", errors="replace") as f:
-                known = [l.strip() for l in f if l.strip()]
+    def _tsv_to_lines(self, tsv: dict) -> list[str]:
+        """Regroupe les mots du TSV en lignes par proximité verticale adaptative."""
+        words = []
+        for i, text in enumerate(tsv["text"]):
+            text = text.strip()
+            if not text or int(tsv["conf"][i]) < 30:
+                continue
+            words.append((
+                int(tsv["top"][i]),
+                int(tsv["left"][i]),
+                int(tsv["height"][i]),
+                text,
+            ))
 
-        if not known:
-            return lines[0] if lines else ""
-
-        # Chercher dans les premières lignes le meilleur match
-        candidates = lines[:10]
-        best_name = ""
-        best_score = 0
-
-        try:
-            from rapidfuzz import fuzz
-            for line in candidates:
-                for name in known:
-                    score = fuzz.partial_ratio(line.upper(), name.upper())
-                    if score > best_score:
-                        best_score = score
-                        best_name = name
-        except ImportError:
-            import difflib
-            for line in candidates:
-                matches = difflib.get_close_matches(line, known, n=1, cutoff=0.6)
-                if matches:
-                    return matches[0]
-
-        return best_name if best_score >= 70 else (lines[0] if lines else "")
-
-    def _match_commodities(self, lines: list[str]) -> list[ScannedCommodity]:
-        """Extrait les noms de commodités depuis le texte OCR.
-
-        Retourne une liste minimale (name seulement) — pas de prix ni stock
-        sans parseur de layout avancé.
-        """
-        commodity_words_path = self.data_dir / "commodities.user-words"
-        known: list[str] = []
-        if commodity_words_path.exists():
-            with open(commodity_words_path, encoding="utf-8", errors="replace") as f:
-                known = [l.strip() for l in f if l.strip()]
-
-        if not known:
+        if not words:
             return []
 
-        found: list[ScannedCommodity] = []
-        seen: set[str] = set()
+        words.sort()  # (top, left, height, text)
 
+        # Bande Y = 60 % de la hauteur médiane des mots (adapte à la résolution)
+        heights = [h for _, _, h, _ in words if h > 3]
+        band = max(6, int(statistics.median(heights) * 0.6)) if heights else 10
+
+        lines: list[str] = []
+        current_group = [words[0]]
+        ref_top = words[0][0]
+
+        for w in words[1:]:
+            if abs(w[0] - ref_top) <= band:
+                current_group.append(w)
+            else:
+                lines.append(" ".join(x[3] for x in sorted(current_group, key=lambda x: x[1])))
+                current_group = [w]
+                ref_top = w[0]
+
+        lines.append(" ".join(x[3] for x in sorted(current_group, key=lambda x: x[1])))
+        return lines
+
+    def debug_lines(self, image_path: Path) -> list[str]:
+        """Retourne les lignes OCR brutes (pour diagnostic /scan debug)."""
+        from PIL import Image, ImageOps
+        img = Image.open(image_path)
+        w, h = img.size
+        list_img = img.crop((int(w * 0.58), int(h * 0.12), int(w * 0.99), int(h * 0.99)))
+        list_img = ImageOps.invert(list_img.convert("L"))
+
+        env_bak = os.environ.get("TESSDATA_PREFIX")
+        os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
         try:
-            from rapidfuzz import process, fuzz
-            for line in lines:
-                result = process.extractOne(
-                    line, known, scorer=fuzz.WRatio, score_cutoff=80
-                )
-                if result and result[0] not in seen:
-                    seen.add(result[0])
-                    found.append(ScannedCommodity(name=result[0]))
+            tsv = self._ocr_tsv(list_img)
+        finally:
+            if env_bak is None:
+                os.environ.pop("TESSDATA_PREFIX", None)
+            else:
+                os.environ["TESSDATA_PREFIX"] = env_bak
+
+        return self._tsv_to_lines(tsv)
+
+    # ── Machine à états : NOM → SCU → STOCK → PRIX ───────────────────────────
+
+    def _parse_commodity_lines(self, lines: list[str]) -> list[ScannedCommodity]:
+        known    = self._load_words(self.data_dir / "commodities.user-words")
+        result:  list[ScannedCommodity] = []
+        current: ScannedCommodity | None = None
+        pending_qty: int | None = None   # SCU peut arriver AVANT le nom dans l'OCR
+
+        for raw in lines:
+            line = raw.strip()
+            if not line or _SKIP_STARTS_RE.match(line) or _SKIP_NOISE_RE.match(line):
+                continue
+
+            # ── Prix + stock (TOUJOURS prioritaires, jamais noms) ─────────────
+            price = _parse_price(line)
+            # Isoler le texte avant ¤/ø pour le match stock (évite dilution du ratio)
+            line_for_stock = re.split(r"[¤ø]", line)[0].strip()
+            stock = _match_stock(line_for_stock)
+
+            if price is not None or stock is not None:
+                if current:
+                    if price is not None and not current.price:
+                        current.price = price
+                    if stock is not None and not current.stock:
+                        current.stock, current.stock_status = stock
+                continue   # toujours — empêche "INVENTORY"/"STOCK" d'être noms
+
+            # ── SCU seul sur sa ligne ("859 SCU") ─────────────────────────────
+            m = _RE_SCU.match(line)
+            if m:
+                try:
+                    qty = int(m.group(1).replace(",", ""))
+                except ValueError:
+                    qty = None
+                if qty is not None:
+                    if current and current.quantity is None:
+                        current.quantity = qty
+                    elif current is None:
+                        pending_qty = qty   # SCU avant le nom : on bufferise
+                continue
+
+            # ── Nom de commodité ──────────────────────────────────────────────
+            # 1. Supprimer préfixe parasite OCR : "e DISTILLED" → "DISTILLED"
+            _words = line.split()
+            line_clean = " ".join(_words[1:]) if len(_words) >= 2 and len(_words[0]) <= 2 else line
+            # 2. Supprimer suffixe UI : "WASTE SHOP QUANTITY" → "WASTE"
+            line_clean = _RE_UI_SUFFIX.sub("", line_clean).strip() or line_clean
+            name = self._fuzzy_commodity(line_clean, known)
+            if name:
+                if current:
+                    result.append(current)
+                c = ScannedCommodity(name=name)
+                # SCU parfois sur la même ligne que le nom ("STIMS 1,012 SCU")
+                m2 = _RE_SCU_INLINE.search(line)
+                if m2:
+                    try:
+                        c.quantity = int(m2.group(1).replace(",", ""))
+                    except ValueError:
+                        pass
+                # Appliquer le SCU bufferisé si pas déjà trouvé en inline
+                if c.quantity is None and pending_qty is not None:
+                    c.quantity = pending_qty
+                pending_qty = None
+                current = c
+
+        if current:
+            result.append(current)
+        return result
+
+    # ── Fuzzy matching ────────────────────────────────────────────────────────
+
+    def _fuzzy_best(self, candidates: list[str], known: list[str], cutoff: int) -> str:
+        try:
+            from rapidfuzz import fuzz
+            best, score = "", 0
+            for c in candidates:
+                for k in known:
+                    s = fuzz.partial_ratio(c.upper(), k.upper())
+                    if s > score:
+                        score, best = s, k
+            return best if score >= cutoff else ""
         except ImportError:
             import difflib
-            for line in lines:
-                matches = difflib.get_close_matches(line, known, n=1, cutoff=0.8)
-                if matches and matches[0] not in seen:
-                    seen.add(matches[0])
-                    found.append(ScannedCommodity(name=matches[0]))
+            for c in candidates:
+                m = difflib.get_close_matches(c, known, n=1, cutoff=cutoff / 100)
+                if m:
+                    return m[0]
+            return ""
 
-        return found
+    def _fuzzy_commodity(self, line: str, known: list[str]) -> str | None:
+        if not known or re.match(r"^[\d\s,./()~\"\'\\]+$", line) or len(line) < 3:
+            return None
+        ku = [k.upper() for k in known]
+        try:
+            from rapidfuzz import process, fuzz
+            # 1. Ligne complète
+            r = process.extractOne(
+                line.upper(), ku, scorer=fuzz.WRatio, score_cutoff=75,
+            )
+            if r:
+                return known[ku.index(r[0])]
+            # 2. Fallback mot par mot — "STINS 1,012 SCU" → "STINS" → "STIMS"
+            for word in line.split():
+                if len(word) <= 3 or re.match(r"^[\d,./]+$", word):
+                    continue
+                r2 = process.extractOne(word.upper(), ku, scorer=fuzz.WRatio, score_cutoff=80)
+                if r2:
+                    return known[ku.index(r2[0])]
+        except ImportError:
+            import difflib
+            # 1. Ligne complète
+            m = difflib.get_close_matches(line.upper(), ku, n=1, cutoff=0.60)
+            if m:
+                for k in known:
+                    if k.upper() == m[0]:
+                        return k
+            # 2. Mot par mot — seuil abaissé 0.75 pour typos OCR (STINS→STIMS)
+            for word in line.split():
+                if len(word) <= 3 or re.match(r"^[\d,./]+$", word):
+                    continue
+                m2 = difflib.get_close_matches(word.upper(), ku, n=1, cutoff=0.75)
+                if m2:
+                    for k in known:
+                        if k.upper() == m2[0]:
+                            return k
+        return None
+
+    # ── Utilitaires ───────────────────────────────────────────────────────────
+
+    def _load_words(self, path: Path) -> list[str]:
+        if not path.exists():
+            return []
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return [
+                l.strip() for l in f
+                if l.strip() and not l.strip().isdigit() and len(l.strip()) > 3
+            ]

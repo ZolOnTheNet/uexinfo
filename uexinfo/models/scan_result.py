@@ -21,3 +21,4 @@ class ScanResult:
     timestamp: datetime = field(default_factory=datetime.now)
     commodities: list[ScannedCommodity] = field(default_factory=list)
     source: str = "ocr"     # "ocr" | "log"
+    mode: str = "buy"       # "buy" = IN STOCK (achat) | "sell" = IN DEMAND / SELLABLE CARGO (vente)

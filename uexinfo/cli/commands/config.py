@@ -7,6 +7,11 @@ from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
 
 
+@register("ship")
+def cmd_ship(args: list[str], ctx) -> None:
+    _ship(args, ctx)
+
+
 @register("config")
 def cmd_config(args: list[str], ctx) -> None:
     if not args:
@@ -54,8 +59,10 @@ def _show(cfg: dict) -> None:
     console.print(f"  [bold]Marge min :[/bold]     {trade.get('min_margin_percent', 0)} %")
     console.print(f"  [bold]Illégal :[/bold]       {'oui' if trade.get('illegal_commodities') else 'non'}")
     console.print(f"  [bold]TTL cache :[/bold]     {cache_cfg.get('ttl_static', 86400)}s statique  /  {cache_cfg.get('ttl_prices', 300)}s prix")
-    console.print(f"  [bold]scan.mode :[/bold]     {scan.get('mode', 'ocr')}")
-    console.print(f"  [bold]scan.tesseract :[/bold] {scan.get('tesseract_exe') or '(auto)'}")
+    console.print(f"  [bold]scan.mode :[/bold]        {scan.get('mode', 'ocr')}  [{C.DIM}](ocr|log|confirm)[/{C.DIM}]")
+    console.print(f"  [bold]scan.tesseract :[/bold]   {scan.get('tesseract_exe') or '(auto)'}  [{C.DIM}](moteur OCR pour lire les screenshots)[/{C.DIM}]")
+    console.print(f"  [bold]scan.logpath :[/bold]     {scan.get('sc_log_path') or '(non défini)'}")
+    console.print(f"  [bold]scan.screenshots :[/bold] {scan.get('sc_screenshots_dir') or '(non défini)'}")
     console.print(f"  [bold]player.active_ship :[/bold] {player.get('active_ship') or '—'}")
     console.print(f"  [bold]player.location :[/bold]    {player.get('location') or '—'}")
 

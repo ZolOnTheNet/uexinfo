@@ -14,6 +14,7 @@ _STOCK_BARS = {
     3: "[yellow]▓▓░░ Low[/yellow]",
     4: "[cyan]▓▓▓░ Medium[/cyan]",
     5: "[green]▓▓▓▓ High[/green]",
+    6: "[green]▓▓▓▓ Very High[/green]",
     7: "[bold green]████ Max[/bold green]",
 }
 
@@ -24,46 +25,111 @@ def _stock_bar(status: int, label: str) -> str:
     return label or str(status)
 
 
+def _resolve_uex(sc_name: str, commodities: list):
+    """Fuzzy-match un token OCR vers un Commodity UEX via partial_ratio."""
+    if not commodities or not sc_name:
+        return None
+    names = [c.name.upper() for c in commodities]
+    try:
+        from rapidfuzz import process, fuzz
+        r = process.extractOne(
+            sc_name.upper(), names, scorer=fuzz.partial_ratio, score_cutoff=80,
+        )
+        if r:
+            return commodities[names.index(r[0])]
+    except ImportError:
+        sc_up = sc_name.upper()
+        # 1. Mot exact dans le nom UEX
+        for c in commodities:
+            if sc_up in [w.upper() for w in c.name.split()]:
+                return c
+        # 2. Correspondance approximative du nom complet
+        import difflib
+        m = difflib.get_close_matches(sc_up, names, n=1, cutoff=0.60)
+        if m:
+            return commodities[names.index(m[0])]
+    return None
+
+
 def _display_scan(result: ScanResult, ctx) -> None:
     """Affiche un ScanResult en table Rich avec comparaison UEX."""
+    is_sell    = result.mode == "sell"
+    mode_label = f"[yellow]VENTE[/yellow]" if is_sell else f"[cyan]ACHAT[/cyan]"
     console.print(
         f"\n[bold cyan]{result.terminal}[/bold cyan]"
-        f"  [{C.DIM}]{result.timestamp.strftime('%H:%M:%S')}  source={result.source}[/{C.DIM}]"
+        f"  [{C.DIM}]{result.timestamp.strftime('%H:%M:%S')}"
+        f"  source={result.source}[/{C.DIM}]  {mode_label}"
     )
 
     if not result.commodities:
         print_warn("Aucune commodité dans ce scan.")
         return
 
-    # Construire un index des prix UEX
-    uex_prices: dict[str, float] = {}
-    for c in ctx.cache.commodities:
-        uex_prices[c.name.lower()] = c.price_buy or c.price_sell
+    # Légende Δ selon le mode
+    delta_hdr  = "Δ vs moy vente" if is_sell else "Δ vs moy achat"
+    margin_hdr = "Marge/SCU"
 
     t = make_table(
-        ("Commodité",  C.LABEL,    "left"),
-        ("Stock",      C.NEUTRAL,  "left"),
-        ("Qté SCU",   C.NEUTRAL,  "right"),
-        ("Prix/SCU",  C.UEX,      "right"),
-        ("Δ UEX",     C.NEUTRAL,  "right"),
+        ("Commodité",  C.LABEL,   "left"),
+        ("Stock",      C.NEUTRAL, "left"),
+        ("Qté SCU",   C.NEUTRAL, "right"),
+        ("Prix/SCU",  C.UEX,     "right"),
+        (delta_hdr,   C.NEUTRAL, "right"),
+        (margin_hdr,  C.NEUTRAL, "right"),
     )
 
     for sc in result.commodities:
-        qty_str = str(sc.quantity) if sc.quantity is not None else "[dim]—[/dim]"
-        price_str = f"{sc.price:,} aUEC".replace(",", " ") if sc.price else "[dim]—[/dim]"
+        # Résoudre le nom complet UEX
+        uex_c = _resolve_uex(sc.name, ctx.cache.commodities)
+
+        if uex_c:
+            code_tag = f"  [{C.DIM}][{uex_c.code}][/{C.DIM}]" if uex_c.code else ""
+            display_name = f"{uex_c.name}{code_tag}"
+        else:
+            display_name = sc.name
+
+        qty_str   = str(sc.quantity) if sc.quantity is not None else f"[{C.DIM}]—[/{C.DIM}]"
+        price_str = f"{sc.price:,} aUEC".replace(",", " ") if sc.price else f"[{C.DIM}]—[/{C.DIM}]"
         stock_str = _stock_bar(sc.stock_status, sc.stock)
 
-        # Calcul delta UEX
-        uex_ref = uex_prices.get(sc.name.lower(), 0)
+        uex_buy  = (uex_c.price_buy  if uex_c else 0) or 0
+        uex_sell = (uex_c.price_sell if uex_c else 0) or 0
+
+        if is_sell:
+            # VENTE : le prix scanné est ce que la station te paie
+            # Δ vs moy vente UEX : positif = mieux qu'ailleurs (vert), négatif = sous-payé (rouge)
+            uex_ref = uex_sell
+            delta_positive_is_good = True
+            # Marge brute : ce que tu reçois ici − ce que ça coûte en moyenne à l'achat
+            margin = (int(uex_buy) - sc.price) * -1 if uex_buy and sc.price else None
+        else:
+            # ACHAT : le prix scanné est ce que tu paies
+            # Δ vs moy achat UEX : positif = plus cher qu'ailleurs (rouge), négatif = bonne affaire (vert)
+            uex_ref = uex_buy
+            delta_positive_is_good = False
+            # Marge potentielle : revente au prix moyen UEX − achat ici
+            margin = (int(uex_sell) - sc.price) if uex_sell and sc.price else None
+
+        # Δ
         if uex_ref and sc.price:
             delta_pct = (sc.price - uex_ref) / uex_ref * 100
-            sign = "+" if delta_pct >= 0 else ""
-            color = C.PROFIT if delta_pct > 0 else C.LOSS if delta_pct < 0 else C.NEUTRAL
+            sign  = "+" if delta_pct >= 0 else ""
+            good  = (delta_pct > 5) if delta_positive_is_good else (delta_pct < -5)
+            bad   = (delta_pct < -5) if delta_positive_is_good else (delta_pct > 5)
+            color = C.PROFIT if good else C.LOSS if bad else C.NEUTRAL
             delta_str = f"[{color}]{sign}{delta_pct:.0f}%[/{color}]"
         else:
-            delta_str = "[dim]—[/dim]"
+            delta_str = f"[{C.DIM}]—[/{C.DIM}]"
 
-        t.add_row(sc.name, stock_str, qty_str, price_str, delta_str)
+        # Marge/SCU
+        if margin is not None:
+            sign  = "+" if margin >= 0 else ""
+            color = C.PROFIT if margin > 0 else C.LOSS
+            margin_str = f"[{color}]{sign}{margin:,} aUEC[/{color}]".replace(",", "\u202f")
+        else:
+            margin_str = f"[{C.DIM}]—[/{C.DIM}]"
+
+        t.add_row(display_name, stock_str, qty_str, price_str, delta_str, margin_str)
 
     console.print(t)
 
@@ -280,4 +346,29 @@ def cmd_scan(args: list[str], ctx) -> None:
             _display_scan(result, ctx)
         return
 
-    print_error(f"Sous-commande inconnue : {sub}  —  /scan [ecran|screenshot|log|status|history]")
+    # /scan debug <fichier>  — affiche les lignes OCR brutes pour diagnostic
+    if sub == "debug":
+        if len(args) < 2:
+            print_error("Usage : /scan debug <fichier>")
+            return
+        image_path = Path(args[1])
+        if not image_path.exists():
+            print_error(f"Fichier introuvable : {image_path}")
+            return
+        from uexinfo.ocr.engine import TesseractEngine
+        cfg_scan = ctx.cfg.get("scan", {})
+        exe = Path(cfg_scan["tesseract_exe"]) if cfg_scan.get("tesseract_exe") else None
+        try:
+            engine = TesseractEngine(exe=exe)
+        except RuntimeError as e:
+            print_error(str(e))
+            return
+        from uexinfo.display import colors as C
+        console.print(f"\n[bold]Lignes OCR brutes[/bold] — [{C.DIM}]{image_path.name}[/{C.DIM}]")
+        lines = engine.debug_lines(image_path)
+        for i, line in enumerate(lines):
+            console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")
+        console.print(f"\n[{C.DIM}]{len(lines)} lignes extraites[/{C.DIM}]")
+        return
+
+    print_error(f"Sous-commande inconnue : {sub}  —  /scan [ecran|screenshot|log|status|history|debug]")
