@@ -8,7 +8,7 @@ from datetime import datetime
 from rich.table import Table
 
 from uexinfo.api.uex_client import UEXClient, UEXError
-from uexinfo.cache.models import Commodity, Terminal
+from uexinfo.cache.models import Commodity, Terminal, Vehicle
 from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_warn, section
@@ -181,6 +181,32 @@ def _commodity_prices(c_id: int, ctx) -> list[dict]:
     return _fetch_prices(f"c{c_id}", {"id_commodity": c_id}, ctx)
 
 
+_ROUTES_TTL = 300  # 5 minutes
+
+
+def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
+    """Retourne {terminal_name_lower: distance_gm} depuis terminal_id (routes UEX)."""
+    key = f"rd_{terminal_id}"
+    cached = ctx._price_cache.get(key)
+    if cached:
+        ts, data = cached
+        if time.monotonic() - ts < _ROUTES_TTL:
+            return data
+    client = UEXClient()
+    try:
+        routes = client.get_routes(id_terminal_origin=terminal_id)
+    except UEXError:
+        return {}
+    dist_map: dict[str, float] = {}
+    for route in routes:
+        dest = route.get("terminal_name_destination") or ""
+        dist = route.get("distance")
+        if dest and dist is not None:
+            dist_map[dest.lower()] = float(dist)
+    ctx._price_cache[key] = (time.monotonic(), dist_map)
+    return dist_map
+
+
 # ── Données scan ───────────────────────────────────────────────────────────────
 
 _STOCK_LABELS = {1: "Out", 2: "Très bas", 3: "Bas", 4: "Moyen", 5: "Haut", 7: "Max"}
@@ -309,7 +335,144 @@ def _show_terminal(t: Terminal, ctx) -> None:
 
 # ── Affichage commodité ────────────────────────────────────────────────────────
 
-def _show_commodity(c: Commodity, ctx) -> None:
+_BUY_STATUS_BAR: dict[int, str] = {
+    1: f"[{C.DIM}]░░░░[/{C.DIM}]",
+    2: "[red]▓░░░[/red]",
+    3: "[yellow]▓▓░░[/yellow]",
+    4: "[cyan]▓▓▓░[/cyan]",
+    5: "[green]▓▓▓▓[/green]",
+    7: "[bold green]████[/bold green]",
+}
+
+_SELL_STATUS_BAR: dict[int, str] = {
+    1: "[bold green]░░░░[/bold green]",
+    2: "[green]▓░░░[/green]",
+    3: "[yellow]▓▓░░[/yellow]",
+    4: "[orange1]▓▓▓░[/orange1]",
+    5: "[red]▓▓▓▓[/red]",
+    7: "[bold red]████[/bold red]",
+}
+
+
+def _bar_buy(status: int, qty) -> str:
+    """Barre de stock achat + quantité (plus = mieux)."""
+    bar = _BUY_STATUS_BAR.get(int(status or 0), "????")
+    q = int(qty or 0)
+    return f"{bar} {q:,}".replace(",", "\u202f") if q else bar
+
+
+def _bar_sell(status: int, qty) -> str:
+    """Barre de saturation vente + stock (moins = mieux pour vendre)."""
+    bar = _SELL_STATUS_BAR.get(int(status or 0), "????")
+    q = int(qty or 0)
+    return f"{bar} {q:,}".replace(",", "\u202f") if q else bar
+
+
+def _player_cargo(ctx) -> int:
+    """SCU du vaisseau actif du joueur (config joueur > cache UEX), 0 si inconnu."""
+    ship_name = (ctx.player.active_ship or "").strip()
+    if not ship_name:
+        return 0
+    for s in ctx.player.ships:
+        if s.name.lower() == ship_name.lower() and s.scu:
+            return s.scu
+    for v in (ctx.cache.vehicles or []):
+        if v.name_full.lower() == ship_name.lower() or v.name.lower() == ship_name.lower():
+            return v.scu
+    return 0
+
+
+def _player_terminal(ctx):
+    """Retourne le Terminal correspondant à la position du joueur, ou None."""
+    loc = (ctx.player.location or "").strip()
+    if not loc:
+        return None
+    return _find_terminal(loc, ctx)
+
+
+def _dist_label(term_name: str, terminal_sys: str, player_sys: str,
+                dist_map: dict | None = None) -> str:
+    """Distance : Gm si routes dispo, sinon 'local' / nom système."""
+    if dist_map and term_name:
+        name_lo  = term_name.lower()
+        short_lo = _loc(term_name).lower()
+        d = dist_map.get(name_lo) if name_lo in dist_map else dist_map.get(short_lo)
+        if d is not None:
+            if d < 5:
+                return f"[{C.PROFIT}]{d:.1f} Gm[/{C.PROFIT}]"
+            elif d < 100:
+                return f"[{C.UEX}]{d:.0f} Gm[/{C.UEX}]"
+            else:
+                return f"[{C.DIM}]{d:.0f} Gm[/{C.DIM}]"
+    if not player_sys:
+        return f"[{C.DIM}]—[/{C.DIM}]"
+    if (terminal_sys or "").lower() == player_sys.lower():
+        return f"[{C.PROFIT}]local[/{C.PROFIT}]"
+    return terminal_sys or f"[{C.DIM}]—[/{C.DIM}]"
+
+
+def _term_sys_cell(r: dict, maxlen: int = 22) -> str:
+    """'TermCourt  (Sys)' — nom court + système en dim."""
+    term = _loc(r.get("terminal_name") or "?")
+    sys  = r.get("star_system_name") or ""
+    if len(term) > maxlen:
+        term = term[:maxlen - 1] + "…"
+    sys_part = f"  [{C.DIM}]({sys})[/{C.DIM}]" if sys else ""
+    return f"{term}{sys_part}"
+
+
+def _scu_cell(qty) -> str:
+    q = int(qty or 0)
+    return f"{q:,} SCU".replace(",", "\u202f") if q else f"[{C.DIM}]—[/{C.DIM}]"
+
+
+def _scu_range(lo, hi) -> str:
+    """Plage de tailles de conteneurs : '1-8', '8-32', 'tous', '1', '—'."""
+    lo = int(lo or 0)
+    hi = int(hi or lo)
+    if not lo and not hi:
+        return f"[{C.DIM}]—[/{C.DIM}]"
+    if lo <= 1 and hi >= 32:
+        return "tous"
+    if hi > lo:
+        return f"{lo}-{hi}"
+    return str(hi or lo)
+
+
+def _parse_sys_filter(
+    args: list[str], player_sys: str
+) -> tuple[list[str] | None, list[str]]:
+    """Parse les flags --all, --Sys1,Sys2, --Cur depuis args.
+
+    Retourne (sys_filter, remaining_args).
+      sys_filter=None → filtre par player_sys (comportement par défaut)
+      sys_filter=[]   → --all, aucun filtre
+      sys_filter=[…]  → liste de systèmes en minuscules
+    """
+    remaining: list[str] = []
+    sys_filter: list[str] | None = None
+    for arg in args:
+        if arg.startswith("--"):
+            val = arg[2:].lower()
+            if val == "all":
+                sys_filter = []
+            else:
+                parts = [s.strip() for s in val.split(",") if s.strip()]
+                resolved = []
+                for s in parts:
+                    if s == "cur":
+                        if player_sys:
+                            resolved.append(player_sys.lower())
+                    else:
+                        resolved.append(s.lower())
+                if resolved:
+                    sys_filter = resolved
+        else:
+            remaining.append(arg)
+    return sys_filter, remaining
+
+
+def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     flags = []
     if c.is_illegal:     flags.append("[red]illégal[/red]")
     if c.is_refinable:   flags.append("raffinable")
@@ -317,77 +480,328 @@ def _show_commodity(c: Commodity, ctx) -> None:
     flag_str = "  " + " · ".join(flags) if flags else ""
 
     player_sys = _player_system(ctx)
-    sys_label = f"  [{C.DIM}]filtre : {player_sys}[/{C.DIM}]" if player_sys else ""
-    section(f"Commodité — {c.name}  [{c.code}]{flag_str}{sys_label}")
+    player_scu = _player_cargo(ctx)
+
+    # Résoudre le filtre effectif
+    if sys_filter is None:
+        effective_filter = [player_sys] if player_sys else None
+    elif sys_filter == []:          # --all
+        effective_filter = None
+    else:
+        effective_filter = sys_filter
+
+    if effective_filter:
+        sys_label = f"  [{C.DIM}]filtre : {', '.join(effective_filter)}[/{C.DIM}]"
+    elif sys_filter == []:
+        sys_label = f"  [{C.DIM}]tous systèmes[/{C.DIM}]"
+    else:
+        sys_label = ""
+
+    cargo_hint = (f"  [{C.DIM}]cargo : {player_scu} SCU[/{C.DIM}]" if player_scu
+                  else f"  [{C.DIM}](cargo non configuré)[/{C.DIM}]" if ctx.player.active_ship
+                  else "")
+    section(f"Commodité — {c.name}  [{c.code}]{flag_str}{sys_label}{cargo_hint}")
 
     rows = _commodity_prices(c.id, ctx)
     if not rows:
         console.print(f"[{C.DIM}]Aucune donnée de prix disponible.[/{C.DIM}]")
         return
 
-    if player_sys:
-        rows = [r for r in rows if (r.get("star_system_name") or "").lower() == player_sys]
+    if effective_filter:
+        rows_filtered = [
+            r for r in rows
+            if (r.get("star_system_name") or "").lower() in effective_filter
+        ]
+        if rows_filtered:
+            rows = rows_filtered
 
-    active = [r for r in rows if r.get("price_buy") or r.get("price_sell")]
+    active    = [r for r in rows if r.get("price_buy") or r.get("price_sell")]
+    buy_rows  = sorted([r for r in active if r.get("price_buy")],
+                       key=lambda r: r["price_buy"])
+    sell_rows = sorted([r for r in active if r.get("price_sell")],
+                       key=lambda r: -(r["price_sell"]))
+
     if not active:
-        console.print(
-            f"[{C.DIM}]Aucun terminal actif"
-            + (f" dans {player_sys}" if player_sys else "")
-            + f".[/{C.DIM}]"
-        )
+        filter_note = f" dans {', '.join(effective_filter)}" if effective_filter else ""
+        console.print(f"[{C.DIM}]Aucun terminal actif{filter_note}.[/{C.DIM}]")
         return
 
-    # Résumé sur une ligne
-    best_buy  = min((r["price_buy"]  for r in active if r.get("price_buy")),  default=0)
-    best_sell = max((r["price_sell"] for r in active if r.get("price_sell")), default=0)
+    # Prix de référence pour ROI
+    ref_buy = (buy_rows[0]["price_buy"] if buy_rows else float(c.price_buy or 0))
+
+    # ── Distances via routes API ────────────────────────────────────────────
+    dist_map: dict[str, float] = {}
+    player_term = _player_terminal(ctx)
+    if player_term and player_term.id:
+        dist_map = _fetch_route_distances(player_term.id, ctx)
+
+    # ── Résumé ─────────────────────────────────────────────────────────────
     parts = []
-    if best_buy:  parts.append(f"Achat min : [{C.UEX}]{_price_fmt(best_buy)}[/{C.UEX}]")
-    if best_sell: parts.append(f"Vente max : [{C.PROFIT}]{_price_fmt(best_sell)}[/{C.PROFIT}]")
-    if best_buy and best_sell:
-        spread = best_sell - best_buy
+    if buy_rows:
+        parts.append(f"Achat min : [{C.UEX}]{_price_fmt(buy_rows[0]['price_buy'])}[/{C.UEX}]")
+    if sell_rows:
+        parts.append(f"Vente max : [{C.PROFIT}]{_price_fmt(sell_rows[0]['price_sell'])}[/{C.PROFIT}]")
+    if ref_buy and sell_rows:
+        spread = sell_rows[0]["price_sell"] - ref_buy
+        roi    = spread / ref_buy * 100
         color  = C.PROFIT if spread > 0 else C.LOSS
-        parts.append(f"Écart : [{color}]{_price_fmt(spread)}[/{color}]")
+        parts.append(
+            f"Meilleur écart : [{color}]{_price_fmt(spread)}[/{color}]"
+            f"  [{C.DIM}]ROI {roi:+.0f}%[/{C.DIM}]"
+        )
     if parts:
         console.print("  ".join(parts))
         console.print()
 
-    # Tri : both buy+sell → sell-only → buy-only
-    def _sort_key(r):
-        has_b = bool(r.get("price_buy"))
-        has_s = bool(r.get("price_sell"))
-        if has_b and has_s:
-            return (0, -(r.get("price_sell") or 0))
-        if has_s:
-            return (1, -(r.get("price_sell") or 0))
-        return (2, r.get("price_buy") or 0)
+    # ── Table ACHAT ────────────────────────────────────────────────────────
+    if buy_rows:
+        console.print(f"[bold {C.UEX}]▼ Acheter ici[/bold {C.UEX}]")
+        tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
+        tbl.add_column("Terminal (Sys)", no_wrap=True, min_width=24)
+        tbl.add_column("Achat/SCU",      style=C.UEX,  justify="right", no_wrap=True)
+        tbl.add_column("T.Cargo",        style=C.DIM,  justify="right", no_wrap=True)
+        tbl.add_column("Dispo",          no_wrap=True)
+        tbl.add_column("Dist",           no_wrap=True)
+        tbl.add_column("Total achat",    style=C.UEX,  justify="right", no_wrap=True)
 
-    tbl = Table(show_header=True, box=None, padding=(0, 1))
-    tbl.add_column("Terminal",  style=C.NEUTRAL, no_wrap=True, min_width=18)
-    tbl.add_column("Sys",       style=C.DIM,     no_wrap=True)
-    tbl.add_column("Achat/SCU", style=C.UEX,     justify="right", no_wrap=True)
-    tbl.add_column("Dispo",     style=C.DIM,     justify="right", no_wrap=True)
-    tbl.add_column("Vente/SCU", style=C.PROFIT,  justify="right", no_wrap=True)
-    tbl.add_column("Stock",     style=C.DIM,     justify="right", no_wrap=True)
+        for r in buy_rows[:30]:
+            price     = r.get("price_buy") or 0
+            scu_min   = int(r.get("scu_buy") or 0)
+            scu_max   = int(r.get("scu_buy_max") or scu_min)
+            status    = int(r.get("status_buy") or 0)
+            sys       = r.get("star_system_name") or ""
+            term_name = r.get("terminal_name") or ""
+            if player_scu and scu_max:
+                qty_buy = min(player_scu, scu_max)
+            elif player_scu:
+                qty_buy = player_scu
+            else:
+                qty_buy = scu_max
+            total = price * qty_buy if price and qty_buy else None
+            total_cell = (
+                f"{_price_fmt(total)} [{C.DIM}](×{qty_buy})[/{C.DIM}]"
+                if total else f"[{C.DIM}]—[/{C.DIM}]"
+            )
+            tbl.add_row(
+                _term_sys_cell(r),
+                _price_fmt(price),
+                _scu_range(scu_min, scu_max),
+                _bar_buy(status, scu_max),
+                _dist_label(term_name, sys, player_sys, dist_map),
+                total_cell,
+            )
+        console.print(tbl)
 
-    prev_group = None
-    for r in sorted(active, key=_sort_key)[:30]:
-        has_b = bool(r.get("price_buy"))
-        has_s = bool(r.get("price_sell"))
-        group = 0 if (has_b and has_s) else (1 if has_s else 2)
-        if prev_group is not None and group != prev_group:
-            tbl.add_section()  # séparateur horizontal entre groupes
-        prev_group = group
+    # ── Séparateur — "Vente" positionné au tiers gauche ────────────────────
+    w     = max(40, (getattr(console, "width", None) or 80) - 10)
+    mid   = " Vente "
+    left  = w // 3
+    right = w - left - len(mid)
+    console.print(f"[{C.DIM}]{'─' * left}{mid}{'─' * right}[/{C.DIM}]")
 
-        term  = _loc(r.get("terminal_name") or "?")
-        sys   = r.get("star_system_name") or "?"
-        buy   = _price_fmt(r.get("price_buy"))
-        buy_s = _scu(r.get("scu_buy"), r.get("scu_buy_max"))
-        sell  = _price_fmt(r.get("price_sell"))
-        stock = _scu(r.get("scu_sell_stock"))
-        tbl.add_row(term, sys, buy, buy_s, sell, stock)
+    # ── Table VENTE ────────────────────────────────────────────────────────
+    if sell_rows:
+        console.print(f"[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
+        tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
+        tbl.add_column("Terminal (Sys)",  no_wrap=True, min_width=24)
+        tbl.add_column("Vente/SCU",       style=C.PROFIT, justify="right", no_wrap=True)
+        tbl.add_column("Saturation",      no_wrap=True)
+        tbl.add_column("T.Cargo",         style=C.DIM,    justify="right", no_wrap=True)
+        tbl.add_column("Dist",            no_wrap=True)
+        tbl.add_column("ROI",             justify="right", no_wrap=True)
+        tbl.add_column("Revenu cargo",    style=C.PROFIT, justify="right", no_wrap=True)
 
-    console.print(tbl)
-    console.print(f"\n[{C.DIM}]{len(active)} terminaux  ·  Achat = où acheter  ·  Vente = où vendre[/{C.DIM}]")
+        for r in sell_rows[:30]:
+            price        = r.get("price_sell") or 0
+            scu_sell_min = int(r.get("scu_sell") or 0)
+            scu_sell_max = int(r.get("scu_sell_max") or scu_sell_min)
+            scu_stock    = int(r.get("scu_sell_stock") or 0)
+            status       = int(r.get("status_sell") or 0)
+            sys          = r.get("star_system_name") or ""
+            term_name    = r.get("terminal_name") or ""
+            if player_scu and scu_sell_max:
+                qty_sell = min(player_scu, scu_sell_max)
+            elif player_scu:
+                qty_sell = player_scu
+            else:
+                qty_sell = scu_sell_max
+            revenue = price * qty_sell if price and qty_sell else None
+
+            if ref_buy and price:
+                roi_val   = (price - ref_buy) / ref_buy * 100
+                roi_color = C.PROFIT if roi_val > 0 else C.LOSS
+                roi_str   = f"[{roi_color}]{roi_val:+.0f}%[/{roi_color}]"
+            else:
+                roi_str = f"[{C.DIM}]—[/{C.DIM}]"
+
+            revenue_cell = (
+                f"{_price_fmt(revenue)} [{C.DIM}](×{qty_sell})[/{C.DIM}]"
+                if revenue else f"[{C.DIM}]—[/{C.DIM}]"
+            )
+            tbl.add_row(
+                _term_sys_cell(r),
+                _price_fmt(price),
+                _bar_sell(status, scu_stock),
+                _scu_range(scu_sell_min, scu_sell_max),
+                _dist_label(term_name, sys, player_sys, dist_map),
+                roi_str,
+                revenue_cell,
+            )
+        console.print(tbl)
+
+    # ── Footer ─────────────────────────────────────────────────────────────
+    n_t    = len({r.get("terminal_name") for r in active})
+    dates  = [r.get("date_modified") for r in active if r.get("date_modified")]
+    date_str = ""
+    if dates:
+        try:
+            dt = datetime.fromtimestamp(max(float(d) for d in dates))
+            date_str = f"  ·  màj {dt.strftime('%d %b %Y %H:%M')}"
+        except Exception:
+            pass
+    ship_note = ""
+    if player_scu:
+        ship_note = f"  ·  {ctx.player.active_ship} ({player_scu} SCU)"
+    elif ctx.player.active_ship:
+        ship_note = f"  ·  {ctx.player.active_ship} — /ship cargo <nom> <n> pour le SCU"
+    console.print(f"\n[{C.DIM}]{n_t} terminaux{date_str}{ship_note}[/{C.DIM}]")
+    console.print(
+        f"[{C.DIM}]  Prix en aUEC  ·  T.Cargo : taille conteneurs (ex. 1-8, 8-32, tous)"
+        f"  ·  Dispo ░=vide ████=plein  ·  ROI vs meilleur achat local[/{C.DIM}]"
+    )
+
+
+# ── Cache prix véhicules ────────────────────────────────────────────────────────
+
+_VEHICLE_PRICE_TTL = 3600  # 1 h (prix d'achat vaisseaux varient peu)
+
+
+def _fetch_vehicle_purchases(id_vehicle: int, ctx) -> list[dict]:
+    key = f"vp_{id_vehicle}"
+    cached = ctx._price_cache.get(key)
+    if cached:
+        ts, data = cached
+        if time.monotonic() - ts < _VEHICLE_PRICE_TTL:
+            return data
+    client = UEXClient()
+    try:
+        data = client.get_vehicles_purchases_prices(id_vehicle=id_vehicle)
+    except UEXError as e:
+        console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
+        return []
+    ctx._price_cache[key] = (time.monotonic(), data)
+    return data
+
+
+def _fetch_vehicle_rentals(id_vehicle: int, ctx) -> list[dict]:
+    key = f"vr_{id_vehicle}"
+    cached = ctx._price_cache.get(key)
+    if cached:
+        ts, data = cached
+        if time.monotonic() - ts < _VEHICLE_PRICE_TTL:
+            return data
+    client = UEXClient()
+    try:
+        data = client.get_vehicles_rentals_prices(id_vehicle=id_vehicle)
+    except UEXError as e:
+        console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
+        return []
+    ctx._price_cache[key] = (time.monotonic(), data)
+    return data
+
+
+# ── Affichage vaisseau ──────────────────────────────────────────────────────────
+
+def _show_vehicle(v: Vehicle, ctx) -> None:
+    section(f"Vaisseau — {v.name_full}")
+
+    # ── Fiche technique ────────────────────────────────────────────────────
+    roles = []
+    if v.is_cargo:          roles.append("cargo")
+    if v.is_mining:         roles.append("mining")
+    if v.is_salvage:        roles.append("salvage")
+    if v.is_military:       roles.append("militaire")
+
+    crew_str = str(v.crew) if v.crew and v.crew != "0" else "—"
+    pad_str  = v.pad_type or "—"
+    scu_str  = str(v.scu) if v.scu else "—"
+
+    console.print(
+        f"[{C.LABEL}]Fabricant[/{C.LABEL}]  {v.manufacturer or '—'}"
+        f"    [{C.LABEL}]Cargo[/{C.LABEL}]  [{C.UEX}]{scu_str} SCU[/{C.UEX}]"
+        f"    [{C.LABEL}]Équipage[/{C.LABEL}]  {crew_str}"
+        f"    [{C.LABEL}]Pad[/{C.LABEL}]  {pad_str}"
+    )
+    if roles:
+        console.print(f"[{C.LABEL}]Rôles[/{C.LABEL}]  " + " · ".join(roles))
+    console.print()
+
+    player_sys = _player_system(ctx)
+
+    # ── Prix d'achat ───────────────────────────────────────────────────────
+    buy_rows = _fetch_vehicle_purchases(v.id, ctx)
+    if buy_rows:
+        prices = [int(r.get("price") or r.get("price_buy") or 0) for r in buy_rows]
+        prices = [p for p in prices if p > 0]
+        avg_buy = sum(prices) // len(prices) if prices else 0
+
+        console.print(
+            f"[bold {C.UEX}]▼ Achat[/bold {C.UEX}]"
+            + (f"  [{C.DIM}]moy {_price_fmt(avg_buy)} aUEC[/{C.DIM}]" if avg_buy else "")
+        )
+
+        def _buy_sort(r):
+            sys = (r.get("star_system_name") or "").lower()
+            same = (sys == player_sys) if player_sys else False
+            return (0 if same else 1, int(r.get("price") or r.get("price_buy") or 0))
+
+        tbl = Table(show_header=True, box=None, padding=(0, 1))
+        tbl.add_column("Terminal",  style=C.NEUTRAL, no_wrap=True, min_width=20)
+        tbl.add_column("Système",   style=C.DIM,     no_wrap=True)
+        tbl.add_column("Prix",      style=C.UEX,     justify="right", no_wrap=True)
+        for r in sorted(buy_rows, key=_buy_sort)[:20]:
+            price = int(r.get("price") or r.get("price_buy") or 0)
+            if not price:
+                continue
+            term = r.get("terminal_name") or "?"
+            sys  = r.get("star_system_name") or "?"
+            tbl.add_row(term, sys, f"{_price_fmt(price)} aUEC")
+        console.print(tbl)
+        console.print()
+    else:
+        console.print(f"[{C.DIM}]Prix d'achat non disponibles.[/{C.DIM}]\n")
+
+    # ── Prix de location ───────────────────────────────────────────────────
+    rent_rows = _fetch_vehicle_rentals(v.id, ctx)
+    if rent_rows:
+        prices = [int(r.get("price_rent") or r.get("price") or 0) for r in rent_rows]
+        prices = [p for p in prices if p > 0]
+        avg_rent = sum(prices) // len(prices) if prices else 0
+
+        console.print(
+            f"[bold {C.PROFIT}]▼ Location[/bold {C.PROFIT}]"
+            + (f"  [{C.DIM}]moy {_price_fmt(avg_rent)} aUEC/jour[/{C.DIM}]" if avg_rent else "")
+        )
+
+        def _rent_sort(r):
+            sys = (r.get("star_system_name") or "").lower()
+            same = (sys == player_sys) if player_sys else False
+            return (0 if same else 1, int(r.get("price_rent") or r.get("price") or 0))
+
+        tbl = Table(show_header=True, box=None, padding=(0, 1))
+        tbl.add_column("Terminal",  style=C.NEUTRAL, no_wrap=True, min_width=20)
+        tbl.add_column("Système",   style=C.DIM,     no_wrap=True)
+        tbl.add_column("Prix/jour", style=C.PROFIT,  justify="right", no_wrap=True)
+        for r in sorted(rent_rows, key=_rent_sort)[:20]:
+            price = int(r.get("price_rent") or r.get("price") or 0)
+            if not price:
+                continue
+            term = r.get("terminal_name") or "?"
+            sys  = r.get("star_system_name") or "?"
+            tbl.add_row(term, sys, f"{_price_fmt(price)} aUEC")
+        console.print(tbl)
+    else:
+        console.print(f"[{C.DIM}]Prix de location non disponibles.[/{C.DIM}]")
 
 
 # ── Recherche ──────────────────────────────────────────────────────────────────
@@ -418,6 +832,33 @@ def _find_commodity(query: str, ctx) -> Commodity | None:
     for c in ctx.cache.commodities:
         if q in c.name.lower():
             return c
+    return None
+
+
+def _find_vehicle(query: str, ctx) -> Vehicle | None:
+    q = query.replace("_", " ").lower().strip()
+    vehicles = ctx.cache.vehicles or []
+    for v in vehicles:
+        if v.name_full.lower() == q or v.name.lower() == q:
+            return v
+    for v in vehicles:
+        if v.name_full.lower().startswith(q):
+            return v
+    for v in vehicles:
+        if q in v.name_full.lower():
+            return v
+    try:
+        from rapidfuzz import process, fuzz
+        names_lower = [v.name_full.lower() for v in vehicles]
+        r = process.extractOne(q, names_lower, scorer=fuzz.WRatio, score_cutoff=65)
+        if r:
+            return vehicles[names_lower.index(r[0])]
+    except ImportError:
+        import difflib
+        names_lower = [v.name_full.lower() for v in vehicles]
+        m = difflib.get_close_matches(q, names_lower, n=1, cutoff=0.6)
+        if m:
+            return vehicles[names_lower.index(m[0])]
     return None
 
 
@@ -458,8 +899,20 @@ def _show_terminal_by_name(query: str, ctx) -> bool:
 
 @register("info")
 def cmd_info(args: list[str], ctx) -> None:
+    # Extraire les flags système (--all, --Sys,Sys) avant de router
+    player_sys = _player_system(ctx)
+    sys_filter, args = _parse_sys_filter(args, player_sys)
+
     if not args:
-        print_warn("Usage : /info <nom>   ou   /info terminal|commodity <nom>")
+        loc = (ctx.player.location or "").strip()
+        if not loc:
+            print_warn("Usage : /info <nom>   ou   /info terminal|commodity <nom>")
+            return
+        t = _find_terminal(loc, ctx)
+        if t:
+            _show_terminal(t, ctx)
+        elif not _show_terminal_by_name(loc, ctx):
+            print_warn(f"Position actuelle introuvable comme terminal : {loc}")
         return
 
     _SUBS = {"terminal", "commodity", "ship"}
@@ -481,9 +934,13 @@ def cmd_info(args: list[str], ctx) -> None:
             if c is None:
                 print_warn(f"Commodité introuvable : {query}")
             else:
-                _show_commodity(c, ctx)
+                _show_commodity(c, ctx, sys_filter=sys_filter)
         else:
-            print_warn("/info ship — disponible en Phase 2.")
+            v = _find_vehicle(query, ctx)
+            if v is None:
+                print_warn(f"Vaisseau introuvable : {query}")
+            else:
+                _show_vehicle(v, ctx)
         return
 
     # Recherche libre
@@ -497,10 +954,15 @@ def cmd_info(args: list[str], ctx) -> None:
         return
     c = _find_commodity(query, ctx)
     if c:
-        _show_commodity(c, ctx)
+        _show_commodity(c, ctx, sys_filter=sys_filter)
         return
     # Fallback : terminal hors cache (Pyro, etc.) → requête directe par nom
     if _show_terminal_by_name(query, ctx):
+        return
+    # Fallback : vaisseau
+    v = _find_vehicle(query, ctx)
+    if v:
+        _show_vehicle(v, ctx)
         return
 
     console.print(

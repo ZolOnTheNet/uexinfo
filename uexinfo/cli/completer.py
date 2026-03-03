@@ -14,6 +14,7 @@ _EXPLORE_ROOTS = ["ship", "commodity"]  # + system names (dynamic)
 
 _SUBS: dict[str, list[str]] = {
     "help":                 [],
+    "ship":                 ["list", "add", "remove", "set", "cargo"],
     "config":               ["ship", "trade", "cache", "scan", "player"],
     "config ship":          ["list", "add", "remove", "set", "cargo"],
     "config trade":         ["profit", "margin", "illegal"],
@@ -34,6 +35,7 @@ _SUBS: dict[str, list[str]] = {
     "route":                ["from", "to", "--commodity", "--min-profit", "--scu"],
     "plan":                 ["new", "add", "remove", "optimize", "clear", "show"],
     "info":                 ["terminal", "commodity", "ship"],
+    "info ship":            [],  # completions dynamiques (noms de vaisseaux)
     "explore":              [],  # completions are fully dynamic
     "refresh":              ["all", "static", "prices", "sctrade", "status"],
     "exit":                 [],
@@ -120,24 +122,40 @@ class UEXCompleter(Completer):
                     )
 
         # ── Complétion dynamique : terminaux ─────────────────────────────
-        if self.ctx and cmd in _TERMINAL_CMDS and (ends_space or len(words) >= 2):
-            for t in self.ctx.cache.terminals:
-                name = t.name
-                if name.lower().startswith(cur_lower):
+        if self.ctx and cmd in _TERMINAL_CMDS and (ends_space or len(words) >= 2) and cur_lower:
+            if self.ctx.location_index:
+                for entry in self.ctx.location_index.search(current, limit=12, types={"terminal"}):
+                    slug = entry.name.replace(" ", "_")
                     yield Completion(
-                        name,
+                        slug,
                         start_position=-len(current),
-                        display=name,
-                        display_meta=t.location,
+                        display=entry.name,
+                        display_meta=entry.full_path,
                     )
+            else:
+                for t in self.ctx.cache.terminals:
+                    name = t.name
+                    if name.lower().startswith(cur_lower):
+                        yield Completion(
+                            name,
+                            start_position=-len(current),
+                            display=name,
+                            display_meta=t.location,
+                        )
 
-        # ── Complétion dynamique : vaisseaux (config ship / player ship) ────
+        # ── Complétion dynamique : vaisseaux (ship / config ship / player ship) ────
         is_ship_cmd = (
+            cmd == "ship" or
             (cmd == "config" and typed_args and typed_args[0] == "ship") or
             (cmd == "player" and typed_args and typed_args[0] == "ship")
         )
         if self.ctx and is_ship_cmd:
-            action = typed_args[1].lower() if len(typed_args) > 1 else ""
+            # Pour /ship <action>, l'action est typed_args[0]
+            # Pour /config ship <action> et /player ship <action>, c'est typed_args[1]
+            if cmd == "ship":
+                action = typed_args[0].lower() if typed_args else ""
+            else:
+                action = typed_args[1].lower() if len(typed_args) > 1 else ""
             if action in ("add", "set", ""):
                 cur_norm = cur_lower.replace("_", " ")
                 # Priorité 1 : préfixe du nom complet
@@ -167,6 +185,29 @@ class UEXCompleter(Completer):
                 for s in self.ctx.cfg.get("ships", {}).get("available", []):
                     if s.lower().startswith(cur_lower):
                         yield Completion(s, start_position=-len(current))
+
+        # ── Complétion dynamique : /info ship <nom> ou /info <nom_vaisseau> ─
+        if self.ctx and cmd == "info" and (
+            (typed_args and typed_args[0].lower() == "ship") or
+            (not typed_args and (ends_space or len(words) >= 2))
+        ):
+            cur_norm = cur_lower.replace("_", " ")
+            seen_vs: set[str] = set()
+            for v in (self.ctx.cache.vehicles or []):
+                if v.name_full.lower().startswith(cur_norm):
+                    slug = v.name_full.replace(" ", "_")
+                    seen_vs.add(v.name_full)
+                    yield Completion(slug, start_position=-len(current),
+                                     display=v.name_full, display_meta=v.manufacturer)
+            if cur_norm and len(cur_norm) >= 2:
+                for v in (self.ctx.cache.vehicles or []):
+                    if v.name_full in seen_vs:
+                        continue
+                    if any(w.startswith(cur_norm) for w in v.name_full.lower().split()):
+                        slug = v.name_full.replace(" ", "_")
+                        seen_vs.add(v.name_full)
+                        yield Completion(slug, start_position=-len(current),
+                                         display=v.name_full, display_meta=v.manufacturer)
 
         # ── Complétion dynamique : /explore ──────────────────────────────
         if self.ctx and cmd == "explore":
@@ -296,51 +337,76 @@ class UEXCompleter(Completer):
                     yield _mk(loc)
 
     def _complete_info_query(self, text: str):
-        """Complétion pour la saisie libre (commande /info par défaut)."""
-        # Normaliser l'input : underscore → espace pour la recherche
+        """Complétion pour la saisie libre — terminaux, commodités, vaisseaux."""
         text_norm = text.replace("_", " ")
-        start = -len(text)
-        seen: set[str] = set()
+        q         = text_norm.lower()
+        start     = -len(text)
 
-        # Terminaux (via LocationIndex)
+        # ── Terminaux ─────────────────────────────────────────────────────
+        seen_t: set[str] = set()
         if self.ctx.location_index:
-            for entry in self.ctx.location_index.search(text_norm, limit=12, types={"terminal"}):
-                name = entry.name
-                slug = name.replace(" ", "_")
-                if slug in seen:
+            for entry in self.ctx.location_index.search(text_norm, limit=8, types={"terminal"}):
+                slug = entry.name.replace(" ", "_")
+                if slug in seen_t:
                     continue
-                seen.add(slug)
+                seen_t.add(slug)
                 yield Completion(
-                    slug,                        # texte inséré (underscore)
+                    slug,
                     start_position=start,
-                    display=name,                # affiché sans underscore
+                    display=entry.name,
                     display_meta=f"terminal · {entry.full_path}",
                 )
 
-        # Commodités (préfixe d'abord, puis sous-chaîne)
-        q = text_norm.lower()
-        seen_comm: set[str] = set()
+        # ── Commodités (préfixe d'abord, puis sous-chaîne) ────────────────
+        seen_c: set[str] = set()
         for c in (self.ctx.cache.commodities or []):
             if c.name.lower().startswith(q):
                 slug = c.name.replace(" ", "_")
-                if slug not in seen_comm:
-                    seen_comm.add(slug)
+                if slug not in seen_c:
+                    seen_c.add(slug)
                     yield Completion(
                         slug,
                         start_position=start,
                         display=f"{c.name}  ({c.code})",
-                        display_meta=c.kind,
+                        display_meta=c.kind or "commodité",
                     )
         for c in (self.ctx.cache.commodities or []):
             slug = c.name.replace(" ", "_")
-            if q in c.name.lower() and slug not in seen_comm:
-                seen_comm.add(slug)
+            if q in c.name.lower() and slug not in seen_c:
+                seen_c.add(slug)
                 yield Completion(
                     slug,
                     start_position=start,
                     display=f"{c.name}  ({c.code})",
-                    display_meta=c.kind,
+                    display_meta=c.kind or "commodité",
                 )
+
+        # ── Vaisseaux (préfixe d'abord, puis mot interne) ─────────────────
+        seen_v: set[str] = set()
+        for v in (self.ctx.cache.vehicles or []):
+            if v.name_full.lower().startswith(q):
+                slug = v.name_full.replace(" ", "_")
+                if slug not in seen_v:
+                    seen_v.add(slug)
+                    yield Completion(
+                        slug,
+                        start_position=start,
+                        display=v.name_full,
+                        display_meta=f"vaisseau · {v.manufacturer}",
+                    )
+        if q and len(q) >= 2:
+            for v in (self.ctx.cache.vehicles or []):
+                slug = v.name_full.replace(" ", "_")
+                if slug in seen_v:
+                    continue
+                if any(w.startswith(q) for w in v.name_full.lower().split()):
+                    seen_v.add(slug)
+                    yield Completion(
+                        slug,
+                        start_position=start,
+                        display=v.name_full,
+                        display_meta=f"vaisseau · {v.manufacturer}",
+                    )
 
     def _complete_location(self, token: str):
         """Complète un token @xxx avec le LocationIndex."""

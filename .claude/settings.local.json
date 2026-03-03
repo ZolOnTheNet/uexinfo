@@ -5,7 +5,19 @@
       "WebFetch(domain:uexcorp.space)",
       "Bash(tesseract:*)",
       "WebFetch(domain:github.com)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "WebFetch(domain:www.erkul.games)",
+      "Bash(source:*)",
+      "WebFetch(domain:sc-cargo.space)",
+      "WebFetch(domain:robertsspaceindustries.com)",
+      "WebSearch",
+      "WebFetch(domain:ratjack.net)",
+      "WebFetch(domain:starcitizen.tools)",
+      "WebFetch(domain:sc-cargo-grid-optimizer.alwaysdata.net)",
+      "WebFetch(domain:dutchdemons.com)",
+      "WebFetch(domain:starcitizen-api.com)",
+      "WebFetch(domain:gallog.co)",
+      "WebFetch(domain:pypi.org)"
     ]
   }
 }

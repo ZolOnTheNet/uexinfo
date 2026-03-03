@@ -8,6 +8,7 @@ from uexinfo.display import colors as C
 _COMMANDS = {
     "help":    "Aide générale ou /help <commande>",
     "config":  "Configuration : vaisseaux, préférences, trade, scan",
+    "ship":    "Raccourci /config ship — gérer les vaisseaux configurés",
     "go":      "Définir la position courante ou destination",
     "lieu":    "Alias de /go",
     "select":  "Filtres actifs (système, planète, station, terminal…)",
@@ -44,6 +45,19 @@ _DETAILS = {
         "/scan history [n]            Historique des n derniers scans (défaut 5)\n\n"
         "Priorité /scan ecran : fenêtre SC → presse-papiers → dernier screenshot"
     ),
+    "ship": (
+        "/ship list                     Lister les vaisseaux configurés\n"
+        "/ship add <nom>[, <nom2>, …]   Ajouter un ou plusieurs vaisseaux\n"
+        "/ship remove <nom>             Retirer un vaisseau\n"
+        "/ship set <nom>                Définir le vaisseau actif\n"
+        "/ship cargo <nom> <scu>        Définir la capacité cargo en SCU\n\n"
+        "Alias direct de /config ship — Tab pour compléter les noms de vaisseaux.\n"
+        "Exemples :\n"
+        "  /ship add Drake_Cutlass_Black\n"
+        "  /ship set Drake_Cutlass_Black\n"
+        "  /ship cargo Drake_Cutlass_Black 46\n"
+        "  /ship list"
+    ),
     "config": (
         "/config                               Afficher la configuration\n"
         "/config ship add <nom>[, <nom2>, …]   Ajouter un ou plusieurs vaisseaux\n"
@@ -79,12 +93,19 @@ _DETAILS = {
         "  /explore commodity.metal"
     ),
     "info": (
-        "/info <nom>              Recherche libre (terminal ou commodité)\n"
-        "/info terminal <nom>     Détail d'un terminal (lieu, système…)\n"
-        "/info commodity <nom>    Détail d'une commodité (prix UEX, flags…)\n\n"
+        "/info <nom>                  Recherche libre (terminal, commodité, vaisseau)\n"
+        "/info terminal <nom>         Détail d'un terminal (lieu, système…)\n"
+        "/info commodity <nom>        Détail d'une commodité (prix UEX, flags…)\n"
+        "/info ship <nom>             Fiche vaisseau (achat, location, cargo)\n\n"
+        "Filtres système (commodités) :\n"
+        "  /info --all <commodité>          Tous les systèmes\n"
+        "  /info --Nyx,Pyro <commodité>     Filtrer sur Nyx et Pyro\n"
+        "  /info --Cur,Nyx <commodité>      Système courant + Nyx\n\n"
         "Exemples :\n"
         "  /info GrimHEX\n"
         "  /info Laranite\n"
+        "  /info --all Copper\n"
+        "  /info ship Cutlass Black\n"
         "  /info terminal Area 18"
     ),
     "go": (

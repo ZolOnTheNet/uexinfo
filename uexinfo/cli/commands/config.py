@@ -15,7 +15,7 @@ def cmd_ship(args: list[str], ctx) -> None:
 @register("config")
 def cmd_config(args: list[str], ctx) -> None:
     if not args:
-        _show(ctx.cfg)
+        _show(ctx.cfg, ctx)
         return
     sub = args[0].lower()
     rest = args[1:]
@@ -35,26 +35,33 @@ def cmd_config(args: list[str], ctx) -> None:
 
 # ── Affichage ────────────────────────────────────────────────────────────────
 
-def _show(cfg: dict) -> None:
+def _show(cfg: dict, ctx=None) -> None:
     section("Configuration")
-    ships = cfg.get("ships", {})
-    current = ships.get("current", "")
-    available = ships.get("available", [])
-    cargo = cfg.get("cargo", {})
-    pos = cfg.get("position", {})
-    trade = cfg.get("trade", {})
+    trade     = cfg.get("trade", {})
     cache_cfg = cfg.get("cache", {})
-    scan = cfg.get("scan", {})
-    player = cfg.get("player", {})
+    scan      = cfg.get("scan", {})
 
-    console.print(f"  [bold]Vaisseau actif :[/bold] [{C.UEX}]{current or '(non défini)'}[/{C.UEX}]")
-    if available:
-        for s in available:
-            scu = cargo.get(s, "?")
-            marker = "  ◄ actif" if s == current else ""
-            console.print(f"    [{C.UEX}]{s}[/{C.UEX}]  [{C.DIM}]{scu} SCU{marker}[/{C.DIM}]")
-    console.print(f"  [bold]Position :[/bold]    [{C.UEX}]{pos.get('current') or '(non définie)'}[/{C.UEX}]")
-    console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{pos.get('destination') or '(non définie)'}[/{C.UEX}]")
+    # ── Vaisseaux & position (source unique : ctx.player) ─────────────────
+    p = ctx.player if ctx else None
+    if p:
+        active = p.active_ship or ""
+        console.print(f"  [bold]Vaisseau actif :[/bold] [{C.UEX}]{active or '(non défini)'}[/{C.UEX}]")
+        for s in p.ships:
+            scu_str = str(s.scu) if s.scu else "?"
+            marker  = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == active else ""
+            console.print(f"    [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} SCU[/{C.DIM}]{marker}")
+        console.print(f"  [bold]Position :[/bold]    [{C.UEX}]{p.location or '(non définie)'}[/{C.UEX}]")
+        console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{p.destination or '(non définie)'}[/{C.UEX}]")
+    else:
+        # Fallback si pas de contexte
+        ships   = cfg.get("ships", {})
+        current = ships.get("current", "")
+        pos     = cfg.get("position", {})
+        console.print(f"  [bold]Vaisseau actif :[/bold] [{C.UEX}]{current or '(non défini)'}[/{C.UEX}]")
+        console.print(f"  [bold]Position :[/bold]    [{C.UEX}]{pos.get('current') or '(non définie)'}[/{C.UEX}]")
+        console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{pos.get('destination') or '(non définie)'}[/{C.UEX}]")
+
+    # ── Trade / cache / scan ───────────────────────────────────────────────
     console.print(f"  [bold]Profit min/SCU :[/bold] {trade.get('min_profit_per_scu', 0)} aUEC")
     console.print(f"  [bold]Marge min :[/bold]     {trade.get('min_margin_percent', 0)} %")
     console.print(f"  [bold]Illégal :[/bold]       {'oui' if trade.get('illegal_commodities') else 'non'}")
@@ -63,8 +70,6 @@ def _show(cfg: dict) -> None:
     console.print(f"  [bold]scan.tesseract :[/bold]   {scan.get('tesseract_exe') or '(auto)'}  [{C.DIM}](moteur OCR pour lire les screenshots)[/{C.DIM}]")
     console.print(f"  [bold]scan.logpath :[/bold]     {scan.get('sc_log_path') or '(non défini)'}")
     console.print(f"  [bold]scan.screenshots :[/bold] {scan.get('sc_screenshots_dir') or '(non défini)'}")
-    console.print(f"  [bold]player.active_ship :[/bold] {player.get('active_ship') or '—'}")
-    console.print(f"  [bold]player.location :[/bold]    {player.get('location') or '—'}")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -87,30 +92,30 @@ def _find_vehicle(name: str, ctx):
     return None
 
 
+def _save_player(ctx) -> None:
+    ctx.cfg["player"] = ctx.player.to_config()
+    settings.save(ctx.cfg)
+
+
 # ── Ship ─────────────────────────────────────────────────────────────────────
 
 def _ship(args: list[str], ctx) -> None:
-    if not args:
-        print_error("Usage: /config ship list|add|remove|set|cargo <...>")
-        return
+    """Gestion vaisseaux via ctx.player (source unique de vérité)."""
+    from uexinfo.models.player import Ship
 
-    sub = args[0].lower()
-    rest = args[1:]
-    ships = ctx.cfg.setdefault("ships", {})
-    available: list = ships.setdefault("available", [])
-    cargo: dict = ctx.cfg.setdefault("cargo", {})
-
-    if sub == "list":
-        if not available:
+    if not args or args[0].lower() == "list":
+        if not ctx.player.ships:
             print_warn("Aucun vaisseau configuré — /config ship add <nom>")
             return
         section("Vaisseaux configurés")
-        current = ships.get("current", "")
-        for s in available:
-            scu = cargo.get(s, "?")
-            marker = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s == current else ""
-            console.print(f"  [{C.UEX}]{s}[/{C.UEX}]  [{C.DIM}]{scu} SCU[/{C.DIM}]{marker}")
+        for s in ctx.player.ships:
+            scu_str = str(s.scu) if s.scu else "?"
+            marker  = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == ctx.player.active_ship else ""
+            console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} SCU[/{C.DIM}]{marker}")
         return
+
+    sub  = args[0].lower()
+    rest = args[1:]
 
     if sub == "add":
         raw = " ".join(rest).replace("_", " ")
@@ -120,63 +125,62 @@ def _ship(args: list[str], ctx) -> None:
         names = [n.strip() for n in raw.split(",") if n.strip()] if "," in raw else [raw]
         for name in names:
             vehicle = _find_vehicle(name, ctx)
-            # Utiliser le nom canonique (avec fabricant) si trouvé dans le cache
-            canon = vehicle.name_full if vehicle else name
-            if canon in available:
+            canon   = vehicle.name_full if vehicle else name
+            if any(s.name == canon for s in ctx.player.ships):
                 print_warn(f"{canon} déjà dans la liste")
                 continue
-            available.append(canon)
-            if not ships.get("current"):
-                ships["current"] = canon
-            # Sauvegarder le SCU depuis le cache véhicule
-            if vehicle and vehicle.scu:
-                cargo[canon] = vehicle.scu
+            scu = vehicle.scu if vehicle else 0
+            ctx.player.ships.append(Ship(name=canon, scu=scu))
+            if not ctx.player.active_ship:
+                ctx.player.active_ship = canon
             info = f"  [{C.DIM}]{vehicle.scu} SCU · pad {vehicle.pad_type}[/{C.DIM}]" if vehicle else ""
             if not vehicle:
                 info = f"  [{C.WARNING}]vaisseau non trouvé dans le cache — SCU à configurer manuellement[/{C.WARNING}]"
             print_ok(f"Vaisseau ajouté : {canon}{info}")
-        settings.save(ctx.cfg)
+        _save_player(ctx)
 
     elif sub == "remove":
-        name = " ".join(rest)
-        if name in available:
-            available.remove(name)
-            cargo.pop(name, None)
-            if ships.get("current") == name:
-                ships["current"] = available[0] if available else ""
-            settings.save(ctx.cfg)
-            print_ok(f"Vaisseau retiré : {name}")
-        else:
+        name   = " ".join(rest)
+        before = len(ctx.player.ships)
+        ctx.player.ships = [s for s in ctx.player.ships if s.name.lower() != name.lower()]
+        if len(ctx.player.ships) == before:
             print_error(f"Vaisseau introuvable : {name}")
+            return
+        if ctx.player.active_ship.lower() == name.lower():
+            ctx.player.active_ship = ctx.player.ships[0].name if ctx.player.ships else ""
+        _save_player(ctx)
+        print_ok(f"Vaisseau retiré : {name}")
 
     elif sub == "set":
-        name = " ".join(rest)
-        if name in available:
-            ships["current"] = name
-            settings.save(ctx.cfg)
-            print_ok(f"Vaisseau actif : {name}")
-        else:
+        name  = " ".join(rest)
+        match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
+        if match is None:
             print_error(f"{name} n'est pas dans la liste — ajoutez-le avec /config ship add")
+            return
+        ctx.player.active_ship = match.name
+        _save_player(ctx)
+        print_ok(f"Vaisseau actif : {match.name}")
 
     elif sub == "cargo":
         if len(rest) < 2:
             print_error("Usage: /config ship cargo <nom> <scu>")
             return
         try:
-            scu = int(rest[-1])
+            scu  = int(rest[-1])
             name = " ".join(rest[:-1])
         except ValueError:
             print_error("Le nombre de SCU doit être un entier")
             return
-        if name not in available:
+        match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
+        if match is None:
             print_error(f"Vaisseau introuvable : {name}")
             return
-        cargo[name] = scu
-        settings.save(ctx.cfg)
-        print_ok(f"{name} → {scu} SCU")
+        match.scu = scu
+        _save_player(ctx)
+        print_ok(f"{match.name} → {scu} SCU")
 
     else:
-        print_error(f"Sous-commande inconnue : {sub}")
+        print_error(f"Sous-commande inconnue : {sub}  (list|add|remove|set|cargo)")
 
 
 # ── Trade ────────────────────────────────────────────────────────────────────
@@ -258,7 +262,7 @@ def _cache(args: list[str], ctx) -> None:
 
 def _scan(args: list[str], ctx) -> None:
     if not args:
-        _show(ctx.cfg)
+        _show(ctx.cfg, ctx)
         return
     key = args[0].lower()
 

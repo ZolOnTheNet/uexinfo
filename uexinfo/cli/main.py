@@ -61,7 +61,7 @@ def _banner() -> None:
     console.print(
         f"[bold cyan]UEXInfo[/bold cyan] [dim]v{__version__}[/dim]"
         "  —  Star Citizen Trade CLI\n"
-        f"[{C.DIM}]Tapez [bold]/help[/bold] pour l'aide  │  [bold]/exit[/bold] pour quitter  │  ↓/Tab = parcourir  │  Entrée = valider  │  Saisie libre = /info[/{C.DIM}]"
+        f"[{C.DIM}]Tapez [bold]/help[/bold] pour l'aide  │  [bold]/exit[/bold] pour quitter  │  Tab = complétion  │  Saisie libre = /info  │  [bold]@lieu[/bold] = se positionner + info[/{C.DIM}]"
     )
     console.print()
 
@@ -80,6 +80,24 @@ def main() -> None:
     ctx = AppContext(cfg=cfg, cache=cache)
     ctx.location_index = LocationIndex(cache)
     ctx.player = Player.from_config(cfg.get("player", {}))
+
+    # ── Migration : cfg["ships"]/cfg["cargo"] → ctx.player (une seule fois) ─
+    if not ctx.player.ships:
+        _old_avail = cfg.get("ships", {}).get("available", [])
+        if _old_avail:
+            from uexinfo.models.player import Ship as _Ship
+            _old_cargo = cfg.get("cargo", {})
+            _old_cur   = cfg.get("ships", {}).get("current", "")
+            ctx.player.ships = [
+                _Ship(name=n, scu=_old_cargo.get(n, 0) or 0)
+                for n in _old_avail
+            ]
+            if _old_cur and not ctx.player.active_ship:
+                ctx.player.active_ship = _old_cur
+            cfg["player"] = ctx.player.to_config()
+            settings.save(cfg)
+    # ─────────────────────────────────────────────────────────────────────────
+
     completer = UEXCompleter(ctx=ctx)
 
     # ── Ctrl+↑ : ouvrir l'éditeur de scan ────────────────────────────────────
@@ -145,12 +163,23 @@ def main() -> None:
 
         stripped = line.lstrip()
         if not stripped.startswith("/"):
-            # Commande par défaut : /info <texte>
             try:
                 words = shlex.split(stripped)
             except ValueError:
                 words = stripped.split()
-            dispatch("info", words, ctx)
+
+            if words and words[0].startswith("@"):
+                # @lieu → positionner le joueur + afficher l'info
+                # Rejoindre tous les mots : "@Port Tressler" reste intact
+                full_loc = " ".join(words)          # "@Port Tressler"
+                dispatch("player", [full_loc], ctx)
+                loc_name = full_loc[1:]             # "Port Tressler"
+                if "." in loc_name:
+                    loc_name = loc_name.rsplit(".", 1)[-1]
+                dispatch("info", [loc_name], ctx)
+            else:
+                # Saisie libre → /info
+                dispatch("info", words, ctx)
             continue
 
         cmd, args = parse_line(stripped)

@@ -81,5 +81,13 @@ class UEXClient:
     def get_vehicles(self) -> list[dict]:
         return self._get("vehicles")
 
+    def get_vehicles_purchases_prices(self, id_vehicle: int | None = None) -> list[dict]:
+        params = {"id_vehicle": id_vehicle} if id_vehicle else {}
+        return self._get("vehicles_purchases_prices", params)
+
+    def get_vehicles_rentals_prices(self, id_vehicle: int | None = None) -> list[dict]:
+        params = {"id_vehicle": id_vehicle} if id_vehicle else {}
+        return self._get("vehicles_rentals_prices", params)
+
     def get_routes(self, id_terminal_origin: int) -> list[dict]:
         return self._get("commodities_routes", {"id_terminal_origin": id_terminal_origin})

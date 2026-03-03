@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "WebFetch(domain:uexcorp.space)",
+      "Bash(tesseract:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git add:*)",
+      "WebFetch(domain:www.erkul.games)",
+      "Bash(source:*)"
+    ]
+  }
+}
