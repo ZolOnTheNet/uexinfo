@@ -247,6 +247,57 @@ def _show_scan_section(result: ScanResult, ctx) -> None:
     console.print(tbl)
 
 
+# ── Helpers pour affichage ligne par ligne ────────────────────────────────────
+
+def _stock_bar(status: int, sell: bool) -> str:
+    """Génère une barre de stock visuelle ●●●○ (4 symboles)."""
+    if not status:
+        return f"[{C.DIM}]○○○○[/{C.DIM}]"
+
+    # Mapping du status (1-7) vers le nb de symboles pleins (0-4)
+    levels = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 4}
+    filled = levels.get(status, 0)
+
+    # Pour la vente : Out=vert (forte demande), Max=rouge (terminal plein)
+    # Pour l'achat : Max=vert (abondant), Out=rouge (rupture)
+    if sell:
+        colors_map = {0: "green", 1: "green", 2: "yellow", 3: "orange1", 4: "red"}
+    else:
+        colors_map = {0: "red", 1: "orange1", 2: "yellow", 3: "green", 4: "green"}
+
+    color = colors_map.get(filled, C.DIM)
+    bar = "●" * filled + "○" * (4 - filled)
+    return f"[{color}]{bar}[/{color}]"
+
+
+def _find_best_buyers(commodity_name: str, ctx, player_dest: str = "") -> list[dict]:
+    """Trouve les terminaux achetant cette commodité, triés par :
+    1. Destination du joueur (si définie)
+    2. Prix (décroissant)
+    Retourne les 3 meilleurs acheteurs.
+    """
+    client = UEXClient()
+    try:
+        rows = client.get_prices(commodity_name=commodity_name)
+    except Exception:
+        return []
+
+    # Filtrer uniquement les terminaux qui achètent (price_sell > 0)
+    buyers = [r for r in rows if r.get("price_sell")]
+
+    if not buyers:
+        return []
+
+    # Trier : destination joueur en premier, puis par prix décroissant
+    def sort_key(row):
+        terminal = (row.get("terminal_name") or "").lower()
+        is_player_dest = 1 if player_dest and terminal == player_dest else 0
+        price = float(row.get("price_sell") or 0)
+        return (-is_player_dest, -price)
+
+    return sorted(buyers, key=sort_key)[:3]  # Top 3 acheteurs
+
+
 # ── Affichage terminal ─────────────────────────────────────────────────────────
 
 def _show_terminal(t: Terminal, ctx) -> None:
@@ -292,18 +343,53 @@ def _show_terminal(t: Terminal, ctx) -> None:
 
             if buy_rows:
                 console.print(f"\n[bold {C.UEX}]▼ Acheter ici[/bold {C.UEX}]")
-                entries = [
-                    (_entry_ns(
-                        r.get("commodity_name") or "?",
-                        _scu(r.get("scu_buy"), r.get("scu_buy_max")),
-                        r.get("status_buy"), buy=True,
-                    ), _price_short(r.get("price_buy")))
-                    for r in buy_rows
-                ]
-                console.print(_multi_col_table(
-                    entries, ("Commodité (SCU)", "Achat"), n_cols,
-                    f"italic {C.NEUTRAL}", f"italic {C.UEX}",
-                ))
+                player_dest = (ctx.player.destination or "").lower().strip()
+
+                for r in buy_rows:
+                    name = r.get("commodity_name", "?")
+                    scu_str = _scu(r.get("scu_buy"), r.get("scu_buy_max"))
+                    price_buy = float(r.get("price_buy") or 0)
+                    status_buy = int(r.get("status_buy") or 0)
+
+                    # Trouver les meilleurs acheteurs pour cette commodité
+                    best_buyers = _find_best_buyers(name, ctx, player_dest)
+
+                    if not best_buyers:
+                        # Pas de destination connue — affichage simple
+                        console.print(
+                            f"  [{C.NEUTRAL}]{_abbrev_name(name)}[/{C.NEUTRAL}] "
+                            f"[{C.DIM}]({scu_str})[/{C.DIM}] "
+                            f"[italic {C.UEX}]{_price_short(price_buy)}[/italic {C.UEX}]"
+                        )
+                        continue
+
+                    # Prendre le meilleur acheteur
+                    buyer = best_buyers[0]
+                    dest_name = buyer.get("terminal_name", "?")
+                    price_sell = float(buyer.get("price_sell") or 0)
+                    status_sell = int(buyer.get("status_sell") or 0)
+                    profit = price_sell - price_buy
+
+                    # Souligner si destination = celle du joueur
+                    dest_style = "underline" if dest_name.lower() == player_dest else ""
+
+                    # Stock visuel
+                    stock_bar = _stock_bar(status_sell, sell=True)
+
+                    # Couleur profit
+                    profit_color = C.PROFIT if profit > 0 else C.LOSS
+                    profit_sign = "+" if profit >= 0 else ""
+
+                    console.print(
+                        f"  [{C.NEUTRAL}]{_abbrev_name(name)}[/{C.NEUTRAL}] "
+                        f"[{C.DIM}]({scu_str})[/{C.DIM}] "
+                        f"[italic {C.UEX}]{_price_short(price_buy)}[/italic {C.UEX}]  "
+                        f"[{C.DIM}]→[/{C.DIM}]  "
+                        f"[{dest_style} italic {C.LABEL}]{_abbrev_name(dest_name, 14)}[/{dest_style} italic {C.LABEL}]  "
+                        f"[italic {C.PROFIT}]{_price_short(price_sell)}[/italic {C.PROFIT}]  "
+                        f"{stock_bar}  "
+                        f"[{profit_color}]{profit_sign}{profit:.2f}[/{profit_color}]"
+                    )
 
             if sell_rows:
                 console.print(f"\n[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
@@ -897,7 +983,7 @@ def _show_terminal_by_name(query: str, ctx) -> bool:
 
 # ── Commande principale ────────────────────────────────────────────────────────
 
-@register("info")
+@register("info", "i")
 def cmd_info(args: list[str], ctx) -> None:
     # Extraire les flags système (--all, --Sys,Sys) avant de router
     player_sys = _player_system(ctx)

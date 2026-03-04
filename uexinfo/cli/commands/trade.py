@@ -24,7 +24,7 @@ _TERM_MAX     = 14  # largeur max du nom seul (même système)
 _TERM_MAX_SYS = 20  # largeur max avec préfixe système
 
 
-@register("trade")
+@register("trade", "t")
 def cmd_trade(args: list[str], ctx) -> None:
     if not args:
         print_warn("Usage : /trade <commodité>  |  /trade buy|sell <commodité>")

@@ -311,7 +311,7 @@ def _store_result(ctx, result: ScanResult) -> None:
         ctx.scan_history = ctx.scan_history[-20:]
 
 
-@register("scan")
+@register("scan", "s")
 def cmd_scan(args: list[str], ctx) -> None:
     if not args:
         # Dernier screenshot du dossier Star Citizen

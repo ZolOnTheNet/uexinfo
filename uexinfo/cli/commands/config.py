@@ -7,12 +7,12 @@ from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
 
 
-@register("ship")
+@register("ship", "sh")
 def cmd_ship(args: list[str], ctx) -> None:
     _ship(args, ctx)
 
 
-@register("config")
+@register("config", "c")
 def cmd_config(args: list[str], ctx) -> None:
     if not args:
         _show(ctx.cfg, ctx)

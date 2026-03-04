@@ -153,7 +153,7 @@ _DETAILS = {
 }
 
 
-@register("help")
+@register("help", "h", "?")
 def cmd_help(args: list[str], ctx) -> None:
     if args:
         topic = args[0].lstrip("/").lower()

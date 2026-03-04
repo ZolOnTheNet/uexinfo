@@ -44,7 +44,7 @@ def _resolve_location(token: str, ctx) -> str:
     return query  # fallback : utiliser tel quel
 
 
-@register("player")
+@register("player", "p")
 def cmd_player(args: list[str], ctx) -> None:
     if not args:
         _show_info(ctx)

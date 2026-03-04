@@ -12,7 +12,7 @@ from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_error, print_info, print_ok
 
 
-@register("refresh")
+@register("refresh", "r", "rf")
 def cmd_refresh(args: list[str], ctx) -> None:
     sub = args[0].lower() if args else "all"
 

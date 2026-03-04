@@ -10,7 +10,7 @@ _VALID = ("system", "planet", "station", "terminal", "city", "outpost")
 _KEY = {t: t + "s" for t in _VALID}  # planet -> planets
 
 
-@register("select")
+@register("select", "sel")
 def cmd_select(args: list[str], ctx) -> None:
     filters = ctx.cfg.setdefault("filters", {})
 

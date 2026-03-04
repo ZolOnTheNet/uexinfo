@@ -309,7 +309,7 @@ def _explore_geo(sys_name: str, parts: list[str], ctx) -> None:
 
 # ── Commande principale ────────────────────────────────────────────────────────
 
-@register("explore")
+@register("explore", "x", "exp")
 def cmd_explore(args: list[str], ctx) -> None:
     path = args[0] if args else ""
     # Normaliser les underscores en espaces dans chaque segment
