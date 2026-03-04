@@ -67,6 +67,21 @@ def _banner() -> None:
     console.print()
 
 
+def _cleanup(ctx: AppContext) -> None:
+    """Nettoyage avant fermeture : sauvegarde du graphe de transport si modifié."""
+    if ctx.cache.transport_graph.has_unsaved_changes:
+        count = ctx.cache.transport_graph._unsaved_changes
+        console.print(
+            f"[{C.WARNING}]⊕  {count} route(s) enrichie(s) — sauvegarde automatique...[/{C.WARNING}]"
+        )
+        try:
+            ctx.cache.save_transport_graph()
+            console.print(f"[{C.SUCCESS}]✓  Graphe sauvegardé dans uexinfo/data/transport_network.json[/{C.SUCCESS}]")
+            console.print(f"[{C.DIM}]   Pensez à commiter ce fichier avec git[/{C.DIM}]")
+        except Exception as e:
+            console.print(f"[{C.WARNING}]⚠  Erreur lors de la sauvegarde : {e}[/{C.WARNING}]")
+
+
 def main() -> None:
     cfg = settings.load()
     ttl = cfg.get("cache", {}).get("ttl_static", 86400)
@@ -133,6 +148,7 @@ def main() -> None:
         except KeyboardInterrupt:
             continue
         except EOFError:
+            _cleanup(ctx)
             console.print(f"\n[{C.DIM}]Au revoir, fly safe o7[/{C.DIM}]")
             break
 
@@ -188,6 +204,7 @@ def main() -> None:
             continue
 
         if cmd in ("exit", "quit", "bye"):
+            _cleanup(ctx)
             console.print(f"[{C.DIM}]Au revoir, fly safe o7[/{C.DIM}]")
             break
 

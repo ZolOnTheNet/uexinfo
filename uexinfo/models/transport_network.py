@@ -175,6 +175,7 @@ class TransportGraph:
         self.edges: list[RouteEdge] = []
         self.jump_points: dict[str, JumpPoint] = {}
         self._adjacency: dict[str, list[RouteEdge]] = {}
+        self._unsaved_changes: int = 0  # Compteur de modifications non sauvegardées
 
     def add_node(self, node: LocationNode) -> None:
         """Ajoute un nœud au graphe."""
@@ -217,6 +218,115 @@ class TransportGraph:
             notes=f"Jump {jp.from_system} → {jp.to_system}",
         )
         self.add_edge(edge, bidirectional=True)
+
+    def add_or_update_route(
+        self,
+        from_node: str,
+        to_node: str,
+        distance_gm: float,
+        edge_type: EdgeType = EdgeType.QUANTUM,
+        duration_sec: float = 0,
+        source: str = "uex",
+        notes: str = "",
+        timestamp: float | None = None,
+    ) -> bool:
+        """Ajoute ou met à jour une route si les données sont plus récentes.
+
+        Retourne True si le graphe a été modifié, False sinon.
+        """
+        if timestamp is None:
+            timestamp = time.time()
+
+        # Vérifier si les nœuds existent, sinon les créer (auto-découverte)
+        if from_node not in self.nodes:
+            self.add_node(LocationNode(
+                name=from_node,
+                type=NodeType.TERMINAL,  # Par défaut
+                system="Unknown",
+                metadata={"auto_discovered": True}
+            ))
+        if to_node not in self.nodes:
+            self.add_node(LocationNode(
+                name=to_node,
+                type=NodeType.TERMINAL,
+                system="Unknown",
+                metadata={"auto_discovered": True}
+            ))
+
+        # Chercher si la route existe déjà (dans les deux sens)
+        existing_forward = None
+        existing_reverse = None
+
+        for edge in self._adjacency.get(from_node, []):
+            if edge.to_node == to_node:
+                existing_forward = edge
+                break
+
+        for edge in self._adjacency.get(to_node, []):
+            if edge.to_node == from_node:
+                existing_reverse = edge
+                break
+
+        # Décider si on met à jour
+        should_update = False
+
+        # Priorité : manual > uex > calculated
+        source_priority = {"manual": 3, "uex": 2, "calculated": 1, "community": 1}
+        new_priority = source_priority.get(source, 1)
+
+        if existing_forward:
+            old_priority = source_priority.get(existing_forward.source, 1)
+            # Mettre à jour si :
+            # - Même priorité mais données plus récentes
+            # - Priorité supérieure
+            if new_priority > old_priority or (
+                new_priority == old_priority and timestamp > existing_forward.updated_at
+            ):
+                should_update = True
+        else:
+            should_update = True  # Nouvelle route
+
+        if not should_update:
+            return False  # Pas de modification
+
+        # Supprimer les anciennes arêtes si elles existent
+        if existing_forward or existing_reverse:
+            self.edges = [
+                e for e in self.edges
+                if not (
+                    (e.from_node == from_node and e.to_node == to_node) or
+                    (e.from_node == to_node and e.to_node == from_node)
+                )
+            ]
+            # Reconstruire l'adjacence
+            self._adjacency.clear()
+            for edge in self.edges:
+                self._adjacency.setdefault(edge.from_node, []).append(edge)
+
+        # Ajouter la nouvelle route
+        new_edge = RouteEdge(
+            from_node=from_node,
+            to_node=to_node,
+            distance_gm=distance_gm,
+            edge_type=edge_type,
+            duration_sec=duration_sec,
+            updated_at=timestamp,
+            source=source,
+            notes=notes,
+        )
+        self.add_edge(new_edge, bidirectional=True)
+
+        self._unsaved_changes += 1
+        return True  # Graphe modifié
+
+    def mark_saved(self) -> None:
+        """Marque toutes les modifications comme sauvegardées."""
+        self._unsaved_changes = 0
+
+    @property
+    def has_unsaved_changes(self) -> bool:
+        """Retourne True s'il y a des modifications non sauvegardées."""
+        return self._unsaved_changes > 0
 
     def find_shortest_path(self, from_loc: str, to_loc: str,
                           max_jump_size: str = "L") -> PathResult | None:

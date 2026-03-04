@@ -77,6 +77,14 @@ def _show_info(ctx) -> None:
     console.print(f"[{C.DIM}]Utilisez /nav nodes, /nav edges, /nav jumps pour explorer le réseau[/{C.DIM}]")
     console.print(f"[{C.DIM}]Utilisez /nav route <de> <vers> pour calculer un itinéraire[/{C.DIM}]")
 
+    # Indiquer s'il y a des modifications non sauvegardées
+    if graph.has_unsaved_changes:
+        console.print()
+        console.print(
+            f"[{C.WARNING}]⊕  {graph._unsaved_changes} modification(s) non sauvegardée(s)  "
+            f"—  utilisez /nav save[/{C.WARNING}]"
+        )
+
 
 # ── Nodes ──────────────────────────────────────────────────────────────────────
 

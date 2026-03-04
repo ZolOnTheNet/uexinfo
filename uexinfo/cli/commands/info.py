@@ -13,6 +13,7 @@ from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_warn, section
 from uexinfo.models.scan_result import ScanResult
+from uexinfo.models.transport_network import EdgeType
 
 _PRICE_TTL = 300  # 5 minutes
 
@@ -185,7 +186,10 @@ _ROUTES_TTL = 300  # 5 minutes
 
 
 def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
-    """Retourne {terminal_name_lower: distance_gm} depuis terminal_id (routes UEX)."""
+    """Retourne {terminal_name_lower: distance_gm} depuis terminal_id (routes UEX).
+
+    Enrichit automatiquement le graphe de transport avec les distances découvertes.
+    """
     key = f"rd_{terminal_id}"
     cached = ctx._price_cache.get(key)
     if cached:
@@ -197,12 +201,48 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
         routes = client.get_routes(id_terminal_origin=terminal_id)
     except UEXError:
         return {}
+
+    # Récupérer le nom du terminal d'origine
+    origin_terminal = None
+    for t in ctx.cache.terminals:
+        if t.id == terminal_id:
+            origin_terminal = t.name
+            break
+
     dist_map: dict[str, float] = {}
+    enriched_count = 0
+
     for route in routes:
         dest = route.get("terminal_name_destination") or ""
         dist = route.get("distance")
         if dest and dist is not None:
             dist_map[dest.lower()] = float(dist)
+
+            # Enrichir le graphe de transport (opportuniste)
+            if origin_terminal:
+                # Convertir distance en Gm (API UEX retourne en Mkm = mégamètres)
+                distance_gm = float(dist) / 1000.0
+
+                # Ajouter/mettre à jour la route dans le graphe
+                modified = ctx.cache.transport_graph.add_or_update_route(
+                    from_node=origin_terminal,
+                    to_node=dest,
+                    distance_gm=distance_gm,
+                    edge_type=EdgeType.QUANTUM,
+                    duration_sec=0,  # Pas de durée fournie par l'API
+                    source="uex",
+                    notes="Auto-enrichi via API /routes",
+                    timestamp=time.time(),
+                )
+                if modified:
+                    enriched_count += 1
+
+    # Afficher un feedback discret si enrichissement
+    if enriched_count > 0:
+        console.print(
+            f"[{C.DIM}]⊕ Graphe enrichi : {enriched_count} nouvelle(s) route(s)[/{C.DIM}]"
+        )
+
     ctx._price_cache[key] = (time.monotonic(), dist_map)
     return dist_map
 

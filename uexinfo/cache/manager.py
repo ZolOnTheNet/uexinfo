@@ -297,5 +297,6 @@ class CacheManager:
         try:
             with open(graph_path, "w", encoding="utf-8") as f:
                 json.dump(self.transport_graph.to_json(), f, ensure_ascii=False, indent=2)
+            self.transport_graph.mark_saved()
         except Exception as e:
             _console.print(f"[red]✗  Erreur sauvegarde graphe de transport : {e}[/red]")
