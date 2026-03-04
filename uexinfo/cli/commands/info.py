@@ -338,6 +338,126 @@ def _find_best_buyers(commodity_name: str, ctx, player_dest: str = "") -> list[d
     return sorted(buyers, key=sort_key)[:3]  # Top 3 acheteurs
 
 
+def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> None:
+    """Affiche la section Acheter avec calculs détaillés de cargo, prix, profit."""
+    console.print(f"\n[bold {C.UEX}]▼ Acheter ici[/bold {C.UEX}]")
+
+    # Récupérer le cargo du vaisseau actif
+    ship_cargo = 0
+    if ctx.player.active_ship:
+        for ship in ctx.player.ships:
+            if ship.name == ctx.player.active_ship:
+                ship_cargo = ship.scu
+                break
+
+    if ship_cargo == 0:
+        console.print(f"[{C.WARNING}]⚠  Vaisseau actif non défini ou cargo = 0 SCU[/{C.WARNING}]")
+        console.print(f"[{C.DIM}]   Utilisez /ship set <nom> pour définir votre vaisseau[/{C.DIM}]")
+        return
+
+    player_dest = (ctx.player.destination or "").lower().strip()
+
+    for r in buy_rows:
+        name = r.get("commodity_name", "?")
+        scu_min = int(r.get("scu_buy") or 0)
+        scu_max = int(r.get("scu_buy_max") or scu_min)
+        price_buy = float(r.get("price_buy") or 0)
+        status_buy = int(r.get("status_buy") or 0)
+
+        # Quantité disponible à l'achat (estimation basée sur le status)
+        # Status: 1=Out, 2=TrèsBas, 3=Bas, 4=Moyen, 5=Haut, 7=Max
+        stock_multiplier = {1: 0, 2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
+        stock_percent = stock_multiplier.get(status_buy, 0.5)
+        stock_available = int(ship_cargo * stock_percent) if status_buy != 1 else 0
+
+        # Quantité achetable = min(cargo vaisseau, stock disponible)
+        qty_buy = min(ship_cargo, stock_available) if stock_available > 0 else ship_cargo
+
+        # Total achat
+        total_buy = qty_buy * price_buy
+
+        # Trouver le meilleur acheteur
+        best_buyers = _find_best_buyers(name, ctx, player_dest)
+
+        if not best_buyers:
+            # Pas de destination connue — affichage simple
+            console.print(
+                f"  [{C.NEUTRAL}]{_abbrev_name(name)}[/{C.NEUTRAL}] "
+                f"[{C.DIM}]({scu_min}-{scu_max})[/{C.DIM}]  "
+                f"[italic {C.UEX}]{price_buy:.2f}[/italic {C.UEX}]  "
+                f"[{C.DIM}]→  ?  (aucune destination connue)[/{C.DIM}]"
+            )
+            continue
+
+        buyer = best_buyers[0]
+        dest_name = buyer.get("terminal_name", "?")
+        dest_system = buyer.get("star_system_name", "")
+        price_sell = float(buyer.get("price_sell") or 0)
+        status_sell = int(buyer.get("status_sell") or 0)
+
+        # Inventory du terminal vendeur (capacité restante)
+        # Status sell: 1=Out (forte demande), 7=Max (plein)
+        inv_multiplier = {1: 1.0, 2: 0.8, 3: 0.6, 4: 0.4, 5: 0.2, 7: 0}
+        inv_percent = inv_multiplier.get(status_sell, 0.5)
+        inv_remaining = int(qty_buy * inv_percent)
+
+        # Total vente (si tout vendu)
+        total_sell_full = qty_buy * price_sell
+
+        # Total vente limité par inventaire
+        qty_sell_limited = inv_remaining
+        total_sell_limited = qty_sell_limited * price_sell
+        qty_unsold = qty_buy - qty_sell_limited
+
+        # Profit
+        profit_full = total_sell_full - total_buy
+        profit_limited = total_sell_limited - total_buy
+
+        # Notation système (ajouter "." si différent)
+        origin_system = origin_terminal.star_system_name
+        dest_display = dest_name
+        if dest_system and dest_system != origin_system:
+            dest_display = f"{dest_system}.{dest_name}"
+
+        # Souligner si destination = celle du joueur
+        dest_style = "underline" if dest_name.lower() == player_dest else ""
+
+        # Distance depuis le graphe
+        distance_str = ""
+        graph = ctx.cache.transport_graph
+        if origin_terminal.name in graph.nodes and dest_name in graph.nodes:
+            # Chercher dans les arêtes
+            for edge in graph._adjacency.get(origin_terminal.name, []):
+                if edge.to_node == dest_name:
+                    distance_str = f"  [{C.DIM}]{edge.distance_gm:.1f} Gm[/{C.DIM}]"
+                    break
+
+        # Affichage ligne 1 : Nom, conditionnement, destination, distance
+        console.print(
+            f"  [{C.NEUTRAL}]{_abbrev_name(name, 18)}[/{C.NEUTRAL}] "
+            f"[{C.DIM}]({scu_min}-{scu_max})[/{C.DIM}]  "
+            f"[{C.DIM}]→[/{C.DIM}]  "
+            f"[{dest_style} {C.LABEL}]{_abbrev_name(dest_display, 22)}[/{dest_style} {C.LABEL}]"
+            f"{distance_str}"
+        )
+
+        # Affichage ligne 2 : Calculs détaillés
+        profit_color = C.PROFIT if profit_full > 0 else C.LOSS
+        profit_sign = "+" if profit_full >= 0 else ""
+
+        vente_detail = f"{int(total_sell_full)}"
+        if qty_unsold > 0:
+            vente_detail += f" [{C.DIM}]({int(total_sell_limited)} - {qty_unsold} invendus)[/{C.DIM}]"
+
+        console.print(
+            f"    [{C.DIM}]{qty_buy} SCU[/{C.DIM}]  "
+            f"[italic {C.UEX}]Achat: {int(total_buy)}[/italic {C.UEX}]  "
+            f"[{C.DIM}]→[/{C.DIM}]  "
+            f"[italic {C.PROFIT}]Vente: {vente_detail}[/italic {C.PROFIT}]  "
+            f"[{profit_color}]{profit_sign}{int(profit_full)}[/{profit_color}]"
+        )
+
+
 # ── Affichage terminal ─────────────────────────────────────────────────────────
 
 def _show_terminal(t: Terminal, ctx) -> None:
@@ -382,54 +502,7 @@ def _show_terminal(t: Terminal, ctx) -> None:
             n_cols = max(1, min(4, term_w // 32))
 
             if buy_rows:
-                console.print(f"\n[bold {C.UEX}]▼ Acheter ici[/bold {C.UEX}]")
-                player_dest = (ctx.player.destination or "").lower().strip()
-
-                for r in buy_rows:
-                    name = r.get("commodity_name", "?")
-                    scu_str = _scu(r.get("scu_buy"), r.get("scu_buy_max"))
-                    price_buy = float(r.get("price_buy") or 0)
-                    status_buy = int(r.get("status_buy") or 0)
-
-                    # Trouver les meilleurs acheteurs pour cette commodité
-                    best_buyers = _find_best_buyers(name, ctx, player_dest)
-
-                    if not best_buyers:
-                        # Pas de destination connue — affichage simple
-                        console.print(
-                            f"  [{C.NEUTRAL}]{_abbrev_name(name)}[/{C.NEUTRAL}] "
-                            f"[{C.DIM}]({scu_str})[/{C.DIM}] "
-                            f"[italic {C.UEX}]{_price_short(price_buy)}[/italic {C.UEX}]"
-                        )
-                        continue
-
-                    # Prendre le meilleur acheteur
-                    buyer = best_buyers[0]
-                    dest_name = buyer.get("terminal_name", "?")
-                    price_sell = float(buyer.get("price_sell") or 0)
-                    status_sell = int(buyer.get("status_sell") or 0)
-                    profit = price_sell - price_buy
-
-                    # Souligner si destination = celle du joueur
-                    dest_style = "underline" if dest_name.lower() == player_dest else ""
-
-                    # Stock visuel
-                    stock_bar = _stock_bar(status_sell, sell=True)
-
-                    # Couleur profit
-                    profit_color = C.PROFIT if profit > 0 else C.LOSS
-                    profit_sign = "+" if profit >= 0 else ""
-
-                    console.print(
-                        f"  [{C.NEUTRAL}]{_abbrev_name(name)}[/{C.NEUTRAL}] "
-                        f"[{C.DIM}]({scu_str})[/{C.DIM}] "
-                        f"[italic {C.UEX}]{_price_short(price_buy)}[/italic {C.UEX}]  "
-                        f"[{C.DIM}]→[/{C.DIM}]  "
-                        f"[{dest_style} italic {C.LABEL}]{_abbrev_name(dest_name, 14)}[/{dest_style} italic {C.LABEL}]  "
-                        f"[italic {C.PROFIT}]{_price_short(price_sell)}[/italic {C.PROFIT}]  "
-                        f"{stock_bar}  "
-                        f"[{profit_color}]{profit_sign}{profit:.2f}[/{profit_color}]"
-                    )
+                _show_buy_detailed(buy_rows, t, ctx)
 
             if sell_rows:
                 console.print(f"\n[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
