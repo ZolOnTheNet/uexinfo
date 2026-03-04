@@ -10,9 +10,11 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
 from uexinfo.cache.models import Commodity, Planet, StarSystem, Terminal, Vehicle
+from uexinfo.models.transport_network import TransportGraph
 
 APP_NAME = "uexinfo"
 DATA_DIR = Path(appdirs.user_data_dir(APP_NAME))
+PACKAGE_DIR = Path(__file__).parent.parent  # uexinfo/
 
 _STATIC_FILES = {
     "commodities": "commodities.json",
@@ -34,6 +36,7 @@ class CacheManager:
         self.star_systems: list[StarSystem] = []
         self.planets: list[Planet] = []
         self.vehicles: list[Vehicle] = []
+        self.transport_graph: TransportGraph = TransportGraph()
 
     @property
     def is_loaded(self) -> bool:
@@ -41,6 +44,9 @@ class CacheManager:
 
     def load(self, force: bool = False) -> None:
         """Charge les données statiques, télécharge si expiré."""
+        # Charger le graphe de transport (toujours depuis le code source)
+        self.load_transport_graph()
+
         if not force and not self._is_expired("commodities"):
             self._load_from_disk()
             return
@@ -270,3 +276,26 @@ class CacheManager:
         if not path.exists():
             return None
         return int(time.time() - path.stat().st_mtime)
+
+    def load_transport_graph(self) -> None:
+        """Charge le graphe de transport depuis le fichier dans uexinfo/data/."""
+        graph_path = PACKAGE_DIR / "data" / "transport_network.json"
+        if not graph_path.exists():
+            _console.print(f"[yellow]⚠  Graphe de transport introuvable : {graph_path}[/yellow]")
+            return
+        try:
+            with open(graph_path, encoding="utf-8") as f:
+                data = json.load(f)
+            self.transport_graph = TransportGraph.from_json(data)
+        except Exception as e:
+            _console.print(f"[yellow]⚠  Erreur chargement graphe de transport : {e}[/yellow]")
+
+    def save_transport_graph(self) -> None:
+        """Sauvegarde le graphe de transport dans le fichier source (versionné git)."""
+        graph_path = PACKAGE_DIR / "data" / "transport_network.json"
+        graph_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(graph_path, "w", encoding="utf-8") as f:
+                json.dump(self.transport_graph.to_json(), f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            _console.print(f"[red]✗  Erreur sauvegarde graphe de transport : {e}[/red]")

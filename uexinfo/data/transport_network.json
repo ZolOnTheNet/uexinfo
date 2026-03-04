@@ -1,0 +1,239 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "name": "Port Olisar",
+      "type": "station",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"orbit": "Crusader"}
+    },
+    {
+      "name": "Port Tressler",
+      "type": "station",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"orbit": "microTech"}
+    },
+    {
+      "name": "Everus Harbor",
+      "type": "station",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"orbit": "Hurston"}
+    },
+    {
+      "name": "Baijini Point",
+      "type": "station",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"orbit": "ArcCorp"}
+    },
+    {
+      "name": "Lorville",
+      "type": "city",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"planet": "Hurston"}
+    },
+    {
+      "name": "Area18",
+      "type": "city",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"planet": "ArcCorp"}
+    },
+    {
+      "name": "New Babbage",
+      "type": "city",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"planet": "microTech"}
+    },
+    {
+      "name": "Orison",
+      "type": "city",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"planet": "Crusader"}
+    },
+    {
+      "name": "Admin - Orbituary",
+      "type": "terminal",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"location": "Port Tressler"}
+    },
+    {
+      "name": "Trade - Platinum Bay",
+      "type": "terminal",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"location": "Port Tressler"}
+    },
+    {
+      "name": "Admin - Trade Authority",
+      "type": "terminal",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"location": "Lorville"}
+    },
+    {
+      "name": "Admin - Traveller's Light",
+      "type": "terminal",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"location": "Area18"}
+    },
+    {
+      "name": "Everus Exchange",
+      "type": "terminal",
+      "system": "Stanton",
+      "coordinates": null,
+      "metadata": {"location": "Everus Harbor"}
+    }
+  ],
+  "edges": [
+    {
+      "from": "Port Tressler",
+      "to": "New Babbage",
+      "distance_gm": 1.2,
+      "type": "quantum",
+      "duration_sec": 180,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Distance station-planète"
+    },
+    {
+      "from": "New Babbage",
+      "to": "Port Tressler",
+      "distance_gm": 1.2,
+      "type": "quantum",
+      "duration_sec": 180,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Distance planète-station"
+    },
+    {
+      "from": "Port Tressler",
+      "to": "Lorville",
+      "distance_gm": 49.3,
+      "type": "quantum",
+      "duration_sec": 900,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Via quantum travel"
+    },
+    {
+      "from": "Lorville",
+      "to": "Port Tressler",
+      "distance_gm": 49.3,
+      "type": "quantum",
+      "duration_sec": 900,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Via quantum travel"
+    },
+    {
+      "from": "Lorville",
+      "to": "Area18",
+      "distance_gm": 52.1,
+      "type": "quantum",
+      "duration_sec": 950,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Via quantum travel"
+    },
+    {
+      "from": "Area18",
+      "to": "Lorville",
+      "distance_gm": 52.1,
+      "type": "quantum",
+      "duration_sec": 950,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Via quantum travel"
+    },
+    {
+      "from": "Everus Harbor",
+      "to": "Lorville",
+      "distance_gm": 1.5,
+      "type": "quantum",
+      "duration_sec": 200,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Distance station-planète"
+    },
+    {
+      "from": "Lorville",
+      "to": "Everus Harbor",
+      "distance_gm": 1.5,
+      "type": "quantum",
+      "duration_sec": 200,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Distance planète-station"
+    },
+    {
+      "from": "Baijini Point",
+      "to": "Area18",
+      "distance_gm": 1.1,
+      "type": "quantum",
+      "duration_sec": 170,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Distance station-planète"
+    },
+    {
+      "from": "Area18",
+      "to": "Baijini Point",
+      "distance_gm": 1.1,
+      "type": "quantum",
+      "duration_sec": 170,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Distance planète-station"
+    },
+    {
+      "from": "Port Olisar",
+      "to": "Orison",
+      "distance_gm": 2.3,
+      "type": "quantum",
+      "duration_sec": 280,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Distance station-planète"
+    },
+    {
+      "from": "Orison",
+      "to": "Port Olisar",
+      "distance_gm": 2.3,
+      "type": "quantum",
+      "duration_sec": 280,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Distance planète-station"
+    },
+    {
+      "from": "New Babbage",
+      "to": "Area18",
+      "distance_gm": 45.7,
+      "type": "quantum",
+      "duration_sec": 850,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Via quantum travel"
+    },
+    {
+      "from": "Area18",
+      "to": "New Babbage",
+      "distance_gm": 45.7,
+      "type": "quantum",
+      "duration_sec": 850,
+      "updated_at": 1709557200,
+      "source": "community",
+      "notes": "Via quantum travel"
+    }
+  ],
+  "jump_points": []
+}

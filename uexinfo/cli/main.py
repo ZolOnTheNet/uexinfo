@@ -34,6 +34,7 @@ import uexinfo.cli.commands.scan     # noqa: F401
 import uexinfo.cli.commands.info     # noqa: F401
 import uexinfo.cli.commands.explore  # noqa: F401
 import uexinfo.cli.commands.trade    # noqa: F401
+import uexinfo.cli.commands.nav      # noqa: F401
 
 from uexinfo.cli.commands import dispatch
 
