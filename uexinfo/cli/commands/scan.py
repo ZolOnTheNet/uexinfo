@@ -9,6 +9,8 @@ from uexinfo.models.scan_result import ScanResult
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, print_info, make_table
 from uexinfo.display import colors as C
 
+_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
+
 _STOCK_BARS = {
     1: "[dim]▒▒▒▒ Out[/dim]",
     2: "[red]▓░░░ Very Low[/red]",
@@ -146,6 +148,26 @@ def _display_scan(result: ScanResult, ctx) -> None:
         )
 
 
+def _screenshots_dir(ctx) -> Path:
+    """Retourne le dossier screenshots configuré (ou le défaut SC)."""
+    from uexinfo.ocr.watcher import SC_DEFAULT_DIR
+    sc_dir_str = ctx.cfg.get("scan", {}).get("sc_screenshots_dir", "")
+    return Path(sc_dir_str) if sc_dir_str else SC_DEFAULT_DIR
+
+
+def _resolve_image_path(raw: str, ctx) -> Path:
+    """Résout un chemin image : absolu, relatif, ou nom seul → dossier screenshots."""
+    p = Path(raw)
+    if p.exists():
+        return p
+    # Nom seul (pas de séparateur de répertoire) → chercher dans le dossier screenshots
+    if not p.parent.parts or str(p.parent) == ".":
+        candidate = _screenshots_dir(ctx) / p.name
+        if candidate.exists():
+            return candidate
+    return p  # retourne le chemin original (l'appelant gère l'erreur)
+
+
 def _do_scan(ctx) -> ScanResult | None:
     """Déclenche un scan selon le mode configuré."""
     mode = ctx.cfg.get("scan", {}).get("mode", "ocr")
@@ -180,17 +202,57 @@ def _scan_log(ctx, log_path: Path | None) -> ScanResult | None:
 
 
 def _scan_screenshot_latest(ctx) -> ScanResult | None:
-    from uexinfo.ocr.watcher import ScreenshotWatcher, SC_DEFAULT_DIR
-    sc_dir_str = ctx.cfg.get("scan", {}).get("sc_screenshots_dir", "")
-    sc_dir = Path(sc_dir_str) if sc_dir_str else SC_DEFAULT_DIR
-
+    """Scan le screenshot le plus récent (comportement historique)."""
+    sc_dir = _screenshots_dir(ctx)
+    from uexinfo.ocr.watcher import ScreenshotWatcher
     watcher = ScreenshotWatcher(sc_dir)
     latest = watcher.latest_screenshot()
     if not latest:
         print_warn(f"Aucun screenshot dans : {sc_dir}")
         return None
-
     return _scan_image_file(ctx, latest)
+
+
+def _scan_screenshot_new(ctx, max_files: int = 5) -> list:
+    """Scanne les screenshots nouveaux depuis le dernier scan (ou les max_files plus récents)."""
+    sc_dir = _screenshots_dir(ctx)
+    if not sc_dir.exists():
+        print_warn(f"Dossier introuvable : {sc_dir}")
+        return []
+
+    images = sorted(
+        (p for p in sc_dir.iterdir() if p.suffix.lower() in _IMAGE_SUFFIXES),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not images:
+        print_warn(f"Aucun screenshot dans : {sc_dir}")
+        return []
+
+    # Filtrer par rapport au dernier scan connu
+    last_ts = getattr(ctx, "_last_scan_mtime", None)
+    if last_ts is not None:
+        new_images = [p for p in images if p.stat().st_mtime > last_ts]
+        if new_images:
+            images = new_images[:max_files]
+        else:
+            print_info("Aucun nouveau screenshot — affichage du plus récent.")
+            images = images[:1]
+    else:
+        images = images[:max_files]
+
+    results = []
+    for img_path in reversed(images):   # ordre chronologique
+        print_info(f"→ {img_path.name}")
+        result = _scan_image_file(ctx, img_path)
+        if result:
+            results.append(result)
+
+    # Mémoriser le timestamp du fichier le plus récent traité
+    if images:
+        ctx._last_scan_mtime = max(p.stat().st_mtime for p in images)
+
+    return results
 
 
 def _capture_sc_window():
@@ -276,8 +338,11 @@ def _refine_terminal(result: ScanResult, location_index) -> None:
             result.terminal = m[0]
 
 
-def _scan_image_file(ctx, image_path: Path) -> ScanResult | None:
+def _scan_image_file(ctx, image_path: Path):
+    """Scan OCR d'une image — retourne ScanResult ou MissionResult selon le type détecté."""
     from uexinfo.ocr.engine import TesseractEngine
+    from uexinfo.models.scan_result import ScanResult
+    from uexinfo.models.mission_result import MissionResult
     cfg_scan = ctx.cfg.get("scan", {})
 
     exe = Path(cfg_scan["tesseract_exe"]) if cfg_scan.get("tesseract_exe") else None
@@ -294,7 +359,11 @@ def _scan_image_file(ctx, image_path: Path) -> ScanResult | None:
         print_error(str(e))
         return None
 
-    # Post-OCR : affiner le nom du terminal via LocationIndex
+    if isinstance(result, MissionResult):
+        print_info("Type détecté : écran Contrats (mission)")
+        return result
+
+    # ScanResult : affiner le nom du terminal
     if result and ctx.location_index:
         raw = result.terminal
         _refine_terminal(result, ctx.location_index)
@@ -304,21 +373,88 @@ def _scan_image_file(ctx, image_path: Path) -> ScanResult | None:
     return result
 
 
-def _store_result(ctx, result: ScanResult) -> None:
+def _display_mission(result) -> None:
+    """Affiche un MissionResult en Rich."""
+    from uexinfo.display import colors as C
+    from uexinfo.models.mission_result import MissionResult
+
+    tab_color = {"OFFERS": "cyan", "ACCEPTED": "green", "HISTORY": "dim"}.get(
+        result.tab.upper(), "cyan"
+    )
+    console.print(
+        f"\n[bold]{result.title or '(titre illisible)'}[/bold]"
+        f"  [{tab_color}]{result.tab or '?'}[/{tab_color}]"
+        f"  [{C.DIM}]{result.timestamp.strftime('%H:%M:%S')}[/{C.DIM}]"
+    )
+
+    # Ligne infos
+    reward_str = f"[bold green]¤ {result.reward:,}[/bold green]".replace(",", "\u202f") if result.reward else "—"
+    console.print(
+        f"  [dim]Récompense :[/dim] {reward_str}"
+        f"   [dim]Dispo :[/dim] {result.contract_availability or '—'}"
+        f"   [dim]Contractant :[/dim] [cyan]{result.contracted_by or '—'}[/cyan]"
+    )
+
+    # Objectifs
+    if result.objectives:
+        console.print(f"\n  [bold]Objectifs principaux[/bold]")
+        for obj in result.objectives:
+            console.print(f"    [cyan]◇[/cyan] {obj}")
+
+    # Lieux/liens bleus
+    if result.blue_text:
+        console.print(f"\n  [bold]Lieux importants[/bold] [dim](texte bleu)[/dim]")
+        for bt in result.blue_text:
+            console.print(f"    [blue]{bt}[/blue]")
+
+    # Liste missions panneau gauche
+    if result.mission_list:
+        console.print(f"\n  [bold]Autres offres disponibles[/bold]")
+        t = make_table(
+            ("Mission",     C.LABEL,   "left"),
+            ("Récompense",  C.PROFIT,  "right"),
+        )
+        for title, amt in result.mission_list[:10]:
+            amt_str = f"¤ {amt:,}".replace(",", "\u202f") if amt else "—"
+            t.add_row(title, amt_str)
+        console.print(t)
+
+    console.print("")
+
+
+def _store_result(ctx, result) -> None:
     ctx.last_scan = result
     ctx.scan_history.append(result)
     if len(ctx.scan_history) > 20:
         ctx.scan_history = ctx.scan_history[-20:]
 
 
+def _display_result(result, ctx) -> None:
+    """Dispatch vers le bon affichage selon le type de résultat."""
+    from uexinfo.models.mission_result import MissionResult
+    if isinstance(result, MissionResult):
+        _display_mission(result)
+    else:
+        _display_scan(result, ctx)
+
+
 @register("scan", "s")
 def cmd_scan(args: list[str], ctx) -> None:
     if not args:
-        # Dernier screenshot du dossier Star Citizen
-        result = _scan_screenshot_latest(ctx)
-        if result:
+        # Nouveaux screenshots depuis le dernier scan (ou les 3 plus récents)
+        results = _scan_screenshot_new(ctx, max_files=3)
+        for result in results:
             _store_result(ctx, result)
-            _display_scan(result, ctx)
+            _display_result(result, ctx)
+        return
+
+    # /scan <n> — scanner les N plus récents
+    if args[0].isdigit():
+        n = max(1, min(int(args[0]), 20))
+        results = _scan_screenshot_new(ctx, max_files=n)
+        for result in results:
+            _store_result(ctx, result)
+            _display_result(result, ctx)
         return
 
     sub = args[0].lower()
@@ -328,7 +464,37 @@ def cmd_scan(args: list[str], ctx) -> None:
         result = _scan_game_window(ctx)
         if result:
             _store_result(ctx, result)
-            _display_scan(result, ctx)
+            _display_result(result, ctx)
+        return
+
+    # /scan list — liste les fichiers images du dossier screenshots
+    if sub == "list":
+        sc_dir = _screenshots_dir(ctx)
+        if not sc_dir.exists():
+            print_error(f"Dossier introuvable : {sc_dir}")
+            return
+        images = sorted(
+            (p for p in sc_dir.iterdir() if p.suffix.lower() in _IMAGE_SUFFIXES),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if not images:
+            print_warn(f"Aucun fichier image dans : {sc_dir}")
+            return
+        from uexinfo.display import colors as C
+        console.print(f"\n[bold]Screenshots[/bold]  [{C.DIM}]{sc_dir}[/{C.DIM}]")
+        console.print(f"[{C.DIM}]Formats supportés : {', '.join(sorted(_IMAGE_SUFFIXES))}[/{C.DIM}]\n")
+        import datetime
+        for p in images[:30]:
+            mtime = datetime.datetime.fromtimestamp(p.stat().st_mtime)
+            age   = mtime.strftime("%Y-%m-%d %H:%M")
+            size  = p.stat().st_size // 1024
+            console.print(
+                f"  [{C.UEX}]{p.name}[/{C.UEX}]"
+                f"  [{C.DIM}]{age}  {size} Ko[/{C.DIM}]"
+            )
+        if len(images) > 30:
+            console.print(f"[{C.DIM}]  … et {len(images) - 30} autres[/{C.DIM}]")
         return
 
     # /scan screenshot <fichier>
@@ -336,14 +502,15 @@ def cmd_scan(args: list[str], ctx) -> None:
         if len(args) < 2:
             print_error("Usage : /scan screenshot <fichier>")
             return
-        image_path = Path(args[1])
+        raw = " ".join(args[1:]).strip("\"'")
+        image_path = _resolve_image_path(raw, ctx)
         if not image_path.exists():
             print_error(f"Fichier introuvable : {image_path}")
             return
         result = _scan_image_file(ctx, image_path)
         if result:
             _store_result(ctx, result)
-            _display_scan(result, ctx)
+            _display_result(result, ctx)
         return
 
     # /scan log [<fichier>]
@@ -369,7 +536,7 @@ def cmd_scan(args: list[str], ctx) -> None:
         if ctx.last_scan is None:
             print_warn("Aucun scan effectué dans cette session.")
             return
-        _display_scan(ctx.last_scan, ctx)
+        _display_result(ctx.last_scan, ctx)
         return
 
     # /scan history [n]
@@ -385,7 +552,7 @@ def cmd_scan(args: list[str], ctx) -> None:
             print_warn("Historique vide.")
             return
         for result in ctx.scan_history[-n:]:
-            _display_scan(result, ctx)
+            _display_result(result, ctx)
         return
 
     # /scan debug <fichier>  — affiche les lignes OCR brutes pour diagnostic
@@ -393,9 +560,10 @@ def cmd_scan(args: list[str], ctx) -> None:
         if len(args) < 2:
             print_error("Usage : /scan debug <fichier>")
             return
-        image_path = Path(args[1])
+        raw = " ".join(args[1:]).strip("\"'")
+        image_path = _resolve_image_path(raw, ctx)
         if not image_path.exists():
-            print_error(f"Fichier introuvable : {image_path}")
+            print_error(f"Fichier introuvable : {image_path}  (cherché aussi dans {_screenshots_dir(ctx)})")
             return
         from uexinfo.ocr.engine import TesseractEngine
         cfg_scan = ctx.cfg.get("scan", {})
@@ -406,20 +574,37 @@ def cmd_scan(args: list[str], ctx) -> None:
             print_error(str(e))
             return
         from uexinfo.display import colors as C
-        console.print(f"\n[bold]Lignes OCR brutes[/bold] — [{C.DIM}]{image_path.name}[/{C.DIM}]")
 
-        # Zone terminal (haut gauche)
-        console.print(f"[bold]Terminal (zone haut-gauche) :[/bold]")
-        term_lines = engine.debug_terminal(image_path)
-        for tl in term_lines:
-            console.print(f"  {tl}")
+        # Détection du type
+        screen_type = engine.detect_screen_type(image_path)
+        console.print(
+            f"\n[bold]Debug OCR[/bold] — [{C.DIM}]{image_path.name}[/{C.DIM}]"
+            f"  Type détecté : [cyan]{screen_type}[/cyan]"
+        )
 
-        # Zone commodités (panneau droit)
-        console.print(f"\n[bold]Commodités (panneau droit) :[/bold]")
-        lines = engine.debug_lines(image_path)
-        for i, line in enumerate(lines):
-            console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")
-        console.print(f"\n[{C.DIM}]{len(lines)} lignes extraites[/{C.DIM}]")
+        if screen_type == "mission":
+            # ── Debug mission ──────────────────────────────────────────────
+            zones = engine.debug_mission(image_path)
+            for zone_name, zone_text in zones.items():
+                console.print(f"\n[bold]── {zone_name} ──[/bold]")
+                if zone_text.strip():
+                    for i, line in enumerate(zone_text.splitlines()):
+                        if line.strip():
+                            console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")
+                else:
+                    console.print(f"  [{C.DIM}](vide)[/{C.DIM}]")
+        else:
+            # ── Debug terminal (existant) ──────────────────────────────────
+            console.print(f"\n[bold]Terminal (zone haut-gauche) :[/bold]")
+            term_lines = engine.debug_terminal(image_path)
+            for tl in term_lines:
+                console.print(f"  {tl}")
+
+            console.print(f"\n[bold]Commodités (panneau droit) :[/bold]")
+            lines = engine.debug_lines(image_path)
+            for i, line in enumerate(lines):
+                console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")
+            console.print(f"\n[{C.DIM}]{len(lines)} lignes extraites[/{C.DIM}]")
         return
 
-    print_error(f"Sous-commande inconnue : {sub}  —  /scan [ecran|screenshot|log|status|history|debug]")
+    print_error(f"Sous-commande inconnue : {sub}  —  /scan [list|ecran|screenshot|log|status|history|debug]")

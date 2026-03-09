@@ -76,13 +76,14 @@ capacité SCU. Simple, suffisant pour calculer la capacité effective.
 | Taille caisse | Hauteur (cellules) | Notes |
 |---|---|---|
 | 1 SCU | 1 | Confirmé |
-| 2 SCU | 1 | À vérifier |
-| 4 SCU | 1 | À vérifier |
-| 8 SCU | 2 | Confirmé par exemple M2 |
-| 16 SCU | 2 | À vérifier |
-| 32 SCU | 2 | Cohérent avec exemple M2 (10 × 32 SCU dans zone h=2) |
-| 96 SCU | 3 | À vérifier |
-| 128 SCU | 4 | À vérifier |
+| 2 SCU | 1 | confirmé |
+| 4 SCU | 1 | confirmé |
+| 8 SCU | 2 | Confirmé |
+| 16 SCU | 2 | confirmé |
+| 24 SCU | 2 | confirmé |
+| 32 SCU | 2 | confirmé |
+les SCU de taille > 32 n'existe pas encore dans le jeu
+La hauteur est aussi la valeur de la profondeur (petite largeur)
 
 ### Structure Python envisagée
 
@@ -96,10 +97,10 @@ CONTAINER_HEIGHT: dict[int, int] = {
     4:   1,
     8:   2,
     16:  2,
+    24:  2,
     32:  2,
-    96:  3,
-    128: 4,
 }
+
 
 # Par vaisseau : [(hauteur_dispo, scu_dans_cette_zone), ...]
 # Zones triées par hauteur décroissante

@@ -18,7 +18,10 @@ def parse_line(line: str) -> tuple[str, list[str]]:
         return "", []
 
     try:
-        parts = shlex.split(rest)
+        # posix=False : conserve les backslashes (chemins Windows)
+        parts = shlex.split(rest, posix=False)
+        # posix=False conserve les guillemets entourants — on les retire
+        parts = [p.strip("\"'") for p in parts]
     except ValueError:
         parts = rest.split()
 

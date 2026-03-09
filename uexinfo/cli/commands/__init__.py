@@ -19,6 +19,11 @@ def register(*names: str):
 
 
 def dispatch(name: str, args: list[str], ctx: "AppContext") -> None:
+    # /cmd help  →  /help cmd
+    if args and args[0].lower() == "help":
+        dispatch("help", [name], ctx)
+        return
+
     handler = _registry.get(name.lower())
     if handler is None:
         from uexinfo.display.formatter import print_error

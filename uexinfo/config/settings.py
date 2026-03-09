@@ -45,6 +45,13 @@ DEFAULT: dict = {
         "sc_log_path": "",
         "sc_screenshots_dir": "",
     },
+    "overlay": {
+        "hotkey": "alt+shift+u",
+        "port": 8090,
+        "width": 700,
+        "height": 900,
+        "opacity": 0.95,
+    },
 }
 
 

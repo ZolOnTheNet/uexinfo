@@ -19,13 +19,16 @@ dependencies = [
     "Pillow>=10.0",
     "pytesseract>=0.3",
     "rapidfuzz>=3.0",
+    "textual>=0.80.0",
 ]
 
 [project.optional-dependencies]
 playwright = ["playwright>=1.40"]
+overlay = ["pywebview>=5.0", "pynput>=1.7", "textual-web>=0.7.0"]
 
 [project.scripts]
-uexinfo = "uexinfo.cli.main:main"
+uexinfo = "uexinfo.app:main"
+uexinfo-cli = "uexinfo.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

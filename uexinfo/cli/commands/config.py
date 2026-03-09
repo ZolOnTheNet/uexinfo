@@ -278,25 +278,28 @@ def _scan(args: list[str], ctx) -> None:
         if len(args) < 2:
             print_error("Usage: /config scan tesseract <path>")
             return
-        ctx.cfg["scan"]["tesseract_exe"] = args[1]
+        path = " ".join(args[1:]).strip("\"'")
+        ctx.cfg["scan"]["tesseract_exe"] = path
         settings.save(ctx.cfg)
-        print_ok(f"tesseract_exe = {args[1]}")
+        print_ok(f"tesseract_exe = {path}")
 
     elif key == "logpath":
         if len(args) < 2:
             print_error("Usage: /config scan logpath <path>")
             return
-        ctx.cfg["scan"]["sc_log_path"] = args[1]
+        path = " ".join(args[1:]).strip("\"'")
+        ctx.cfg["scan"]["sc_log_path"] = path
         settings.save(ctx.cfg)
-        print_ok(f"sc_log_path = {args[1]}")
+        print_ok(f"sc_log_path = {path}")
 
     elif key == "screenshots":
         if len(args) < 2:
             print_error("Usage: /config scan screenshots <path>")
             return
-        ctx.cfg["scan"]["sc_screenshots_dir"] = args[1]
+        path = " ".join(args[1:]).strip("\"'")
+        ctx.cfg["scan"]["sc_screenshots_dir"] = path
         settings.save(ctx.cfg)
-        print_ok(f"sc_screenshots_dir = {args[1]}")
+        print_ok(f"sc_screenshots_dir = {path}")
 
     else:
         print_error(f"Sous-clé inconnue : {key}  (mode|tesseract|logpath|screenshots)")
