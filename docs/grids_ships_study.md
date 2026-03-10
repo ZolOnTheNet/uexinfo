@@ -161,6 +161,61 @@ La méthode la plus rapide sans extraire les fichiers jeu :
    quand la capacité effective < capacité totale pour le terminal sélectionné.
 
 ---
+## Nouvelle notation des cargos
+
+Mercury Star Runner : 114 SCU 24x3 4x9 2x2 1x2
+M2 Hercules : 522 SCU 32x10 4x40 2x21
+A2 Hercules : 216 SCU 32x6 24x1
+C2 Hercules : 696 SCU 32x20 2x28
+C1 Spirit : 64 SCU 32x2
+Intrepid : 8 SCu 2x4
+Drake Caterpillar : 576 SCU 24x16 16x3 4x4 2x56 1x16
+Drake Corsair : 72 SCU 32x2 2x4
+Drake Cutter : 4 SCU 1x4
+Drake Clipper : 12 SCU 2x6
+Drake Cutlass Red/blue : 12 SCU 2x4 1x4
+Drake Cutlass Black : 46 SCU 16x2 2x6 
+Drake Golem X : 64 SCU 32x2
+MISC starlancer TAC : 96 SCU 32x2 4x8
+MISC starlancer Max : 224 SCu 32x6 4x8
+MISC HULL-A : 64 SCU 16x4
+MISC HULL-C : 4608 SCU 32x144
+MISC Starfarer : 291 SCU 24x4 16x4 8x2 4x10 2x35 1x5
+MISC Gemeni : 291 SCU 24x4 16x4 8x2 4x10 2x35 1x5
+MISC Freelancer : 66 SCU 32x1 4x4 2x9
+MISC Freelancer Max : 120 Scu 32x2 8x4 2x12
+MISC Freelancer Dur : 36 SCu 16x1 4x2 2x6
+MISC Reliant Koer : 6 SCU 2x2 1x2
+MISC Fortune : 16 SCU 4x3 2x2
+ORIGIN 325a/350r : 4 SCu 4x1
+ORIGIN 300i : 8 SCU 4x2
+ORIGIN 315p : 4x3
+ORIGIN 400i : 1x24 2x8 1x2
+ORIGIN 100i/125a : 2 SCU 2x1
+ORIGIN 135c : 6 SCU 2x3
+ORIGIN 600i Touring : 20 Scu 2x8 1x4
+ORIGIN 600i Explorer : 44 SCU 2x20 1x4
+ORIGIN 890 Jump : 388 SCU 32x6 24x4 16x2 2x28 1x12
+RSI Zeus Mk II CL : 128 SCU 32x2 4x8 2x16
+RSI Zeus Mk II ES : 32 SCU 16x2
+RSI Perseus : 96 sCU 32x3
+RSI Aurora CL  : 6 SCU 3x2
+RSI ES/LN/LX/MR : 3 SCU  2x1 1x1 
+RSI Constellation taurus : 174 SCU 32x2 24x2 4x14 2x3 
+RSI Constellation Adromeda : 96 SCU 32x2 4x8  
+RSI Constellation Aquila : 96 SCU 32x2 4x8
+RSI Constellation Phoenix : 80 Scu 32x2 2x8 
+RSI Hermes  : 288 SCU 32x8 16x2
+RSI Polaris  : 576 SCU
+RSI Salvation : 6 SCU 4x1 2x1
+RSI Apollo Triage / Medivac : 32 SCU 2x16
+ANVIL AREOSPACE Paladin : 4 SCu 2x2
+Carrack : 456 SCU 24x16 6x6 2x12
+Asgard : 180 SCU 32x4 24x2 1x4
+Pices C8/C8X : 4 SCU 1x4
+Hornet F7C Mk II : 2 SCU 2x1
+Valkyrie : 90 Scu 24x2 6x4 9x2
+Paladin : 4 SCU 2x2
 
 ## Notes complémentaires
 

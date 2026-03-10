@@ -18,6 +18,7 @@ from uexinfo import __version__
 from uexinfo.cache.manager import CacheManager
 from uexinfo.cli.completer import UEXCompleter
 from uexinfo.cli.parser import parse_line
+from uexinfo.data.cargo_grids import CargoGridManager
 from uexinfo.display import colors as C
 from uexinfo.location.index import LocationIndex
 from uexinfo.models.player import Player
@@ -36,7 +37,7 @@ import uexinfo.cli.commands.explore  # noqa: F401
 import uexinfo.cli.commands.trade    # noqa: F401
 import uexinfo.cli.commands.nav      # noqa: F401
 
-from uexinfo.cli.commands import dispatch
+from uexinfo.cli.commands import dispatch, get_names
 
 console = Console()
 
@@ -47,10 +48,39 @@ PROMPT_STYLE = Style.from_dict({
 })
 
 
+def normalize_command(line: str, known_commands: set[str]) -> str:
+    """
+    Normalise la saisie utilisateur : ajoute / si nécessaire.
+
+    Logique :
+    - Si commence par / ou @ : retourne tel quel
+    - Si le premier mot est une commande connue : ajoute /
+    - Sinon : recherche libre (retourne tel quel)
+    """
+    stripped = line.strip()
+    if not stripped:
+        return stripped
+
+    # Déjà une commande ou @lieu
+    if stripped.startswith("/") or stripped.startswith("@"):
+        return stripped
+
+    # Extraire le premier mot
+    first_word = stripped.split()[0].lower() if stripped.split() else ""
+
+    # Si c'est une commande connue, ajouter /
+    if first_word in known_commands:
+        return "/" + stripped
+
+    # Sinon, recherche libre
+    return stripped
+
+
 @dataclass
 class AppContext:
     cfg: dict = field(default_factory=dict)
     cache: CacheManager = field(default_factory=CacheManager)
+    cargo_grid_manager: CargoGridManager = field(default_factory=CargoGridManager)
     location_index: LocationIndex | None = None
     player: Player = field(default_factory=Player)
     last_scan: ScanResult | None = None
@@ -62,7 +92,8 @@ def _banner() -> None:
     console.print(
         f"[bold cyan]UEXInfo[/bold cyan] [dim]v{__version__}[/dim]"
         "  —  Star Citizen Trade CLI\n"
-        f"[{C.DIM}]Tapez [bold]/help[/bold] pour l'aide  │  [bold]/exit[/bold] pour quitter  │  Tab = complétion  │  Saisie libre = /info  │  [bold]@lieu[/bold] = se positionner + info[/{C.DIM}]"
+        f"[{C.DIM}]Tapez [bold]help[/bold] pour l'aide  │  [bold]exit[/bold] pour quitter  │  Tab / Ctrl-Espace = complétion  │  Saisie libre = recherche  │  [bold]@lieu[/bold] = se positionner + info[/{C.DIM}]\n"
+        f"[{C.DIM}]Le [bold]/[/bold] est optionnel : [bold]ship add Cutlass[/bold] = [bold]/ship add Cutlass[/bold][/{C.DIM}]"
     )
     console.print()
 
@@ -127,6 +158,18 @@ def main() -> None:
         event.current_buffer.text = ""
         event.current_buffer.validate_and_handle()
 
+    # ── Ctrl+Espace : forcer l'affichage de la complétion ─────────────────────
+    @repl_kb.add("c-space")
+    def _force_completion(event):
+        """Force l'affichage du menu de complétion."""
+        buff = event.current_buffer
+        if buff.complete_state:
+            # Si déjà ouvert, passer au suivant
+            buff.complete_next()
+        else:
+            # Sinon, démarrer la complétion (select_first=True pour forcer l'affichage)
+            buff.start_completion(select_first=True)
+
     # ─────────────────────────────────────────────────────────────────────────
 
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -178,29 +221,35 @@ def main() -> None:
         if not line:
             continue
 
-        stripped = line.lstrip()
-        if not stripped.startswith("/"):
-            try:
-                words = shlex.split(stripped)
-            except ValueError:
-                words = stripped.split()
+        # Normaliser la saisie : ajouter / si c'est une commande
+        known_cmds = set(get_names())
+        normalized = normalize_command(line, known_cmds)
 
-            if words and words[0].startswith("@"):
-                # @lieu → positionner le joueur + afficher l'info
-                # Rejoindre tous les mots : "@Port Tressler" reste intact
-                full_loc = " ".join(words)          # "@Port Tressler"
-                dispatch("player", [full_loc], ctx)
-                loc_name = full_loc[1:]             # "Port Tressler"
-                if "." in loc_name:
-                    loc_name = loc_name.rsplit(".", 1)[-1]
-                dispatch("info", [loc_name], ctx)
-            else:
-                # Saisie libre → /info
-                dispatch("info", words, ctx)
+        # Traitement spécial pour @lieu
+        if normalized.startswith("@"):
+            try:
+                words = shlex.split(normalized)
+            except ValueError:
+                words = normalized.split()
+
+            full_loc = " ".join(words)  # "@Port Tressler"
+            dispatch("player", [full_loc], ctx)
+            loc_name = full_loc[1:]     # "Port Tressler"
+            if "." in loc_name:
+                loc_name = loc_name.rsplit(".", 1)[-1]
+            dispatch("info", [loc_name], ctx)
             continue
 
-        cmd, args = parse_line(stripped)
+        # Parser la ligne normalisée
+        cmd, args = parse_line(normalized)
+
+        # Si pas de commande → recherche libre via /info
         if not cmd:
+            try:
+                words = shlex.split(line)
+            except ValueError:
+                words = line.split()
+            dispatch("info", words, ctx)
             continue
 
         if cmd in ("exit", "quit", "bye"):
