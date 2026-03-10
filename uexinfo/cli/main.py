@@ -48,6 +48,34 @@ PROMPT_STYLE = Style.from_dict({
 })
 
 
+def normalize_command(line: str, known_commands: set[str]) -> str:
+    """
+    Normalise la saisie utilisateur : ajoute / si nécessaire.
+
+    Logique :
+    - Si commence par / ou @ : retourne tel quel
+    - Si le premier mot est une commande connue : ajoute /
+    - Sinon : recherche libre (retourne tel quel)
+    """
+    stripped = line.strip()
+    if not stripped:
+        return stripped
+
+    # Déjà une commande ou @lieu
+    if stripped.startswith("/") or stripped.startswith("@"):
+        return stripped
+
+    # Extraire le premier mot
+    first_word = stripped.split()[0].lower() if stripped.split() else ""
+
+    # Si c'est une commande connue, ajouter /
+    if first_word in known_commands:
+        return "/" + stripped
+
+    # Sinon, recherche libre
+    return stripped
+
+
 @dataclass
 class AppContext:
     cfg: dict = field(default_factory=dict)
@@ -193,12 +221,16 @@ def main() -> None:
         if not line:
             continue
 
+        # Normaliser la saisie : ajouter / si c'est une commande
+        known_cmds = set(get_names())
+        normalized = normalize_command(line, known_cmds)
+
         # Traitement spécial pour @lieu
-        if line.startswith("@"):
+        if normalized.startswith("@"):
             try:
-                words = shlex.split(line)
+                words = shlex.split(normalized)
             except ValueError:
-                words = line.split()
+                words = normalized.split()
 
             full_loc = " ".join(words)  # "@Port Tressler"
             dispatch("player", [full_loc], ctx)
@@ -208,11 +240,10 @@ def main() -> None:
             dispatch("info", [loc_name], ctx)
             continue
 
-        # Parser la ligne (avec ou sans /)
-        known_cmds = set(get_names())
-        cmd, args = parse_line(line, known_commands=known_cmds)
+        # Parser la ligne normalisée
+        cmd, args = parse_line(normalized)
 
-        # Si pas de commande reconnue → recherche libre via /info
+        # Si pas de commande → recherche libre via /info
         if not cmd:
             try:
                 words = shlex.split(line)

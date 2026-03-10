@@ -246,29 +246,22 @@ class UEXCompleter(Completer):
             return
 
         text = text.lstrip()
-        if not text:
-            return
 
-        # Vérifier si c'est une commande (avec ou sans /)
-        has_slash = text.startswith("/")
-        if has_slash:
-            after = text[1:]
-        else:
-            after = text
-
-        words = after.split()
-        ends_space = text.endswith(" ")
-
-        # Si pas de slash, vérifier si le premier mot est une commande
-        if not has_slash and words:
-            first_word = words[0].lower()
-            # Si le premier mot n'est pas une commande ET qu'il y a un espace
-            # OU si c'est un mot unique qui n'est pas une commande
-            if first_word not in _ALL_COMMANDS:
-                # Saisie libre → complétion /info
+        # Normaliser : si commence par une commande connue, traiter comme /commande
+        if not text.startswith("/"):
+            first_word = text.split()[0].lower() if text.split() else ""
+            if first_word in _ALL_COMMANDS:
+                # C'est une commande sans / → ajouter / pour la complétion
+                text = "/" + text
+            else:
+                # Saisie libre → complétion /info (terminaux + commodités)
                 if self.ctx and len(text) >= 1:
                     yield from self._complete_info_query(text)
                 return
+
+        after = text[1:]
+        words = after.split()
+        ends_space = text.endswith(" ")
 
         # ── Complétion du nom de commande ────────────────────────────────
         if not words or (len(words) == 1 and not ends_space):
@@ -276,12 +269,9 @@ class UEXCompleter(Completer):
             for cmd in _ALL_COMMANDS:
                 if cmd.startswith(prefix):
                     help_text = _COMMAND_HELP.get(cmd, "")
-                    # Si la ligne originale a un /, proposer avec /
-                    # Sinon proposer sans /
-                    completion_text = f"/{cmd}" if has_slash else cmd
                     yield Completion(
-                        completion_text,
-                        start_position=-len(text) if not words else -len(prefix),
+                        cmd,
+                        start_position=-len(prefix),
                         display_meta=help_text,
                     )
             return
