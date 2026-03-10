@@ -1,0 +1,36 @@
+2026-03-06 00:52:34,338 - workers.api_send_worker - DEBUG - Current APISendWorker thread: False
+2026-03-06 00:53:19,649 - workers.api_send_worker - DEBUG - Current APISendWorker thread: False
+2026-03-06 00:53:19,806 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.uexcorp.space:443
+2026-03-06 00:53:21,647 - urllib3.connectionpool - DEBUG - https://api.uexcorp.space:443 "POST /2.0/data_submit HTTP/1.1" 200 142
+2026-03-06 00:53:21,648 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["747105","747106","747107","747108"],"date_added":"1772751908","username":"Zol_fr_FSF"},"message":""}
+
+2026-03-06 01:04:00,552 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_210322_eauv_corrected.jpg
+2026-03-06 01:04:00,558 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_210347_hmfq_corrected.jpg
+2026-03-06 01:04:00,565 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_210424_7yua_corrected.jpg
+2026-03-06 01:04:00,571 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_210546_93h6_corrected.jpg
+2026-03-06 01:04:00,577 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_210644_saws_corrected.jpg
+2026-03-06 01:04:00,585 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_225544_hnxn_corrected.jpg
+2026-03-06 01:04:00,592 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_225849_ik7n_corrected.jpg
+2026-03-06 01:04:00,599 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_230139_l10l_corrected.jpg
+2026-03-06 01:04:00,607 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_230338_epyt_corrected.jpg
+2026-03-06 01:04:00,613 - data_management.submission - DEBUG - Removed old corrected screenshot: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260302_230542_gpdu_corrected.jpg
+2026-03-06 01:04:00,615 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234032_fuly_terminal.jpg
+2026-03-06 01:04:00,615 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234155_qe5y_terminal.jpg
+2026-03-06 01:04:00,616 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234258_2wwr_terminal.jpg
+2026-03-06 01:04:00,616 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234410_fnoe_terminal.jpg
+2026-03-06 01:04:00,617 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260306_000506_e8lk_terminal.jpg
+2026-03-06 01:04:00,617 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234032_fuly_commodities.jpg
+2026-03-06 01:04:00,617 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234155_qe5y_commodities.jpg
+2026-03-06 01:04:00,618 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234258_2wwr_commodities.jpg
+2026-03-06 01:04:00,618 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234410_fnoe_commodities.jpg
+2026-03-06 01:04:00,619 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260306_000506_e8lk_commodities.jpg
+2026-03-06 01:04:00,619 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234032_fuly_terminal_ocr.png
+2026-03-06 01:04:00,620 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234155_qe5y_terminal_ocr.png
+2026-03-06 01:04:00,620 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234258_2wwr_terminal_ocr.png
+2026-03-06 01:04:00,620 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234410_fnoe_terminal_ocr.png
+2026-03-06 01:04:00,621 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260306_000506_e8lk_terminal_ocr.png
+2026-03-06 01:04:00,621 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234032_fuly_commodities_ocr.png
+2026-03-06 01:04:00,622 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234155_qe5y_commodities_ocr.png
+2026-03-06 01:04:00,622 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234258_2wwr_commodities_ocr.png
+2026-03-06 01:04:00,622 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260305_234410_fnoe_commodities_ocr.png
+2026-03-06 01:04:00,623 - data_management.submission - DEBUG - Removed image: E:\devlog\python\uexinfo\extprg\SC-Datarunner-UEX\data_management\..\screenshots\20260306_000506_e8lk_commodities_ocr.png

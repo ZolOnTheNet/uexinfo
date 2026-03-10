@@ -80,6 +80,45 @@ _BUY_STATUS_COLOR  = {7: "bright_white", 5: "white", 4: "yellow", 3: "orange1", 
 _SELL_STATUS_COLOR = {1: "bright_white", 2: "white", 3: "yellow", 4: "orange1", 5: "red1", 7: "red"}
 
 
+def _fmt_date(date_modified) -> str:
+    """Format relatif compact depuis un timestamp Unix.
+    1h 4h 8h 12h 16h 20h · 1j-9j · 1sem 2sem 3sem · 1M-8M · 9M+
+    """
+    if not date_modified:
+        return ""
+    try:
+        diff = time.time() - float(date_modified)
+        if diff < 0:
+            return ""
+        h = int(diff / 3600)
+        d = int(diff / 86400)
+        if h < 4:
+            return "1h"
+        elif h < 8:
+            return "4h"
+        elif h < 12:
+            return "8h"
+        elif h < 16:
+            return "12h"
+        elif h < 20:
+            return "16h"
+        elif h < 24:
+            return "20h"
+        elif d < 10:
+            return f"{d}j"
+        elif d < 14:
+            return "1sem"
+        elif d < 21:
+            return "2sem"
+        elif d < 28:
+            return "3sem"
+        else:
+            m = max(1, int(d / 30))
+            return f"{m}M" if m < 9 else "9M+"
+    except Exception:
+        return ""
+
+
 def _entry_ns(name: str, scu_str: str, status: int | None, buy: bool) -> str:
     """Formate 'NomCourt (SCU)' avec le SCU coloré selon le statut de stock."""
     short = _abbrev_name(name)
@@ -87,6 +126,21 @@ def _entry_ns(name: str, scu_str: str, status: int | None, buy: bool) -> str:
     color_map = _BUY_STATUS_COLOR if buy else _SELL_STATUS_COLOR
     color = color_map.get(s, C.DIM)
     return f"{short} ([{color}]{scu_str}[/{color}])"
+
+
+def _n_cols(term_w: int) -> int:
+    """Calcule le nombre de colonnes selon la largeur du terminal.
+
+    Chaque paire (nom 26 car + prix 12 car + paddings) ≈ 42 chars.
+    On cible 3 colonnes pour un terminal standard (≥ 125) et 4 pour les larges (≥ 170).
+    """
+    if term_w >= 170:
+        return 4
+    if term_w >= 125:
+        return 3
+    if term_w >= 80:
+        return 2
+    return 1
 
 
 def _multi_col_table(
@@ -115,6 +169,47 @@ def _multi_col_table(
 def _loc(full_name: str) -> str:
     """Retire le préfixe service ('Admin - ', 'Shop - ', …)."""
     return full_name.rsplit(" - ", 1)[-1].strip()
+
+
+def _dot_name(
+    terminal_name: str,
+    star_system: str = "",
+    player_system: str = "",
+    space_station: str = "",
+    planet: str = "",
+    orbit: str = "",
+) -> str:
+    """Notation pointée : [Système.]Station.service
+
+    Règles :
+    - service  = partie avant ' - ' (minuscule), ex. 'admin', 'shop'
+    - station  = partie après ' - ' ; sinon space_station / orbit / planet
+    - système  = affiché seulement si différent du système courant du joueur
+    """
+    name = terminal_name.strip()
+    if " - " in name:
+        service_raw, station = name.split(" - ", 1)
+        service = service_raw.strip().lower()
+        station = station.strip()
+    else:
+        # Pas de séparateur : le nom entier est le lieu, pas de type de service
+        service = ""
+        station = (
+            space_station or name
+        )
+
+    # Fallback station depuis les champs de localisation
+    if not station:
+        station = space_station or orbit or planet or name
+
+    parts: list[str] = []
+    if star_system and star_system.lower() != player_system.lower():
+        parts.append(star_system)
+    parts.append(station)
+    if service:
+        parts.append(service)
+
+    return ".".join(parts)
 
 
 def _player_system(ctx) -> str:
@@ -247,6 +342,61 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
     return dist_map
 
 
+_CONTAINER_SIZES_TTL = 3600  # 1 h — varie peu
+
+
+def _fetch_container_sizes(commodity_id: int, ctx) -> dict[str, str]:
+    """Retourne {terminal_name_lower: 'tailles'} pour une commodité.
+
+    Utilise /commodities_routes?id_commodity=X — champ container_sizes_origin.
+    Ex: {'terra gateway': '1·2·4', 'grimhex': '1·2'}
+    """
+    key = f"cs_{commodity_id}"
+    cached = ctx._price_cache.get(key)
+    if cached:
+        ts, data = cached
+        if time.monotonic() - ts < _CONTAINER_SIZES_TTL:
+            return data
+
+    client = UEXClient()
+    try:
+        routes = client.get_routes(id_commodity=commodity_id)
+    except UEXError:
+        return {}
+
+    sizes: dict[str, str] = {}
+    for route in routes:
+        # origin
+        t_orig = (route.get("terminal_name_origin") or "").strip()
+        cs_orig = route.get("container_sizes_origin")
+        if t_orig and cs_orig:
+            sizes[t_orig.lower()] = _fmt_container_sizes(cs_orig)
+        # destination
+        t_dest = (route.get("terminal_name_destination") or "").strip()
+        cs_dest = route.get("container_sizes_destination")
+        if t_dest and cs_dest:
+            sizes[t_dest.lower()] = _fmt_container_sizes(cs_dest)
+
+    ctx._price_cache[key] = (time.monotonic(), sizes)
+    return sizes
+
+
+def _fmt_container_sizes(raw) -> str:
+    """Formate container_sizes en '1·2·4' (ou '—' si vide).
+
+    raw peut être une liste [1,2,4], une chaîne '1,2,4', ou un int.
+    """
+    if not raw:
+        return "—"
+    if isinstance(raw, (int, float)):
+        return str(int(raw))
+    if isinstance(raw, list):
+        vals = sorted({int(v) for v in raw if str(v).isdigit()})
+    else:
+        vals = sorted({int(v.strip()) for v in str(raw).split(",") if v.strip().isdigit()})
+    return "/".join(str(v) for v in vals) if vals else "—"
+
+
 # ── Données scan ───────────────────────────────────────────────────────────────
 
 _STOCK_LABELS = {1: "Out", 2: "Très bas", 3: "Bas", 4: "Moyen", 5: "Haut", 7: "Max"}
@@ -259,6 +409,8 @@ def _find_scan(loc_name: str, ctx) -> ScanResult | None:
         return None
     q = loc_name.lower()
     for result in reversed(ctx.scan_history):
+        if not isinstance(result, ScanResult):
+            continue
         t = result.terminal.lower()
         if q in t or t in q:
             return result
@@ -310,37 +462,38 @@ def _stock_bar(status: int, sell: bool) -> str:
     return f"[{color}]{bar}[/{color}]"
 
 
-def _find_best_buyers(commodity_name: str, ctx, player_dest: str = "") -> list[dict]:
-    """Trouve les terminaux achetant cette commodité, triés par :
+def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx, player_dest: str = "") -> list[dict]:
+    """Trouve les terminaux achetant cette commodité (price_sell > 0), triés par :
     1. Destination du joueur (si définie)
-    2. Prix (décroissant)
-    Retourne les 3 meilleurs acheteurs.
+    2. Prix de vente (décroissant)
+    Exclut le terminal d'origine. Retourne les 3 meilleurs acheteurs.
     """
-    client = UEXClient()
-    try:
-        rows = client.get_prices(commodity_name=commodity_name)
-    except Exception:
+    if not id_commodity:
         return []
 
-    # Filtrer uniquement les terminaux qui achètent (price_sell > 0)
-    buyers = [r for r in rows if r.get("price_sell")]
+    rows = _commodity_prices(id_commodity, ctx)
+
+    # Terminaux acheteurs (price_sell > 0), hors terminal d'origine
+    buyers = [
+        r for r in rows
+        if r.get("price_sell") and int(r.get("id_terminal") or 0) != origin_terminal_id
+    ]
 
     if not buyers:
         return []
 
-    # Trier : destination joueur en premier, puis par prix décroissant
     def sort_key(row):
         terminal = (row.get("terminal_name") or "").lower()
         is_player_dest = 1 if player_dest and terminal == player_dest else 0
         price = float(row.get("price_sell") or 0)
         return (-is_player_dest, -price)
 
-    return sorted(buyers, key=sort_key)[:3]  # Top 3 acheteurs
+    return sorted(buyers, key=sort_key)[:3]
 
 
 def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> None:
-    """Affiche la section Acheter avec calculs détaillés de cargo, prix, profit."""
-    console.print(f"\n[bold {C.UEX}]▼ Acheter ici[/bold {C.UEX}]")
+    """Affiche la section Acheter avec table alignée, triée par profit décroissant."""
+    console.print(f"\n[bold {C.UEX}]▼ Acheter sur place[/bold {C.UEX}]")
 
     # Récupérer le cargo du vaisseau actif
     ship_cargo = 0
@@ -356,121 +509,135 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
         return
 
     player_dest = (ctx.player.destination or "").lower().strip()
+    origin_system = origin_terminal.star_system_name
+    graph = ctx.cache.transport_graph
+
+    # ── Construire toutes les lignes avec calculs ──────────────────────────
+    entries: list[tuple[float, dict]] = []   # (profit_full, data)
 
     for r in buy_rows:
-        name = r.get("commodity_name", "?")
-        scu_min = int(r.get("scu_buy") or 0)
-        scu_max = int(r.get("scu_buy_max") or scu_min)
-        price_buy = float(r.get("price_buy") or 0)
+        name       = r.get("commodity_name", "?")
+        id_comm    = int(r.get("id_commodity") or 0)
+        scu_min    = int(r.get("scu_buy") or 0)
+        scu_max    = int(r.get("scu_buy_max") or scu_min)
+        price_buy  = float(r.get("price_buy") or 0)
         status_buy = int(r.get("status_buy") or 0)
+        date_buy   = _fmt_date(r.get("date_modified"))
 
-        # Quantité disponible à l'achat (estimation basée sur le status)
-        # Status: 1=Out, 2=TrèsBas, 3=Bas, 4=Moyen, 5=Haut, 7=Max
         stock_multiplier = {1: 0, 2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
-        stock_percent = stock_multiplier.get(status_buy, 0.5)
-        stock_available = int(ship_cargo * stock_percent) if status_buy != 1 else 0
+        stock_percent    = stock_multiplier.get(status_buy, 0.5)
+        stock_available  = int(ship_cargo * stock_percent) if status_buy != 1 else 0
+        qty_buy          = min(ship_cargo, stock_available) if stock_available > 0 else ship_cargo
+        total_buy        = qty_buy * price_buy
 
-        # Quantité achetable = min(cargo vaisseau, stock disponible)
-        qty_buy = min(ship_cargo, stock_available) if stock_available > 0 else ship_cargo
-
-        # Total achat
-        total_buy = qty_buy * price_buy
-
-        # Trouver le meilleur acheteur
-        best_buyers = _find_best_buyers(name, ctx, player_dest)
+        best_buyers = _find_best_buyers(id_comm, origin_terminal.id, ctx, player_dest)
 
         if not best_buyers:
-            # Pas de destination connue — affichage simple
-            console.print(
-                f"  [{C.NEUTRAL}]{_abbrev_name(name)}[/{C.NEUTRAL}] "
-                f"[{C.DIM}]({scu_min}-{scu_max})[/{C.DIM}]  "
-                f"[italic {C.UEX}]{price_buy:.2f}[/italic {C.UEX}]  "
-                f"[{C.DIM}]→  ?  (aucune destination connue)[/{C.DIM}]"
-            )
+            entries.append((0.0, {
+                "name": name, "scu_range": _notable_scu(_scu(scu_min, scu_max)),
+                "price_buy": price_buy, "date": date_buy,
+                "dest": "?", "dest_tag": C.DIM,
+                "qty": qty_buy, "total_buy": total_buy,
+                "total_sell": 0.0, "profit": 0.0,
+                "distance": "", "unsold": 0,
+            }))
             continue
 
-        buyer = best_buyers[0]
-        dest_name = buyer.get("terminal_name", "?")
+        buyer       = best_buyers[0]
+        dest_name   = buyer.get("terminal_name", "?")
         dest_system = buyer.get("star_system_name", "")
-        price_sell = float(buyer.get("price_sell") or 0)
+        price_sell  = float(buyer.get("price_sell") or 0)
         status_sell = int(buyer.get("status_sell") or 0)
 
-        # Inventory du terminal vendeur (capacité restante)
-        # Status sell: 1=Out (forte demande), 7=Max (plein)
-        inv_multiplier = {1: 1.0, 2: 0.8, 3: 0.6, 4: 0.4, 5: 0.2, 7: 0}
-        inv_percent = inv_multiplier.get(status_sell, 0.5)
-        inv_remaining = int(qty_buy * inv_percent)
+        inv_multiplier  = {1: 1.0, 2: 0.8, 3: 0.6, 4: 0.4, 5: 0.2, 7: 0}
+        inv_percent     = inv_multiplier.get(status_sell, 0.5)
+        qty_sell_lim    = int(qty_buy * inv_percent)
+        qty_unsold      = qty_buy - qty_sell_lim
+        # Profit basé sur les SCU effectivement vendables (pas sur tout le cargo)
+        total_sell_real = qty_sell_lim * price_sell
+        total_sell_full = qty_buy * price_sell      # référence si tout vendable
+        profit_full     = total_sell_real - total_buy
 
-        # Total vente (si tout vendu)
-        total_sell_full = qty_buy * price_sell
-
-        # Total vente limité par inventaire
-        qty_sell_limited = inv_remaining
-        total_sell_limited = qty_sell_limited * price_sell
-        qty_unsold = qty_buy - qty_sell_limited
-
-        # Profit
-        profit_full = total_sell_full - total_buy
-        profit_limited = total_sell_limited - total_buy
-
-        # Notation système (ajouter "." si différent)
-        origin_system = origin_terminal.star_system_name
-        dest_display = dest_name
-        if dest_system and dest_system != origin_system:
-            dest_display = f"{dest_system}.{dest_name}"
-
-        # Souligner si destination = celle du joueur
+        dest_display = _dot_name(
+            dest_name, dest_system, origin_system,
+            space_station=buyer.get("space_station_name") or "",
+            planet=buyer.get("planet_name") or "",
+            orbit=buyer.get("orbit_name") or "",
+        )
         dest_style = "underline" if dest_name.lower() == player_dest else ""
+        dest_tag   = f"{dest_style} {C.LABEL}".strip()
 
-        # Distance depuis le graphe
         distance_str = ""
-        graph = ctx.cache.transport_graph
-        if origin_terminal.name in graph.nodes and dest_name in graph.nodes:
-            # Chercher dans les arêtes
-            for edge in graph._adjacency.get(origin_terminal.name, []):
-                if edge.to_node == dest_name:
-                    distance_str = f"  [{C.DIM}]{edge.distance_gm:.1f} Gm[/{C.DIM}]"
-                    break
+        for edge in graph._adjacency.get(origin_terminal.name, []):
+            if edge.to_node == dest_name:
+                distance_str = f"{edge.distance_gm:.1f}Gm"
+                break
 
-        # Affichage ligne 1 : Nom, conditionnement, destination, distance
-        console.print(
-            f"  [{C.NEUTRAL}]{_abbrev_name(name, 18)}[/{C.NEUTRAL}] "
-            f"[{C.DIM}]({scu_min}-{scu_max})[/{C.DIM}]  "
-            f"[{C.DIM}]→[/{C.DIM}]  "
-            f"[{dest_style} {C.LABEL}]{_abbrev_name(dest_display, 22)}[/{dest_style} {C.LABEL}]"
-            f"{distance_str}"
+        entries.append((profit_full, {
+            "name": name, "scu_range": _notable_scu(_scu(scu_min, scu_max)),
+            "price_buy": price_buy, "date": date_buy,
+            "dest": dest_display, "dest_tag": dest_tag,
+            "qty": qty_buy, "qty_sell": qty_sell_lim,
+            "total_buy": total_buy,
+            "total_sell": total_sell_real, "profit": profit_full,
+            "distance": distance_str, "unsold": qty_unsold,
+        }))
+
+    # ── Trier par profit décroissant ──────────────────────────────────────
+    entries.sort(key=lambda x: -x[0])
+
+    # ── Afficher en table alignée ─────────────────────────────────────────
+    tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
+    tbl.add_column("Commodité",   style=f"italic {C.NEUTRAL}", no_wrap=True, min_width=14)
+    tbl.add_column("Prix/SCU",    style=f"italic {C.UEX}",    justify="right", no_wrap=True)
+    tbl.add_column("Âge",         style=C.DIM,                justify="right", no_wrap=True)
+    tbl.add_column("→ Dest",      no_wrap=True,               min_width=14)
+    tbl.add_column("Dist",        style=C.DIM,                justify="right", no_wrap=True)
+    tbl.add_column("SCU",         style=C.DIM,                justify="right", no_wrap=True)
+    tbl.add_column("Coût",        style=f"italic {C.DIM}",    justify="right", no_wrap=True)
+    tbl.add_column("Vente",       style=f"italic {C.PROFIT}", justify="right", no_wrap=True)
+    tbl.add_column("Profit",      justify="right",            no_wrap=True)
+
+    for _, d in entries:
+        profit      = d["profit"]
+        p_color     = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
+        p_sign      = "+" if profit > 0 else ""
+        name_str    = _abbrev_name(d["name"], 16)
+        if d["scu_range"]:
+            name_str = f"{name_str} [dim]({d['scu_range']})[/dim]"
+        dest_str    = f"[{d['dest_tag']}]{_abbrev_name(d['dest'], 18)}[/{d['dest_tag']}]"
+        # SCU : "288" si tout vendable, "230/288" si capacité limitée
+        scu_cell = str(d["qty"])
+        if d["unsold"]:
+            scu_cell = f"{d['qty_sell']}/{d['qty']}"
+        tbl.add_row(
+            name_str,
+            _price_short(d["price_buy"]),
+            d["date"],
+            dest_str,
+            d["distance"],
+            scu_cell,
+            _price_short(d["total_buy"]),
+            _price_short(d["total_sell"]),
+            f"[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]",
         )
-
-        # Affichage ligne 2 : Calculs détaillés
-        profit_color = C.PROFIT if profit_full > 0 else C.LOSS
-        profit_sign = "+" if profit_full >= 0 else ""
-
-        vente_detail = f"{int(total_sell_full)}"
-        if qty_unsold > 0:
-            vente_detail += f" [{C.DIM}]({int(total_sell_limited)} - {qty_unsold} invendus)[/{C.DIM}]"
-
-        console.print(
-            f"    [{C.DIM}]{qty_buy} SCU[/{C.DIM}]  "
-            f"[italic {C.UEX}]Achat: {int(total_buy)}[/italic {C.UEX}]  "
-            f"[{C.DIM}]→[/{C.DIM}]  "
-            f"[italic {C.PROFIT}]Vente: {vente_detail}[/italic {C.PROFIT}]  "
-            f"[{profit_color}]{profit_sign}{int(profit_full)}[/{profit_color}]"
-        )
+    console.print(tbl)
 
 
 # ── Affichage terminal ─────────────────────────────────────────────────────────
 
 def _show_terminal(t: Terminal, ctx) -> None:
-    loc_name = _loc(t.name)
-    station = t.space_station_name or t.city_name or t.orbit_name or t.planet_name
-    loc_label = t.star_system_name
-    if station and station.lower() != loc_name.lower():
-        loc_label += f" › {station}"
-    loc_label += f" › {loc_name}"
-    section(f"Marché — {loc_name}  [{loc_label}]")
+    player_sys = _player_system(ctx)
+    dot = _dot_name(
+        t.name, t.star_system_name, player_sys,
+        space_station=t.space_station_name,
+        planet=t.planet_name,
+        orbit=t.orbit_name,
+    )
+    section(f"Marché — {dot}")
 
     rows = _terminal_prices(t, ctx)
-    scan  = _find_scan(loc_name, ctx)
+    scan  = _find_scan(_loc(t.name), ctx)
 
     if not rows and not scan:
         console.print(f"[{C.DIM}]Aucune donnée pour ce terminal.[/{C.DIM}]")
@@ -499,26 +666,34 @@ def _show_terminal(t: Terminal, ctx) -> None:
             console.print(f"[italic {C.DIM}]Terminal sans transaction active.[/italic {C.DIM}]")
         else:
             term_w = getattr(console, "width", None) or 100
-            n_cols = max(1, min(4, term_w // 32))
+            n_cols = _n_cols(term_w)
 
             if buy_rows:
                 _show_buy_detailed(buy_rows, t, ctx)
+            else:
+                console.print(f"\n[bold {C.UEX}]▼ Acheter sur place[/bold {C.UEX}]")
+                console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à vendre ici[/italic {C.DIM}]")
 
+            console.print(f"\n[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
             if sell_rows:
-                console.print(f"\n[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
-                entries = [
-                    (_entry_ns(
+                entries = []
+                for r in sell_rows:
+                    d = _fmt_date(r.get("date_modified"))
+                    price_str = _price_short(r.get("price_sell"))
+                    if d:
+                        price_str = f"{price_str}  [{C.DIM}]{d}[/{C.DIM}]"
+                    entries.append((_entry_ns(
                         r.get("commodity_name") or "?",
                         _scu(r.get("scu_sell"), r.get("scu_sell_max"))
                         or _scu(r.get("scu_sell_stock")),
                         r.get("status_sell"), buy=False,
-                    ), _price_short(r.get("price_sell")))
-                    for r in sell_rows
-                ]
+                    ), price_str))
                 console.print(_multi_col_table(
                     entries, ("Commodité (SCU)", "Vente"), n_cols,
                     f"italic {C.NEUTRAL}", f"italic {C.PROFIT}",
                 ))
+            else:
+                console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à acheter ici[/italic {C.DIM}]")
 
             total = len({r.get("commodity_name") for r in rows})
             dates = [r.get("date_modified") for r in rows if r.get("date_modified")]
@@ -610,14 +785,26 @@ def _dist_label(term_name: str, terminal_sys: str, player_sys: str,
     return terminal_sys or f"[{C.DIM}]—[/{C.DIM}]"
 
 
-def _term_sys_cell(r: dict, maxlen: int = 22) -> str:
-    """'TermCourt  (Sys)' — nom court + système en dim."""
-    term = _loc(r.get("terminal_name") or "?")
-    sys  = r.get("star_system_name") or ""
+def _term_sys_cell(r: dict, maxlen: int = 22,
+                   player_loc: str = "", player_dest: str = "") -> str:
+    """'TermCourt  (Sys)' — nom court + système en dim.
+    Souligne le nom si le joueur est sur ce terminal.
+    Ajoute ⭐ si c'est la destination définie.
+    """
+    term    = _loc(r.get("terminal_name") or "?")
+    sys     = r.get("star_system_name") or ""
+    term_lo = term.lower()
+
+    is_here = bool(player_loc and (term_lo in player_loc or player_loc in term_lo))
+    is_dest = bool(player_dest and (term_lo in player_dest or player_dest in term_lo))
+
     if len(term) > maxlen:
         term = term[:maxlen - 1] + "…"
-    sys_part = f"  [{C.DIM}]({sys})[/{C.DIM}]" if sys else ""
-    return f"{term}{sys_part}"
+
+    term_part = f"[bold underline]{term}[/bold underline]" if is_here else term
+    suffix    = f" [{C.PROFIT}]⭐[/{C.PROFIT}]" if is_dest else ""
+    sys_part  = f"  [{C.DIM}]({sys})[/{C.DIM}]" if sys else ""
+    return f"{term_part}{suffix}{sys_part}"
 
 
 def _scu_cell(qty) -> str:
@@ -706,6 +893,8 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         console.print(f"[{C.DIM}]Aucune donnée de prix disponible.[/{C.DIM}]")
         return
 
+    all_rows = rows  # sauvegardé avant le filtre système pour le résumé "existe aussi"
+
     if effective_filter:
         rows_filtered = [
             r for r in rows
@@ -734,6 +923,13 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     if player_term and player_term.id:
         dist_map = _fetch_route_distances(player_term.id, ctx)
 
+    # Clés de comparaison pour le soulignement et l'étoile destination
+    player_loc_key  = _loc(player_term.name).lower() if player_term else ""
+    player_dest_key = _loc(ctx.player.destination or "").lower()
+
+    # Tailles de conteneurs par terminal (via /commodities_routes)
+    container_map = _fetch_container_sizes(c.id, ctx)
+
     # ── Résumé ─────────────────────────────────────────────────────────────
     parts = []
     if buy_rows:
@@ -754,7 +950,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
 
     # ── Table ACHAT ────────────────────────────────────────────────────────
     if buy_rows:
-        console.print(f"[bold {C.UEX}]▼ Acheter ici[/bold {C.UEX}]")
+        console.print(f"[bold {C.UEX}]▼ Acheter là-bas[/bold {C.UEX}]")
         tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
         tbl.add_column("Terminal (Sys)", no_wrap=True, min_width=24)
         tbl.add_column("Achat/SCU",      style=C.UEX,  justify="right", no_wrap=True)
@@ -782,9 +978,9 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
                 if total else f"[{C.DIM}]—[/{C.DIM}]"
             )
             tbl.add_row(
-                _term_sys_cell(r),
+                _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
-                _scu_range(scu_min, scu_max),
+                container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]"),
                 _bar_buy(status, scu_max),
                 _dist_label(term_name, sys, player_sys, dist_map),
                 total_cell,
@@ -799,8 +995,8 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     console.print(f"[{C.DIM}]{'─' * left}{mid}{'─' * right}[/{C.DIM}]")
 
     # ── Table VENTE ────────────────────────────────────────────────────────
+    console.print(f"[bold {C.PROFIT}]▼ Vendre là-bas[/bold {C.PROFIT}]")
     if sell_rows:
-        console.print(f"[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
         tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
         tbl.add_column("Terminal (Sys)",  no_wrap=True, min_width=24)
         tbl.add_column("Vente/SCU",       style=C.PROFIT, justify="right", no_wrap=True)
@@ -838,15 +1034,17 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
                 if revenue else f"[{C.DIM}]—[/{C.DIM}]"
             )
             tbl.add_row(
-                _term_sys_cell(r),
+                _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
                 _bar_sell(status, scu_stock),
-                _scu_range(scu_sell_min, scu_sell_max),
+                container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]"),
                 _dist_label(term_name, sys, player_sys, dist_map),
                 roi_str,
                 revenue_cell,
             )
         console.print(tbl)
+    else:
+        console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à acheter ici[/italic {C.DIM}]")
 
     # ── Footer ─────────────────────────────────────────────────────────────
     n_t    = len({r.get("terminal_name") for r in active})
@@ -864,8 +1062,28 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     elif ctx.player.active_ship:
         ship_note = f"  ·  {ctx.player.active_ship} — /ship cargo <nom> <n> pour le SCU"
     console.print(f"\n[{C.DIM}]{n_t} terminaux{date_str}{ship_note}[/{C.DIM}]")
+
+    # ── Résumé autres systèmes (si filtre actif) ────────────────────────────
+    if effective_filter and all_rows is not rows:
+        shown_sys = set(effective_filter)
+        other: dict[str, set] = {}
+        for r in all_rows:
+            if not (r.get("price_buy") or r.get("price_sell")):
+                continue
+            sys_name = (r.get("star_system_name") or "").strip()
+            term     = (r.get("terminal_name") or "").strip()
+            if sys_name and sys_name.lower() not in shown_sys and term:
+                other.setdefault(sys_name, set()).add(term)
+        if other:
+            parts = [f"[bold]{sys}[/bold] : {len(terms)}"
+                     for sys, terms in sorted(other.items())]
+            console.print(
+                f"[{C.DIM}]  Existe aussi : {' · '.join(parts)}"
+                f"  ([italic]--all pour tout voir[/italic])[/{C.DIM}]"
+            )
+
     console.print(
-        f"[{C.DIM}]  Prix en aUEC  ·  T.Cargo : taille conteneurs (ex. 1-8, 8-32, tous)"
+        f"[{C.DIM}]  Prix en aUEC  ·  T.Cargo : tailles des conteneurs en SCU (ex. 1/2/4)"
         f"  ·  Dispo ░=vide ████=plein  ·  ROI vs meilleur achat local[/{C.DIM}]"
     )
 
@@ -1005,18 +1223,75 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
 
 # ── Recherche ──────────────────────────────────────────────────────────────────
 
-def _find_terminal(query: str, ctx) -> Terminal | None:
+_TRADING_SERVICES = {"admin", "tdd", "trade"}   # priorité commerce
+
+
+def _trading_priority(t: Terminal) -> int:
+    """0 = terminal de commerce (Admin/TDD), 1 = autre."""
+    if " - " not in t.name:
+        return 1
+    svc = t.name.split(" - ")[0].strip().lower()
+    return 0 if svc in _TRADING_SERVICES else 1
+
+
+def _find_terminal(query: str, ctx, strong: bool = False) -> Terminal | None:
+    """Recherche un terminal avec priorités :
+    1. Notation pointée  station.service  ou  système.station.service
+    2. Nom/code exact
+    3. Nom court exact   → préfère Admin/TDD
+    4. Préfixe           → préfère Admin/TDD
+    5. Contient          → préfère Admin/TDD  (ignoré si strong=True)
+
+    strong=True : seulement les étapes 1-4 (pas de match "contient").
+    Utilisé en recherche libre pour ne pas écraser une commodité homonyme.
+    """
     q = query.replace("_", " ").lower().strip()
+
+    # ── 1. Notation pointée ──────────────────────────────────────────────
+    if "." in q:
+        parts = q.rsplit(".", 1)          # ["system.station", "service"]  ou  ["station", "service"]
+        service_q = parts[1].strip()
+        station_q = parts[0].rsplit(".", 1)[-1].strip()  # dernier segment avant le service
+        # Correspondance exacte service + station
+        for t in ctx.cache.terminals:
+            if " - " not in t.name:
+                continue
+            svc, loc = t.name.lower().split(" - ", 1)
+            if svc.strip() == service_q and loc.strip() == station_q:
+                return t
+        # Correspondance partielle
+        for t in ctx.cache.terminals:
+            if " - " not in t.name:
+                continue
+            svc, loc = t.name.lower().split(" - ", 1)
+            if service_q in svc and station_q in loc:
+                return t
+        # Fallback : chercher sans le service (juste la station)
+        q = station_q
+
+    # ── 2. Nom ou code exact ─────────────────────────────────────────────
     for t in ctx.cache.terminals:
         if t.name.lower() == q or t.code.lower() == q:
             return t
-    for t in ctx.cache.terminals:
-        loc = _loc(t.name).lower()
-        if loc == q or loc.startswith(q):
-            return t
-    for t in ctx.cache.terminals:
-        if q in t.name.lower():
-            return t
+
+    # ── 3. Nom court exact → préfère Admin/TDD ───────────────────────────
+    matches = [t for t in ctx.cache.terminals if _loc(t.name).lower() == q]
+    if matches:
+        return min(matches, key=_trading_priority)
+
+    # ── 4. Préfixe du nom court → préfère Admin/TDD ──────────────────────
+    matches = [t for t in ctx.cache.terminals if _loc(t.name).lower().startswith(q)]
+    if matches:
+        return min(matches, key=_trading_priority)
+
+    if strong:
+        return None
+
+    # ── 5. Contient → préfère Admin/TDD ─────────────────────────────────
+    matches = [t for t in ctx.cache.terminals if q in t.name.lower()]
+    if matches:
+        return min(matches, key=_trading_priority)
+
     return None
 
 
@@ -1147,7 +1422,11 @@ def cmd_info(args: list[str], ctx) -> None:
     # Gérer les tokens @Sys.Planet.Loc issus de la complétion de lieu
     if query.startswith("@"):
         query = query[1:].rsplit(".", 1)[-1]
-    t = _find_terminal(query, ctx)
+
+    # Priorité : terminal exact/préfixe > commodité > terminal "contient" > API > vaisseau
+    # On ne fait pas le match "contient" des terminaux en premier pour éviter
+    # qu'un nom de terminal comme "Devlin Scrap and Salvage" écrase la commodité "Scrap".
+    t = _find_terminal(query, ctx, strong=True)
     if t:
         _show_terminal(t, ctx)
         return
@@ -1157,6 +1436,11 @@ def cmd_info(args: list[str], ctx) -> None:
         return
     # Fallback : terminal hors cache (Pyro, etc.) → requête directe par nom
     if _show_terminal_by_name(query, ctx):
+        return
+    # Fallback : terminal match "contient" (ex: "devlin scrap" → Devlin Scrap and Salvage)
+    t = _find_terminal(query, ctx)
+    if t:
+        _show_terminal(t, ctx)
         return
     # Fallback : vaisseau
     v = _find_vehicle(query, ctx)

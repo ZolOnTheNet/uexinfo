@@ -180,11 +180,18 @@ class UEXCompleter(Completer):
                                 slug, start_position=-len(current),
                                 display=v.name_full, display_meta=v.manufacturer,
                             )
-            elif action in ("remove", "cargo"):
+            elif action in ("remove", "cargo", "set"):
                 # Seulement les vaisseaux déjà configurés
-                for s in self.ctx.cfg.get("ships", {}).get("available", []):
-                    if s.lower().startswith(cur_lower):
-                        yield Completion(s, start_position=-len(current))
+                for ship in (self.ctx.player.ships if hasattr(self.ctx, 'player') else []):
+                    if ship.name.lower().startswith(cur_lower):
+                        slug = ship.name.replace(" ", "_")
+                        scu_info = f"{ship.scu} SCU" if ship.scu else "? SCU"
+                        yield Completion(
+                            slug,
+                            start_position=-len(current),
+                            display=ship.name,
+                            display_meta=scu_info,
+                        )
 
         # ── Complétion dynamique : /info ship <nom> ou /info <nom_vaisseau> ─
         if self.ctx and cmd == "info" and (

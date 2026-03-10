@@ -1,0 +1,88 @@
+/* app.tcss — Layout terminal UEXInfo */
+
+Screen {
+    background: $surface;
+    layout: vertical;
+    layers: default overlay;
+}
+
+/* ── RichLog — sortie principale ────────────────────────────────────────── */
+
+RichLog {
+    height: 1fr;
+    padding: 0 1;
+    background: $surface;
+    scrollbar-gutter: stable;
+}
+
+/* ── CompletionList — liste déroulante Ctrl+↓ ───────────────────────────── */
+
+CompletionList {
+    display: none;
+    height: auto;
+    max-height: 12;
+    background: $panel;
+    border: tall $accent;
+    margin: 0 1;
+}
+
+CompletionList ListItem {
+    padding: 0 1;
+}
+
+CompletionList ListItem.--highlight {
+    background: $accent;
+}
+
+/* ── PromptWidget — ligne de saisie ─────────────────────────────────────── */
+
+PromptWidget {
+    height: auto;
+    background: $panel;
+    border-top: solid $accent;
+}
+
+#prompt-row {
+    height: auto;
+    padding: 0 1;
+    align: left middle;
+}
+
+#prompt-symbol {
+    color: cyan;
+    width: auto;
+    padding: 0 1 0 0;
+    text-style: bold;
+}
+
+#prompt-input {
+    width: 1fr;
+    border: none;
+    background: $surface-lighten-1;
+    color: $text;
+    padding: 0 1;
+}
+
+#prompt-input:focus {
+    border: none;
+    background: $surface-lighten-2;
+}
+
+/* ── StatusBar — état courant (1 ligne) ─────────────────────────────────── */
+
+StatusBar {
+    height: 1;
+    background: $panel-darken-1;
+    border-top: solid $panel-darken-2;
+    padding: 0 1;
+}
+
+#status-label {
+    width: 1fr;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+
+Footer {
+    background: $accent-darken-2;
+}

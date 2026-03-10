@@ -5,5 +5,15 @@ beautifulsoup4>=4.12
 tomli-w>=1.0
 appdirs>=1.4
 
+Pillow>=10.0
+pytesseract>=0.3
+rapidfuzz>=3.0
+textual>=0.80.0
+
 # Optionnel — scraping sc-trade.tools (Phase 4)
 # playwright>=1.40
+
+# Optionnel — mode overlay PyWebView (pip install -e ".[overlay]")
+# pywebview>=5.0
+# pynput>=1.7
+# textual-web>=0.7.0

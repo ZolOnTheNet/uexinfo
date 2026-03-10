@@ -89,5 +89,11 @@ class UEXClient:
         params = {"id_vehicle": id_vehicle} if id_vehicle else {}
         return self._get("vehicles_rentals_prices", params)
 
-    def get_routes(self, id_terminal_origin: int) -> list[dict]:
-        return self._get("commodities_routes", {"id_terminal_origin": id_terminal_origin})
+    def get_routes(self, id_terminal_origin: int | None = None,
+                   id_commodity: int | None = None) -> list[dict]:
+        params: dict = {}
+        if id_terminal_origin is not None:
+            params["id_terminal_origin"] = id_terminal_origin
+        if id_commodity is not None:
+            params["id_commodity"] = id_commodity
+        return self._get("commodities_routes", params)

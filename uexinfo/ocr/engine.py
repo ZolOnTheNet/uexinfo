@@ -14,6 +14,7 @@ import statistics
 from pathlib import Path
 
 from uexinfo.models.scan_result import ScannedCommodity, ScanResult
+from uexinfo.models.mission_result import MissionResult
 
 # ── Chemins ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,24 @@ def _img_size(image_path: Path) -> tuple[int, int]:
     with Image.open(image_path) as im:
         return im.size
 
+
+# ── Patterns mission ──────────────────────────────────────────────────────────
+
+_RE_REWARD      = re.compile(r"Reward\s+[¤øH$]?\s*([\d,\s]+)", re.IGNORECASE)
+_RE_CONTRACTED  = re.compile(r"Contracted\s+By\s+(.+)", re.IGNORECASE)
+_RE_AVAIL       = re.compile(r"Contract\s+Availability\s+(.+)", re.IGNORECASE)
+_RE_MISSION_AMT = re.compile(r"(\d+)\s*[kK]$")   # "40k" dans la liste de missions
+_RE_BULLET      = re.compile(r"^[•◇◆\-\*\u25c6\u2666\u00b7]\s*")
+
+_MISSION_KEYWORDS = {
+    "OFFERS", "ACCEPTED", "HISTORY",
+    "PRIMARY OBJECTIVES", "CONTRACT AVAILABILITY",
+    "CONTRACTED BY", "ACCEPT OFFER", "MARK ALL READ",
+}
+_TERMINAL_KEYWORDS = {
+    "SHOP INVENTORY", "SELLABLE CARGO", "IN DEMAND",
+    "COMMODITIES", "LOCAL MARKET VALUE",
+}
 
 # ── Patterns de parsing ───────────────────────────────────────────────────────
 
@@ -147,14 +166,20 @@ class TesseractEngine:
 
     # ── Public ────────────────────────────────────────────────────────────────
 
-    def extract_from_image(self, image_path: Path) -> ScanResult | None:
+    def extract_from_image(self, image_path: Path) -> "ScanResult | MissionResult | None":
         from PIL import Image, ImageOps
 
         try:
-            img = Image.open(image_path)
+            Image.open(image_path).verify()  # vérifie lisibilité
         except Exception as e:
             raise RuntimeError(f"Impossible d'ouvrir l'image : {e}") from e
 
+        # Détection du type d'écran
+        screen_type = self.detect_screen_type(image_path)
+        if screen_type == "mission":
+            return self.extract_mission(image_path)
+
+        img = Image.open(image_path)
         w, h = img.size
 
         # Zone 1 : nom du terminal — couvre le tiers gauche depuis le haut
@@ -314,6 +339,249 @@ class TesseractEngine:
                 os.environ["TESSDATA_PREFIX"] = env_bak
 
         return self._tsv_to_lines(tsv)
+
+    # ── Détection du type d'écran ─────────────────────────────────────────────
+
+    def detect_screen_type(self, image_path: Path) -> str:
+        """Détecte 'mission' | 'terminal' | 'unknown' en lisant l'en-tête."""
+        from PIL import Image, ImageOps
+        img = Image.open(image_path)
+        w, h = img.size
+        # Partie haute droite — onglets + premières infos
+        probe = img.crop((int(w * 0.33), int(h * 0.04), int(w * 0.99), int(h * 0.30)))
+        probe = ImageOps.invert(probe.convert("L"))
+        env_bak = os.environ.get("TESSDATA_PREFIX")
+        os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
+        try:
+            text = self._pt.image_to_string(
+                probe, lang="eng_sc", config="--psm 6 --oem 3"
+            ).upper()
+        except Exception:
+            text = ""
+        finally:
+            if env_bak is None:
+                os.environ.pop("TESSDATA_PREFIX", None)
+            else:
+                os.environ["TESSDATA_PREFIX"] = env_bak
+
+        m_score = sum(1 for kw in _MISSION_KEYWORDS if kw in text)
+        t_score  = sum(1 for kw in _TERMINAL_KEYWORDS if kw in text)
+        if m_score >= 2 and m_score > t_score:
+            return "mission"
+        if t_score > 0:
+            return "terminal"
+        return "unknown"
+
+    # ── Extraction mission ─────────────────────────────────────────────────────
+
+    def extract_mission(self, image_path: Path) -> MissionResult:
+        """Extrait les données d'un screenshot de l'écran Contrats."""
+        from PIL import Image, ImageOps
+        img = Image.open(image_path)
+        w, h = img.size
+
+        def _ocr(crop_box, psm=6) -> str:
+            region = img.crop(crop_box)
+            region = ImageOps.invert(region.convert("L"))
+            env_bak = os.environ.get("TESSDATA_PREFIX")
+            os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
+            try:
+                return self._pt.image_to_string(
+                    region, lang="eng_sc", config=f"--psm {psm} --oem 3"
+                ).strip()
+            except Exception:
+                return ""
+            finally:
+                if env_bak is None:
+                    os.environ.pop("TESSDATA_PREFIX", None)
+                else:
+                    os.environ["TESSDATA_PREFIX"] = env_bak
+
+        # ── Onglet actif (OFFERS / ACCEPTED / HISTORY) ────────────────────────
+        tab_text = _ocr((int(w*.33), int(h*.06), int(w*.75), int(h*.12)), psm=7)
+        active_tab = ""
+        for t in ("OFFERS", "ACCEPTED", "HISTORY"):
+            if t.lower() in tab_text.lower():
+                active_tab = t
+                break
+
+        # ── Titre (grand texte panneau droit) ─────────────────────────────────
+        title_text = _ocr((int(w*.33), int(h*.12), int(w*.66), int(h*.23)), psm=6)
+        title = " ".join(title_text.split())
+
+        # ── Infos (Reward / Availability / Contracted By) ─────────────────────
+        info_text = _ocr((int(w*.64), int(h*.11), int(w*.93), int(h*.25)), psm=6)
+        reward, availability, contracted_by = self._parse_mission_info(info_text)
+
+        # ── Détails (colonne gauche du contenu) ───────────────────────────────
+        details_text = _ocr((int(w*.33), int(h*.25), int(w*.62), int(h*.86)), psm=4)
+
+        # ── Objectifs (colonne droite) ────────────────────────────────────────
+        objectives_text = _ocr((int(w*.62), int(h*.25), int(w*.93), int(h*.86)), psm=4)
+        objectives = self._parse_objectives(objectives_text)
+
+        # ── Liste missions panneau gauche ─────────────────────────────────────
+        list_text = _ocr((int(w*.06), int(h*.06), int(w*.31), int(h*.88)), psm=4)
+        mission_list = self._parse_mission_list(list_text)
+
+        # ── Texte bleu (liens importants) ─────────────────────────────────────
+        blue_text = self._extract_blue_text(img)
+
+        return MissionResult(
+            title=title,
+            tab=active_tab,
+            reward=reward,
+            contract_availability=availability,
+            contracted_by=contracted_by,
+            details=details_text,
+            objectives=objectives,
+            blue_text=blue_text,
+            mission_list=mission_list,
+        )
+
+    def _parse_mission_info(self, text: str) -> tuple[int, str, str]:
+        """Parse le bloc Reward / Contract Availability / Contracted By."""
+        reward = 0
+        m = _RE_REWARD.search(text)
+        if m:
+            try:
+                reward = int(m.group(1).replace(",", "").replace(" ", ""))
+            except ValueError:
+                pass
+
+        availability = ""
+        m = _RE_AVAIL.search(text)
+        if m:
+            availability = m.group(1).strip().split("\n")[0].strip()
+
+        contracted_by = ""
+        m = _RE_CONTRACTED.search(text)
+        if m:
+            contracted_by = m.group(1).strip().split("\n")[0].strip()
+
+        return reward, availability, contracted_by
+
+    def _parse_objectives(self, text: str) -> list[str]:
+        """Extrait les objectifs de mission (lignes avec bullets)."""
+        objectives = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # Ignorer l'en-tête "PRIMARY OBJECTIVES"
+            if re.match(r"primary\s+obj", line, re.IGNORECASE):
+                continue
+            line_clean = _RE_BULLET.sub("", line).strip()
+            if len(line_clean) > 5:
+                objectives.append(line_clean)
+        return objectives
+
+    def _parse_mission_list(self, text: str) -> list[tuple[str, int]]:
+        """Parse la liste des missions avec récompenses (ex. 'ALLIANCE AID... 40k')."""
+        missions = []
+        current_lines: list[str] = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                if current_lines:
+                    missions.append((" ".join(current_lines), 0))
+                    current_lines = []
+                continue
+            m = _RE_MISSION_AMT.search(line)
+            if m:
+                amount_k = int(m.group(1))
+                title_part = line[:line.rfind(m.group(0))].strip()
+                current_lines.append(title_part)
+                missions.append((" ".join(current_lines), amount_k * 1000))
+                current_lines = []
+            else:
+                current_lines.append(line)
+        if current_lines:
+            missions.append((" ".join(current_lines), 0))
+        return [m for m in missions if m[0].strip()]
+
+    def _extract_blue_text(self, img) -> list[str]:
+        """Extrait le texte en bleu (liens/lieux importants) par masque couleur."""
+        from PIL import Image as PILImage, ImageOps
+
+        img_rgb = img.convert("RGB")
+        width, height = img_rgb.size
+
+        # Masque bleu : B dominant, assez saturé
+        try:
+            import numpy as np
+            arr = np.array(img_rgb, dtype=np.int32)
+            R, G, B = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+            mask = (B > 100) & (B - R > 40) & (B - G > 15) & (B > 120)
+            white = np.zeros((height, width), dtype=np.uint8)
+            white[mask] = 255
+            blue_img = PILImage.fromarray(white, mode="L")
+        except ImportError:
+            # Fallback PIL pur (lent mais fonctionnel)
+            pixels = img_rgb.load()
+            blue_img = PILImage.new("L", (width, height), 0)
+            bp = blue_img.load()
+            for y in range(height):
+                for x in range(width):
+                    r, g, b = pixels[x, y]
+                    if b > 100 and (b - r) > 40 and (b - g) > 15 and b > 120:
+                        bp[x, y] = 255
+
+        # Dilater légèrement le masque pour améliorer l'OCR
+        from PIL import ImageFilter
+        blue_img = blue_img.filter(ImageFilter.MaxFilter(3))
+        # Inverser pour Tesseract (texte noir sur fond blanc)
+        blue_for_ocr = ImageOps.invert(blue_img)
+
+        env_bak = os.environ.get("TESSDATA_PREFIX")
+        os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
+        try:
+            text = self._pt.image_to_string(
+                blue_for_ocr, lang="eng_sc", config="--psm 11 --oem 3"
+            )
+        except Exception:
+            text = ""
+        finally:
+            if env_bak is None:
+                os.environ.pop("TESSDATA_PREFIX", None)
+            else:
+                os.environ["TESSDATA_PREFIX"] = env_bak
+
+        lines = [l.strip() for l in text.splitlines() if l.strip() and len(l.strip()) > 4]
+        return lines
+
+    def debug_mission(self, image_path: Path) -> dict:
+        """Retourne toutes les zones OCR brutes d'un screenshot mission (pour /scan debug)."""
+        from PIL import Image, ImageOps
+        img = Image.open(image_path)
+        w, h = img.size
+
+        def _ocr_raw(crop_box, psm=6) -> str:
+            region = img.crop(crop_box)
+            region = ImageOps.invert(region.convert("L"))
+            env_bak = os.environ.get("TESSDATA_PREFIX")
+            os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
+            try:
+                return self._pt.image_to_string(
+                    region, lang="eng_sc", config=f"--psm {psm} --oem 3"
+                ).strip()
+            except Exception:
+                return "(erreur OCR)"
+            finally:
+                if env_bak is None:
+                    os.environ.pop("TESSDATA_PREFIX", None)
+                else:
+                    os.environ["TESSDATA_PREFIX"] = env_bak
+
+        return {
+            "onglets":       _ocr_raw((int(w*.33), int(h*.06), int(w*.75), int(h*.12)), 7),
+            "titre":         _ocr_raw((int(w*.33), int(h*.12), int(w*.66), int(h*.23)), 6),
+            "info_bloc":     _ocr_raw((int(w*.64), int(h*.11), int(w*.93), int(h*.25)), 6),
+            "details":       _ocr_raw((int(w*.33), int(h*.25), int(w*.62), int(h*.86)), 4),
+            "objectifs":     _ocr_raw((int(w*.62), int(h*.25), int(w*.93), int(h*.86)), 4),
+            "liste_gauche":  _ocr_raw((int(w*.06), int(h*.06), int(w*.31), int(h*.88)), 4),
+            "texte_bleu":    "\n".join(self._extract_blue_text(img)),
+        }
 
     # ── Machine à états : NOM → SCU → STOCK → PRIX ───────────────────────────
 

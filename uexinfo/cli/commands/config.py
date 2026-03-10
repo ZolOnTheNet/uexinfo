@@ -120,7 +120,30 @@ def _ship(args: list[str], ctx) -> None:
     if sub == "add":
         raw = " ".join(rest).replace("_", " ")
         if not raw:
-            print_error("Spécifie un ou plusieurs noms de vaisseau (séparés par des virgules)")
+            print_error("Usage : /ship add <nom du vaisseau>")
+            console.print(f"[{C.DIM}]Exemples :[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship add Cutlass Black[/{C.LABEL}]")
+            console.print(f"  [{C.LABEL}]/ship add Drake Cutlass Black[/{C.LABEL}]  [{C.DIM}](nom complet)[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship add \"C2 Hercules\"[/{C.LABEL}]  [{C.DIM}](avec guillemets si espaces)[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship add Cutlass, C2, Carrack[/{C.LABEL}]  [{C.DIM}](plusieurs à la fois)[/{C.DIM}]")
+
+            # Suggérer quelques vaisseaux populaires du cache
+            if ctx.cache.vehicles:
+                popular = ["Cutlass", "Freelancer", "Constellation", "Carrack", "C2", "Caterpillar"]
+                suggestions = []
+                for keyword in popular:
+                    matches = [v for v in ctx.cache.vehicles if keyword.lower() in v.name_full.lower()]
+                    if matches:
+                        suggestions.extend(matches[:2])  # Max 2 par type
+
+                if suggestions[:5]:  # Limiter à 5 suggestions
+                    console.print(f"\n[{C.DIM}]Vaisseaux populaires disponibles :[/{C.DIM}]")
+                    for v in suggestions[:5]:
+                        console.print(
+                            f"  [{C.UEX}]{v.name_full}[/{C.UEX}]  "
+                            f"[{C.DIM}]{v.scu} SCU · {v.pad_type}[/{C.DIM}]"
+                        )
+                    console.print(f"[{C.DIM}]Utilisez /explore ship pour voir tous les vaisseaux[/{C.DIM}]")
             return
         names = [n.strip() for n in raw.split(",") if n.strip()] if "," in raw else [raw]
         for name in names:
@@ -141,10 +164,21 @@ def _ship(args: list[str], ctx) -> None:
 
     elif sub == "remove":
         name   = " ".join(rest)
+        if not name:
+            print_error("Usage : /ship remove <nom du vaisseau>")
+            if ctx.player.ships:
+                console.print(f"[{C.DIM}]Vaisseaux actuels :[/{C.DIM}]")
+                for s in ctx.player.ships[:5]:
+                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
+            return
         before = len(ctx.player.ships)
         ctx.player.ships = [s for s in ctx.player.ships if s.name.lower() != name.lower()]
         if len(ctx.player.ships) == before:
             print_error(f"Vaisseau introuvable : {name}")
+            if ctx.player.ships:
+                console.print(f"[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
+                for s in ctx.player.ships[:5]:
+                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
             return
         if ctx.player.active_ship.lower() == name.lower():
             ctx.player.active_ship = ctx.player.ships[0].name if ctx.player.ships else ""
@@ -153,9 +187,22 @@ def _ship(args: list[str], ctx) -> None:
 
     elif sub == "set":
         name  = " ".join(rest)
+        if not name:
+            print_error("Usage : /ship set <nom du vaisseau>")
+            if ctx.player.ships:
+                console.print(f"[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
+                for s in ctx.player.ships:
+                    marker = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == ctx.player.active_ship else ""
+                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]{marker}")
+            return
         match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
         if match is None:
-            print_error(f"{name} n'est pas dans la liste — ajoutez-le avec /config ship add")
+            print_error(f"{name} n'est pas dans la liste")
+            if ctx.player.ships:
+                console.print(f"[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
+                for s in ctx.player.ships:
+                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
+            console.print(f"[{C.DIM}]Ajoutez-le d'abord avec /ship add <nom>[/{C.DIM}]")
             return
         ctx.player.active_ship = match.name
         _save_player(ctx)
@@ -163,7 +210,14 @@ def _ship(args: list[str], ctx) -> None:
 
     elif sub == "cargo":
         if len(rest) < 2:
-            print_error("Usage: /config ship cargo <nom> <scu>")
+            print_error("Usage : /ship cargo <nom du vaisseau> <capacité SCU>")
+            console.print(f"[{C.DIM}]Exemple :[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship cargo \"Drake Cutlass Black\" 46[/{C.LABEL}]")
+            if ctx.player.ships:
+                console.print(f"\n[{C.DIM}]Vaisseaux actuels :[/{C.DIM}]")
+                for s in ctx.player.ships[:5]:
+                    scu_str = f"{s.scu} SCU" if s.scu else "? SCU (à définir)"
+                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str}[/{C.DIM}]")
             return
         try:
             scu  = int(rest[-1])
@@ -180,7 +234,13 @@ def _ship(args: list[str], ctx) -> None:
         print_ok(f"{match.name} → {scu} SCU")
 
     else:
-        print_error(f"Sous-commande inconnue : {sub}  (list|add|remove|set|cargo)")
+        print_error(f"Sous-commande inconnue : {sub}")
+        console.print(f"[{C.DIM}]Commandes disponibles :[/{C.DIM}]")
+        console.print(f"  [{C.LABEL}]/ship list[/{C.LABEL}]              [{C.DIM}]Liste vos vaisseaux[/{C.DIM}]")
+        console.print(f"  [{C.LABEL}]/ship add <nom>[/{C.LABEL}]         [{C.DIM}]Ajoute un vaisseau[/{C.DIM}]")
+        console.print(f"  [{C.LABEL}]/ship set <nom>[/{C.LABEL}]         [{C.DIM}]Définit le vaisseau actif[/{C.DIM}]")
+        console.print(f"  [{C.LABEL}]/ship cargo <nom> <scu>[/{C.LABEL}] [{C.DIM}]Définit la capacité cargo[/{C.DIM}]")
+        console.print(f"  [{C.LABEL}]/ship remove <nom>[/{C.LABEL}]      [{C.DIM}]Retire un vaisseau[/{C.DIM}]")
 
 
 # ── Trade ────────────────────────────────────────────────────────────────────
@@ -278,25 +338,28 @@ def _scan(args: list[str], ctx) -> None:
         if len(args) < 2:
             print_error("Usage: /config scan tesseract <path>")
             return
-        ctx.cfg["scan"]["tesseract_exe"] = args[1]
+        path = " ".join(args[1:]).strip("\"'")
+        ctx.cfg["scan"]["tesseract_exe"] = path
         settings.save(ctx.cfg)
-        print_ok(f"tesseract_exe = {args[1]}")
+        print_ok(f"tesseract_exe = {path}")
 
     elif key == "logpath":
         if len(args) < 2:
             print_error("Usage: /config scan logpath <path>")
             return
-        ctx.cfg["scan"]["sc_log_path"] = args[1]
+        path = " ".join(args[1:]).strip("\"'")
+        ctx.cfg["scan"]["sc_log_path"] = path
         settings.save(ctx.cfg)
-        print_ok(f"sc_log_path = {args[1]}")
+        print_ok(f"sc_log_path = {path}")
 
     elif key == "screenshots":
         if len(args) < 2:
             print_error("Usage: /config scan screenshots <path>")
             return
-        ctx.cfg["scan"]["sc_screenshots_dir"] = args[1]
+        path = " ".join(args[1:]).strip("\"'")
+        ctx.cfg["scan"]["sc_screenshots_dir"] = path
         settings.save(ctx.cfg)
-        print_ok(f"sc_screenshots_dir = {args[1]}")
+        print_ok(f"sc_screenshots_dir = {path}")
 
     else:
         print_error(f"Sous-clé inconnue : {key}  (mode|tesseract|logpath|screenshots)")
