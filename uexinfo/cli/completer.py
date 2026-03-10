@@ -246,16 +246,29 @@ class UEXCompleter(Completer):
             return
 
         text = text.lstrip()
-
-        if not text.startswith("/"):
-            # Saisie libre → complétion /info (terminaux + commodités)
-            if self.ctx and len(text) >= 1:
-                yield from self._complete_info_query(text)
+        if not text:
             return
 
-        after = text[1:]
+        # Vérifier si c'est une commande (avec ou sans /)
+        has_slash = text.startswith("/")
+        if has_slash:
+            after = text[1:]
+        else:
+            after = text
+
         words = after.split()
         ends_space = text.endswith(" ")
+
+        # Si pas de slash, vérifier si le premier mot est une commande
+        if not has_slash and words:
+            first_word = words[0].lower()
+            # Si le premier mot n'est pas une commande ET qu'il y a un espace
+            # OU si c'est un mot unique qui n'est pas une commande
+            if first_word not in _ALL_COMMANDS:
+                # Saisie libre → complétion /info
+                if self.ctx and len(text) >= 1:
+                    yield from self._complete_info_query(text)
+                return
 
         # ── Complétion du nom de commande ────────────────────────────────
         if not words or (len(words) == 1 and not ends_space):
@@ -263,9 +276,12 @@ class UEXCompleter(Completer):
             for cmd in _ALL_COMMANDS:
                 if cmd.startswith(prefix):
                     help_text = _COMMAND_HELP.get(cmd, "")
+                    # Si la ligne originale a un /, proposer avec /
+                    # Sinon proposer sans /
+                    completion_text = f"/{cmd}" if has_slash else cmd
                     yield Completion(
-                        cmd,
-                        start_position=-len(prefix),
+                        completion_text,
+                        start_position=-len(text) if not words else -len(prefix),
                         display_meta=help_text,
                     )
             return
