@@ -12,38 +12,218 @@ if TYPE_CHECKING:
 # Sous-commandes statiques connues
 _EXPLORE_ROOTS = ["ship", "commodity"]  # + system names (dynamic)
 
-_SUBS: dict[str, list[str]] = {
+# Sous-commandes avec descriptions (pour display_meta)
+# Format : {commande: [(option, description), ...]}
+_SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
     "help":                 [],
-    "ship":                 ["list", "add", "remove", "set", "cargo"],
-    "config":               ["ship", "trade", "cache", "scan", "player"],
-    "config ship":          ["list", "add", "remove", "set", "cargo"],
-    "config trade":         ["profit", "margin", "illegal"],
-    "config cache":         ["ttl", "clear"],
-    "config scan":          ["mode", "tesseract", "logpath", "screenshots"],
-    "config scan mode":     ["ocr", "log", "confirm"],
-    "go":                   ["from", "to", "clear"],
-    "lieu":                 ["from", "to", "clear"],
-    "player":               ["info", "ship", "dest"],
-    "player ship":          ["add", "set", "scu", "remove"],
-    "scan":                 ["ecran", "screen", "screenshot", "log", "status", "history"],
-    "select":               ["system", "planet", "station", "terminal", "city", "outpost",
-                             "add", "remove", "clear"],
-    "select add":           ["system", "planet", "station", "terminal", "city", "outpost"],
-    "select remove":        ["system", "planet", "station", "terminal", "city", "outpost"],
-    "trade":                ["buy", "sell", "best", "compare"],
-    "trade best":           ["--profit", "--roi", "--margin", "--scu"],
-    "route":                ["from", "to", "--commodity", "--min-profit", "--scu"],
-    "plan":                 ["new", "add", "remove", "optimize", "clear", "show"],
-    "info":                 ["terminal", "commodity", "ship"],
+    "ship":                 [
+        ("list", "Affiche vos vaisseaux"),
+        ("add", "Ajoute un vaisseau à votre flotte"),
+        ("remove", "Retire un vaisseau"),
+        ("set", "Définit le vaisseau actif"),
+        ("cargo", "Configure les grilles cargo"),
+    ],
+    "config":               [
+        ("ship", "Gestion des vaisseaux"),
+        ("trade", "Paramètres de trading"),
+        ("cache", "Gestion du cache"),
+        ("scan", "Configuration OCR/scan"),
+        ("player", "Infos joueur"),
+    ],
+    "config ship":          [
+        ("list", "Liste vos vaisseaux"),
+        ("add", "Ajoute un vaisseau"),
+        ("remove", "Retire un vaisseau"),
+        ("set", "Définit le vaisseau actif"),
+        ("cargo", "Configure les grilles cargo"),
+    ],
+    "config trade":         [
+        ("profit", "Profit minimum (aUEC)"),
+        ("margin", "Marge minimum (%)"),
+        ("illegal", "Inclure les commodités illégales"),
+    ],
+    "config cache":         [
+        ("ttl", "Durée de vie du cache (secondes)"),
+        ("clear", "Vider le cache"),
+    ],
+    "config scan":          [
+        ("mode", "Mode de scan (ocr/log/confirm)"),
+        ("tesseract", "Chemin vers tesseract"),
+        ("logpath", "Chemin vers Game.log"),
+        ("screenshots", "Dossier screenshots"),
+    ],
+    "config scan mode":     [
+        ("ocr", "Reconnaissance optique seule"),
+        ("log", "Lecture du fichier Game.log seule"),
+        ("confirm", "OCR + confirmation log"),
+    ],
+    "go":                   [
+        ("from", "Définit votre position actuelle"),
+        ("to", "Définit votre destination"),
+        ("clear", "Efface position et destination"),
+    ],
+    "lieu":                 [
+        ("from", "Définit votre position actuelle"),
+        ("to", "Définit votre destination"),
+        ("clear", "Efface position et destination"),
+    ],
+    "dest":                 [],
+    "player":               [
+        ("info", "Affiche vos informations"),
+        ("ship", "Gestion des vaisseaux"),
+        ("dest", "Affiche/modifie la destination"),
+    ],
+    "player ship":          [
+        ("add", "Ajoute un vaisseau"),
+        ("set", "Définit le vaisseau actif"),
+        ("scu", "Modifie la capacité cargo"),
+        ("remove", "Retire un vaisseau"),
+    ],
+    "scan":                 [
+        ("ecran", "Scan depuis une capture d'écran"),
+        ("screen", "Alias de 'ecran'"),
+        ("screenshot", "Alias de 'ecran'"),
+        ("log", "Scan depuis Game.log"),
+        ("status", "Affiche l'état du dernier scan"),
+        ("history", "Historique des scans"),
+    ],
+    "select":               [
+        ("system", "Filtre par système stellaire"),
+        ("planet", "Filtre par planète"),
+        ("station", "Filtre par station"),
+        ("terminal", "Filtre par terminal"),
+        ("city", "Filtre par ville"),
+        ("outpost", "Filtre par avant-poste"),
+        ("add", "Ajoute un filtre"),
+        ("remove", "Retire un filtre"),
+        ("clear", "Efface tous les filtres"),
+    ],
+    "select add":           [
+        ("system", "Ajoute un système au filtre"),
+        ("planet", "Ajoute une planète au filtre"),
+        ("station", "Ajoute une station au filtre"),
+        ("terminal", "Ajoute un terminal au filtre"),
+        ("city", "Ajoute une ville au filtre"),
+        ("outpost", "Ajoute un avant-poste au filtre"),
+    ],
+    "select remove":        [
+        ("system", "Retire un système du filtre"),
+        ("planet", "Retire une planète du filtre"),
+        ("station", "Retire une station du filtre"),
+        ("terminal", "Retire un terminal du filtre"),
+        ("city", "Retire une ville du filtre"),
+        ("outpost", "Retire un avant-poste du filtre"),
+    ],
+    "trade":                [
+        ("buy", "Meilleurs achats possibles"),
+        ("sell", "Meilleures ventes possibles"),
+        ("best", "Meilleures routes de trading"),
+        ("compare", "Compare les prix"),
+    ],
+    "trade best":           [
+        ("--profit", "Tri par profit total"),
+        ("--roi", "Tri par ROI (%)"),
+        ("--margin", "Tri par marge (%)"),
+        ("--scu", "Tri par profit par SCU"),
+    ],
+    "route":                [
+        ("from", "Terminal de départ"),
+        ("to", "Terminal d'arrivée"),
+        ("--commodity", "Commodité spécifique"),
+        ("--min-profit", "Profit minimum"),
+        ("--scu", "Capacité cargo (SCU)"),
+    ],
+    "plan":                 [
+        ("new", "Nouveau plan de route"),
+        ("add", "Ajoute une étape"),
+        ("remove", "Retire une étape"),
+        ("optimize", "Optimise le plan"),
+        ("clear", "Efface le plan"),
+        ("show", "Affiche le plan actuel"),
+    ],
+    "info":                 [
+        ("terminal", "Infos sur un terminal"),
+        ("commodity", "Infos sur une commodité"),
+        ("ship", "Infos sur un vaisseau"),
+    ],
     "info ship":            [],  # completions dynamiques (noms de vaisseaux)
     "explore":              [],  # completions are fully dynamic
-    "refresh":              ["all", "static", "prices", "sctrade", "status"],
+    "nav":                  [
+        ("info", "Infos sur le réseau de transport"),
+        ("nodes", "Liste tous les nœuds"),
+        ("edges", "Liste toutes les routes"),
+        ("jumps", "Liste les jump points"),
+        ("route", "Calcule une route"),
+        ("add-route", "Ajoute une route manuelle"),
+        ("add-jump", "Ajoute un jump point"),
+        ("remove-route", "Retire une route"),
+        ("remove-jump", "Retire un jump point"),
+        ("save", "Sauvegarde le graphe"),
+        ("raz", "Réinitialise le graphe"),
+    ],
+    "refresh":              [
+        ("all", "Rafraîchit tout"),
+        ("static", "Systèmes, terminaux, commodités"),
+        ("prices", "Prix UEX Corp"),
+        ("sctrade", "Données sc-trade.tools"),
+        ("status", "Statuts des terminaux"),
+    ],
+    "history":              [],
     "exit":                 [],
     "quit":                 [],
     "bye":                  [],
 }
 
+# Rétro-compatibilité : version simple pour le code existant
+_SUBS: dict[str, list[str]] = {
+    k: [opt for opt, _ in v] for k, v in _SUBS_WITH_HELP.items()
+}
+
 _ALL_COMMANDS = sorted({k.split()[0] for k in _SUBS})
+
+# Descriptions des commandes principales
+_COMMAND_HELP: dict[str, str] = {
+    "help": "Affiche l'aide",
+    "h": "Alias de 'help'",
+    "?": "Alias de 'help'",
+    "ship": "Gestion de vos vaisseaux",
+    "sh": "Alias de 'ship'",
+    "config": "Configuration de l'application",
+    "c": "Alias de 'config'",
+    "go": "Définit votre position/destination",
+    "g": "Alias de 'go'",
+    "lieu": "Alias de 'go'",
+    "dest": "Raccourci pour définir la destination",
+    "d": "Alias de 'dest'",
+    "player": "Informations joueur",
+    "p": "Alias de 'player'",
+    "scan": "Scan de terminal (OCR/log)",
+    "s": "Alias de 'scan'",
+    "select": "Filtrage de terminaux",
+    "sel": "Alias de 'select'",
+    "trade": "Analyse de trading",
+    "t": "Alias de 'trade'",
+    "route": "Calcul de routes commerciales",
+    "plan": "Planification de routes multi-étapes",
+    "info": "Informations détaillées",
+    "i": "Alias de 'info'",
+    "explore": "Exploration de données",
+    "x": "Alias de 'explore'",
+    "exp": "Alias de 'explore'",
+    "nav": "Réseau de transport et navigation",
+    "navigation": "Alias de 'nav'",
+    "n": "Alias de 'nav'",
+    "qt": "Alias de 'nav'",
+    "quantum": "Alias de 'nav'",
+    "refresh": "Rafraîchit les données",
+    "r": "Alias de 'refresh'",
+    "rf": "Alias de 'refresh'",
+    "history": "Historique des commandes",
+    "hist": "Alias de 'history'",
+    "exit": "Quitte l'application",
+    "quit": "Quitte l'application",
+    "bye": "Quitte l'application",
+}
 
 # Commandes qui complètent avec des noms de commodités
 _COMMODITY_CMDS = {"trade", "info"}
@@ -82,7 +262,12 @@ class UEXCompleter(Completer):
             prefix = words[0].lower() if words else ""
             for cmd in _ALL_COMMANDS:
                 if cmd.startswith(prefix):
-                    yield Completion(cmd, start_position=-len(prefix))
+                    help_text = _COMMAND_HELP.get(cmd, "")
+                    yield Completion(
+                        cmd,
+                        start_position=-len(prefix),
+                        display_meta=help_text,
+                    )
             return
 
         cmd = words[0].lower()
@@ -100,14 +285,19 @@ class UEXCompleter(Completer):
         if typed_args:
             context_key = f"{cmd} {typed_args[0].lower()}"
 
-        candidates = _SUBS.get(context_key, [])
-        if not candidates and not typed_args:
-            candidates = _SUBS.get(cmd, [])
+        # Chercher les candidats avec descriptions
+        candidates_with_help = _SUBS_WITH_HELP.get(context_key, [])
+        if not candidates_with_help and not typed_args:
+            candidates_with_help = _SUBS_WITH_HELP.get(cmd, [])
 
         cur_lower = current.lower()
-        for c in candidates:
-            if c.startswith(cur_lower):
-                yield Completion(c, start_position=-len(current))
+        for option, description in candidates_with_help:
+            if option.startswith(cur_lower):
+                yield Completion(
+                    option,
+                    start_position=-len(current),
+                    display_meta=description,
+                )
 
         # ── Complétion dynamique : commodités ────────────────────────────
         if self.ctx and cmd in _COMMODITY_CMDS and (ends_space or len(words) >= 2):

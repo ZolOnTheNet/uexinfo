@@ -64,7 +64,7 @@ def _banner() -> None:
     console.print(
         f"[bold cyan]UEXInfo[/bold cyan] [dim]v{__version__}[/dim]"
         "  —  Star Citizen Trade CLI\n"
-        f"[{C.DIM}]Tapez [bold]/help[/bold] pour l'aide  │  [bold]/exit[/bold] pour quitter  │  Tab = complétion  │  Saisie libre = /info  │  [bold]@lieu[/bold] = se positionner + info[/{C.DIM}]"
+        f"[{C.DIM}]Tapez [bold]/help[/bold] pour l'aide  │  [bold]/exit[/bold] pour quitter  │  Tab / Ctrl-Espace = complétion  │  Saisie libre = /info  │  [bold]@lieu[/bold] = se positionner + info[/{C.DIM}]"
     )
     console.print()
 
@@ -128,6 +128,18 @@ def main() -> None:
         _edit_pending[0] = True
         event.current_buffer.text = ""
         event.current_buffer.validate_and_handle()
+
+    # ── Ctrl+Espace : forcer l'affichage de la complétion ─────────────────────
+    @repl_kb.add("c-space")
+    def _force_completion(event):
+        """Force l'affichage du menu de complétion."""
+        buff = event.current_buffer
+        if buff.complete_state:
+            # Si déjà ouvert, passer au suivant
+            buff.complete_next()
+        else:
+            # Sinon, démarrer la complétion
+            buff.start_completion(select_first=False)
 
     # ─────────────────────────────────────────────────────────────────────────
 
