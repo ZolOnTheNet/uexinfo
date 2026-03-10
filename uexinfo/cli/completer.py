@@ -301,20 +301,29 @@ class UEXCompleter(Completer):
 
         # ── Complétion dynamique : commodités ────────────────────────────
         if self.ctx and cmd in _COMMODITY_CMDS and (ends_space or len(words) >= 2):
+            matches = []
             for c in self.ctx.cache.commodities:
                 name = c.name
-                if name.lower().startswith(cur_lower):
-                    yield Completion(
-                        name,
-                        start_position=-len(current),
-                        display=f"{name}  ({c.code})",
-                        display_meta=c.kind,
-                    )
+                # Afficher tous si current vide, sinon filtrer
+                if not cur_lower or name.lower().startswith(cur_lower):
+                    matches.append((name, c.code, c.kind))
+
+            # Limiter à 30 suggestions pour ne pas surcharger
+            for name, code, kind in matches[:30]:
+                yield Completion(
+                    name,
+                    start_position=-len(current),
+                    display=f"{name}  ({code})",
+                    display_meta=kind or "commodité",
+                )
 
         # ── Complétion dynamique : terminaux ─────────────────────────────
-        if self.ctx and cmd in _TERMINAL_CMDS and (ends_space or len(words) >= 2) and cur_lower:
+        if self.ctx and cmd in _TERMINAL_CMDS and (ends_space or len(words) >= 2):
             if self.ctx.location_index:
-                for entry in self.ctx.location_index.search(current, limit=12, types={"terminal"}):
+                # Si current vide, chercher avec une query vide (tous les terminaux)
+                search_query = current if current else ""
+                entries = list(self.ctx.location_index.search(search_query, limit=30, types={"terminal"}))
+                for entry in entries:
                     slug = entry.name.replace(" ", "_")
                     yield Completion(
                         slug,
@@ -323,15 +332,21 @@ class UEXCompleter(Completer):
                         display_meta=entry.full_path,
                     )
             else:
+                matches = []
                 for t in self.ctx.cache.terminals:
                     name = t.name
-                    if name.lower().startswith(cur_lower):
-                        yield Completion(
-                            name,
-                            start_position=-len(current),
-                            display=name,
-                            display_meta=t.location,
-                        )
+                    # Afficher tous si current vide, sinon filtrer
+                    if not cur_lower or name.lower().startswith(cur_lower):
+                        matches.append((name, t.location))
+
+                # Limiter à 30 suggestions
+                for name, location in matches[:30]:
+                    yield Completion(
+                        name,
+                        start_position=-len(current),
+                        display=name,
+                        display_meta=location,
+                    )
 
         # ── Complétion dynamique : vaisseaux (ship / config ship / player ship) ────
         is_ship_cmd = (
@@ -348,16 +363,19 @@ class UEXCompleter(Completer):
                 action = typed_args[1].lower() if len(typed_args) > 1 else ""
             if action in ("add", ""):
                 cur_norm = cur_lower.replace("_", " ")
-                # Priorité 1 : préfixe du nom complet
+                matches = []
                 seen_v: set[str] = set()
+
+                # Priorité 1 : préfixe du nom complet
                 for v in (self.ctx.cache.vehicles or []):
-                    if v.name_full.lower().startswith(cur_norm):
+                    if not cur_norm or v.name_full.lower().startswith(cur_norm):
                         slug = v.name_full.replace(" ", "_")
+                        scu_info = f"{v.scu} SCU" if v.scu else ""
+                        pad_info = v.pad_type or ""
+                        meta = f"{v.manufacturer} · {scu_info} · {pad_info}" if scu_info else v.manufacturer
+                        matches.append((v.name_full, slug, meta, 1))  # priorité 1
                         seen_v.add(v.name_full)
-                        yield Completion(
-                            slug, start_position=-len(current),
-                            display=v.name_full, display_meta=v.manufacturer,
-                        )
+
                 # Priorité 2 : n'importe quel mot du nom commence par la query
                 if cur_norm and len(cur_norm) >= 2:
                     for v in (self.ctx.cache.vehicles or []):
@@ -365,23 +383,39 @@ class UEXCompleter(Completer):
                             continue
                         if any(w.startswith(cur_norm) for w in v.name_full.lower().split()):
                             slug = v.name_full.replace(" ", "_")
+                            scu_info = f"{v.scu} SCU" if v.scu else ""
+                            pad_info = v.pad_type or ""
+                            meta = f"{v.manufacturer} · {scu_info} · {pad_info}" if scu_info else v.manufacturer
+                            matches.append((v.name_full, slug, meta, 2))  # priorité 2
                             seen_v.add(v.name_full)
-                            yield Completion(
-                                slug, start_position=-len(current),
-                                display=v.name_full, display_meta=v.manufacturer,
-                            )
+
+                # Trier par priorité puis par nom, limiter à 30
+                matches.sort(key=lambda x: (x[3], x[0]))
+                for name_full, slug, meta, _ in matches[:30]:
+                    yield Completion(
+                        slug,
+                        start_position=-len(current),
+                        display=name_full,
+                        display_meta=meta,
+                    )
             elif action in ("remove", "cargo", "set"):
                 # Seulement les vaisseaux déjà configurés
+                matches_player = []
                 for ship in (self.ctx.player.ships if hasattr(self.ctx, 'player') else []):
-                    if ship.name.lower().startswith(cur_lower):
+                    # Afficher tous si current vide, sinon filtrer
+                    if not cur_lower or ship.name.lower().startswith(cur_lower):
                         slug = ship.name.replace(" ", "_")
                         scu_info = f"{ship.scu} SCU" if ship.scu else "? SCU"
-                        yield Completion(
-                            slug,
-                            start_position=-len(current),
-                            display=ship.name,
-                            display_meta=scu_info,
-                        )
+                        matches_player.append((ship.name, slug, scu_info))
+
+                # Tous les vaisseaux du joueur (pas de limite ici car peu nombreux)
+                for name, slug, scu_info in matches_player:
+                    yield Completion(
+                        slug,
+                        start_position=-len(current),
+                        display=name,
+                        display_meta=scu_info,
+                    )
 
         # ── Complétion dynamique : /info ship <nom> ou /info <nom_vaisseau> ─
         if self.ctx and cmd == "info" and (
@@ -389,22 +423,39 @@ class UEXCompleter(Completer):
             (not typed_args and (ends_space or len(words) >= 2))
         ):
             cur_norm = cur_lower.replace("_", " ")
+            matches_info = []
             seen_vs: set[str] = set()
+
+            # Priorité 1 : préfixe du nom complet
             for v in (self.ctx.cache.vehicles or []):
-                if v.name_full.lower().startswith(cur_norm):
+                if not cur_norm or v.name_full.lower().startswith(cur_norm):
                     slug = v.name_full.replace(" ", "_")
+                    scu_info = f"{v.scu} SCU" if v.scu else ""
+                    meta = f"{v.manufacturer} · {scu_info}" if scu_info else v.manufacturer
+                    matches_info.append((v.name_full, slug, meta, 1))
                     seen_vs.add(v.name_full)
-                    yield Completion(slug, start_position=-len(current),
-                                     display=v.name_full, display_meta=v.manufacturer)
+
+            # Priorité 2 : n'importe quel mot du nom commence par la query
             if cur_norm and len(cur_norm) >= 2:
                 for v in (self.ctx.cache.vehicles or []):
                     if v.name_full in seen_vs:
                         continue
                     if any(w.startswith(cur_norm) for w in v.name_full.lower().split()):
                         slug = v.name_full.replace(" ", "_")
+                        scu_info = f"{v.scu} SCU" if v.scu else ""
+                        meta = f"{v.manufacturer} · {scu_info}" if scu_info else v.manufacturer
+                        matches_info.append((v.name_full, slug, meta, 2))
                         seen_vs.add(v.name_full)
-                        yield Completion(slug, start_position=-len(current),
-                                         display=v.name_full, display_meta=v.manufacturer)
+
+            # Trier et limiter à 30
+            matches_info.sort(key=lambda x: (x[3], x[0]))
+            for name_full, slug, meta, _ in matches_info[:30]:
+                yield Completion(
+                    slug,
+                    start_position=-len(current),
+                    display=name_full,
+                    display_meta=meta,
+                )
 
         # ── Complétion dynamique : /explore ──────────────────────────────
         if self.ctx and cmd == "explore":

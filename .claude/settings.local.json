@@ -22,7 +22,8 @@
       "Bash(cmd /c \"cd /d C:\\Users\\garrigues\\Documents\\devlog\\python\\uexinfo && .venv\\Scripts\\python.exe test_go_fix.py\")",
       "Bash(\".venv/Scripts/python.exe\" test_go_fix.py)",
       "Bash(del:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(\".venv\\Scripts\\python.exe\":*)"
     ]
   }
 }
