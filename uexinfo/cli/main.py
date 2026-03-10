@@ -18,6 +18,7 @@ from uexinfo import __version__
 from uexinfo.cache.manager import CacheManager
 from uexinfo.cli.completer import UEXCompleter
 from uexinfo.cli.parser import parse_line
+from uexinfo.data.cargo_grids import CargoGridManager
 from uexinfo.display import colors as C
 from uexinfo.location.index import LocationIndex
 from uexinfo.models.player import Player
@@ -51,6 +52,7 @@ PROMPT_STYLE = Style.from_dict({
 class AppContext:
     cfg: dict = field(default_factory=dict)
     cache: CacheManager = field(default_factory=CacheManager)
+    cargo_grid_manager: CargoGridManager = field(default_factory=CargoGridManager)
     location_index: LocationIndex | None = None
     player: Player = field(default_factory=Player)
     last_scan: ScanResult | None = None

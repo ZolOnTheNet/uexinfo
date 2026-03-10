@@ -156,7 +156,7 @@ class UEXCompleter(Completer):
                 action = typed_args[0].lower() if typed_args else ""
             else:
                 action = typed_args[1].lower() if len(typed_args) > 1 else ""
-            if action in ("add", "set", ""):
+            if action in ("add", ""):
                 cur_norm = cur_lower.replace("_", " ")
                 # Priorité 1 : préfixe du nom complet
                 seen_v: set[str] = set()

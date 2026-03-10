@@ -209,29 +209,184 @@ def _ship(args: list[str], ctx) -> None:
         print_ok(f"Vaisseau actif : {match.name}")
 
     elif sub == "cargo":
-        if len(rest) < 2:
-            print_error("Usage : /ship cargo <nom du vaisseau> <capacité SCU>")
-            console.print(f"[{C.DIM}]Exemple :[/{C.DIM}]")
-            console.print(f"  [{C.LABEL}]/ship cargo \"Drake Cutlass Black\" 46[/{C.LABEL}]")
-            if ctx.player.ships:
-                console.print(f"\n[{C.DIM}]Vaisseaux actuels :[/{C.DIM}]")
-                for s in ctx.player.ships[:5]:
-                    scu_str = f"{s.scu} SCU" if s.scu else "? SCU (à définir)"
-                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str}[/{C.DIM}]")
+        from uexinfo.data.cargo_grids import (
+            parse_cargo_spec,
+            format_cargo_config,
+            calculate_total_scu,
+            VALID_SIZES,
+        )
+
+        if not rest:
+            print_error("Usage : /ship cargo <nom> [--all|-a] [--clear|-c] [capacité] [32x<n>] ...")
+            console.print(f"[{C.DIM}]Exemples :[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules[/{C.LABEL}]  [{C.DIM}](affiche config du vaisseau)[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules 32x10 16x4[/{C.LABEL}]  [{C.DIM}](modifie le vaisseau)[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship cargo \"Cutlass Black\" --all[/{C.LABEL}]  [{C.DIM}](affiche le modèle)[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship cargo Cutlass_Black -a 16x2 8x1[/{C.LABEL}]  [{C.DIM}](modifie le modèle)[/{C.DIM}]")
+            console.print(f"  [{C.LABEL}]/ship cargo Cutlass_Black --clear[/{C.LABEL}]  [{C.DIM}](efface override modèle)[/{C.DIM}]")
+            console.print(f"\n[{C.DIM}]Tailles acceptées : 1, 2, 4, 8, 16, 24, 32 SCU[/{C.DIM}]")
+            console.print(f"[{C.DIM}]--all/-a : modifie le modèle (partagé) au lieu du vaisseau du joueur[/{C.DIM}]")
+            console.print(f"[{C.DIM}]--clear/-c : efface l'override du modèle et revient aux données de base[/{C.DIM}]")
             return
-        try:
-            scu  = int(rest[-1])
-            name = " ".join(rest[:-1])
-        except ValueError:
-            print_error("Le nombre de SCU doit être un entier")
+
+        # Extraire le nom du vaisseau et les flags
+        ship_name_parts = []
+        remaining_args = []
+        modify_model = False
+        clear_override = False
+
+        for i, arg in enumerate(rest):
+            if arg in ("--all", "-a"):
+                modify_model = True
+                remaining_args = rest[i+1:]
+                break
+            elif arg in ("--clear", "-c", "--clear"):
+                clear_override = True
+                remaining_args = rest[i+1:]
+                break
+            elif "x" in arg.lower() or arg.isdigit():
+                remaining_args = rest[i:]
+                break
+            ship_name_parts.append(arg)
+
+        if not ship_name_parts:
+            print_error("Spécifiez le nom du vaisseau")
             return
+
+        name = " ".join(ship_name_parts).replace("_", " ")
+
+        # ── Option --clear : effacer l'override du modèle ──────────────────
+        if clear_override:
+            if ctx.cargo_grid_manager.clear_grid(name):
+                print_ok(f"Override du modèle effacé pour {name}")
+                console.print(f"[{C.DIM}]Le modèle utilise maintenant les données de base du programme[/{C.DIM}]")
+            else:
+                print_error(f"Aucun override trouvé pour {name}")
+            return
+
+        # ── Mode --all : afficher ou modifier le MODÈLE ─────────────────────
+        if modify_model:
+            # Si pas d'args : afficher le modèle
+            if not remaining_args:
+                grid = ctx.cargo_grid_manager.get_grid(name)
+                if grid is None:
+                    print_error(f"Modèle introuvable : {name}")
+                    console.print(f"[{C.DIM}]Ce vaisseau n'existe pas dans la base de données[/{C.DIM}]")
+                    return
+
+                console.print(f"[bold]Modèle : {name}[/bold]")
+                total_scu = calculate_total_scu(grid)
+                console.print(f"  Capacité totale : [{C.UEX}]{total_scu} SCU[/{C.UEX}]")
+                if grid:
+                    console.print(f"  Configuration : [{C.LABEL}]{format_cargo_config(grid)}[/{C.LABEL}]")
+                else:
+                    console.print(f"  Configuration : [{C.DIM}](aucune)[/{C.DIM}]")
+
+                if ctx.cargo_grid_manager.has_override(name):
+                    console.print(f"  [{C.WARNING}]⚠ Modifié par l'utilisateur (override actif)[/{C.WARNING}]")
+                else:
+                    console.print(f"  [{C.DIM}]Données de base du programme[/{C.DIM}]")
+                return
+
+            # Sinon : modifier le modèle
+            cargo_specs: dict[int, int] = {}
+            explicit_scu = None
+
+            for arg in remaining_args:
+                if arg.isdigit():
+                    explicit_scu = int(arg)
+                    continue
+
+                parsed = parse_cargo_spec(arg)
+                if parsed:
+                    size, qty = parsed
+                    cargo_specs[size] = qty
+                else:
+                    print_error(f"Argument invalide : {arg}")
+                    console.print(f"[{C.DIM}]Format : <taille>x<quantité> (ex: 32x4)[/{C.DIM}]")
+                    return
+
+            if not cargo_specs:
+                print_error("Spécifiez au moins une configuration cargo")
+                console.print(f"[{C.DIM}]Exemple : 32x10 16x4[/{C.DIM}]")
+                return
+
+            # Sauvegarder le modèle
+            ctx.cargo_grid_manager.set_grid(name, cargo_specs)
+            total_scu = calculate_total_scu(cargo_specs)
+            console.print(f"[bold]Modèle modifié : {name}[/bold]")
+            console.print(f"  Capacité : [{C.UEX}]{total_scu} SCU[/{C.UEX}]")
+            console.print(f"  Configuration : [{C.LABEL}]{format_cargo_config(cargo_specs)}[/{C.LABEL}]")
+            print_ok("Modèle sauvegardé dans le fichier d'extension")
+            return
+
+        # ── Mode normal : afficher ou modifier le VAISSEAU du joueur ────────
         match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
         if match is None:
-            print_error(f"Vaisseau introuvable : {name}")
+            print_error(f"Vaisseau introuvable dans votre flotte : {name}")
+            console.print(f"[{C.DIM}]Ajoutez-le d'abord avec /ship add <nom>[/{C.DIM}]")
+            if ctx.player.ships:
+                console.print(f"\n[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
+                for s in ctx.player.ships[:5]:
+                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
             return
-        match.scu = scu
+
+        # Si pas d'args : afficher la config du vaisseau
+        if not remaining_args:
+            console.print(f"[bold]{match.name}[/bold]  [{C.DIM}](votre vaisseau)[/{C.DIM}]")
+            console.print(f"  Capacité totale : [{C.UEX}]{match.scu or '?'} SCU[/{C.UEX}]")
+            if match.cargo_config:
+                console.print(f"  Configuration : [{C.LABEL}]{format_cargo_config(match.cargo_config)}[/{C.LABEL}]")
+            else:
+                console.print(f"  Configuration : [{C.DIM}](aucune - utilisez le modèle par défaut)[/{C.DIM}]")
+                # Afficher le modèle si disponible
+                grid = ctx.cargo_grid_manager.get_grid(match.name)
+                if grid:
+                    total = calculate_total_scu(grid)
+                    console.print(f"  [{C.DIM}]Modèle disponible : {format_cargo_config(grid)} = {total} SCU[/{C.DIM}]")
+            return
+
+        # Sinon : modifier le vaisseau
+        cargo_specs: dict[int, int] = {}
+        explicit_scu = None
+
+        for arg in remaining_args:
+            if arg.isdigit():
+                explicit_scu = int(arg)
+                continue
+
+            parsed = parse_cargo_spec(arg)
+            if parsed:
+                size, qty = parsed
+                cargo_specs[size] = qty
+            else:
+                print_error(f"Argument invalide : {arg}")
+                console.print(f"[{C.DIM}]Format : <taille>x<quantité> (ex: 32x4)[/{C.DIM}]")
+                return
+
+        if not cargo_specs and explicit_scu is None:
+            print_error("Spécifiez au moins une configuration cargo ou une capacité")
+            console.print(f"[{C.DIM}]Exemples : 32x10 16x4  OU  696[/{C.DIM}]")
+            return
+
+        # Mettre à jour le vaisseau
+        if cargo_specs:
+            match.cargo_config = cargo_specs
+            calculated_scu = calculate_total_scu(cargo_specs)
+            match.scu = explicit_scu if explicit_scu is not None else calculated_scu
+        elif explicit_scu is not None:
+            match.scu = explicit_scu
+
         _save_player(ctx)
-        print_ok(f"{match.name} → {scu} SCU")
+
+        # Affichage de confirmation
+        console.print(f"[bold]{match.name}[/bold]  [{C.DIM}](votre vaisseau)[/{C.DIM}]")
+        console.print(f"  Capacité : [{C.UEX}]{match.scu} SCU[/{C.UEX}]")
+        if match.cargo_config:
+            config_str = format_cargo_config(match.cargo_config)
+            calculated = calculate_total_scu(match.cargo_config)
+            console.print(f"  Configuration : [{C.LABEL}]{config_str}[/{C.LABEL}]  [{C.DIM}]({calculated} SCU)[/{C.DIM}]")
+        print_ok("Configuration cargo mise à jour")
 
     else:
         print_error(f"Sous-commande inconnue : {sub}")
@@ -239,7 +394,7 @@ def _ship(args: list[str], ctx) -> None:
         console.print(f"  [{C.LABEL}]/ship list[/{C.LABEL}]              [{C.DIM}]Liste vos vaisseaux[/{C.DIM}]")
         console.print(f"  [{C.LABEL}]/ship add <nom>[/{C.LABEL}]         [{C.DIM}]Ajoute un vaisseau[/{C.DIM}]")
         console.print(f"  [{C.LABEL}]/ship set <nom>[/{C.LABEL}]         [{C.DIM}]Définit le vaisseau actif[/{C.DIM}]")
-        console.print(f"  [{C.LABEL}]/ship cargo <nom> <scu>[/{C.LABEL}] [{C.DIM}]Définit la capacité cargo[/{C.DIM}]")
+        console.print(f"  [{C.LABEL}]/ship cargo <nom> [specs][/{C.LABEL}] [{C.DIM}]Configure les grilles cargo[/{C.DIM}]")
         console.print(f"  [{C.LABEL}]/ship remove <nom>[/{C.LABEL}]      [{C.DIM}]Retire un vaisseau[/{C.DIM}]")
 
 
