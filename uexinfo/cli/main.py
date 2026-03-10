@@ -139,8 +139,8 @@ def main() -> None:
             # Si déjà ouvert, passer au suivant
             buff.complete_next()
         else:
-            # Sinon, démarrer la complétion
-            buff.start_completion(select_first=False)
+            # Sinon, démarrer la complétion (select_first=True pour forcer l'affichage)
+            buff.start_completion(select_first=True)
 
     # ─────────────────────────────────────────────────────────────────────────
 
