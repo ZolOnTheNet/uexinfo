@@ -21,8 +21,6 @@ _fmt_mod.console = _Console(
 )
 
 # ── ÉTAPE 2 : imports normaux (utilisent le nouveau console) ──────────────────
-import shlex
-
 from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
@@ -34,8 +32,7 @@ import uexinfo.cli.history as _history_mod
 from uexinfo import __version__
 from uexinfo.cache.manager import CacheManager
 from uexinfo.cli.main import AppContext
-from uexinfo.cli.commands import dispatch
-from uexinfo.cli.parser import parse_line
+from uexinfo.cli.runner import run_command
 from uexinfo.location.index import LocationIndex
 from uexinfo.models.player import Player
 from uexinfo.widgets.status_bar import StatusBar
@@ -63,6 +60,7 @@ import uexinfo.cli.commands.explore  # noqa: F401
 import uexinfo.cli.commands.trade    # noqa: F401
 import uexinfo.cli.commands.nav          # noqa: F401
 import uexinfo.cli.commands.history_cmd  # noqa: F401
+import uexinfo.cli.commands.debug        # noqa: F401
 
 
 class UexInfoApp(App):
@@ -292,32 +290,11 @@ class UexInfoApp(App):
         # Démarrer le spinner
         self.call_from_thread(prompt.start_spinner)
 
-        # Router la commande (même logique que cli/main.py)
-        stripped = line.lstrip()
         _needs_bar_sync = False
-        try:
-            if not stripped.startswith("/"):
-                try:
-                    words = shlex.split(stripped)
-                except ValueError:
-                    words = stripped.split()
 
-                if words and words[0].startswith("@"):
-                    full_loc = " ".join(words)
-                    dispatch("player", [full_loc], self.ctx)
-                    _needs_bar_sync = True
-                    loc_name = full_loc[1:]
-                    if "." in loc_name:
-                        loc_name = loc_name.rsplit(".", 1)[-1]
-                    dispatch("info", [loc_name], self.ctx)
-                else:
-                    dispatch("info", words, self.ctx)
-            else:
-                cmd, args = parse_line(stripped)
-                if cmd:
-                    dispatch(cmd, args, self.ctx)
-                    if cmd in ("player", "go", "lieu", "ship", "config"):
-                        _needs_bar_sync = True
+        try:
+            dispatched = run_command(line, self.ctx)
+            _needs_bar_sync = bool(dispatched & {"player", "go", "lieu", "ship", "config"})
         except Exception as e:
             self.call_from_thread(prompt.stop_spinner)
             self._flush_output(rl)

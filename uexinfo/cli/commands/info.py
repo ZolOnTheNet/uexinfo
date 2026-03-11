@@ -510,7 +510,12 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
 
     player_dest = (ctx.player.destination or "").lower().strip()
     origin_system = origin_terminal.star_system_name
-    graph = ctx.cache.transport_graph
+
+    # ── Distances via API UEX (même logique que _show_commodity) ─────────
+    dist_map: dict[str, float] = {}
+    if origin_terminal.id:
+        dist_map = _fetch_route_distances(origin_terminal.id, ctx)
+    player_sys = _player_system(ctx)
 
     # ── Construire toutes les lignes avec calculs ──────────────────────────
     entries: list[tuple[float, dict]] = []   # (profit_full, data)
@@ -567,16 +572,13 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
         dest_style = "underline" if dest_name.lower() == player_dest else ""
         dest_tag   = f"{dest_style} {C.LABEL}".strip()
 
-        distance_str = ""
-        for edge in graph._adjacency.get(origin_terminal.name, []):
-            if edge.to_node == dest_name:
-                distance_str = f"{edge.distance_gm:.1f}Gm"
-                break
+        distance_str = _dist_label(dest_name, dest_system, player_sys, dist_map)
 
         entries.append((profit_full, {
             "name": name, "scu_range": _notable_scu(_scu(scu_min, scu_max)),
             "price_buy": price_buy, "date": date_buy,
             "dest": dest_display, "dest_tag": dest_tag,
+            "price_sell": price_sell,
             "qty": qty_buy, "qty_sell": qty_sell_lim,
             "total_buy": total_buy,
             "total_sell": total_sell_real, "profit": profit_full,
@@ -592,6 +594,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
     tbl.add_column("Prix/SCU",    style=f"italic {C.UEX}",    justify="right", no_wrap=True)
     tbl.add_column("Âge",         style=C.DIM,                justify="right", no_wrap=True)
     tbl.add_column("→ Dest",      no_wrap=True,               min_width=14)
+    tbl.add_column("→Prix/SCU",   style=f"italic {C.PROFIT}", justify="right", no_wrap=True)
     tbl.add_column("Dist",        style=C.DIM,                justify="right", no_wrap=True)
     tbl.add_column("SCU",         style=C.DIM,                justify="right", no_wrap=True)
     tbl.add_column("Coût",        style=f"italic {C.DIM}",    justify="right", no_wrap=True)
@@ -615,6 +618,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
             _price_short(d["price_buy"]),
             d["date"],
             dest_str,
+            _price_short(d.get("price_sell")),
             d["distance"],
             scu_cell,
             _price_short(d["total_buy"]),

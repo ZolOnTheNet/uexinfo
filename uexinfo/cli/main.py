@@ -1,7 +1,6 @@
 """Point d'entrée — boucle REPL interactive."""
 from __future__ import annotations
 
-import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -17,7 +16,7 @@ import uexinfo.config.settings as settings
 from uexinfo import __version__
 from uexinfo.cache.manager import CacheManager
 from uexinfo.cli.completer import UEXCompleter
-from uexinfo.cli.parser import parse_line
+from uexinfo.cli.runner import normalize_command, run_command
 from uexinfo.data.cargo_grids import CargoGridManager
 from uexinfo.display import colors as C
 from uexinfo.location.index import LocationIndex
@@ -36,8 +35,7 @@ import uexinfo.cli.commands.info     # noqa: F401
 import uexinfo.cli.commands.explore  # noqa: F401
 import uexinfo.cli.commands.trade    # noqa: F401
 import uexinfo.cli.commands.nav      # noqa: F401
-
-from uexinfo.cli.commands import dispatch, get_names
+import uexinfo.cli.commands.debug    # noqa: F401
 
 console = Console()
 
@@ -46,34 +44,6 @@ HISTORY_FILE = Path(appdirs.user_data_dir("uexinfo")) / "history.txt"
 PROMPT_STYLE = Style.from_dict({
     "prompt": "bold cyan",
 })
-
-
-def normalize_command(line: str, known_commands: set[str]) -> str:
-    """
-    Normalise la saisie utilisateur : ajoute / si nécessaire.
-
-    Logique :
-    - Si commence par / ou @ : retourne tel quel
-    - Si le premier mot est une commande connue : ajoute /
-    - Sinon : recherche libre (retourne tel quel)
-    """
-    stripped = line.strip()
-    if not stripped:
-        return stripped
-
-    # Déjà une commande ou @lieu
-    if stripped.startswith("/") or stripped.startswith("@"):
-        return stripped
-
-    # Extraire le premier mot
-    first_word = stripped.split()[0].lower() if stripped.split() else ""
-
-    # Si c'est une commande connue, ajouter /
-    if first_word in known_commands:
-        return "/" + stripped
-
-    # Sinon, recherche libre
-    return stripped
 
 
 @dataclass
@@ -86,6 +56,7 @@ class AppContext:
     last_scan: ScanResult | None = None
     scan_history: list[ScanResult] = field(default_factory=list)
     _price_cache: dict = field(default_factory=dict)  # {"t27": (ts, data)}
+    debug_level: int = 0
 
 
 def _banner() -> None:
@@ -195,6 +166,10 @@ def main() -> None:
             console.print(f"\n[{C.DIM}]Au revoir, fly safe o7[/{C.DIM}]")
             break
 
+        # ── Trace top-level (avant tout traitement) ───────────────────────
+        if ctx.debug_level >= 1:
+            console.print(f"[bold yellow]DBG0 >>> input brut = {line!r}  (debug_level={ctx.debug_level})[/bold yellow]")
+
         # ── Traitement Ctrl+↑ ─────────────────────────────────────────────
         if _edit_pending[0]:
             _edit_pending[0] = False
@@ -221,40 +196,9 @@ def main() -> None:
         if not line:
             continue
 
-        # Normaliser la saisie : ajouter / si c'est une commande
-        known_cmds = set(get_names())
-        normalized = normalize_command(line, known_cmds)
-
-        # Traitement spécial pour @lieu
-        if normalized.startswith("@"):
-            try:
-                words = shlex.split(normalized)
-            except ValueError:
-                words = normalized.split()
-
-            full_loc = " ".join(words)  # "@Port Tressler"
-            dispatch("player", [full_loc], ctx)
-            loc_name = full_loc[1:]     # "Port Tressler"
-            if "." in loc_name:
-                loc_name = loc_name.rsplit(".", 1)[-1]
-            dispatch("info", [loc_name], ctx)
-            continue
-
-        # Parser la ligne normalisée
-        cmd, args = parse_line(normalized)
-
-        # Si pas de commande → recherche libre via /info
-        if not cmd:
-            try:
-                words = shlex.split(line)
-            except ValueError:
-                words = line.split()
-            dispatch("info", words, ctx)
-            continue
-
-        if cmd in ("exit", "quit", "bye"):
+        if line.lower() in ("exit", "quit", "bye"):
             _cleanup(ctx)
             console.print(f"[{C.DIM}]Au revoir, fly safe o7[/{C.DIM}]")
             break
 
-        dispatch(cmd, args, ctx)
+        run_command(line, ctx)
