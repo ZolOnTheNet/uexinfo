@@ -7,6 +7,8 @@ from textual.containers import Horizontal
 from textual.message import Message
 from textual.widgets import Label, Select, Static
 
+from uexinfo.display import colors as C
+
 if TYPE_CHECKING:
     from uexinfo.app import UexInfoApp
 
@@ -134,9 +136,9 @@ class PositionBar(Static):
         ship = next((s for s in ctx.player.ships if s.name == ship_name), None)
         label = self.query_one("#cargo-label", Label)
         if ship and ship.scu:
-            label.update(f"  {ship.scu} SCU")
+            label.update(f"  {ship.scu} {C.SCU}")
         else:
-            label.update("  — SCU")
+            label.update(f"  — {C.SCU}")
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.value is Select.BLANK:

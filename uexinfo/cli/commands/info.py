@@ -427,8 +427,8 @@ def _show_scan_section(result: ScanResult, ctx) -> None:
         return
     tbl = Table(show_header=True, box=None, padding=(0, 1))
     tbl.add_column("Commodité", style=C.NEUTRAL, no_wrap=True, min_width=20)
-    tbl.add_column("Prix/SCU",  style=C.UEX,     justify="right", no_wrap=True)
-    tbl.add_column("SCU",       style=C.DIM,     justify="right", no_wrap=True)
+    tbl.add_column(f"Prix/{C.SCU}",  style=C.UEX,     justify="right", no_wrap=True)
+    tbl.add_column(C.SCU,            style=C.DIM,     justify="right", no_wrap=True)
     tbl.add_column("Stock",     no_wrap=True)
     for sc in sorted(result.commodities, key=lambda s: s.name):
         price = _price_fmt(sc.price) if sc.price else "—"
@@ -493,8 +493,6 @@ def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx, player_de
 
 def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> None:
     """Affiche la section Acheter avec table alignée, triée par profit décroissant."""
-    console.print(f"\n[bold {C.UEX}]▼ Acheter sur place[/bold {C.UEX}]")
-
     # Récupérer le cargo du vaisseau actif
     ship_cargo = 0
     if ctx.player.active_ship:
@@ -504,11 +502,13 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
                 break
 
     if ship_cargo == 0:
-        console.print(f"[{C.WARNING}]⚠  Vaisseau actif non défini ou cargo = 0 SCU[/{C.WARNING}]")
+        console.print(f"[{C.WARNING}]⚠  Vaisseau actif non défini ou cargo = 0 {C.SCU}[/{C.WARNING}]")
         console.print(f"[{C.DIM}]   Utilisez /ship set <nom> pour définir votre vaisseau[/{C.DIM}]")
         return
 
     player_dest = (ctx.player.destination or "").lower().strip()
+    hint = f"  [{C.DIM}](⭐ = vendable à destination)[/{C.DIM}]" if player_dest else ""
+    console.print(f"\n[bold {C.UEX}]▼ Acheter sur place[/bold {C.UEX}]{hint}")
     origin_system = origin_terminal.star_system_name
 
     # ── Distances via API UEX (même logique que _show_commodity) ─────────
@@ -545,6 +545,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
                 "qty": qty_buy, "total_buy": total_buy,
                 "total_sell": 0.0, "profit": 0.0,
                 "distance": "", "unsold": 0,
+                "dest_name_raw": "",
             }))
             continue
 
@@ -583,20 +584,24 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
             "total_buy": total_buy,
             "total_sell": total_sell_real, "profit": profit_full,
             "distance": distance_str, "unsold": qty_unsold,
+            "dest_name_raw": dest_name,
         }))
 
-    # ── Trier par profit décroissant ──────────────────────────────────────
-    entries.sort(key=lambda x: -x[0])
+    # ── Trier : destination prioritaire, puis profit décroissant ─────────
+    entries.sort(key=lambda e: (
+        0 if (player_dest and e[1].get("dest_name_raw", "").lower() == player_dest) else 1,
+        -e[0],
+    ))
 
     # ── Afficher en table alignée ─────────────────────────────────────────
     tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
     tbl.add_column("Commodité",   style=f"italic {C.NEUTRAL}", no_wrap=True, min_width=14)
-    tbl.add_column("Prix/SCU",    style=f"italic {C.UEX}",    justify="right", no_wrap=True)
-    tbl.add_column("Âge",         style=C.DIM,                justify="right", no_wrap=True)
-    tbl.add_column("→ Dest",      no_wrap=True,               min_width=14)
-    tbl.add_column("→Prix/SCU",   style=f"italic {C.PROFIT}", justify="right", no_wrap=True)
-    tbl.add_column("Dist",        style=C.DIM,                justify="right", no_wrap=True)
-    tbl.add_column("SCU",         style=C.DIM,                justify="right", no_wrap=True)
+    tbl.add_column(f"Prix/{C.SCU}",  style=f"italic {C.UEX}",    justify="right", no_wrap=True)
+    tbl.add_column("Âge",            style=C.DIM,                justify="right", no_wrap=True)
+    tbl.add_column("→ Dest",         no_wrap=True,               min_width=14)
+    tbl.add_column(f"→Prix/{C.SCU}", style=f"italic {C.PROFIT}", justify="right", no_wrap=True)
+    tbl.add_column("Dist",           style=C.DIM,                justify="right", no_wrap=True)
+    tbl.add_column(C.SCU,            style=C.DIM,                justify="right", no_wrap=True)
     tbl.add_column("Coût",        style=f"italic {C.DIM}",    justify="right", no_wrap=True)
     tbl.add_column("Vente",       style=f"italic {C.PROFIT}", justify="right", no_wrap=True)
     tbl.add_column("Profit",      justify="right",            no_wrap=True)
@@ -609,6 +614,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
         if d["scu_range"]:
             name_str = f"{name_str} [dim]({d['scu_range']})[/dim]"
         dest_str    = f"[{d['dest_tag']}]{_abbrev_name(d['dest'], 18)}[/{d['dest_tag']}]"
+        if player_dest and d.get("dest_name_raw", "").lower() == player_dest:
+            dest_str = f"⭐ {dest_str}"
         # SCU : "288" si tout vendable, "230/288" si capacité limitée
         scu_cell = str(d["qty"])
         if d["unsold"]:
@@ -813,7 +820,7 @@ def _term_sys_cell(r: dict, maxlen: int = 22,
 
 def _scu_cell(qty) -> str:
     q = int(qty or 0)
-    return f"{q:,} SCU".replace(",", "\u202f") if q else f"[{C.DIM}]—[/{C.DIM}]"
+    return f"{q:,} {C.SCU}".replace(",", "\u202f") if q else f"[{C.DIM}]—[/{C.DIM}]"
 
 
 def _scu_range(lo, hi) -> str:
@@ -957,7 +964,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         console.print(f"[bold {C.UEX}]▼ Acheter là-bas[/bold {C.UEX}]")
         tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
         tbl.add_column("Terminal (Sys)", no_wrap=True, min_width=24)
-        tbl.add_column("Achat/SCU",      style=C.UEX,  justify="right", no_wrap=True)
+        tbl.add_column(f"Achat/{C.SCU}",  style=C.UEX,  justify="right", no_wrap=True)
         tbl.add_column("T.Cargo",        style=C.DIM,  justify="right", no_wrap=True)
         tbl.add_column("Dispo",          no_wrap=True)
         tbl.add_column("Dist",           no_wrap=True)
@@ -1003,7 +1010,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     if sell_rows:
         tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
         tbl.add_column("Terminal (Sys)",  no_wrap=True, min_width=24)
-        tbl.add_column("Vente/SCU",       style=C.PROFIT, justify="right", no_wrap=True)
+        tbl.add_column(f"Vente/{C.SCU}",   style=C.PROFIT, justify="right", no_wrap=True)
         tbl.add_column("Saturation",      no_wrap=True)
         tbl.add_column("T.Cargo",         style=C.DIM,    justify="right", no_wrap=True)
         tbl.add_column("Dist",            no_wrap=True)
@@ -1064,7 +1071,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     if player_scu:
         ship_note = f"  ·  {ctx.player.active_ship} ({player_scu} SCU)"
     elif ctx.player.active_ship:
-        ship_note = f"  ·  {ctx.player.active_ship} — /ship cargo <nom> <n> pour le SCU"
+        ship_note = f"  ·  {ctx.player.active_ship} — /ship cargo <nom> <n> pour le {C.SCU}"
     console.print(f"\n[{C.DIM}]{n_t} terminaux{date_str}{ship_note}[/{C.DIM}]")
 
     # ── Résumé autres systèmes (si filtre actif) ────────────────────────────
@@ -1087,7 +1094,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             )
 
     console.print(
-        f"[{C.DIM}]  Prix en aUEC  ·  T.Cargo : tailles des conteneurs en SCU (ex. 1/2/4)"
+        f"[{C.DIM}]  Prix en {C.AUEC}  ·  T.Cargo : tailles des conteneurs en {C.SCU} (ex. 1/2/4)"
         f"  ·  Dispo ░=vide ████=plein  ·  ROI vs meilleur achat local[/{C.DIM}]"
     )
 
@@ -1168,7 +1175,7 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
 
         console.print(
             f"[bold {C.UEX}]▼ Achat[/bold {C.UEX}]"
-            + (f"  [{C.DIM}]moy {_price_fmt(avg_buy)} aUEC[/{C.DIM}]" if avg_buy else "")
+            + (f"  [{C.DIM}]moy {_price_fmt(avg_buy)} {C.AUEC}[/{C.DIM}]" if avg_buy else "")
         )
 
         def _buy_sort(r):
@@ -1186,7 +1193,7 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
                 continue
             term = r.get("terminal_name") or "?"
             sys  = r.get("star_system_name") or "?"
-            tbl.add_row(term, sys, f"{_price_fmt(price)} aUEC")
+            tbl.add_row(term, sys, f"{_price_fmt(price)} {C.AUEC}")
         console.print(tbl)
         console.print()
     else:
@@ -1201,7 +1208,7 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
 
         console.print(
             f"[bold {C.PROFIT}]▼ Location[/bold {C.PROFIT}]"
-            + (f"  [{C.DIM}]moy {_price_fmt(avg_rent)} aUEC/jour[/{C.DIM}]" if avg_rent else "")
+            + (f"  [{C.DIM}]moy {_price_fmt(avg_rent)} {C.AUEC}/jour[/{C.DIM}]" if avg_rent else "")
         )
 
         def _rent_sort(r):
@@ -1219,7 +1226,7 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
                 continue
             term = r.get("terminal_name") or "?"
             sys  = r.get("star_system_name") or "?"
-            tbl.add_row(term, sys, f"{_price_fmt(price)} aUEC")
+            tbl.add_row(term, sys, f"{_price_fmt(price)} {C.AUEC}")
         console.print(tbl)
     else:
         console.print(f"[{C.DIM}]Prix de location non disponibles.[/{C.DIM}]")

@@ -23,3 +23,7 @@ PROFIT = "bold green"
 LOSS = "bold red"
 NEUTRAL = "white"
 ILLEGAL = "red"
+
+# Symboles unités (affichage compact)
+SCU  = "□"   # Standard Cargo Unit  (U+25A1 WHITE SQUARE)
+AUEC = "α"   # alpha UEC — monnaie in-game

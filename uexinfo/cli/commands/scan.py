@@ -72,10 +72,10 @@ def _display_scan(result: ScanResult, ctx) -> None:
     t = make_table(
         ("Commodité",  C.LABEL,   "left"),
         ("Stock",      C.NEUTRAL, "left"),
-        ("Qté SCU",   C.NEUTRAL, "right"),
-        ("Prix/SCU",  C.UEX,     "right"),
-        (delta_hdr,   C.NEUTRAL, "right"),
-        ("Marge/SCU", C.NEUTRAL, "right"),
+        (f"Qté {C.SCU}",   C.NEUTRAL, "right"),
+        (f"Prix/{C.SCU}",  C.UEX,     "right"),
+        (delta_hdr,        C.NEUTRAL, "right"),
+        (f"Marge/{C.SCU}", C.NEUTRAL, "right"),
     )
 
     for sc in result.commodities:
@@ -105,7 +105,7 @@ def _display_scan(result: ScanResult, ctx) -> None:
         qty_str   = str(sc.quantity) if sc.quantity is not None else f"[{C.DIM}]—[/{C.DIM}]"
         # Prix : ? = OCR a échoué (le prix devrait être là), — = pas de donnée UEX
         price_str = (
-            f"{price:,} aUEC".replace(",", "\u202f") if price
+            f"{price:,} {C.AUEC}".replace(",", "\u202f") if price
             else f"[{C.DIM}]?[/{C.DIM}]"
         )
         stock_str = _stock_bar(sc.stock_status, sc.stock)

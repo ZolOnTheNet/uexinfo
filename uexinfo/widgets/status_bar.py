@@ -4,6 +4,8 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.widgets import Label, Static
 
+from uexinfo.display import colors as C
+
 
 class StatusBar(Static):
     """Ligne unique : Pos · Dest · Vaisseau · Cargo restant/total."""
@@ -25,7 +27,7 @@ class StatusBar(Static):
                     cargo_total = s.scu or 0
                     break
 
-        cargo_str = f"{cargo_total} SCU" if cargo_total else "— SCU"
+        cargo_str = f"{cargo_total} {C.SCU}" if cargo_total else f"— {C.SCU}"
 
         text = (
             f"[dim]Pos:[/dim] [cyan]{loc}[/cyan]"

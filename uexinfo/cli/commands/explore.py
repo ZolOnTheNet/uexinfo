@@ -111,7 +111,7 @@ def _show_location(sys_name: str, body_name: str, loc_name: str, terminals: list
         if t.is_refinery:       flags.append("raffinerie")
         if t.is_player_owned:   flags.append("[dim]joueur[/dim]")
         flag_str = " · ".join(flags)
-        cargo = f"{t.max_container_size} SCU" if t.max_container_size else "—"
+        cargo = f"{t.max_container_size} {C.SCU}" if t.max_container_size else "—"
         tbl.add_row(t.name, flag_str or t.type or "—", cargo)
     console.print(tbl)
     console.print(f"\n[{C.DIM}]/info {loc_name} pour les prix du marché[/{C.DIM}]")

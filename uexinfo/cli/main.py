@@ -64,7 +64,8 @@ def _banner() -> None:
         f"[bold cyan]UEXInfo[/bold cyan] [dim]v{__version__}[/dim]"
         "  —  Star Citizen Trade CLI\n"
         f"[{C.DIM}]Tapez [bold]help[/bold] pour l'aide  │  [bold]exit[/bold] pour quitter  │  Tab / Ctrl-Espace = complétion  │  Saisie libre = recherche  │  [bold]@lieu[/bold] = se positionner + info[/{C.DIM}]\n"
-        f"[{C.DIM}]Le [bold]/[/bold] est optionnel : [bold]ship add Cutlass[/bold] = [bold]/ship add Cutlass[/bold][/{C.DIM}]"
+        f"[{C.DIM}]Le [bold]/[/bold] est optionnel : [bold]ship add Cutlass[/bold] = [bold]/ship add Cutlass[/bold][/{C.DIM}]\n"
+        f"[{C.DIM}]Symboles : [bold]{C.SCU}[/bold] = SCU (cargo)  │  [bold]{C.AUEC}[/bold] = aUEC (monnaie)[/{C.DIM}]"
     )
     console.print()
 

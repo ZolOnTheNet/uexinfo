@@ -62,7 +62,7 @@ def _show(cfg: dict, ctx=None) -> None:
         console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{pos.get('destination') or '(non définie)'}[/{C.UEX}]")
 
     # ── Trade / cache / scan ───────────────────────────────────────────────
-    console.print(f"  [bold]Profit min/SCU :[/bold] {trade.get('min_profit_per_scu', 0)} aUEC")
+    console.print(f"  [bold]Profit min/{C.SCU} :[/bold] {trade.get('min_profit_per_scu', 0)} {C.AUEC}")
     console.print(f"  [bold]Marge min :[/bold]     {trade.get('min_margin_percent', 0)} %")
     console.print(f"  [bold]Illégal :[/bold]       {'oui' if trade.get('illegal_commodities') else 'non'}")
     console.print(f"  [bold]TTL cache :[/bold]     {cache_cfg.get('ttl_static', 86400)}s statique  /  {cache_cfg.get('ttl_prices', 300)}s prix")
@@ -107,11 +107,14 @@ def _ship(args: list[str], ctx) -> None:
         if not ctx.player.ships:
             print_warn("Aucun vaisseau configuré — /config ship add <nom>")
             return
+        from uexinfo.data.cargo_grids import format_cargo_config
         section("Vaisseaux configurés")
         for s in ctx.player.ships:
-            scu_str = str(s.scu) if s.scu else "?"
-            marker  = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == ctx.player.active_ship else ""
-            console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} SCU[/{C.DIM}]{marker}")
+            scu_str  = str(s.scu) if s.scu else "?"
+            marker   = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == ctx.player.active_ship else ""
+            grid     = s.cargo_config or ctx.cargo_grid_manager.get_grid(s.name) or {}
+            grid_str = f"  [{C.LABEL}]{format_cargo_config(grid)}[/{C.LABEL}]" if grid else ""
+            console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} SCU[/{C.DIM}]{grid_str}{marker}")
         return
 
     sub  = args[0].lower()
@@ -411,7 +414,7 @@ def _trade(args: list[str], ctx) -> None:
         try:
             trade["min_profit_per_scu"] = int(val)
             settings.save(ctx.cfg)
-            print_ok(f"Profit min/SCU : {val} aUEC")
+            print_ok(f"Profit min/{C.SCU} : {val} {C.AUEC}")
         except ValueError:
             print_error("Valeur entière attendue")
 

@@ -52,14 +52,14 @@ def fmt_auec(value: float) -> str:
     """Formate un prix en aUEC lisible."""
     if value <= 0:
         return "[dim]—[/dim]"
-    return f"{value:,.0f} aUEC".replace(",", " ")
+    return f"{value:,.0f} {C.AUEC}".replace(",", " ")
 
 
 def fmt_scu(value: float) -> str:
     """Formate une quantité SCU."""
     if value <= 0:
         return "[dim]—[/dim]"
-    return f"{value:,.0f} SCU".replace(",", " ")
+    return f"{value:,.0f} {C.SCU}".replace(",", " ")
 
 
 def profit_color(value: float) -> str:

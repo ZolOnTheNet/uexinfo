@@ -110,7 +110,7 @@ def cmd_player(args: list[str], ctx) -> None:
                 return
             ctx.player.ships.append(Ship(name=name, scu=scu))
             _save_player(ctx)
-            print_ok(f"Vaisseau ajouté : {name}" + (f" ({scu} SCU)" if scu else ""))
+            print_ok(f"Vaisseau ajouté : {name}" + (f" ({scu} {C.SCU})" if scu else ""))
 
         elif action == "set":
             if len(args) < 3:
@@ -141,7 +141,7 @@ def cmd_player(args: list[str], ctx) -> None:
                 return
             match.scu = scu
             _save_player(ctx)
-            print_ok(f"{match.name} : {scu} SCU")
+            print_ok(f"{match.name} : {scu} {C.SCU}")
 
         elif action == "remove":
             if len(args) < 3:

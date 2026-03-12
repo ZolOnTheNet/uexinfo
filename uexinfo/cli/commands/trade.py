@@ -1,24 +1,36 @@
 """Commande /trade — recherche de prix d'achat et de vente."""
 from __future__ import annotations
 
+import re
+
 from uexinfo.cli.commands import register
 from uexinfo.cli.commands.info import (
     _BUY_STATUS_COLOR,
     _SELL_STATUS_COLOR,
     _abbrev_name,
     _commodity_prices,
+    _dist_label,
+    _fetch_container_sizes,
+    _fetch_route_distances,
     _find_commodity,
+    _find_terminal,
+    _fmt_date,
     _loc,
     _multi_col_table,
     _notable_scu,
+    _player_cargo,
     _player_system,
     _price_short,
     _scu,
+    _stock_bar,
+    _terminal_prices,
 )
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_error, print_warn, section
 
-_SUBS = {"buy", "sell", "best", "compare"}
+_SUBS  = {"buy", "sell", "best", "compare"}
+_FROMS = {"from", "de"}
+_TOS   = {"to", "à"}
 
 _TERM_MAX     = 14  # largeur max du nom seul (même système)
 _TERM_MAX_SYS = 20  # largeur max avec préfixe système
@@ -27,9 +39,12 @@ _TERM_MAX_SYS = 20  # largeur max avec préfixe système
 @register("trade", "t")
 def cmd_trade(args: list[str], ctx) -> None:
     if not args:
-        print_warn("Usage : /trade <commodité>  |  /trade buy|sell <commodité>")
+        _trade_bilan(ctx)
         return
     sub = args[0].lower()
+    if sub in _FROMS or sub in _TOS:
+        _trade_bilan_override(args, ctx)
+        return
     if sub not in _SUBS:
         _trade_buy(args, ctx)
         console.print()
@@ -173,3 +188,353 @@ def _trade_sell(args: list[str], ctx) -> None:
         f"italic {C.NEUTRAL}", f"italic {C.PROFIT}",
     ))
     console.print(f"\n[{C.DIM}]{len(sell_rows)} terminaux · prix décroissant[/{C.DIM}]")
+
+
+# ── /trade from X to Y ────────────────────────────────────────────────────────
+
+def _parse_from_to(args: list[str]) -> tuple[str, str]:
+    """Extrait les parties 'from ...' et 'to ...' depuis une liste d'args."""
+    from_parts: list[str] = []
+    to_parts:   list[str] = []
+    current = None
+    for a in args:
+        lo = a.lower()
+        if lo in _FROMS:
+            current = "from"
+        elif lo in _TOS:
+            current = "to"
+        elif current == "from":
+            from_parts.append(a)
+        elif current == "to":
+            to_parts.append(a)
+    return " ".join(from_parts), " ".join(to_parts)
+
+
+def _trade_bilan_override(args: list[str], ctx) -> None:
+    from_str, to_str = _parse_from_to(args)
+    _trade_bilan(ctx, origin_override=from_str, dest_override=to_str)
+
+
+# ── /trade (bilan route) ───────────────────────────────────────────────────────
+
+def _plain_len(s: str) -> int:
+    """Longueur visible (balises Rich retirées)."""
+    return len(re.sub(r'\[/?[^\]]*\]', '', s))
+
+
+def _ship_container_sizes(ctx) -> list[int]:
+    """Tailles de containers acceptées par le vaisseau actif."""
+    ship_name = (ctx.player.active_ship or "").lower()
+    if not ship_name:
+        return []
+    for v in (ctx.cache.vehicles or []):
+        if v.name_full.lower() == ship_name or v.name.lower() == ship_name:
+            if v.container_sizes:
+                return sorted(
+                    int(x.strip()) for x in v.container_sizes.split(",")
+                    if x.strip().isdigit()
+                )
+    return []
+
+
+def _intersect_sizes(sets: list[set[int]], ship_cargo: int) -> list[int]:
+    """Intersecte les sets non-vides ; filtre par ship_cargo. Décroissant."""
+    non_empty = [s for s in sets if s]
+    if not non_empty:
+        return []
+    common = non_empty[0].copy()
+    for s in non_empty[1:]:
+        common &= s
+    return sorted((x for x in common if 0 < x <= ship_cargo), reverse=True)
+
+
+def _pack(qty: int, sizes: list[int]) -> str:
+    """Calcule le packing optimal. Ex: 256 SCU avec [8,32] → '8×32'."""
+    remaining = qty
+    parts = []
+    for size in sorted(sizes, reverse=True):
+        if remaining <= 0:
+            break
+        n = remaining // size
+        if n > 0:
+            parts.append(f"{n}×{size}{C.SCU}")
+            remaining -= n * size
+    return f"[ {' '.join(parts)} ]" if parts else f"[ {qty}×1{C.SCU} ]"
+
+
+def _pack_remainder(qty: int, sizes: list[int]) -> int:
+    """SCU restants après packing (ne rentrent dans aucun container disponible)."""
+    remaining = qty
+    for size in sorted(sizes, reverse=True):
+        remaining -= (remaining // size) * size
+    return remaining
+
+
+def _ship_slot_grid(ctx) -> dict[int, int]:
+    """Grille cargo du vaisseau actif {taille_slot: nb_slots} via cargo_grid_manager."""
+    ship_name = (ctx.player.active_ship or "").strip()
+    if not ship_name:
+        return {}
+    grid = ctx.cargo_grid_manager.get_grid(ship_name)
+    return dict(grid) if grid else {}
+
+
+def _pack_grid(qty: int, slot_grid: dict[int, int], avail_sizes: set[int]) -> dict[int, int]:
+    """
+    Emballe qty SCU en respectant la grille cargo {taille_slot: nb_slots}.
+
+    Règle : un slot de taille S peut contenir des containers de taille <= S.
+    Remplit chaque slot greedy du plus grand au plus petit container.
+    avail_sizes vide → toutes les tailles <= slot_size sont tentées.
+    Retourne {container_size: count}.
+    """
+    result: dict[int, int] = {}
+    remaining = qty
+
+    for slot_size in sorted(slot_grid.keys(), reverse=True):
+        n_slots = slot_grid[slot_size]
+        if remaining <= 0:
+            break
+
+        # Tailles disponibles pour ce slot (acceptées aux terminaux ET ≤ slot_size)
+        if avail_sizes:
+            slot_avail = sorted([s for s in avail_sizes if s <= slot_size], reverse=True)
+        else:
+            # Aucune donnée terminaux → on essaie toutes les tailles standard ≤ slot
+            _STD = [32, 24, 16, 8, 4, 2, 1]
+            slot_avail = [s for s in _STD if s <= slot_size]
+
+        if not slot_avail:
+            continue
+
+        for _ in range(n_slots):
+            if remaining <= 0:
+                break
+            slot_remaining = slot_size
+            for container_size in slot_avail:
+                if remaining <= 0 or slot_remaining < container_size:
+                    break
+                n = min(slot_remaining // container_size, remaining // container_size)
+                if n > 0:
+                    result[container_size] = result.get(container_size, 0) + n
+                    remaining -= n * container_size
+                    slot_remaining -= n * container_size
+
+    return result
+
+
+def _fmt_pack(pack_map: dict[int, int]) -> str:
+    """Formate {32: 8, 16: 2} → '[ 8×32□  2×16□ ]'."""
+    inner = "  ".join(
+        f"{count}×{size}{C.SCU}"
+        for size, count in sorted(pack_map.items(), reverse=True)
+        if count > 0
+    )
+    return f"[ {inner} ]" if inner else ""
+
+
+def _print_trade_entry(d: dict) -> None:
+    """Affichage freeform une ou deux lignes par commodité."""
+    profit = d["profit"]
+    p_color = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
+    p_sign = "+" if profit > 0 else ""
+
+    buy_bar = _stock_bar(d["status_buy"], sell=False)
+
+    dist_gm = d.get("dest_dist")
+    ppg = ""
+    if dist_gm and dist_gm > 0:
+        ppg = f"  [{p_color}]{p_sign}{_price_short(profit / dist_gm)}/Gm[/{p_color}]"
+
+    qty_str = str(d["qty"])
+    if d["qty_unsold"]:
+        qty_str = f"{d['qty_sell']}/{d['qty']}"
+
+    dest_sz = d.get("dest_sizes") or "—"
+    orig_sz = d.get("orig_sizes") or "—"
+
+    dist_part = f"  {d['dist_str']}" if d.get("dist_str") else ""
+
+    part1 = (
+        f"[bold {C.NEUTRAL}]▶ {_abbrev_name(d['name'], 18)}[/bold {C.NEUTRAL}]"
+        f"  [{C.DIM}]A:[/{C.DIM}][{C.UEX}]{_price_short(d['price_buy'])}[/{C.UEX}] ->"
+        f"  [{C.DIM}]V:[/{C.DIM}][{C.PROFIT}]{_price_short(d['price_sell'])}[/{C.PROFIT}]"
+        f"  [{C.DIM}]{d['date']}[/{C.DIM}]"
+        f"  {buy_bar}"
+        f"  {qty_str} {C.SCU}"
+        + (f"  [{C.DIM}]dest:[/{C.DIM}] {dest_sz}" if dest_sz not in ("—", "", None) else "")
+        + dist_part
+        + (f"  [{C.DIM}]orig:[/{C.DIM}] {orig_sz}" if orig_sz not in ("—", "", None) else "")
+    )
+
+    rest = f" [{C.DIM}]· {d['remainder']} restant[/{C.DIM}]" if d["remainder"] else ""
+    part2 = (
+        f"[{C.DIM}]{d['packing']}[/{C.DIM}]{rest}"
+        f"  A_Tot: [{C.UEX}]{_price_short(d['total_buy'])}[/{C.UEX}]"
+        f"  V_Tot:[{C.PROFIT}]{_price_short(d['total_sell'])}[/{C.PROFIT}]"
+        f"  Gain:[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]"
+        + ppg
+    )
+
+    w = getattr(console, "width", 120) or 120
+    if _plain_len(part1) + _plain_len(part2) + 4 <= w:
+        console.print(part1 + "  ·  " + part2)
+    else:
+        console.print(part1)
+        console.print("  " + part2)
+
+
+def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> None:
+    """Bilan achat/vente entre position joueur et destination."""
+    origin_loc = origin_override.strip() or (ctx.player.location or "").strip()
+    dest_loc   = dest_override.strip()   or (ctx.player.destination or "").strip()
+
+    if not origin_loc:
+        print_warn("Position non définie — utilisez @lieu pour vous positionner.")
+        return
+    if not dest_loc:
+        print_warn("Destination non définie — utilisez /go <terminal>.")
+        return
+
+    origin = _find_terminal(origin_loc, ctx)
+    dest   = _find_terminal(dest_loc, ctx)
+
+    if not origin:
+        print_error(f"Terminal d'origine introuvable : {origin_loc}")
+        return
+    if not dest:
+        print_error(f"Terminal de destination introuvable : {dest_loc}")
+        return
+
+    ship_cargo = _player_cargo(ctx)
+    if ship_cargo == 0:
+        print_warn(f"Vaisseau actif non défini ou cargo = 0 {C.SCU}. Utilisez /ship set <nom>.")
+        return
+
+    origin_rows = _terminal_prices(origin, ctx)
+    dest_rows   = _terminal_prices(dest, ctx)
+
+    buy_rows = [r for r in origin_rows if r.get("price_buy")]
+    dest_sell_map = {
+        (r.get("commodity_name") or "").lower(): r
+        for r in dest_rows if r.get("price_sell")
+    }
+
+    dist_map   = _fetch_route_distances(origin.id, ctx) if origin.id else {}
+    player_sys = _player_system(ctx)
+    dest_name_lo = _loc(dest.name).lower()
+    dest_dist  = dist_map.get(dest.name.lower()) or dist_map.get(dest_name_lo)
+    dist_str   = _dist_label(dest.name, dest.star_system_name, player_sys, dist_map)
+    # "local" n'apporte rien ici : origine et destination sont déjà dans le titre
+    if re.sub(r'\[/?[^\]]*\]', '', dist_str).strip() == "local":
+        dist_str = ""
+
+    stock_mult = {1: 0, 2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
+    inv_mult   = {1: 1.0, 2: 0.8, 3: 0.6, 4: 0.4, 5: 0.2, 7: 0}
+
+    orig_lo      = origin.name.lower()
+    orig_loc_lo  = _loc(origin.name).lower()
+    ship_grid    = _ship_slot_grid(ctx)          # {slot_size: nb_slots} ou {}
+    ship_szs     = set(_ship_container_sizes(ctx))  # fallback si pas de grille
+
+    def _ps(raw: str) -> set[int]:
+        return (
+            {int(x) for x in raw.split("/") if x.strip().isdigit()}
+            if raw and raw != "—" else set()
+        )
+
+    entries = []
+    for r in buy_rows:
+        name    = r.get("commodity_name", "?")
+        name_lo = name.lower()
+        if name_lo not in dest_sell_map:
+            continue
+
+        dest_row    = dest_sell_map[name_lo]
+        id_comm     = int(r.get("id_commodity") or 0)
+        scu_min     = int(r.get("scu_buy") or 0)
+        scu_max     = int(r.get("scu_buy_max") or scu_min)
+        price_buy   = float(r.get("price_buy") or 0)
+        status_buy  = int(r.get("status_buy") or 0)
+        date_buy    = _fmt_date(r.get("date_modified"))
+
+        price_sell  = float(dest_row.get("price_sell") or 0)
+        status_sell = int(dest_row.get("status_sell") or 0)
+
+        qty = int(ship_cargo * stock_mult.get(status_buy, 0.5))
+        if qty == 0:
+            qty = ship_cargo
+
+        qty_sell   = int(qty * inv_mult.get(status_sell, 0.5))
+        qty_unsold = qty - qty_sell
+
+        total_buy  = qty * price_buy
+        total_sell = qty_sell * price_sell
+        profit     = total_sell - total_buy
+
+        container_map = _fetch_container_sizes(id_comm, ctx)
+        orig_raw  = container_map.get(orig_lo) or container_map.get(orig_loc_lo) or "—"
+        dest_raw  = (container_map.get(dest.name.lower())
+                     or container_map.get(dest_name_lo) or "—")
+
+        orig_szs = _ps(orig_raw)
+        dest_szs = _ps(dest_raw)
+        # Intersection des tailles terminaux (sets non-vides seulement)
+        term_sets = [s for s in [orig_szs, dest_szs] if s]
+        if term_sets:
+            term_szs: set[int] = term_sets[0].copy()
+            for s in term_sets[1:]:
+                term_szs &= s
+        else:
+            term_szs = set()
+
+        if ship_grid:
+            pack_map  = _pack_grid(qty, ship_grid, term_szs)
+            loaded    = sum(sz * cnt for sz, cnt in pack_map.items())
+            packing   = _fmt_pack(pack_map) if pack_map else f"[ {qty}×1{C.SCU} ]"
+            remainder = qty - loaded
+        else:
+            # Fallback : pas de grille connue → algo simple par liste de tailles
+            sizes_list = _intersect_sizes([orig_szs, dest_szs, ship_szs], ship_cargo)
+            packing    = _pack(qty, sizes_list) if sizes_list else f"[ {qty}×1{C.SCU} ]"
+            remainder  = _pack_remainder(qty, sizes_list) if sizes_list else 0
+
+        entries.append({
+            "name": name, "price_buy": price_buy, "price_sell": price_sell,
+            "date": date_buy,
+            "status_buy": status_buy, "status_sell": status_sell,
+            "qty": qty, "qty_sell": qty_sell, "qty_unsold": qty_unsold,
+            "scu_origin": _scu(scu_min, scu_max),
+            "dest_sizes": dest_raw,
+            "orig_sizes": orig_raw,
+            "packing": packing, "remainder": remainder,
+            "total_buy": total_buy, "total_sell": total_sell,
+            "profit": profit, "dest_dist": dest_dist, "dist_str": dist_str,
+        })
+
+    if not entries:
+        console.print(
+            f"[{C.WARNING}]Aucune commodité commune entre "
+            f"{_loc(origin.name)} et {_loc(dest.name)}.[/{C.WARNING}]"
+        )
+        return
+
+    entries.sort(key=lambda d: -d["profit"])
+
+    section(f"Trade — {_loc(origin.name)} → {_loc(dest.name)}")
+    dist_note = f"  ·  distance : {dist_str}" if dist_str else ""
+    console.print(
+        f"[{C.DIM}]Cargo : {ship_cargo} {C.SCU}  ·  {len(entries)} commodité(s){dist_note}[/{C.DIM}]"
+    )
+    console.print(
+        f"[{C.DIM}]stock achat :[/{C.DIM}]"
+        f"  [red]○○○○[/red][{C.DIM}] rupture[/{C.DIM}]"
+        f"  [orange1]●○○○[/orange1][{C.DIM}] bas[/{C.DIM}]"
+        f"  [yellow]●●○○[/yellow][{C.DIM}] moyen[/{C.DIM}]"
+        f"  [green]●●●○[/green][{C.DIM}] haut[/{C.DIM}]"
+        f"  [green]●●●●[/green][{C.DIM}] abondant[/{C.DIM}]"
+    )
+    console.print()
+
+    for d in entries:
+        _print_trade_entry(d)
