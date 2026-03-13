@@ -120,12 +120,12 @@ def _parse_commodity_line(line: str) -> ScannedCommodity | None:
     except (ValueError, SyntaxError):
         return None
     return ScannedCommodity(
-        name=d.get("name", ""),
-        commodity_id=int(d.get("id", 0)),
+        name=d.get("name") or "",
+        commodity_id=int(d.get("id") or 0),
         quantity=d.get("quantity"),
-        stock=d.get("stock", ""),
-        stock_status=int(d.get("stock_status", 0)),
-        price=int(d.get("price", 0)),
+        stock=d.get("stock") or "",
+        stock_status=int(d.get("stock_status") or 0),
+        price=int(d.get("price") or 0),
     )
 
 
