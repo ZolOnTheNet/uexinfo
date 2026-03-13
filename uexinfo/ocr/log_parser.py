@@ -45,9 +45,12 @@ class LogParser:
                 return {}
         return {}
 
-    def _save_state(self, offset: int, mtime: float) -> None:
+    def _save_state(self, offset: int, mtime: float, prev_offset: int | None = None) -> None:
         state = self._load_state()
-        state[str(self.log_path)] = {"offset": offset, "mtime": mtime}
+        entry = state.get(str(self.log_path), {})
+        if prev_offset is None:
+            prev_offset = entry.get("prev_offset", 0)
+        state[str(self.log_path)] = {"offset": offset, "mtime": mtime, "prev_offset": prev_offset}
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(state, f)
@@ -57,7 +60,20 @@ class LogParser:
 
     def reset_offset(self) -> None:
         """Remet l'offset à 0 (forcer la relecture complète au prochain parse_new)."""
-        self._save_state(0, 0.0)
+        self._save_state(0, 0.0, prev_offset=0)
+
+    def undo_offset(self) -> bool:
+        """Restaure l'offset avant la dernière lecture (annule le dernier parse_new).
+
+        Retourne True si un prev_offset existait, False sinon.
+        """
+        entry = self._load_state().get(str(self.log_path), {})
+        prev = entry.get("prev_offset", 0)
+        current = entry.get("offset", 0)
+        if prev >= current:
+            return False
+        self._save_state(prev, entry.get("mtime", 0.0), prev_offset=0)
+        return True
 
     # ── Lecture incrémentale ───────────────────────────────────────────────
 
@@ -87,7 +103,7 @@ class LogParser:
             new_lines = f.readlines()
             new_offset = f.tell()
 
-        self._save_state(new_offset, current_mtime)
+        self._save_state(new_offset, current_mtime, prev_offset=saved_offset)
 
         if not new_lines:
             return []

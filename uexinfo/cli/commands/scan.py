@@ -752,10 +752,30 @@ def cmd_scan(args: list[str], ctx) -> None:
         sub2 = args[1].lower() if len(args) >= 2 else ""
 
         if sub2 == "reset":
-            from uexinfo.ocr.log_parser import LogParser, _STATE_FILE
+            from uexinfo.ocr.log_parser import LogParser
             log_path = _resolve_log_path(args[2:], ctx)
             LogParser(log_path).reset_offset()
             console.print(f"[dim]Offset log remis à 0 — prochain /scan log relira depuis le début.[/dim]")
+            return
+
+        if sub2 == "undo":
+            from uexinfo.ocr.log_parser import LogParser
+            log_path = _resolve_log_path(args[2:], ctx)
+            parser = LogParser(log_path)
+            ok = parser.undo_offset()
+            if not ok:
+                print_warn("Aucune lecture précédente à annuler (pas de prev_offset).")
+                return
+            # Retirer les scans log récents de l'historique (jusqu'au dernier non-log ou début)
+            before = len(ctx.scan_history)
+            while ctx.scan_history and ctx.scan_history[-1].source == "log":
+                ctx.scan_history.pop()
+            removed = before - len(ctx.scan_history)
+            ctx.last_scan = ctx.scan_history[-1] if ctx.scan_history else None
+            console.print(
+                f"[dim]Offset restauré — {removed} scan(s) log retiré(s) de l'historique. "
+                f"Relancez /scan log pour relire.[/dim]"
+            )
             return
 
         full = sub2 == "all"

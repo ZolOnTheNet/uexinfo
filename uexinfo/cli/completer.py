@@ -90,6 +90,7 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("log", "Scan depuis le log SC-Datarunner"),
         ("log all", "Relire tout le log"),
         ("log reset", "Remettre l'offset à 0"),
+        ("log undo", "Annuler la dernière lecture log et relire"),
         ("status", "Affiche l'état du dernier scan"),
         ("history", "Historique des scans"),
     ],
