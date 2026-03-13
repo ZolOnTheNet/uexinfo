@@ -340,7 +340,9 @@ def _print_trade_entry(d: dict) -> None:
     p_color = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
     p_sign = "+" if profit > 0 else ""
 
-    buy_bar = _stock_bar(d["status_buy"], sell=False)
+    buy_bar  = _stock_bar(d["status_buy"],  sell=False)
+    sell_bar = _stock_bar(d["status_sell"], sell=True)
+    stock_flow = f"{buy_bar} [dim]→[/dim] {sell_bar}"
 
     dist_gm = d.get("dest_dist")
     ppg = ""
@@ -361,7 +363,7 @@ def _print_trade_entry(d: dict) -> None:
         f"  [{C.DIM}]A:[/{C.DIM}][{C.UEX}]{_price_short(d['price_buy'])}[/{C.UEX}] ->"
         f"  [{C.DIM}]V:[/{C.DIM}][{C.PROFIT}]{_price_short(d['price_sell'])}[/{C.PROFIT}]"
         f"  [{C.DIM}]{d['date']}[/{C.DIM}]"
-        f"  {buy_bar}"
+        f"  {stock_flow}"
         f"  {qty_str} {C.SCU}"
         + (f"  [{C.DIM}]dest:[/{C.DIM}] {dest_sz}" if dest_sz not in ("—", "", None) else "")
         + dist_part
