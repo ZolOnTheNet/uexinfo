@@ -61,6 +61,8 @@ import uexinfo.cli.commands.trade    # noqa: F401
 import uexinfo.cli.commands.nav          # noqa: F401
 import uexinfo.cli.commands.history_cmd  # noqa: F401
 import uexinfo.cli.commands.debug        # noqa: F401
+import uexinfo.cli.commands.auto         # noqa: F401
+import uexinfo.cli.commands.undo         # noqa: F401
 
 
 class UexInfoApp(App):
@@ -293,8 +295,41 @@ class UexInfoApp(App):
         _needs_bar_sync = False
 
         try:
+            from uexinfo.cli.commands.scan import (
+                check_log_auto, check_screenshots_auto, _display_scan,
+            )
+            from uexinfo.cli.main import AppContext as _AC
+
+            first_word = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
+            _is_info = first_word == "info" or (
+                not line.strip().startswith("/") and not line.strip().startswith("@")
+                and first_word not in ("scan", "s")
+            )
+
+            # Pre-hook : avant /info, mise à jour silencieuse du ctx
+            if _is_info:
+                check_log_auto(self.ctx)
+
             dispatched = run_command(line, self.ctx)
             _needs_bar_sync = bool(dispatched & {"player", "go", "lieu", "ship", "config"})
+
+            # Post-hook : après les autres commandes, afficher nouveaux scans + screenshots
+            if not _is_info and first_word not in ("scan", "s"):
+                _new = check_log_auto(self.ctx)
+                for _r in _new:
+                    _display_scan(_r, self.ctx)
+                _new_shots = check_screenshots_auto(self.ctx)
+                if _new_shots:
+                    from uexinfo.display.formatter import console
+                    from uexinfo.display import colors as C
+                    console.print(
+                        f"\n[{C.DIM}]── {len(_new_shots)} nouveau(x) screenshot(s) SC ──[/{C.DIM}]"
+                    )
+                    for _p in _new_shots:
+                        console.print(
+                            f"  [{C.LABEL}]{_p.name}[/{C.LABEL}]"
+                            f"  [{C.DIM}]→ scan screenshot {_p.name}[/{C.DIM}]"
+                        )
         except Exception as e:
             self.call_from_thread(prompt.stop_spinner)
             self._flush_output(rl)
