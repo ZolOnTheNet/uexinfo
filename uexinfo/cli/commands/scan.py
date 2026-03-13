@@ -54,8 +54,66 @@ def _resolve_uex(sc_name: str, commodities: list):
     return None
 
 
+_PRICE_TTL_SCAN = 300  # secondes
+
+
+def _fetch_terminal_uex_prices(result: ScanResult, ctx) -> dict[str, tuple[int, float]]:
+    """Prix UEX spécifiques au terminal pour les commodités du scan.
+
+    Retourne {commodity_name_lower: (price, date_modified_unix)}.
+    Utilise _price_cache de ctx.  Retourne {} si ambigu ou indisponible.
+    """
+    import time
+    from uexinfo.api.uex_client import UEXClient, UEXError
+
+    name_lower = result.terminal.lower()
+    is_sell    = result.mode == "sell"
+    price_key  = "price_sell" if is_sell else "price_buy"
+
+    # Terminal exact dans le cache ?
+    matches = [
+        t for t in ctx.cache.terminals
+        if t.name.rsplit(" - ", 1)[-1].strip().lower() == name_lower
+    ]
+    terminal = matches[0] if len(matches) == 1 else None
+
+    def _fetch(key: str, **kwargs) -> list[dict]:
+        cached = ctx._price_cache.get(key)
+        if cached:
+            ts, data = cached
+            if time.monotonic() - ts < _PRICE_TTL_SCAN:
+                return data
+        client = UEXClient()
+        try:
+            data = client.get_prices(**kwargs)
+        except UEXError:
+            return []
+        ctx._price_cache[key] = (time.monotonic(), data)
+        return data
+
+    rows = (_fetch(f"t{terminal.id}", id_terminal=terminal.id) if terminal
+            else _fetch(f"tl_{name_lower}", terminal_name=name_lower))
+
+    # Si plusieurs terminaux dans la réponse → ambigu, on ne peut pas attribuer
+    term_names = {r.get("terminal_name") for r in rows if r.get(price_key)}
+    if len(term_names) > 1:
+        return {}
+
+    result_map: dict[str, tuple[int, float]] = {}
+    for r in rows:
+        price = r.get(price_key)
+        cname = (r.get("commodity_name") or "").lower()
+        if price and cname:
+            try:
+                mdate = float(r.get("date_modified") or 0)
+            except (TypeError, ValueError):
+                mdate = 0.0
+            result_map[cname] = (int(price), mdate)
+    return result_map
+
+
 def _display_scan(result: ScanResult, ctx) -> None:
-    """Affiche un ScanResult en table Rich avec comparaison UEX."""
+    """Affiche un ScanResult en table Rich avec comparaison UEX terminale."""
     is_sell    = result.mode == "sell"
     mode_label = f"[yellow]VENTE[/yellow]" if is_sell else f"[cyan]ACHAT[/cyan]"
     console.print(
@@ -68,31 +126,52 @@ def _display_scan(result: ScanResult, ctx) -> None:
         print_warn("Aucune commodité dans ce scan.")
         return
 
-    delta_hdr = "Δ vs moy vente" if is_sell else "Δ vs moy achat"
-    t = make_table(
-        ("Commodité",  C.LABEL,   "left"),
-        ("Stock",      C.NEUTRAL, "left"),
-        (f"Qté {C.SCU}",   C.NEUTRAL, "right"),
-        (f"Prix/{C.SCU}",  C.UEX,     "right"),
-        (delta_hdr,        C.NEUTRAL, "right"),
-        (f"Marge/{C.SCU}", C.NEUTRAL, "right"),
-    )
+    # Prix UEX spécifiques à ce terminal (vide si ambigu/indisponible)
+    uex_term = _fetch_terminal_uex_prices(result, ctx)
+    has_term  = bool(uex_term)
+
+    price_color  = C.PROFIT if is_sell else C.UEX
+    uex_hdr      = ("UEX vente" if is_sell else "UEX achat") + f"/{C.SCU}"
+    delta_hdr    = "Δ UEX term" if has_term else ("Δ moy vente" if is_sell else "Δ moy achat")
+
+    cols = [
+        ("Commodité",        C.LABEL,    "left"),
+        ("Stock",            C.NEUTRAL,  "left"),
+        (f"Qté {C.SCU}",    C.NEUTRAL,  "right"),
+        (f"Scanné/{C.SCU}", C.UEX,      "right"),
+        (uex_hdr,            price_color,"right"),
+        (delta_hdr,          C.NEUTRAL,  "right"),
+        (f"Marge/{C.SCU}",  C.NEUTRAL,  "right"),
+    ]
+    t = make_table(*cols)
+
+    scan_ts = result.timestamp.timestamp()
 
     for sc in result.commodities:
         uex_c = _resolve_uex(sc.name, ctx.cache.commodities)
 
         if uex_c:
-            code_tag = f"  [{C.DIM}][{uex_c.code}][/{C.DIM}]" if uex_c.code else ""
+            code_tag     = f"  [{C.DIM}][{uex_c.code}][/{C.DIM}]" if uex_c.code else ""
             display_name = f"{uex_c.name}{code_tag}"
         else:
             display_name = sc.name
 
-        uex_buy  = (uex_c.price_buy  if uex_c else 0) or 0
-        uex_sell = (uex_c.price_sell if uex_c else 0) or 0
-        uex_ref  = uex_sell if is_sell else uex_buy
+        # Prix UEX global (moyenne commodité)
+        uex_buy_avg  = (uex_c.price_buy  if uex_c else 0) or 0
+        uex_sell_avg = (uex_c.price_sell if uex_c else 0) or 0
 
-        # Correction facteur-10 : l'OCR perd parfois le séparateur décimal
-        # Ex. ¤6.438k/SCU → H643800020k/SCU → 643800020×1000 vs UEX 6438 → ÷10^8
+        # Prix UEX terminal-spécifique
+        lookup_key = (uex_c.name if uex_c else sc.name).lower()
+        term_entry = uex_term.get(lookup_key) or uex_term.get(sc.name.lower())
+        uex_term_price, uex_term_date = term_entry if term_entry else (0, 0.0)
+
+        # Référence pour delta : terminal si dispo, sinon moyenne globale
+        if has_term and uex_term_price:
+            uex_ref = uex_term_price
+        else:
+            uex_ref = uex_sell_avg if is_sell else uex_buy_avg
+
+        # Correction facteur-10 OCR
         price = sc.price
         if price and uex_ref:
             ratio = price / uex_ref
@@ -103,43 +182,54 @@ def _display_scan(result: ScanResult, ctx) -> None:
                     price = corrected
 
         qty_str   = str(sc.quantity) if sc.quantity is not None else f"[{C.DIM}]—[/{C.DIM}]"
-        # Prix : ? = OCR a échoué (le prix devrait être là), — = pas de donnée UEX
         price_str = (
             f"{price:,} {C.AUEC}".replace(",", "\u202f") if price
             else f"[{C.DIM}]?[/{C.DIM}]"
         )
         stock_str = _stock_bar(sc.stock_status, sc.stock)
 
-        if is_sell:
-            delta_positive_is_good = True
-            margin = (int(uex_buy) - price) * -1 if uex_buy and price else None
+        # Colonne UEX terminal
+        if uex_term_price:
+            # Scan plus récent que UEX → on indique que notre donnée prime
+            scan_newer = scan_ts > uex_term_date if uex_term_date else False
+            uex_t_str = f"{uex_term_price:,} {C.AUEC}".replace(",", "\u202f")
+            if scan_newer and price and price != uex_term_price:
+                uex_t_str = f"[{C.DIM}]{uex_t_str}[/{C.DIM}]"  # grisé : scan prime
         else:
-            delta_positive_is_good = False
-            margin = (int(uex_sell) - price) if uex_sell and price else None
+            uex_t_str = f"[{C.DIM}]—[/{C.DIM}]"
 
+        # Delta % vs référence
         if uex_ref and price:
             delta_pct = (price - uex_ref) / uex_ref * 100
             sign  = "+" if delta_pct >= 0 else ""
-            good  = (delta_pct > 5) if delta_positive_is_good else (delta_pct < -5)
-            bad   = (delta_pct < -5) if delta_positive_is_good else (delta_pct > 5)
-            color = C.PROFIT if good else C.LOSS if bad else C.NEUTRAL
+            if is_sell:
+                good = delta_pct > 5
+                bad  = delta_pct < -5
+            else:
+                good = delta_pct < -5
+                bad  = delta_pct > 5
+            color     = C.PROFIT if good else C.LOSS if bad else C.NEUTRAL
             delta_str = f"[{color}]{sign}{delta_pct:.0f}%[/{color}]"
         else:
             delta_str = f"[{C.DIM}]—[/{C.DIM}]"
 
-        if margin is not None:
-            sign  = "+" if margin >= 0 else ""
-            color = C.PROFIT if margin > 0 else C.LOSS
+        # Marge (vs prix moyen opposé)
+        uex_opp = uex_buy_avg if is_sell else uex_sell_avg
+        if uex_opp and price:
+            margin = (price - int(uex_opp)) if is_sell else (int(uex_opp) - price)
+            sign   = "+" if margin >= 0 else ""
+            color  = C.PROFIT if margin > 0 else C.LOSS
             margin_str = f"[{color}]{sign}{margin:,} aUEC[/{color}]".replace(",", "\u202f")
         else:
             margin_str = f"[{C.DIM}]—[/{C.DIM}]"
 
-        t.add_row(display_name, stock_str, qty_str, price_str, delta_str, margin_str)
+        t.add_row(display_name, stock_str, qty_str, price_str, uex_t_str, delta_str, margin_str)
 
     console.print(t)
+    if has_term:
+        console.print(f"[{C.DIM}]  Δ UEX term = vs prix UEX spécifique à ce terminal[/{C.DIM}]")
     console.print(f"[{C.DIM}]  Ctrl+↑ pour éditer[/{C.DIM}]")
 
-    # Conseil qualité : si la majorité des prix sont illisibles
     missing = sum(1 for sc in result.commodities if not sc.price)
     if missing > 0 and missing >= len(result.commodities) // 2:
         print_warn(
@@ -173,32 +263,143 @@ def _do_scan(ctx) -> ScanResult | None:
     mode = ctx.cfg.get("scan", {}).get("mode", "ocr")
 
     if mode == "log":
-        return _scan_log(ctx, log_path=None)
+        results = _scan_log(ctx, log_path=None)
+        return results[-1] if results else None
     elif mode == "ocr":
         return _scan_screenshot_latest(ctx)
     elif mode == "confirm":
         # Mode hybride : log en premier, puis OCR pour confirmer
-        result = _scan_log(ctx, log_path=None)
-        if result:
-            return result
+        results = _scan_log(ctx, log_path=None)
+        if results:
+            return results[-1]
         return _scan_screenshot_latest(ctx)
     else:
         print_error(f"Mode inconnu : {mode}")
         return None
 
 
-def _scan_log(ctx, log_path: Path | None) -> ScanResult | None:
+def _resolve_log_path(path_args: list[str], ctx) -> Path | None:
+    """Résout le chemin du fichier log depuis les args ou la config.
+
+    Retourne None (avec message d'erreur) si le chemin est invalide.
+    Retourne None silencieusement si aucun arg et aucune config (le parser utilisera _DEFAULT_LOG).
+    """
+    if path_args:
+        p = Path(" ".join(path_args).strip("\"'"))
+        if not p.is_file():
+            print_error(f"Fichier log introuvable : {p}")
+            return None
+        return p
+    sc_log = ctx.cfg.get("scan", {}).get("sc_log_path", "")
+    if sc_log:
+        p = Path(sc_log)
+        if not p.is_file():
+            print_error(f"sc_log_path n'est pas un fichier : {p}")
+            return None
+        return p
+    return None  # LogParser utilisera _DEFAULT_LOG
+
+
+def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult]:
+    """Lit le log SC-Datarunner.
+
+    full=False → parse_new() : uniquement les nouvelles lignes depuis le dernier offset.
+    full=True  → parse_all() : relit tout le fichier sans modifier l'offset.
+    """
     from uexinfo.ocr.log_parser import LogParser
     try:
         parser = LogParser(log_path)
-        results = parser.parse_all()
+        results = parser.parse_all() if full else parser.parse_new()
         if not results:
-            print_warn("Aucun scan trouvé dans le log.")
-            return None
-        return results[-1]
+            print_warn("Aucun nouveau scan dans le log.")
+        return results
     except Exception as e:
         print_error(f"Erreur lecture log : {e}")
-        return None
+        return []
+
+
+def check_log_auto(ctx) -> list[ScanResult]:
+    """Vérifie si le fichier log a changé (mtime) et lit les nouveaux scans.
+
+    Respecte les flags /auto :
+    - auto.log        : si False, retourne [] sans rien faire
+    - auto.log_accept : si True, stocke dans ctx.last_scan/scan_history
+    - auto.signal_scan: si False, traite silencieusement et retourne []
+
+    Retourne les nouveaux ScanResult à afficher (vide si rien ou signal_scan=off).
+    """
+    from uexinfo.ocr.log_parser import LogParser, _DEFAULT_LOG
+
+    auto_cfg = ctx.cfg.get("auto", {})
+    if not auto_cfg.get("log", True):
+        return []
+
+    log_path_str = ctx.cfg.get("scan", {}).get("sc_log_path", "")
+    log_path = Path(log_path_str) if log_path_str else _DEFAULT_LOG
+
+    if not log_path.is_file():
+        return []
+
+    try:
+        mtime = log_path.stat().st_mtime
+    except OSError:
+        return []
+
+    if mtime <= ctx.log_last_mtime:
+        return []
+
+    ctx.log_last_mtime = mtime
+
+    try:
+        results = LogParser(log_path).parse_new()
+    except Exception:
+        return []
+
+    if auto_cfg.get("log_accept", True):
+        for r in results:
+            ctx.last_scan = r
+            ctx.scan_history.append(r)
+
+    return results if auto_cfg.get("signal_scan", True) else []
+
+
+def check_screenshots_auto(ctx) -> list[Path]:
+    """Détecte les nouveaux screenshots SC depuis le dernier check.
+
+    Respecte auto.signal_scan.  Retourne [] si signal_scan=off ou aucun nouveau.
+    Premier appel : initialise le timestamp sans retourner de fichiers.
+    """
+    import time
+
+    auto_cfg = ctx.cfg.get("auto", {})
+    if not auto_cfg.get("signal_scan", True):
+        return []
+
+    sc_dir = _screenshots_dir(ctx)
+    if not sc_dir.is_dir():
+        return []
+
+    now = time.time()
+    last_ts = ctx.screenshots_last_seen_ts
+
+    if last_ts == 0.0:
+        # Premier check : initialisation silencieuse
+        ctx.screenshots_last_seen_ts = now
+        return []
+
+    ctx.screenshots_last_seen_ts = now
+
+    try:
+        new_files = sorted(
+            (p for p in sc_dir.iterdir()
+             if p.suffix.lower() in _IMAGE_SUFFIXES
+             and p.stat().st_mtime > last_ts),
+            key=lambda p: p.stat().st_mtime,
+        )
+    except OSError:
+        return []
+
+    return new_files
 
 
 def _scan_screenshot_latest(ctx) -> ScanResult | None:
@@ -513,20 +714,26 @@ def cmd_scan(args: list[str], ctx) -> None:
             _display_result(result, ctx)
         return
 
-    # /scan log [<fichier>]
+    # /scan log [all|reset|<fichier>]
     if sub == "log":
-        log_path = None
-        if len(args) >= 2:
-            log_path = Path(args[1])
-            if not log_path.exists():
-                print_error(f"Fichier log introuvable : {log_path}")
-                return
-        elif ctx.cfg.get("scan", {}).get("sc_log_path"):
-            log_path = Path(ctx.cfg["scan"]["sc_log_path"])
-        # sinon log_parser utilise le chemin auto-détecté
+        # Sous-commandes spéciales
+        sub2 = args[1].lower() if len(args) >= 2 else ""
 
-        result = _scan_log(ctx, log_path=log_path)
-        if result:
+        if sub2 == "reset":
+            from uexinfo.ocr.log_parser import LogParser, _STATE_FILE
+            log_path = _resolve_log_path(args[2:], ctx)
+            LogParser(log_path).reset_offset()
+            console.print(f"[dim]Offset log remis à 0 — prochain /scan log relira depuis le début.[/dim]")
+            return
+
+        full = sub2 == "all"
+        raw_args = args[2:] if full else (args[1:] if sub2 not in ("", "all") else [])
+        log_path = _resolve_log_path(raw_args, ctx)
+        if log_path is None:
+            return  # erreur déjà affichée
+
+        results = _scan_log(ctx, log_path=log_path, full=full)
+        for result in results:
             _store_result(ctx, result)
             _display_scan(result, ctx)
         return

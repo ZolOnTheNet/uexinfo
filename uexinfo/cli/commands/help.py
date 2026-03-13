@@ -14,6 +14,8 @@ _COMMANDS = {
     "select":  "Filtres actifs (système, planète, station, terminal…)",
     "player":  "Gérer le joueur : vaisseau, position, destination",
     "scan":    "Scanner un terminal (OCR screenshot ou log SC-Datarunner)",
+    "auto":    "Contrôle des automatisations (log, signalement, validation)",
+    "undo":    "Annuler le dernier scan",
     "trade":   "Recherche de commodités et opportunités de trading",
     "route":   "Calcul de routes commerciales rentables",
     "plan":    "Plan de vol multi-étapes",
@@ -40,10 +42,41 @@ _DETAILS = {
         "/scan ecran                  Capture la fenêtre SC en direct (ou presse-papiers)\n"
         "/scan screen                 Alias de /scan ecran\n"
         "/scan screenshot <fichier>   Scanner un fichier image directement\n"
-        "/scan log [<fichier>]        Parser le log SC-Datarunner\n"
+        "/scan log                    Lire les nouveaux scans du log SC-Datarunner\n"
+        "/scan log all                Relire tout le log depuis le début\n"
+        "/scan log reset              Remettre l'offset à 0 (prochaine lecture = tout)\n"
         "/scan status                 Afficher le dernier résultat\n"
         "/scan history [n]            Historique des n derniers scans (défaut 5)\n\n"
-        "Priorité /scan ecran : fenêtre SC → presse-papiers → dernier screenshot"
+        "Lecture automatique du log :\n"
+        "  Si sc_log_path est défini et SC-Datarunner est actif, le log est surveillé\n"
+        "  en permanence.  Avant chaque /info, les nouvelles entrées sont lues\n"
+        "  silencieusement.  Après les autres commandes, les nouveaux scans sont\n"
+        "  affichés automatiquement.  Contrôler avec : auto log on|off\n\n"
+        "Nouveaux screenshots :\n"
+        "  Si sc_screenshots_dir est défini, les nouveaux fichiers SC sont signalés\n"
+        "  après chaque commande.  Contrôler avec : auto signal.scan on|off\n\n"
+        "Priorité /scan ecran : fenêtre SC → presse-papiers → dernier screenshot\n\n"
+        "Les prix issus d'un scan joueur sont fiables (non en italique) et\n"
+        "restent prioritaires sur UEX tant qu'aucune mise à jour plus récente n'existe."
+    ),
+    "auto": (
+        "auto                         Afficher l'état des automatisations\n"
+        "auto log on|off              Activer/désactiver la lecture auto du log\n"
+        "auto signal.scan on|off      Activer/désactiver le signalement des nouveaux scans\n"
+        "auto log.accept on|off       Activer/désactiver la validation auto des valeurs log\n\n"
+        "Fonctionnement :\n"
+        "  auto log on       → le log SC-Datarunner est surveillé (mtime).\n"
+        "                      Avant /info : mise à jour silencieuse de ctx.last_scan.\n"
+        "                      Après les autres commandes : affichage des nouveaux scans.\n"
+        "  auto signal.scan  → signale aussi les nouveaux screenshots SC détectés.\n"
+        "  auto log.accept   → si off, les scans sont affichés mais non stockés en\n"
+        "                      historique (confirmation manuelle requise).\n\n"
+        "Note : Le / est optionnel — 'auto log on' fonctionne sans /."
+    ),
+    "undo": (
+        "undo                         Annuler le dernier scan (log, screenshot ou OCR)\n\n"
+        "Supprime le scan de l'historique et remet ctx.last_scan au scan précédent.\n"
+        "Utile si SC-Datarunner a capturé une erreur ou une mauvaise valeur."
     ),
     "ship": (
         "/ship list                     Lister les vaisseaux configurés\n"

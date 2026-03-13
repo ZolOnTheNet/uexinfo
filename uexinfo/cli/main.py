@@ -36,6 +36,8 @@ import uexinfo.cli.commands.explore  # noqa: F401
 import uexinfo.cli.commands.trade    # noqa: F401
 import uexinfo.cli.commands.nav      # noqa: F401
 import uexinfo.cli.commands.debug    # noqa: F401
+import uexinfo.cli.commands.auto     # noqa: F401
+import uexinfo.cli.commands.undo     # noqa: F401
 
 console = Console()
 
@@ -57,6 +59,8 @@ class AppContext:
     scan_history: list[ScanResult] = field(default_factory=list)
     _price_cache: dict = field(default_factory=dict)  # {"t27": (ts, data)}
     debug_level: int = 0
+    log_last_mtime: float = 0.0          # mtime du log lors du dernier check auto
+    screenshots_last_seen_ts: float = 0.0  # wall-clock du dernier check screenshots
 
 
 def _banner() -> None:
@@ -157,6 +161,19 @@ def main() -> None:
 
     _banner()
 
+    from uexinfo.cli.commands.scan import check_log_auto, check_screenshots_auto, _display_scan as _ds
+
+    def normalized_first_word(line: str) -> str:
+        return line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
+
+    def _is_info_cmd(line: str) -> bool:
+        """Vrai si la ligne sera traitée comme /info (recherche libre ou /info explicite)."""
+        s = line.strip()
+        if not s or s.startswith("@"):
+            return False
+        first = normalized_first_word(s)
+        return first == "info" or (not s.startswith("/") and first not in ("scan", "s"))
+
     while True:
         try:
             line = session.prompt([("class:prompt", "> ")])
@@ -197,9 +214,33 @@ def main() -> None:
         if not line:
             continue
 
-        if line.lower() in ("exit", "quit", "bye"):
+        if line.lower().lstrip("/") in ("exit", "quit", "bye"):
             _cleanup(ctx)
             console.print(f"[{C.DIM}]Au revoir, fly safe o7[/{C.DIM}]")
             break
 
+        # Pre-hook : avant /info, mettre à jour ctx.last_scan sans afficher
+        _info = _is_info_cmd(line)
+        if _info:
+            check_log_auto(ctx)
+
         run_command(line, ctx)
+
+        # Post-hook : après les autres commandes, afficher les nouveaux scans log + screenshots
+        if not _info and normalized_first_word(line) not in ("scan", "s"):
+            _new = check_log_auto(ctx)
+            if _new:
+                console.print(f"\n[{C.DIM}]── Auto-scan log : {len(_new)} nouveau(x) scan(s) ──[/{C.DIM}]")
+                for _r in _new:
+                    _ds(_r, ctx)
+
+            _new_shots = check_screenshots_auto(ctx)
+            if _new_shots:
+                console.print(
+                    f"\n[{C.DIM}]── {len(_new_shots)} nouveau(x) screenshot(s) SC détecté(s) ──[/{C.DIM}]"
+                )
+                for _p in _new_shots:
+                    console.print(
+                        f"  [{C.LABEL}]{_p.name}[/{C.LABEL}]"
+                        f"  [{C.DIM}]→ scan screenshot {_p.name}[/{C.DIM}]"
+                    )

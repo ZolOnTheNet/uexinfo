@@ -421,7 +421,10 @@ def _show_scan_section(result: ScanResult, ctx) -> None:
     """Affiche les données d'un ScanResult dans le contexte d'un terminal."""
     ago_s = int((datetime.now() - result.timestamp).total_seconds())
     ago_str = f"{ago_s // 60} min" if ago_s < 3600 else f"{ago_s // 3600} h"
-    console.print(f"[italic {C.DIM}]Scan ({result.source}) · il y a {ago_str}[/italic {C.DIM}]")
+    console.print(
+        f"[bold]Scan joueur[/bold]"
+        f"  [{C.DIM}]{result.source} · il y a {ago_str} · données confirmées[/{C.DIM}]"
+    )
     if not result.commodities:
         console.print(f"[{C.DIM}]Aucune commodité scannée.[/{C.DIM}]")
         return
@@ -664,7 +667,7 @@ def _show_terminal(t: Terminal, ctx) -> None:
     # ── Données UEX Corp communauté : affichées en italique (non confirmées) ─
     if rows:
         if scan:
-            console.print(f"[italic {C.DIM}]Référence UEX Corp · données communauté[/italic {C.DIM}]")
+            console.print(f"[italic {C.DIM}]Référence UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
         else:
             console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
 

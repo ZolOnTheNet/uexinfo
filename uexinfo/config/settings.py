@@ -45,6 +45,11 @@ DEFAULT: dict = {
         "sc_log_path": "",
         "sc_screenshots_dir": "",
     },
+    "auto": {
+        "log":          True,   # Lire le log SC-Datarunner automatiquement si chemin défini
+        "signal_scan":  True,   # Signaler les nouveaux scans/screenshots détectés
+        "log_accept":   True,   # Accepter automatiquement les valeurs lues depuis le log
+    },
     "overlay": {
         "hotkey": "alt+shift+u",
         "port": 8090,
