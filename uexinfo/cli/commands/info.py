@@ -421,24 +421,79 @@ def _show_scan_section(result: ScanResult, ctx) -> None:
     """Affiche les données d'un ScanResult dans le contexte d'un terminal."""
     ago_s = int((datetime.now() - result.timestamp).total_seconds())
     ago_str = f"{ago_s // 60} min" if ago_s < 3600 else f"{ago_s // 3600} h"
+
+    if result.source == "log":
+        if result.validated:
+            badge = f"  [bold green]✓ validé UEX[/bold green]"
+        else:
+            badge = f"  [{C.DIM}]en attente[/{C.DIM}]"
+    else:
+        badge = ""
+
     console.print(
         f"[bold]Scan joueur[/bold]"
         f"  [{C.DIM}]{result.source} · il y a {ago_str} · données confirmées[/{C.DIM}]"
+        + badge
     )
     if not result.commodities:
         console.print(f"[{C.DIM}]Aucune commodité scannée.[/{C.DIM}]")
         return
+
+    # Récupérer les prix UEX du terminal pour comparaison / fallback prix=0
+    uex_prices: dict[int, int] = {}      # commodity_id → prix UEX
+    uex_prices_by_name: dict[str, int] = {}  # commodity_name.lower() → prix UEX
+    terminal_name_q = result.terminal.replace("_", " ").lower().strip()
+    all_terminals = ctx.cache.terminals if hasattr(ctx.cache, "terminals") else []
+    matched_terminal = next(
+        (t for t in all_terminals if t.name.lower() == terminal_name_q
+         or t.name.lower().endswith(f"- {terminal_name_q}")
+         or terminal_name_q in t.name.lower()),
+        None,
+    )
+    if matched_terminal:
+        t_rows = _fetch_prices(f"t{matched_terminal.id}", {"id_terminal": matched_terminal.id}, ctx)
+        is_sell = result.mode == "sell"
+        price_field = "price_sell" if is_sell else "price_buy"
+        for r in t_rows:
+            cid = int(r.get("id_commodity") or 0)
+            p = int(r.get(price_field) or 0)
+            if p:
+                if cid:
+                    uex_prices[cid] = p
+                cname = (r.get("commodity_name") or "").lower()
+                if cname:
+                    uex_prices_by_name[cname] = p
+
     tbl = Table(show_header=True, box=None, padding=(0, 1))
     tbl.add_column("Commodité", style=C.NEUTRAL, no_wrap=True, min_width=20)
-    tbl.add_column(f"Prix/{C.SCU}",  style=C.UEX,     justify="right", no_wrap=True)
-    tbl.add_column(C.SCU,            style=C.DIM,     justify="right", no_wrap=True)
-    tbl.add_column("Stock",     no_wrap=True)
+    tbl.add_column(f"Prix/{C.SCU}", justify="right", no_wrap=True)
+    tbl.add_column(f"UEX/{C.SCU}", style=f"italic {C.DIM}", justify="right", no_wrap=True)
+    tbl.add_column(C.SCU,          style=C.DIM,              justify="right", no_wrap=True)
+    tbl.add_column("Stock",        no_wrap=True)
+
     for sc in sorted(result.commodities, key=lambda s: s.name):
-        price = _price_fmt(sc.price) if sc.price else "—"
+        uex_p = uex_prices.get(sc.commodity_id) or uex_prices_by_name.get(sc.name.lower(), 0)
+        price_corrected = False
+        if sc.price:
+            price_val = sc.price
+        elif result.validated and uex_p:
+            price_val = uex_p
+            price_corrected = True
+        else:
+            price_val = 0
+
+        if price_corrected:
+            price_str = f"[{C.DIM}]~{_price_fmt(price_val)}[/{C.DIM}]"
+        elif price_val:
+            price_str = _price_fmt(price_val)
+        else:
+            price_str = "—"
+
+        uex_str = _price_fmt(uex_p) if uex_p else "—"
         qty   = str(sc.quantity) if sc.quantity is not None else "—"
         color = _STOCK_COLORS.get(sc.stock_status, C.DIM)
         label = _STOCK_LABELS.get(sc.stock_status, sc.stock or "?")
-        tbl.add_row(sc.name, price, qty, f"[{color}]{label}[/{color}]")
+        tbl.add_row(sc.name, price_str, uex_str, qty, f"[{color}]{label}[/{color}]")
     console.print(tbl)
 
 

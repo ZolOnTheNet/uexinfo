@@ -116,10 +116,14 @@ def _display_scan(result: ScanResult, ctx) -> None:
     """Affiche un ScanResult en table Rich avec comparaison UEX terminale."""
     is_sell    = result.mode == "sell"
     mode_label = f"[yellow]VENTE[/yellow]" if is_sell else f"[cyan]ACHAT[/cyan]"
+    valid_badge = (
+        f"  [bold green]✓ validé UEX[/bold green]" if result.validated
+        else f"  [{C.DIM}]en attente[/{C.DIM}]"
+    ) if result.source == "log" else ""
     console.print(
         f"\n[bold cyan]{result.terminal}[/bold cyan]"
         f"  [{C.DIM}]{result.timestamp.strftime('%H:%M:%S')}"
-        f"  source={result.source}[/{C.DIM}]  {mode_label}"
+        f"  source={result.source}[/{C.DIM}]  {mode_label}{valid_badge}"
     )
 
     if not result.commodities:
@@ -182,19 +186,31 @@ def _display_scan(result: ScanResult, ctx) -> None:
                     price = corrected
 
         qty_str   = str(sc.quantity) if sc.quantity is not None else f"[{C.DIM}]—[/{C.DIM}]"
-        price_str = (
-            f"{price:,} {C.AUEC}".replace(",", "\u202f") if price
-            else f"[{C.DIM}]?[/{C.DIM}]"
-        )
         stock_str = _stock_bar(sc.stock_status, sc.stock)
+
+        # Prix scanné : si 0 et scan validé → OCR a raté, l'utilisateur a corrigé avant soumission
+        # On affiche "corrigé" et on utilise le prix UEX comme référence
+        price_corrected = False
+        if not price and result.validated and uex_term_price:
+            price = uex_term_price
+            price_corrected = True
+
+        if price:
+            raw = f"{price:,} {C.AUEC}".replace(",", "\u202f")
+            price_str = (
+                f"[{C.DIM}]~{raw}[/{C.DIM}]"  # approximatif (corrigé par UEX)
+                if price_corrected else raw
+            )
+        else:
+            price_str = f"[{C.DIM}]?[/{C.DIM}]"  # OCR raté, pas de référence UEX
 
         # Colonne UEX terminal
         if uex_term_price:
-            # Scan plus récent que UEX → on indique que notre donnée prime
             scan_newer = scan_ts > uex_term_date if uex_term_date else False
-            uex_t_str = f"{uex_term_price:,} {C.AUEC}".replace(",", "\u202f")
-            if scan_newer and price and price != uex_term_price:
-                uex_t_str = f"[{C.DIM}]{uex_t_str}[/{C.DIM}]"  # grisé : scan prime
+            uex_t_str  = f"{uex_term_price:,} {C.AUEC}".replace(",", "\u202f")
+            # Grisé si le scan est plus récent et le prix diffère (scan prime sur UEX)
+            if scan_newer and not price_corrected and price and price != uex_term_price:
+                uex_t_str = f"[{C.DIM}]{uex_t_str}[/{C.DIM}]"
         else:
             uex_t_str = f"[{C.DIM}]—[/{C.DIM}]"
 

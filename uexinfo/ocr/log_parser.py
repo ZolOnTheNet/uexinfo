@@ -165,7 +165,7 @@ def _group_scans(lines: list[str]) -> list[ScanResult]:
             current_commodities.append(c)
             continue
 
-        # Soumission API = fin du scan courant
+        # Soumission API = fin du scan courant → données validées par l'utilisateur
         if RE_SUBMISSION.search(line):
             if current_terminal and current_commodities:
                 results.append(ScanResult(
@@ -173,17 +173,19 @@ def _group_scans(lines: list[str]) -> list[ScanResult]:
                     commodities=list(current_commodities),
                     source="log",
                     mode=current_type,
+                    validated=True,   # soumis à UEX = confirmé par l'utilisateur
                 ))
                 current_commodities = []
                 # Le terminal et son type persistent (même terminal scanné plusieurs fois)
 
-    # Flush du dernier scan s'il n'a pas eu de soumission API
+    # Flush du dernier scan sans soumission API → non validé (en attente)
     if current_terminal and current_commodities:
         results.append(ScanResult(
             terminal=current_terminal,
             commodities=list(current_commodities),
             source="log",
             mode=current_type,
+            validated=False,  # pas encore soumis à UEX
         ))
 
     return results
