@@ -660,6 +660,14 @@ def _store_result(ctx, result) -> None:
     ctx.scan_history.append(result)
     if len(ctx.scan_history) > 20:
         ctx.scan_history = ctx.scan_history[-20:]
+    # Persister dans la base locale des prix scannés
+    from uexinfo.models.scan_result import ScanResult
+    if isinstance(result, ScanResult) and result.commodities:
+        from uexinfo.cache.scan_prices import ScanPriceStore
+        try:
+            ScanPriceStore().save_result(result)
+        except OSError:
+            pass
 
 
 def _display_result(result, ctx) -> None:

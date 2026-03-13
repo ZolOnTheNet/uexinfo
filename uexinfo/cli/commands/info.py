@@ -252,24 +252,33 @@ def _to_slug(name: str) -> str:
 
 
 def _terminal_prices(t: Terminal, ctx) -> list[dict]:
-    """Récupère les prix d'un terminal avec chaîne de fallback : id → code → loc → slug."""
+    """Récupère les prix d'un terminal avec chaîne de fallback : id → code → loc → slug.
+    Fusionne ensuite les données scan du joueur (prioritaires sur les données UEX).
+    """
     rows = _fetch_prices(f"t{t.id}", {"id_terminal": t.id}, ctx)
-    if rows:
-        return rows
-    if t.code:
-        rows = _fetch_prices(f"tc_{t.code}", {"terminal_code": t.code}, ctx)
-        if rows:
-            return rows
-    # Nom court (dernière partie après " - ") : "Admin - Orbituary" → "orbituary"
-    loc_q = _loc(t.name).lower()
-    if loc_q:
-        rows = _fetch_prices(f"tl_{loc_q}", {"terminal_name": loc_q}, ctx)
-        if rows:
-            return rows
-    # Dernier recours : slug complet
-    slug = _to_slug(t.name)
-    if slug and slug != loc_q:
-        rows = _fetch_prices(f"ts_{slug}", {"terminal_name": slug}, ctx)
+    if not rows:
+        if t.code:
+            rows = _fetch_prices(f"tc_{t.code}", {"terminal_code": t.code}, ctx)
+    if not rows:
+        loc_q = _loc(t.name).lower()
+        if loc_q:
+            rows = _fetch_prices(f"tl_{loc_q}", {"terminal_name": loc_q}, ctx)
+    if not rows:
+        slug = _to_slug(t.name)
+        loc_q2 = _loc(t.name).lower()
+        if slug and slug != loc_q2:
+            rows = _fetch_prices(f"ts_{slug}", {"terminal_name": slug}, ctx)
+
+    # Fusionner avec les données scan persistées du joueur
+    from uexinfo.cache.scan_prices import ScanPriceStore
+    store = ScanPriceStore()
+    loc_key = _loc(t.name).lower()
+    rows = store.merge_into(rows, loc_key)
+    # Essai également avec le nom complet si différent
+    full_key = t.name.lower()
+    if full_key != loc_key:
+        rows = store.merge_into(rows, full_key)
+
     return rows
 
 
@@ -604,6 +613,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
                 "total_sell": 0.0, "profit": 0.0,
                 "distance": "", "unsold": 0,
                 "dest_name_raw": "",
+                "_player": r.get("_player_buy", False),
             }))
             continue
 
@@ -643,6 +653,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
             "total_sell": total_sell_real, "profit": profit_full,
             "distance": distance_str, "unsold": qty_unsold,
             "dest_name_raw": dest_name,
+            "_player": r.get("_player_buy", False),
         }))
 
     # ── Trier : destination prioritaire, puis profit décroissant ─────────
@@ -652,44 +663,60 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
     ))
 
     # ── Afficher en table alignée ─────────────────────────────────────────
+    has_player = any(d.get("_player") for _, d in entries)
+
     tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
-    tbl.add_column("Commodité",   style=f"italic {C.NEUTRAL}", no_wrap=True, min_width=14)
-    tbl.add_column(f"Prix/{C.SCU}",  style=f"italic {C.UEX}",    justify="right", no_wrap=True)
-    tbl.add_column("Âge",            style=C.DIM,                justify="right", no_wrap=True)
-    tbl.add_column("→ Dest",         no_wrap=True,               min_width=14)
-    tbl.add_column(f"→Prix/{C.SCU}", style=f"italic {C.PROFIT}", justify="right", no_wrap=True)
-    tbl.add_column("Dist",           style=C.DIM,                justify="right", no_wrap=True)
-    tbl.add_column(C.SCU,            style=C.DIM,                justify="right", no_wrap=True)
-    tbl.add_column("Coût",        style=f"italic {C.DIM}",    justify="right", no_wrap=True)
-    tbl.add_column("Vente",       style=f"italic {C.PROFIT}", justify="right", no_wrap=True)
-    tbl.add_column("Profit",      justify="right",            no_wrap=True)
+    tbl.add_column("Commodité",      no_wrap=True, min_width=14)
+    tbl.add_column(f"Prix/{C.SCU}",  justify="right", no_wrap=True)
+    tbl.add_column("Âge",            style=C.DIM,    justify="right", no_wrap=True)
+    tbl.add_column("→ Dest",         no_wrap=True,   min_width=14)
+    tbl.add_column(f"→Prix/{C.SCU}", justify="right", no_wrap=True)
+    tbl.add_column("Dist",           style=C.DIM,    justify="right", no_wrap=True)
+    tbl.add_column(C.SCU,            style=C.DIM,    justify="right", no_wrap=True)
+    tbl.add_column("Coût",           style=C.DIM,    justify="right", no_wrap=True)
+    tbl.add_column("Vente",          justify="right", no_wrap=True)
+    tbl.add_column("Profit",         justify="right", no_wrap=True)
 
     for _, d in entries:
-        profit      = d["profit"]
-        p_color     = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
-        p_sign      = "+" if profit > 0 else ""
-        name_str    = _abbrev_name(d["name"], 16)
+        profit  = d["profit"]
+        p_color = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
+        p_sign  = "+" if profit > 0 else ""
+        player  = d.get("_player", False)
+
+        name_raw = _abbrev_name(d["name"], 16)
         if d["scu_range"]:
-            name_str = f"{name_str} [dim]({d['scu_range']})[/dim]"
-        dest_str    = f"[{d['dest_tag']}]{_abbrev_name(d['dest'], 18)}[/{d['dest_tag']}]"
+            name_raw = f"{name_raw} [dim]({d['scu_range']})[/dim]"
+        if player:
+            name_cell  = f"[bold {C.NEUTRAL}]★ {name_raw}[/bold {C.NEUTRAL}]"
+            price_cell = f"[bold {C.UEX}]{_price_short(d['price_buy'])}[/bold {C.UEX}]"
+            sell_cell  = f"[bold {C.PROFIT}]{_price_short(d.get('price_sell'))}[/bold {C.PROFIT}]"
+        else:
+            name_cell  = f"[italic {C.NEUTRAL}]{name_raw}[/italic {C.NEUTRAL}]"
+            price_cell = f"[italic {C.UEX}]{_price_short(d['price_buy'])}[/italic {C.UEX}]"
+            sell_cell  = f"[italic {C.PROFIT}]{_price_short(d.get('price_sell'))}[/italic {C.PROFIT}]"
+
+        dest_str = f"[{d['dest_tag']}]{_abbrev_name(d['dest'], 18)}[/{d['dest_tag']}]"
         if player_dest and d.get("dest_name_raw", "").lower() == player_dest:
             dest_str = f"⭐ {dest_str}"
-        # SCU : "288" si tout vendable, "230/288" si capacité limitée
+
         scu_cell = str(d["qty"])
         if d["unsold"]:
             scu_cell = f"{d['qty_sell']}/{d['qty']}"
+
         tbl.add_row(
-            name_str,
-            _price_short(d["price_buy"]),
+            name_cell,
+            price_cell,
             d["date"],
             dest_str,
-            _price_short(d.get("price_sell")),
+            sell_cell,
             d["distance"],
             scu_cell,
             _price_short(d["total_buy"]),
             _price_short(d["total_sell"]),
             f"[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]",
         )
+    if has_player:
+        console.print(f"[{C.DIM}]★ = données joueur (confirmées)[/{C.DIM}]")
     console.print(tbl)
 
 
@@ -706,26 +733,22 @@ def _show_terminal(t: Terminal, ctx) -> None:
     section(f"Marché — {dot}")
 
     rows = _terminal_prices(t, ctx)
-    scan  = _find_scan(_loc(t.name), ctx)
 
-    if not rows and not scan:
+    if not rows:
         console.print(f"[{C.DIM}]Aucune donnée pour ce terminal.[/{C.DIM}]")
         console.print(f"[{C.DIM}]Utilisez /scan pour capturer les prix directement en jeu.[/{C.DIM}]")
         return
 
-    # ── Scan personnel : données confirmées (priorité) ────────────────────
-    if scan:
-        _show_scan_section(scan, ctx)
-        if rows:
-            console.print()
+    # ── Données fusionnées : scan joueur (★ bold) + UEX communauté (italic) ─
+    has_player_data = any(
+        r.get("_player_buy") or r.get("_player_sell") for r in rows
+    )
+    if has_player_data:
+        console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées  ·  ★ données joueur[/italic {C.DIM}]")
+    else:
+        console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
 
-    # ── Données UEX Corp communauté : affichées en italique (non confirmées) ─
     if rows:
-        if scan:
-            console.print(f"[italic {C.DIM}]Référence UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
-        else:
-            console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
-
         buy_rows  = sorted([r for r in rows if r.get("price_buy")],
                            key=lambda r: r.get("commodity_name") or "")
         sell_rows = sorted([r for r in rows if r.get("price_sell")],
@@ -745,18 +768,29 @@ def _show_terminal(t: Terminal, ctx) -> None:
 
             console.print(f"\n[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
             if sell_rows:
+                sell_has_player = any(r.get("_player_sell") for r in sell_rows)
+                if sell_has_player:
+                    console.print(f"[{C.DIM}]★ = données joueur (confirmées)[/{C.DIM}]")
                 entries = []
                 for r in sell_rows:
                     d = _fmt_date(r.get("date_modified"))
-                    price_str = _price_short(r.get("price_sell"))
+                    price_val = _price_short(r.get("price_sell"))
+                    player_sell = r.get("_player_sell", False)
+                    if player_sell:
+                        price_str = f"[bold {C.PROFIT}]★ {price_val}[/bold {C.PROFIT}]"
+                    else:
+                        price_str = price_val
                     if d:
                         price_str = f"{price_str}  [{C.DIM}]{d}[/{C.DIM}]"
-                    entries.append((_entry_ns(
+                    name_raw = _entry_ns(
                         r.get("commodity_name") or "?",
                         _scu(r.get("scu_sell"), r.get("scu_sell_max"))
                         or _scu(r.get("scu_sell_stock")),
                         r.get("status_sell"), buy=False,
-                    ), price_str))
+                    )
+                    if player_sell:
+                        name_raw = f"[bold {C.NEUTRAL}]{name_raw}[/bold {C.NEUTRAL}]"
+                    entries.append((name_raw, price_str))
                 console.print(_multi_col_table(
                     entries, ("Commodité (SCU)", "Vente"), n_cols,
                     f"italic {C.NEUTRAL}", f"italic {C.PROFIT}",
