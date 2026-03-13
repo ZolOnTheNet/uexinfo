@@ -28,27 +28,43 @@ def _stock_bar(status: int, label: str) -> str:
     return label or str(status)
 
 
-def _resolve_uex(sc_name: str, commodities: list):
-    """Fuzzy-match un token OCR vers un Commodity UEX via partial_ratio."""
-    if not commodities or not sc_name:
+def _resolve_uex(sc_name: str, commodities: list, commodity_id: int = 0):
+    """Résout un nom OCR vers un Commodity UEX.
+
+    Priorité :
+    1. Correspondance exacte par commodity_id (si fourni)
+    2. Correspondance exacte par nom (insensible à la casse)
+    3. Fuzzy WRatio ≥ 85 (évite les faux positifs comme GOLD ↔ GOLDEN MEDMON)
+    """
+    if not commodities:
         return None
+
+    # 1. Lookup par ID (le plus fiable — SC-Datarunner l'a déjà résolu)
+    if commodity_id:
+        for c in commodities:
+            if c.id == commodity_id:
+                return c
+
+    if not sc_name:
+        return None
+
+    sc_up = sc_name.upper()
     names = [c.name.upper() for c in commodities]
+
+    # 2. Correspondance exacte insensible à la casse
+    if sc_up in names:
+        return commodities[names.index(sc_up)]
+
+    # 3. Fuzzy WRatio (global, symétrique) — pas partial_ratio qui retourne 100
+    #    pour des sous-chaînes comme GOLD dans GOLDEN MEDMON
     try:
         from rapidfuzz import process, fuzz
-        r = process.extractOne(
-            sc_name.upper(), names, scorer=fuzz.partial_ratio, score_cutoff=80,
-        )
+        r = process.extractOne(sc_up, names, scorer=fuzz.WRatio, score_cutoff=85)
         if r:
             return commodities[names.index(r[0])]
     except ImportError:
-        sc_up = sc_name.upper()
-        # 1. Mot exact dans le nom UEX
-        for c in commodities:
-            if sc_up in [w.upper() for w in c.name.split()]:
-                return c
-        # 2. Correspondance approximative du nom complet
         import difflib
-        m = difflib.get_close_matches(sc_up, names, n=1, cutoff=0.60)
+        m = difflib.get_close_matches(sc_up, names, n=1, cutoff=0.75)
         if m:
             return commodities[names.index(m[0])]
     return None
@@ -152,7 +168,7 @@ def _display_scan(result: ScanResult, ctx) -> None:
     scan_ts = result.timestamp.timestamp()
 
     for sc in result.commodities:
-        uex_c = _resolve_uex(sc.name, ctx.cache.commodities)
+        uex_c = _resolve_uex(sc.name, ctx.cache.commodities, sc.commodity_id)
 
         if uex_c:
             code_tag     = f"  [{C.DIM}][{uex_c.code}][/{C.DIM}]" if uex_c.code else ""
