@@ -327,7 +327,12 @@ class UEXCompleter(Completer):
                 )
 
         # ── Complétion dynamique : commodités ────────────────────────────
-        if self.ctx and cmd in _COMMODITY_CMDS and (ends_space or len(words) >= 2):
+        _TRADE_DIRECTION_WORDS = {"to", "à", "from", "de"}
+        _trade_needs_terminal = (
+            cmd == "trade"
+            and any(w.lower() in _TRADE_DIRECTION_WORDS for w in typed_args)
+        )
+        if self.ctx and cmd in _COMMODITY_CMDS and not _trade_needs_terminal and (ends_space or len(words) >= 2):
             matches = []
             for c in self.ctx.cache.commodities:
                 name = c.name
@@ -345,7 +350,8 @@ class UEXCompleter(Completer):
                 )
 
         # ── Complétion dynamique : terminaux ─────────────────────────────
-        if self.ctx and cmd in _TERMINAL_CMDS and (ends_space or len(words) >= 2):
+        _is_terminal_ctx = cmd in _TERMINAL_CMDS or _trade_needs_terminal
+        if self.ctx and _is_terminal_ctx and (ends_space or len(words) >= 2):
             if self.ctx.location_index:
                 # Si current vide, chercher avec une query vide (tous les terminaux)
                 search_query = current if current else ""

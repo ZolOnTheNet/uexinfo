@@ -1364,6 +1364,30 @@ def _find_terminal(query: str, ctx, strong: bool = False) -> Terminal | None:
     return None
 
 
+def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
+    """Retourne tous les terminaux correspondant à query (préfixe du nom court).
+
+    Utile pour désambigüer quand la query est trop courte.
+    Déduplique par station (garde le meilleur service Admin/TDD par station).
+    """
+    q = query.replace("_", " ").lower().strip()
+    if not q:
+        return []
+
+    # Préfixe exact
+    matches = [t for t in ctx.cache.terminals if _loc(t.name).lower().startswith(q)]
+    if not matches:
+        matches = [t for t in ctx.cache.terminals if q in t.name.lower()]
+
+    # Dédupliquer par station : garder le terminal de commerce (Admin/TDD)
+    seen: dict[str, Terminal] = {}
+    for t in matches:
+        station = _loc(t.name).lower()
+        if station not in seen or _trading_priority(t) < _trading_priority(seen[station]):
+            seen[station] = t
+    return sorted(seen.values(), key=lambda t: _loc(t.name).lower())
+
+
 def _find_commodity(query: str, ctx) -> Commodity | None:
     q = query.replace("_", " ").lower().strip()
     for c in ctx.cache.commodities:

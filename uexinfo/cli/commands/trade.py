@@ -14,6 +14,7 @@ from uexinfo.cli.commands.info import (
     _fetch_route_distances,
     _find_commodity,
     _find_terminal,
+    _find_terminal_candidates,
     _fmt_date,
     _loc,
     _multi_col_table,
@@ -397,13 +398,37 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
         return
 
     origin = _find_terminal(origin_loc, ctx)
-    dest   = _find_terminal(dest_loc, ctx)
-
     if not origin:
         print_error(f"Terminal d'origine introuvable : {origin_loc}")
         return
+
+    # Désambigüation origine
+    origin_candidates = _find_terminal_candidates(origin_loc, ctx)
+    if len(origin_candidates) > 1 and _loc(origin.name).lower() != origin_loc.lower():
+        console.print(
+            f"[{C.WARNING}]Plusieurs terminaux correspondent à «{origin_loc}» — "
+            f"précisez l'origine :[/{C.WARNING}]"
+        )
+        for t in origin_candidates[:20]:
+            sys_tag = f"  [{C.DIM}]{t.star_system_name}[/{C.DIM}]" if t.star_system_name else ""
+            console.print(f"  [cyan]{_loc(t.name)}[/cyan]{sys_tag}")
+        return
+
+    dest = _find_terminal(dest_loc, ctx)
     if not dest:
         print_error(f"Terminal de destination introuvable : {dest_loc}")
+        return
+
+    # Désambigüation : si la query correspond à plusieurs stations différentes, afficher la liste
+    dest_candidates = _find_terminal_candidates(dest_loc, ctx)
+    if len(dest_candidates) > 1 and _loc(dest.name).lower() != dest_loc.lower():
+        console.print(
+            f"[{C.WARNING}]Plusieurs terminaux correspondent à «{dest_loc}» — "
+            f"précisez la destination :[/{C.WARNING}]"
+        )
+        for t in dest_candidates[:20]:
+            sys_tag = f"  [{C.DIM}]{t.star_system_name}[/{C.DIM}]" if t.star_system_name else ""
+            console.print(f"  [cyan]{_loc(t.name)}[/cyan]{sys_tag}")
         return
 
     ship_cargo = _player_cargo(ctx)
