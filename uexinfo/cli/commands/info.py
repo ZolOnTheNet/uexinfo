@@ -15,7 +15,7 @@ from uexinfo.display.formatter import console, print_warn, section
 from uexinfo.models.scan_result import ScanResult
 from uexinfo.models.transport_network import EdgeType
 
-_PRICE_TTL = 300  # 5 minutes
+# TTL géré par PriceCache (adaptatif selon fréquence d'usage)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -231,16 +231,15 @@ def _player_system(ctx) -> str:
 def _fetch_prices(key: str, api_kwargs: dict, ctx) -> list[dict]:
     cached = ctx._price_cache.get(key)
     if cached:
-        ts, data = cached
-        if time.monotonic() - ts < _PRICE_TTL:
-            return data
+        _ts, data = cached
+        return data
     client = UEXClient()
     try:
         data = client.get_prices(**api_kwargs)
     except UEXError as e:
         console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
         return []
-    ctx._price_cache[key] = (time.monotonic(), data)
+    ctx._price_cache[key] = (time.time(), data)
     return data
 
 
@@ -286,7 +285,6 @@ def _commodity_prices(c_id: int, ctx) -> list[dict]:
     return _fetch_prices(f"c{c_id}", {"id_commodity": c_id}, ctx)
 
 
-_ROUTES_TTL = 300  # 5 minutes
 
 
 def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
@@ -297,9 +295,8 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
     key = f"rd_{terminal_id}"
     cached = ctx._price_cache.get(key)
     if cached:
-        ts, data = cached
-        if time.monotonic() - ts < _ROUTES_TTL:
-            return data
+        _ts, data = cached
+        return data
     client = UEXClient()
     try:
         routes = client.get_routes(id_terminal_origin=terminal_id)
@@ -347,11 +344,10 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
             f"[{C.DIM}]⊕ Graphe enrichi : {enriched_count} nouvelle(s) route(s)[/{C.DIM}]"
         )
 
-    ctx._price_cache[key] = (time.monotonic(), dist_map)
+    ctx._price_cache[key] = (time.time(), dist_map)
     return dist_map
 
 
-_CONTAINER_SIZES_TTL = 3600  # 1 h — varie peu
 
 
 def _fetch_container_sizes(commodity_id: int, ctx) -> dict[str, str]:
@@ -363,9 +359,8 @@ def _fetch_container_sizes(commodity_id: int, ctx) -> dict[str, str]:
     key = f"cs_{commodity_id}"
     cached = ctx._price_cache.get(key)
     if cached:
-        ts, data = cached
-        if time.monotonic() - ts < _CONTAINER_SIZES_TTL:
-            return data
+        _ts, data = cached
+        return data
 
     client = UEXClient()
     try:
@@ -386,7 +381,7 @@ def _fetch_container_sizes(commodity_id: int, ctx) -> dict[str, str]:
         if t_dest and cs_dest:
             sizes[t_dest.lower()] = _fmt_container_sizes(cs_dest)
 
-    ctx._price_cache[key] = (time.monotonic(), sizes)
+    ctx._price_cache[key] = (time.time(), sizes)
     return sizes
 
 
@@ -1193,23 +1188,21 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
 
 # ── Cache prix véhicules ────────────────────────────────────────────────────────
 
-_VEHICLE_PRICE_TTL = 3600  # 1 h (prix d'achat vaisseaux varient peu)
 
 
 def _fetch_vehicle_purchases(id_vehicle: int, ctx) -> list[dict]:
     key = f"vp_{id_vehicle}"
     cached = ctx._price_cache.get(key)
     if cached:
-        ts, data = cached
-        if time.monotonic() - ts < _VEHICLE_PRICE_TTL:
-            return data
+        _ts, data = cached
+        return data
     client = UEXClient()
     try:
         data = client.get_vehicles_purchases_prices(id_vehicle=id_vehicle)
     except UEXError as e:
         console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
         return []
-    ctx._price_cache[key] = (time.monotonic(), data)
+    ctx._price_cache[key] = (time.time(), data)
     return data
 
 
@@ -1217,16 +1210,15 @@ def _fetch_vehicle_rentals(id_vehicle: int, ctx) -> list[dict]:
     key = f"vr_{id_vehicle}"
     cached = ctx._price_cache.get(key)
     if cached:
-        ts, data = cached
-        if time.monotonic() - ts < _VEHICLE_PRICE_TTL:
-            return data
+        _ts, data = cached
+        return data
     client = UEXClient()
     try:
         data = client.get_vehicles_rentals_prices(id_vehicle=id_vehicle)
     except UEXError as e:
         console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
         return []
-    ctx._price_cache[key] = (time.monotonic(), data)
+    ctx._price_cache[key] = (time.time(), data)
     return data
 
 
@@ -1491,7 +1483,7 @@ def _show_terminal_by_name(query: str, ctx) -> bool:
     # Pré-remplir le cache id pour éviter un double appel dans _show_terminal
     tid_key = f"t{t.id}"
     if tid_key not in ctx._price_cache:
-        ctx._price_cache[tid_key] = ctx._price_cache[cache_key]
+        ctx._price_cache.copy_entry(cache_key, tid_key)
     _show_terminal(t, ctx)
     return True
 

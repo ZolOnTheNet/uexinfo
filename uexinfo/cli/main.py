@@ -15,6 +15,7 @@ from rich.console import Console
 import uexinfo.config.settings as settings
 from uexinfo import __version__
 from uexinfo.cache.manager import CacheManager
+from uexinfo.cache.price_cache import PriceCache
 from uexinfo.cli.completer import UEXCompleter
 from uexinfo.cli.runner import normalize_command, run_command
 from uexinfo.data.cargo_grids import CargoGridManager
@@ -57,7 +58,7 @@ class AppContext:
     player: Player = field(default_factory=Player)
     last_scan: ScanResult | None = None
     scan_history: list[ScanResult] = field(default_factory=list)
-    _price_cache: dict = field(default_factory=dict)  # {"t27": (ts, data)}
+    _price_cache: PriceCache = field(default_factory=PriceCache)
     debug_level: int = 0
     log_last_mtime: float = 0.0          # mtime du log lors du dernier check auto
     screenshots_last_seen_ts: float = 0.0  # wall-clock du dernier check screenshots
@@ -75,7 +76,8 @@ def _banner() -> None:
 
 
 def _cleanup(ctx: AppContext) -> None:
-    """Nettoyage avant fermeture : sauvegarde du graphe de transport si modifié."""
+    """Nettoyage avant fermeture : sauvegarde du graphe de transport et du cache prix."""
+    ctx._price_cache.flush()   # écrit price_cache.json si modifié
     if ctx.cache.transport_graph.has_unsaved_changes:
         count = ctx.cache.transport_graph._unsaved_changes
         console.print(

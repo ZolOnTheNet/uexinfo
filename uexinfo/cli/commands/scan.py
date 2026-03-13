@@ -70,7 +70,7 @@ def _resolve_uex(sc_name: str, commodities: list, commodity_id: int = 0):
     return None
 
 
-_PRICE_TTL_SCAN = 300  # secondes
+
 
 
 def _fetch_terminal_uex_prices(result: ScanResult, ctx) -> dict[str, tuple[int, float]]:
@@ -96,15 +96,14 @@ def _fetch_terminal_uex_prices(result: ScanResult, ctx) -> dict[str, tuple[int, 
     def _fetch(key: str, **kwargs) -> list[dict]:
         cached = ctx._price_cache.get(key)
         if cached:
-            ts, data = cached
-            if time.monotonic() - ts < _PRICE_TTL_SCAN:
-                return data
+            _ts, data = cached
+            return data
         client = UEXClient()
         try:
             data = client.get_prices(**kwargs)
         except UEXError:
             return []
-        ctx._price_cache[key] = (time.monotonic(), data)
+        ctx._price_cache[key] = (time.time(), data)
         return data
 
     rows = (_fetch(f"t{terminal.id}", id_terminal=terminal.id) if terminal
