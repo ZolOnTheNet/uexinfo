@@ -212,29 +212,65 @@ def _list_jumps(ctx) -> None:
 def _find_route(args: list[str], ctx) -> None:
     """Calcule le plus court chemin entre deux lieux."""
     if len(args) < 2:
-        print_error("Usage: /nav route <de> <vers>")
+        print_error("Usage: /nav route <de> [to] <vers>")
+        console.print(f"[{C.DIM}]Conseil : utilisez 'to' pour les noms à espaces :[/{C.DIM}]")
+        console.print(f"[{C.DIM}]  /nav route New_Babbage to Port_Tressler[/{C.DIM}]")
+        console.print(f"[{C.DIM}]  /nav route New_Babbage Port_Tressler[/{C.DIM}]")
+        _show_nodes_hint(ctx.cache.transport_graph)
         return
-
-    # Parser "from X to Y" ou "X Y"
-    if "to" in args:
-        idx = args.index("to")
-        from_loc = " ".join(args[:idx])
-        to_loc = " ".join(args[idx + 1:])
-    else:
-        from_loc = args[0]
-        to_loc = " ".join(args[1:])
 
     graph = ctx.cache.transport_graph
 
-    # Résoudre les noms
-    from_node = _resolve_node(from_loc, graph)
-    to_node = _resolve_node(to_loc, graph)
+    # Parser "from X to Y" ou "X Y" (underscores → espaces partout)
+    args_norm = [a.replace("_", " ") for a in args]
+
+    if "to" in [a.lower() for a in args]:
+        # Trouver le "to" en ignorant la casse
+        idx = next(i for i, a in enumerate(args) if a.lower() == "to")
+        from_loc = " ".join(args_norm[:idx]).strip()
+        to_loc   = " ".join(args_norm[idx + 1:]).strip()
+        from_node = _resolve_node(from_loc, graph)
+        to_node   = _resolve_node(to_loc, graph)
+    else:
+        # Pas de "to" : essayer toutes les coupures possibles
+        # On cherche la première (depuis la droite) où les deux moitiés résolvent
+        from_node, to_node = None, None
+        from_loc = to_loc = ""
+        for split in range(len(args_norm) - 1, 0, -1):
+            fl = " ".join(args_norm[:split]).strip()
+            tl = " ".join(args_norm[split:]).strip()
+            fn = _resolve_node(fl, graph)
+            tn = _resolve_node(tl, graph)
+            if fn and tn:
+                from_node, to_node = fn, tn
+                from_loc, to_loc = fl, tl
+                break
+        # Si aucune coupure ne fonctionne, essayer depuis la gauche
+        if not from_node:
+            for split in range(1, len(args_norm)):
+                fl = " ".join(args_norm[:split]).strip()
+                tl = " ".join(args_norm[split:]).strip()
+                fn = _resolve_node(fl, graph)
+                tn = _resolve_node(tl, graph)
+                if fn and tn:
+                    from_node, to_node = fn, tn
+                    from_loc, to_loc = fl, tl
+                    break
+        # Encore rien → résoudre chaque moitié séparément pour un meilleur message
+        if not from_node:
+            mid = len(args_norm) // 2
+            from_loc = " ".join(args_norm[:mid]).strip()
+            to_loc   = " ".join(args_norm[mid:]).strip()
+            from_node = _resolve_node(from_loc, graph)
+            to_node   = _resolve_node(to_loc, graph)
 
     if not from_node:
-        print_error(f"Lieu de départ introuvable : {from_loc}")
+        print_error(f"Lieu de départ introuvable : {from_loc!r}")
+        _show_candidates(from_loc, graph)
         return
     if not to_node:
-        print_error(f"Lieu d'arrivée introuvable : {to_loc}")
+        print_error(f"Lieu d'arrivée introuvable : {to_loc!r}")
+        _show_candidates(to_loc, graph)
         return
 
     # Calculer le chemin
@@ -429,19 +465,70 @@ def _reset_graph(ctx) -> None:
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _resolve_node(query: str, graph) -> str | None:
-    """Résout un nom de nœud (recherche flexible)."""
-    q = query.lower().strip()
+    """Résout un nom de nœud — insensible à la casse, underscores, fuzzy."""
+    q = query.lower().replace("_", " ").strip()
+    if not q:
+        return None
 
-    # Exact match
-    if q in graph.nodes:
-        return q
-    for name in graph.nodes:
+    node_names = list(graph.nodes.keys())
+
+    # 1. Match exact (insensible à la casse)
+    for name in node_names:
         if name.lower() == q:
             return name
 
-    # Partial match
-    matches = [name for name in graph.nodes if q in name.lower()]
+    # 2. Préfixe
+    matches = [n for n in node_names if n.lower().startswith(q)]
     if len(matches) == 1:
         return matches[0]
 
+    # 3. Sous-chaîne
+    matches = [n for n in node_names if q in n.lower()]
+    if len(matches) == 1:
+        return matches[0]
+
+    # 4. Fuzzy (rapidfuzz si disponible)
+    try:
+        from rapidfuzz import process, fuzz
+        best = process.extractOne(q, [n.lower() for n in node_names],
+                                  scorer=fuzz.WRatio, score_cutoff=70)
+        if best:
+            return node_names[[n.lower() for n in node_names].index(best[0])]
+    except ImportError:
+        import difflib
+        m = difflib.get_close_matches(q, [n.lower() for n in node_names], n=1, cutoff=0.65)
+        if m:
+            return node_names[[n.lower() for n in node_names].index(m[0])]
+
     return None
+
+
+def _show_candidates(query: str, graph) -> None:
+    """Affiche les nœuds proches du terme non résolu."""
+    q = query.lower().replace("_", " ").strip()
+    node_names = list(graph.nodes.keys())
+
+    # Chercher des suggestions partielles
+    suggestions = [n for n in node_names if q[:3] in n.lower()] if len(q) >= 3 else []
+
+    if suggestions:
+        console.print(f"[{C.DIM}]Nœuds proches :[/{C.DIM}]")
+        for s in suggestions[:6]:
+            console.print(f"  [{C.LABEL}]{s}[/{C.LABEL}]")
+    else:
+        _show_nodes_hint(graph)
+
+
+def _show_nodes_hint(graph) -> None:
+    """Affiche les nœuds disponibles."""
+    node_names = sorted(graph.nodes.keys())
+    if not node_names:
+        console.print(f"[{C.DIM}]Aucun nœud dans le réseau — utilisez /nav add-route[/{C.DIM}]")
+        return
+    console.print(f"[{C.DIM}]Nœuds disponibles ({len(node_names)}) :[/{C.DIM}]")
+    for name in node_names[:15]:
+        node = graph.nodes[name]
+        sys_label = f"  [{C.DIM}]{node.system}[/{C.DIM}]" if hasattr(node, "system") else ""
+        console.print(f"  [{C.LABEL}]{name}[/{C.LABEL}]{sys_label}")
+    if len(node_names) > 15:
+        console.print(f"  [{C.DIM}]… et {len(node_names) - 15} autres — /nav nodes[/{C.DIM}]")
