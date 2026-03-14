@@ -265,13 +265,17 @@ def _find_route(args: list[str], ctx) -> None:
             to_node   = _resolve_node(to_loc, graph)
 
     if not from_node:
-        print_error(f"Lieu de départ introuvable : {from_loc!r}")
-        _show_candidates(from_loc, graph)
-        return
+        from_node = _auto_add_from_uex(from_loc, graph, ctx)
+        if not from_node:
+            print_error(f"Lieu de départ introuvable : {from_loc!r}")
+            _show_candidates(from_loc, graph)
+            return
     if not to_node:
-        print_error(f"Lieu d'arrivée introuvable : {to_loc!r}")
-        _show_candidates(to_loc, graph)
-        return
+        to_node = _auto_add_from_uex(to_loc, graph, ctx)
+        if not to_node:
+            print_error(f"Lieu d'arrivée introuvable : {to_loc!r}")
+            _show_candidates(to_loc, graph)
+            return
 
     # Calculer le chemin
     result = graph.find_shortest_path(from_node, to_node)
@@ -501,6 +505,153 @@ def _resolve_node(query: str, graph) -> str | None:
             return node_names[[n.lower() for n in node_names].index(m[0])]
 
     return None
+
+
+def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
+    """Cherche le lieu dans le cache UEX, interroge les routes, enrichit le graphe.
+
+    Retourne le nom du nœud ajouté (ou trouvé), ou None si introuvable.
+    """
+    from uexinfo.api.uex_client import UEXClient, UEXError
+    from uexinfo.models.transport_network import LocationNode, NodeType
+
+    q = query.lower().replace("_", " ").strip()
+    if not q:
+        return None
+
+    # ── 1. Chercher un terminal correspondant dans le cache UEX ──────────────
+    terminal = None
+    best_score = 0
+
+    try:
+        from rapidfuzz import fuzz
+        for t in ctx.cache.terminals:
+            score = fuzz.WRatio(q, t.name.lower())
+            if score > best_score and score >= 72:
+                best_score, terminal = score, t
+    except ImportError:
+        import difflib
+        names = [t.name for t in ctx.cache.terminals]
+        m = difflib.get_close_matches(q, [n.lower() for n in names], n=1, cutoff=0.65)
+        if m:
+            terminal = next(t for t in ctx.cache.terminals if t.name.lower() == m[0])
+
+    if not terminal:
+        return None
+
+    node_name = terminal.name
+    console.print(
+        f"[{C.DIM}]↻ Terminal UEX : [bold]{node_name}[/bold] — récupération des distances...[/{C.DIM}]"
+    )
+
+    # ── 2. Créer le nœud s'il n'existe pas déjà ─────────────────────────────
+    if node_name not in graph.nodes:
+        graph.add_node(LocationNode(
+            name=node_name,
+            type=NodeType.TERMINAL,
+            system=terminal.star_system_name or "Stanton",
+            metadata={"id_terminal": terminal.id, "source": "uex_auto"},
+        ))
+
+    # ── 3. Requête API : routes depuis ce terminal pour obtenir les distances ─
+    edges_added = 0
+    try:
+        client = UEXClient()
+        routes = client.get_routes(id_terminal_origin=terminal.id)
+
+        # Dédupliquer par destination (une route par commodity → on veut une par dest)
+        seen_dest: dict[str, float] = {}  # dest_name → distance_gm
+        for r in routes:
+            dest = r.get("destination_terminal_name", "")
+            dist = r.get("distance")
+            if dest and dist is not None and dest not in seen_dest:
+                seen_dest[dest] = float(dist)
+
+        # Ajouter les edges vers les nœuds déjà connus du graphe
+        for dest_name, dist_gm in seen_dest.items():
+            dest_node = _resolve_node_uex(dest_name, graph)
+            if dest_node and dest_node != node_name:
+                added = graph.add_or_update_route(
+                    from_node=node_name,
+                    to_node=dest_node,
+                    distance_gm=dist_gm,
+                    edge_type=EdgeType.QUANTUM,
+                    source="uex",
+                )
+                if added:
+                    edges_added += 1
+
+    except UEXError as e:
+        console.print(f"[{C.WARNING}]⚠ UEX inaccessible : {e}[/{C.WARNING}]")
+
+    if edges_added > 0:
+        console.print(
+            f"[{C.SUCCESS}]✓ {edges_added} liaison(s) UEX ajoutée(s) vers {node_name}[/{C.SUCCESS}]  "
+            f"[{C.DIM}]— /nav save pour conserver[/{C.DIM}]"
+        )
+    else:
+        console.print(
+            f"[{C.WARNING}]⚠ Nœud créé mais aucune liaison connue — route peut être incomplète[/{C.WARNING}]"
+        )
+
+    return node_name
+
+
+def _resolve_node_uex(uex_terminal_name: str, graph) -> str | None:
+    """Résout un nom de terminal UEX vers un nœud du graphe.
+
+    Les terminaux UEX ont des préfixes service : "Admin - New Babbage",
+    "TDD - Area 18", "Scrap - Rappel"...
+    Le graphe peut avoir le nom complet ou juste la partie lieu.
+    """
+    node_names = list(graph.nodes.keys())
+
+    def _strict_resolve(q: str) -> str | None:
+        """Match exact ou sous-chaîne stricte — pas de fuzzy agressif."""
+        ql = q.lower().strip()
+        if len(ql) < 4:
+            return None
+        # Exact
+        for n in node_names:
+            if n.lower() == ql:
+                return n
+        # Préfixe
+        matches = [n for n in node_names if n.lower().startswith(ql)]
+        if len(matches) == 1:
+            return matches[0]
+        # Sous-chaîne stricte (q dans node ou node dans q — longueur minimale)
+        matches = [n for n in node_names if ql in n.lower() and len(ql) >= 5]
+        if len(matches) == 1:
+            return matches[0]
+        # Fuzzy serré (85)
+        try:
+            from rapidfuzz import process, fuzz
+            best = process.extractOne(ql, [n.lower() for n in node_names],
+                                      scorer=fuzz.WRatio, score_cutoff=85)
+            if best:
+                return node_names[[n.lower() for n in node_names].index(best[0])]
+        except ImportError:
+            pass
+        return None
+
+    if " - " in uex_terminal_name:
+        # Nom avec préfixe service ("Admin - X", "TDD - X"…)
+        # parts[0] est le type de service (Admin, TDD, Scrap…) — ne pas l'utiliser
+        # comme nom de lieu. On essaie parts[1:] du plus spécifique (fin) au début.
+        parts = [p.strip() for p in uex_terminal_name.split(" - ")]
+        for part in reversed(parts[1:]):   # skip parts[0] = service prefix
+            found = _strict_resolve(part)
+            if found:
+                return found
+        # Essai sur le nom complet seulement si le graphe stocke lui-même ce format
+        # (ex: "Admin - Orbituary" est un nœud du graphe)
+        for n in node_names:
+            if n.lower() == uex_terminal_name.lower():
+                return n
+        return None
+
+    # Nom sans préfixe : fuzzy normal
+    return _resolve_node(uex_terminal_name, graph)
 
 
 def _show_candidates(query: str, graph) -> None:
