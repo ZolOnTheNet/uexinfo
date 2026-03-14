@@ -20,3 +20,18 @@ si dans le texte (texte avant donc) déclanche la selection d'un terminal ou d'u
 # extensions sympa
 
 # si le texte saisie n'abouti pas, vérifier si celui-ci n' existe en commande (essayer avec / devant)
+
+# a faire
+
+mettre à jour commands.md
+
+##  nav 
+faire l'aide,
+voir à quoi cela correspond : permettre de visualiser et gérer les distances connues des systèmes
+Ajouter des edges, des noeuds, questionner uexspace pour cela 
+
+## trade 
+   
+
+
+

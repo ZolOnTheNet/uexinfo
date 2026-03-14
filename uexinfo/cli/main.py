@@ -139,14 +139,12 @@ def main() -> None:
     # ── Ctrl+Espace : forcer l'affichage de la complétion ─────────────────────
     @repl_kb.add("c-space")
     def _force_completion(event):
-        """Force l'affichage du menu de complétion."""
+        """Force l'affichage du menu de complétion sans pré-sélectionner."""
         buff = event.current_buffer
         if buff.complete_state:
-            # Si déjà ouvert, passer au suivant
             buff.complete_next()
         else:
-            # Sinon, démarrer la complétion (select_first=True pour forcer l'affichage)
-            buff.start_completion(select_first=True)
+            buff.start_completion(select_first=False)
 
     # ─────────────────────────────────────────────────────────────────────────
 
