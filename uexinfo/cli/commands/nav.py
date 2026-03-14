@@ -18,27 +18,27 @@ def cmd_nav(args: list[str], ctx) -> None:
 
     sub = args[0].lower()
 
-    if sub == "info":
+    if sub in ("info",):
         _show_info(ctx)
-    elif sub == "nodes":
+    elif sub in ("nodes", "noeuds", "noeud", "node"):
         _list_nodes(args[1:], ctx)
-    elif sub == "edges":
+    elif sub in ("edges", "edge", "liaisons", "liaison", "aretes", "arete", "arêtes", "arête"):
         _list_edges(args[1:], ctx)
-    elif sub in ("jumps", "jump"):
+    elif sub in ("jumps", "jump", "sauts", "saut"):
         _list_jumps(ctx)
-    elif sub == "route":
+    elif sub in ("route", "itineraire", "itinéraire", "chemin"):
         _find_route(args[1:], ctx)
-    elif sub == "add-route":
+    elif sub in ("add-route", "ajouter-route", "ajouter-liaison", "add-liaison"):
         _add_route(args[1:], ctx)
-    elif sub == "add-jump":
+    elif sub in ("add-jump", "ajouter-saut", "ajouter-jump"):
         _add_jump(args[1:], ctx)
-    elif sub == "remove-route":
+    elif sub in ("remove-route", "supprimer-route", "supprimer-liaison"):
         _remove_route(args[1:], ctx)
-    elif sub == "remove-jump":
+    elif sub in ("remove-jump", "supprimer-saut", "supprimer-jump"):
         _remove_jump(args[1:], ctx)
-    elif sub == "save":
+    elif sub in ("save", "sauvegarder", "enregistrer"):
         _save_graph(ctx)
-    elif sub == "raz":
+    elif sub in ("raz", "reset", "reinitialiser", "réinitialiser"):
         _reset_graph(ctx)
     else:
         print_error(f"Sous-commande inconnue : {sub}  (/help nav)")
