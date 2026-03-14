@@ -337,12 +337,21 @@ def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult
     full=False → parse_new() : uniquement les nouvelles lignes depuis le dernier offset.
     full=True  → parse_all() : relit tout le fichier sans modifier l'offset.
     """
-    from uexinfo.ocr.log_parser import LogParser
+    from uexinfo.ocr.log_parser import LogParser, _DEFAULT_LOG
     try:
         parser = LogParser(log_path)
+        # Vérifier que le fichier existe à chaque appel (pas seulement au démarrage)
+        effective_path = parser.log_path
+        if not effective_path.is_file():
+            print_warn(f"Fichier log introuvable : {effective_path}")
+            console.print(
+                f"[{C.DIM}]Configurez le chemin avec : /config scan logpath <chemin>[/{C.DIM}]"
+            )
+            return []
         results = parser.parse_all() if full else parser.parse_new()
         if not results:
-            print_warn("Aucun nouveau scan dans le log.")
+            print_warn(f"Aucun nouveau scan dans le log. (offset: {parser.get_offset()} octets)")
+            console.print(f"[{C.DIM}]Utilisez /scan log all pour tout relire depuis le début.[/{C.DIM}]")
         return results
     except Exception as e:
         print_error(f"Erreur lecture log : {e}")
@@ -788,8 +797,12 @@ def cmd_scan(args: list[str], ctx) -> None:
         full = sub2 == "all"
         raw_args = args[2:] if full else (args[1:] if sub2 not in ("", "all") else [])
         log_path = _resolve_log_path(raw_args, ctx)
-        if log_path is None:
-            return  # erreur déjà affichée
+        # log_path == None peut signifier :
+        #   a) erreur sur un chemin explicite (message déjà affiché) → raw_args ou sc_log_path configuré
+        #   b) aucun chemin configuré → LogParser utilisera _DEFAULT_LOG (ne pas retourner)
+        sc_log_configured = bool(ctx.cfg.get("scan", {}).get("sc_log_path", "")) or bool(raw_args)
+        if log_path is None and sc_log_configured:
+            return  # erreur de chemin → message déjà affiché
 
         results = _scan_log(ctx, log_path=log_path, full=full)
         for result in results:
