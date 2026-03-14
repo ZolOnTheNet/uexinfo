@@ -112,7 +112,7 @@ def cmd_player(args: list[str], ctx) -> None:
             _save_player(ctx)
             print_ok(f"Vaisseau ajouté : {name}" + (f" ({scu} {C.SCU})" if scu else ""))
 
-        elif action == "set":
+        elif action in ("set", "select"):
             if len(args) < 3:
                 print_error("Usage : /player ship set <nom>")
                 return

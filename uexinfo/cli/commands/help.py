@@ -21,6 +21,7 @@ _COMMANDS = {
     "plan":    "Plan de vol multi-étapes",
     "info":    "Détail d'un terminal ou d'une commodité",
     "explore": "Navigation hiérarchique : systèmes, vaisseaux, commodités",
+    "nav":     "Réseau de transport : nœuds, routes QT, jump points, itinéraires",
     "refresh": "Rafraîchir le cache (prix, données statiques)",
     "exit":    "Quitter l'application  (/quit et /bye aussi)",
 }
@@ -174,6 +175,30 @@ _DETAILS = {
         "/trade best --roi                Trier par ROI\n"
         "/trade best --scu <n>            Pour n SCU de cargo\n"
         "/trade compare <commodité>       Comparer UEX et sc-trade.tools"
+    ),
+    "nav": (
+        "/nav                             Stats du réseau (nœuds, routes, jump points)\n"
+        "/nav info                        Idem — même chose que /nav seul\n"
+        "/nav nodes [système]             Lister les nœuds (filtrable par système)\n"
+        "/nav edges [lieu]                Lister les routes (filtrable par nœud)\n"
+        "/nav jumps                       Lister les jump points inter-systèmes\n"
+        "/nav route <de> <vers>           Calculer le plus court chemin QT\n"
+        "/nav add-route <de> <vers> <Gm> [type]   Ajouter une route manuellement\n"
+        "/nav add-jump <nom> <sys1> <sys2> <entrée> <sortie> [S|M|L]\n"
+        "                                 Ajouter un jump point\n"
+        "/nav remove-route <de> <vers>    Supprimer une route\n"
+        "/nav remove-jump <nom>           Supprimer un jump point\n"
+        "/nav save                        Sauvegarder les modifications\n"
+        "/nav raz                         Réinitialiser depuis le fichier source\n\n"
+        "Types de route : quantum (défaut) | ground | landing | jump\n\n"
+        "Exemples :\n"
+        "  /nav route GrimHEX Area18\n"
+        "  /nav route Lorville to Port Tressler\n"
+        "  /nav nodes stanton\n"
+        "  /nav add-route GrimHEX \"Port Tressler\" 1.8 quantum\n"
+        "  /nav add-jump Stanton-Pyro stanton pyro \"Aaron Halo\" \"Pyro Gateway\" L\n\n"
+        "Aliases : /navigation /n /qt /quantum\n"
+        "Les modifications ne sont pas sauvegardées automatiquement — pensez à /nav save."
     ),
     "route": (
         "/route                           Routes depuis position courante\n"

@@ -200,6 +200,56 @@ Calcule les meilleures routes de trade.
 
 ---
 
+## /nav — Réseau de transport
+
+Aliases : `/navigation`, `/n`, `/qt`, `/quantum`
+
+Visualise et gère le réseau de transport interstellaire : nœuds (terminaux, stations,
+villes), routes QT, jump points. Permet de calculer des itinéraires.
+
+```
+/nav                             Stats générales (nœuds, routes, jump points)
+/nav info                        Identique à /nav seul
+
+/nav nodes [système]             Lister les nœuds, filtrable par système (ex: stanton)
+/nav edges [lieu]                Lister les routes, filtrable par nœud de départ
+/nav jumps                       Lister les jump points inter-systèmes
+
+/nav route <de> <vers>           Calcul du plus court chemin QT entre deux lieux
+                                 Accepte "from X to Y" ou "X Y"
+
+/nav add-route <de> <vers> <Gm> [type]
+                                 Ajouter une route manuellement (distance en Gm)
+                                 Types : quantum (défaut) | ground | landing | jump
+
+/nav add-jump <nom> <sys1> <sys2> <entrée> <sortie> [S|M|L]
+                                 Ajouter un jump point entre deux systèmes
+                                 Taille : S, M ou L (défaut L)
+
+/nav remove-route <de> <vers>    Supprimer une route (les deux directions)
+/nav remove-jump <nom>           Supprimer un jump point
+
+/nav save                        Sauvegarder les modifications dans le fichier source
+/nav raz                         Réinitialiser depuis le fichier source (annule les modifs)
+```
+
+**Exemples :**
+```
+/nav route GrimHEX Area18
+/nav route Lorville to Port Tressler
+/nav nodes stanton
+/nav edges GrimHEX
+/nav jumps
+/nav add-route GrimHEX "Port Tressler" 1.8 quantum
+/nav add-jump Stanton-Pyro stanton pyro "Aaron Halo" "Pyro Gateway" L
+/nav save
+```
+
+> Les modifications (add-route, add-jump, remove-*) ne sont **pas** sauvegardées
+> automatiquement. Pensez à `/nav save` avant de quitter.
+
+---
+
 ## /refresh — Mise à jour du cache
 
 ```

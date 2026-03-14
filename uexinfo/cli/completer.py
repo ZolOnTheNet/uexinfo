@@ -17,11 +17,12 @@ _EXPLORE_ROOTS = ["ship", "commodity"]  # + system names (dynamic)
 _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
     "help":                 [],
     "ship":                 [
-        ("list", "Affiche vos vaisseaux"),
-        ("add", "Ajoute un vaisseau à votre flotte"),
+        ("list",   "Affiche vos vaisseaux"),
+        ("add",    "Ajoute un vaisseau à votre flotte"),
         ("remove", "Retire un vaisseau"),
-        ("set", "Définit le vaisseau actif"),
-        ("cargo", "Configure les grilles cargo"),
+        ("set",    "Définit le vaisseau actif"),
+        ("select", "Alias de set — définit le vaisseau actif"),
+        ("cargo",  "Configure les grilles cargo"),
     ],
     "config":               [
         ("ship", "Gestion des vaisseaux"),
@@ -31,11 +32,12 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("player", "Infos joueur"),
     ],
     "config ship":          [
-        ("list", "Liste vos vaisseaux"),
-        ("add", "Ajoute un vaisseau"),
+        ("list",   "Liste vos vaisseaux"),
+        ("add",    "Ajoute un vaisseau"),
         ("remove", "Retire un vaisseau"),
-        ("set", "Définit le vaisseau actif"),
-        ("cargo", "Configure les grilles cargo"),
+        ("set",    "Définit le vaisseau actif"),
+        ("select", "Alias de set — définit le vaisseau actif"),
+        ("cargo",  "Configure les grilles cargo"),
     ],
     "config trade":         [
         ("profit", "Profit minimum (aUEC)"),
@@ -78,9 +80,10 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("dest", "Affiche/modifie la destination"),
     ],
     "player ship":          [
-        ("add", "Ajoute un vaisseau"),
-        ("set", "Définit le vaisseau actif"),
-        ("scu", "Modifie la capacité cargo"),
+        ("add",    "Ajoute un vaisseau"),
+        ("set",    "Définit le vaisseau actif"),
+        ("select", "Alias de set — définit le vaisseau actif"),
+        ("scu",    "Modifie la capacité cargo"),
         ("remove", "Retire un vaisseau"),
     ],
     "scan":                 [
@@ -286,8 +289,20 @@ class UEXCompleter(Completer):
                 # C'est une commande sans / → ajouter / pour la complétion
                 text = "/" + text
             else:
+                # Saisie vide → afficher toutes les commandes
+                if not text:
+                    prefix = ""
+                    for cmd in _ALL_COMMANDS:
+                        help_text = _COMMAND_HELP.get(cmd, "")
+                        yield Completion(
+                            "/" + cmd,
+                            start_position=0,
+                            display=f"/{cmd}",
+                            display_meta=help_text,
+                        )
+                    return
                 # Saisie libre → complétion /info (terminaux + commodités)
-                if self.ctx and len(text) >= 1:
+                if self.ctx:
                     yield from self._complete_info_query(text)
                 return
 
@@ -448,7 +463,7 @@ class UEXCompleter(Completer):
                         display=name_full,
                         display_meta=meta,
                     )
-            elif action in ("remove", "cargo", "set"):
+            elif action in ("remove", "cargo", "set", "select"):
                 # Seulement les vaisseaux déjà configurés
                 matches_player = []
                 for ship in (self.ctx.player.ships if hasattr(self.ctx, 'player') else []):

@@ -188,7 +188,7 @@ def _ship(args: list[str], ctx) -> None:
         _save_player(ctx)
         print_ok(f"Vaisseau retiré : {name}")
 
-    elif sub == "set":
+    elif sub in ("set", "select"):
         name  = " ".join(rest)
         if not name:
             print_error("Usage : /ship set <nom du vaisseau>")
