@@ -39,6 +39,8 @@ import uexinfo.cli.commands.nav      # noqa: F401
 import uexinfo.cli.commands.debug    # noqa: F401
 import uexinfo.cli.commands.auto     # noqa: F401
 import uexinfo.cli.commands.undo     # noqa: F401
+import uexinfo.cli.commands.calc     # noqa: F401
+import uexinfo.cli.commands.route    # noqa: F401
 
 console = Console()
 
@@ -68,7 +70,7 @@ def _banner() -> None:
     console.print(
         f"[bold cyan]UEXInfo[/bold cyan] [dim]v{__version__}[/dim]"
         "  —  Star Citizen Trade CLI\n"
-        f"[{C.DIM}]Tapez [bold]help[/bold] pour l'aide  │  [bold]exit[/bold] pour quitter  │  Tab / Ctrl-Espace = complétion  │  Saisie libre = recherche  │  [bold]@lieu[/bold] = se positionner + info[/{C.DIM}]\n"
+        f"[{C.DIM}]Tapez [bold]help[/bold] pour l'aide  │  [bold]exit[/bold] pour quitter  │  Tab / F2 = complétion  │  Saisie libre = recherche  │  [bold]@lieu[/bold] = se positionner + info[/{C.DIM}]\n"
         f"[{C.DIM}]Le [bold]/[/bold] est optionnel : [bold]ship add Cutlass[/bold] = [bold]/ship add Cutlass[/bold][/{C.DIM}]\n"
         f"[{C.DIM}]Symboles : [bold]{C.SCU}[/bold] = SCU (cargo)  │  [bold]{C.AUEC}[/bold] = aUEC (monnaie)[/{C.DIM}]"
     )
@@ -136,15 +138,21 @@ def main() -> None:
         event.current_buffer.text = ""
         event.current_buffer.validate_and_handle()
 
-    # ── Ctrl+Espace : forcer l'affichage de la complétion ─────────────────────
-    @repl_kb.add("c-space")
+    # ── Ctrl+Espace / F2 : forcer l'affichage de la complétion ───────────────
+    # Note : avec complete_while_typing=True, complete_state est souvent déjà
+    # actif → start_completion() est un no-op. Il faut cancel_completion()
+    # d'abord. Windows Terminal intercepte souvent Ctrl+Espace → F2 en repli.
+    @repl_kb.add("c-space", eager=True)
+    @repl_kb.add("c-@",     eager=True)  # NUL : Ctrl+Espace sur certains terminaux Windows
+    @repl_kb.add("f2",      eager=True)  # alternative sûre (jamais interceptée)
     def _force_completion(event):
-        """Force l'affichage du menu de complétion sans pré-sélectionner."""
-        buff = event.current_buffer
-        if buff.complete_state:
-            buff.complete_next()
-        else:
-            buff.start_completion(select_first=False)
+        """Annule l'état en cours puis rouvre le menu de complétion."""
+        b = event.current_buffer
+        try:
+            b.cancel_completion()
+        except Exception:
+            pass
+        b.start_completion(select_first=False)
 
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -160,6 +168,14 @@ def main() -> None:
     )
 
     _banner()
+
+    # Hint /nav populate si le graphe est peu peuplé
+    if len(ctx.cache.transport_graph.nodes) < 100:
+        console.print(
+            f"[{C.DIM}]ℹ  Réseau de navigation vide ou partiel "
+            f"({len(ctx.cache.transport_graph.nodes)} nœuds) — "
+            f"lancez [{C.LABEL}]/nav populate[/{C.LABEL}] pour importer les distances depuis UEX Corp.[/{C.DIM}]\n"
+        )
 
     from uexinfo.cli.commands.scan import check_log_auto, check_screenshots_auto, _display_scan as _ds
 

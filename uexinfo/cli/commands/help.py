@@ -23,6 +23,8 @@ _COMMANDS = {
     "explore": "Navigation hiérarchique : systèmes, vaisseaux, commodités",
     "nav":     "Réseau de transport : nœuds, routes QT, jump points, itinéraires",
     "refresh": "Rafraîchir le cache (prix, données statiques)",
+    "dest":    "Définir ou effacer la destination  (/dest clear pour effacer)",
+    "=":       "Calculatrice  (/calc — ex: = 16x6  = 100/3  = (12+8)*5)",
     "exit":    "Quitter l'application  (/quit et /bye aussi)",
 }
 
@@ -198,7 +200,38 @@ _DETAILS = {
         "  /nav add-route GrimHEX \"Port Tressler\" 1.8 quantum\n"
         "  /nav add-jump Stanton-Pyro stanton pyro \"Aaron Halo\" \"Pyro Gateway\" L\n\n"
         "Aliases : /navigation /n /qt /quantum\n"
-        "Les modifications ne sont pas sauvegardées automatiquement — pensez à /nav save."
+        "Les modifications ne sont pas sauvegardées automatiquement — pensez à /nav save.\n\n"
+        "/nav populate\n"
+        "  Interroge l'API UEX pour toutes les commodités achetables et importe\n"
+        "  automatiquement les distances entre terminaux dans le graphe.\n"
+        "  ~60 requêtes, couvre la majorité des terminaux actifs.\n"
+        "  Aliases : /nav peupler  /nav enrichir  /nav remplir"
+    ),
+    "dest": (
+        "/dest                   Afficher la destination courante\n"
+        "/dest <lieu>            Définir la destination (Tab pour compléter)\n"
+        "/dest clear             Effacer la destination\n"
+        "/dest effacer           Alias de clear\n\n"
+        "Aliases : /d\n"
+        "Pour effacer les deux (position + destination) : /go clear"
+    ),
+    "=": (
+        "= <expression>               Calculer une expression arithmétique\n\n"
+        "Opérateurs :\n"
+        "  +  -  *  /    addition, soustraction, multiplication, division\n"
+        "  x  X          alias de *  (ex: 16x6 = 96)\n"
+        "  //            division entière  (ex: 17//3 = 5)\n"
+        "  %             modulo / reste  (ex: 17%3 = 2)\n"
+        "  ( )           parenthèses\n\n"
+        "Décimales : point ou virgule  (ex: 1,5 * 4 = 6)\n\n"
+        "Exemples :\n"
+        "  = 16x6              → 96\n"
+        "  = 100 / 3           → 33.3333\n"
+        "  = (12 + 8) * 5      → 100\n"
+        "  = 46 * 450 - 12000  → 8 700\n"
+        "  = 1234 % 7          → 2\n\n"
+        "Alias : /calc  /calculette  /calcul\n"
+        "Le / est optionnel — '= 16x6' fonctionne sans /."
     ),
     "route": (
         "/route                           Routes depuis position courante\n"

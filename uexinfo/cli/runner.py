@@ -26,7 +26,14 @@ def normalize_command(line: str, known_commands: set[str]) -> str:
 
     # Déjà une commande ou @lieu
     if stripped.startswith("/") or stripped.startswith("@"):
+        # /=expr sans espace (ex: /=16*6) → /= 16*6
+        if stripped.startswith("/=") and len(stripped) > 2 and stripped[2] != " ":
+            return "/= " + stripped[2:]
         return stripped
+
+    # =expr sans espace ni slash (ex: =16*6) → /= 16*6
+    if stripped.startswith("=") and len(stripped) > 1 and stripped[1] not in (" ", "="):
+        return "/= " + stripped[1:]
 
     # Extraire le premier mot
     first_word = stripped.split()[0].lower() if stripped.split() else ""

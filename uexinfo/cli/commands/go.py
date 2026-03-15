@@ -28,6 +28,12 @@ def cmd_go(args: list[str], ctx) -> None:
         print_ok("Position et destination réinitialisées")
         return
 
+    if sub in ("clear-dest", "cleardest", "dest-clear"):
+        ctx.player.destination = ""
+        _save_player(ctx)
+        print_ok("Destination effacée")
+        return
+
     if sub == "from":
         name = " ".join(args[1:])
         if not name:
@@ -95,15 +101,18 @@ def cmd_arriver(args: list[str], ctx) -> None:
 
 @register("dest", "d")
 def cmd_dest(args: list[str], ctx) -> None:
-    """Raccourci : /dest <lieu> = /go to <lieu>"""
+    """Raccourci : /dest <lieu> = /go to <lieu>  ;  /dest clear = effacer"""
     if not args:
-        # Sans argument : afficher la destination actuelle
         dest = ctx.player.destination or "(non définie)"
         console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{dest}[/{C.UEX}]")
-    else:
-        # Avec argument : définir la destination
-        name = " ".join(args)
-        resolved = _resolve(name, ctx)
-        ctx.player.destination = resolved
+        return
+    if args[0].lower() in ("clear", "effacer", "raz", "reset", "vider"):
+        ctx.player.destination = ""
         _save_player(ctx)
-        print_ok(f"Destination : {resolved}")
+        print_ok("Destination effacée")
+        return
+    name = " ".join(args)
+    resolved = _resolve(name, ctx)
+    ctx.player.destination = resolved
+    _save_player(ctx)
+    print_ok(f"Destination : {resolved}")

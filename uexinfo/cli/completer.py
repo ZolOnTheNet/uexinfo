@@ -69,7 +69,10 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("to", "Définit votre destination"),
         ("clear", "Efface position et destination"),
     ],
-    "dest":                 [],
+    "dest":                 [
+        ("clear",   "Effacer la destination"),
+        ("effacer", "Alias de clear"),
+    ],
     "arriver":              [],
     "arrivé":               [],
     "arrive":               [],
@@ -195,6 +198,7 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("sauvegarder",       "Sauvegarde le graphe (alias: save)"),
         ("save",              "Sauvegarde le graphe"),
         ("raz",               "Réinitialise le graphe"),
+        ("populate",          "Importe les distances depuis l'API UEX"),
     ],
     "refresh":              [
         ("all", "Rafraîchit tout"),
@@ -267,7 +271,7 @@ _COMMAND_HELP: dict[str, str] = {
 # Commandes qui complètent avec des noms de commodités
 _COMMODITY_CMDS = {"trade", "info"}
 # Commandes qui complètent avec des noms de terminaux
-_TERMINAL_CMDS = {"go", "lieu", "route", "info", "nav"}
+_TERMINAL_CMDS = {"go", "lieu", "route", "info", "nav", "dest", "d"}
 
 
 class UEXCompleter(Completer):
@@ -654,27 +658,19 @@ class UEXCompleter(Completer):
                     yield _mk(loc)
 
     def _complete_info_query(self, text: str):
-        """Complétion pour la saisie libre — terminaux, commodités, vaisseaux."""
+        """Complétion pour la saisie libre — terminaux, commodités, vaisseaux.
+
+        Ordre de priorité :
+        1. Commodités dont le nom commence par la query (préfixe exact)
+        2. Terminaux dont le nom commence par la query (préfixe exact)
+        3. Terminaux fuzzy (via LocationIndex, limité à 4)
+        4. Commodités sous-chaîne
+        """
         text_norm = text.replace("_", " ")
         q         = text_norm.lower()
         start     = -len(text)
 
-        # ── Terminaux ─────────────────────────────────────────────────────
-        seen_t: set[str] = set()
-        if self.ctx.location_index:
-            for entry in self.ctx.location_index.search(text_norm, limit=8, types={"terminal"}):
-                slug = entry.name.replace(" ", "_")
-                if slug in seen_t:
-                    continue
-                seen_t.add(slug)
-                yield Completion(
-                    slug,
-                    start_position=start,
-                    display=entry.name,
-                    display_meta=f"terminal · {entry.full_path}",
-                )
-
-        # ── Commodités (préfixe d'abord, puis sous-chaîne) ────────────────
+        # ── 1. Commodités préfixe — priorité maximale ─────────────────────
         seen_c: set[str] = set()
         for c in (self.ctx.cache.commodities or []):
             if c.name.lower().startswith(q):
@@ -687,6 +683,40 @@ class UEXCompleter(Completer):
                         display=f"{c.name}  ({c.code})",
                         display_meta=c.kind or "commodité",
                     )
+
+        # ── 2. Terminaux dont le nom commence par la query ─────────────────
+        seen_t: set[str] = set()
+        for t in (self.ctx.cache.terminals or []):
+            if t.name.lower().startswith(q):
+                slug = t.name.replace(" ", "_")
+                if slug not in seen_t:
+                    seen_t.add(slug)
+                    yield Completion(
+                        slug,
+                        start_position=start,
+                        display=t.name,
+                        display_meta=f"terminal · {getattr(t, 'location', '')}",
+                    )
+
+        # ── 3. Terminaux fuzzy (LocationIndex) — limité à 4 ──────────────
+        if self.ctx.location_index:
+            count = 0
+            for entry in self.ctx.location_index.search(text_norm, limit=12, types={"terminal"}):
+                slug = entry.name.replace(" ", "_")
+                if slug in seen_t:
+                    continue
+                seen_t.add(slug)
+                yield Completion(
+                    slug,
+                    start_position=start,
+                    display=entry.name,
+                    display_meta=f"terminal · {entry.full_path}",
+                )
+                count += 1
+                if count >= 4:
+                    break
+
+        # ── 4. Commodités sous-chaîne ──────────────────────────────────────
         for c in (self.ctx.cache.commodities or []):
             slug = c.name.replace(" ", "_")
             if q in c.name.lower() and slug not in seen_c:

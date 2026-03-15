@@ -40,6 +40,8 @@ def cmd_nav(args: list[str], ctx) -> None:
         _save_graph(ctx)
     elif sub in ("raz", "reset", "reinitialiser", "réinitialiser"):
         _reset_graph(ctx)
+    elif sub in ("populate", "peupler", "remplir", "enrichir"):
+        _populate_graph(args[1:], ctx)
     else:
         print_error(f"Sous-commande inconnue : {sub}  (/help nav)")
 
@@ -668,6 +670,133 @@ def _show_candidates(query: str, graph) -> None:
             console.print(f"  [{C.LABEL}]{s}[/{C.LABEL}]")
     else:
         _show_nodes_hint(graph)
+
+
+def _populate_graph(args: list[str], ctx) -> None:
+    """Peuple le graphe de transport avec les distances depuis l'API UEX.
+
+    Interroge toutes les commodités achetables, extrait les paires
+    (origine, destination, distance) uniques et les injecte dans le graphe.
+    """
+    from uexinfo.api.uex_client import UEXClient, UEXError
+    from uexinfo.models.transport_network import EdgeType, LocationNode, NodeType
+
+    graph = ctx.cache.transport_graph
+    client = UEXClient(timeout=20)
+
+    # ── 1. Récupérer la liste des commodités ────────────────────────────────
+    section("Populate — distances depuis UEX Corp")
+    console.print(f"[{C.DIM}]Récupération des commodités...[/{C.DIM}]")
+    try:
+        commodities = client.get_commodities()
+    except UEXError as e:
+        print_error(f"UEX inaccessible : {e}")
+        return
+
+    buyable = [c for c in commodities if c.get("is_buyable") == 1]
+    console.print(
+        f"  [{C.NEUTRAL}]{len(buyable)} commodités achetables[/{C.NEUTRAL}]  "
+        f"[{C.DIM}]— {len(commodities)} total[/{C.DIM}]"
+    )
+    console.print()
+
+    # ── 2. Parcourir chaque commodité et collecter les routes ───────────────
+    seen_pairs: set[tuple[str, str]] = set()   # paires canoniques (trié)
+    nodes_added    = 0
+    routes_added   = 0
+    routes_updated = 0
+    errors         = 0
+    total          = len(buyable)
+
+    for i, commodity in enumerate(buyable, 1):
+        cid   = commodity.get("id")
+        cname = commodity.get("name", "?")
+
+        # Affichage de progression toutes les 5 commodités
+        if i == 1 or i % 5 == 0 or i == total:
+            console.print(
+                f"  [{C.DIM}][{i}/{total}][/{C.DIM}]  [{C.LABEL}]{cname}[/{C.LABEL}]"
+            )
+
+        try:
+            routes = client.get_routes(id_commodity=cid)
+        except UEXError:
+            errors += 1
+            continue
+
+        for r in routes:
+            # Noms de terminaux — UEX utilise terminal_name_origin / terminal_name_destination
+            origin = (
+                r.get("terminal_name_origin") or
+                r.get("origin_terminal_name") or ""
+            ).strip()
+            dest = (
+                r.get("terminal_name_destination") or
+                r.get("destination_terminal_name") or ""
+            ).strip()
+            dist = r.get("distance")
+
+            if not origin or not dest or dist is None:
+                continue
+
+            dist_f = max(float(dist), 0.001)   # éviter 0 exact (même station)
+
+            # Dédupliquer (la route A↔B est bidirectionnelle)
+            pair = tuple(sorted([origin, dest]))
+            already_known = pair in seen_pairs
+            seen_pairs.add(pair)
+
+            # Systèmes (pour créer les nœuds correctement)
+            sys_o = (r.get("star_system_name_origin") or "Unknown").strip()
+            sys_d = (r.get("star_system_name_destination") or "Unknown").strip()
+
+            # Créer les nœuds si absents (avec le bon système)
+            if origin not in graph.nodes:
+                graph.add_node(LocationNode(
+                    name=origin, type=NodeType.TERMINAL,
+                    system=sys_o,
+                    metadata={"source": "uex_populate"},
+                ))
+                nodes_added += 1
+            if dest not in graph.nodes:
+                graph.add_node(LocationNode(
+                    name=dest, type=NodeType.TERMINAL,
+                    system=sys_d,
+                    metadata={"source": "uex_populate"},
+                ))
+                nodes_added += 1
+
+            if already_known:
+                continue  # distance déjà enregistrée depuis une autre commodité
+
+            added = graph.add_or_update_route(
+                from_node=origin,
+                to_node=dest,
+                distance_gm=dist_f,
+                edge_type=EdgeType.QUANTUM,
+                source="uex",
+            )
+            if added:
+                routes_added += 1
+            else:
+                routes_updated += 1
+
+    # ── 3. Résumé ──────────────────────────────────────────────────────────
+    console.print()
+    print_ok(
+        f"{routes_added} routes ajoutées  ·  "
+        f"{nodes_added} nouveaux nœuds  ·  "
+        f"{len(seen_pairs)} paires de terminaux couvertes"
+    )
+    if routes_updated:
+        console.print(f"  [{C.DIM}]{routes_updated} routes existantes confirmées (inchangées)[/{C.DIM}]")
+    if errors:
+        console.print(f"  [{C.WARNING}]{errors} commodité(s) ignorée(s) (erreur réseau)[/{C.WARNING}]")
+    console.print()
+    console.print(
+        f"[{C.DIM}]Total nœuds dans le graphe : [bold]{len(graph.nodes)}[/bold]  ·  "
+        f"Utilisez [{C.LABEL}]/nav save[/{C.LABEL}] pour sauvegarder[/{C.DIM}]"
+    )
 
 
 def _show_nodes_hint(graph) -> None:
