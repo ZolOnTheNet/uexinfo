@@ -684,6 +684,14 @@ def _populate_graph(args: list[str], ctx) -> None:
     graph = ctx.cache.transport_graph
     client = UEXClient(timeout=20)
 
+    # ── 0. Index terminal → système depuis le cache statique ────────────────
+    # Plus fiable que les champs star_system_name_origin/destination de l'API
+    # qui sont souvent absents ou vides dans /commodities_routes.
+    _term_sys: dict[str, str] = {
+        t.name: (t.star_system_name or "Unknown")
+        for t in ctx.cache.terminals
+    }
+
     # ── 1. Récupérer la liste des commodités ────────────────────────────────
     section("Populate — distances depuis UEX Corp")
     console.print(f"[{C.DIM}]Récupération des commodités...[/{C.DIM}]")
@@ -746,9 +754,9 @@ def _populate_graph(args: list[str], ctx) -> None:
             already_known = pair in seen_pairs
             seen_pairs.add(pair)
 
-            # Systèmes (pour créer les nœuds correctement)
-            sys_o = (r.get("star_system_name_origin") or "Unknown").strip()
-            sys_d = (r.get("star_system_name_destination") or "Unknown").strip()
+            # Systèmes : cache statique en priorité (plus fiable que l'API routes)
+            sys_o = _term_sys.get(origin) or (r.get("star_system_name_origin") or "").strip() or "Unknown"
+            sys_d = _term_sys.get(dest)   or (r.get("star_system_name_destination") or "").strip() or "Unknown"
 
             # Créer les nœuds si absents (avec le bon système)
             if origin not in graph.nodes:
@@ -781,7 +789,16 @@ def _populate_graph(args: list[str], ctx) -> None:
             else:
                 routes_updated += 1
 
-    # ── 3. Résumé ──────────────────────────────────────────────────────────
+    # ── 3. Corriger les nœuds "Unknown" déjà présents dans le graphe ───────
+    fixed = 0
+    for node in graph.nodes.values():
+        if node.system == "Unknown":
+            sys_from_cache = _term_sys.get(node.name)
+            if sys_from_cache and sys_from_cache != "Unknown":
+                node.system = sys_from_cache
+                fixed += 1
+
+    # ── 4. Résumé ──────────────────────────────────────────────────────────
     console.print()
     print_ok(
         f"{routes_added} routes ajoutées  ·  "
@@ -790,6 +807,8 @@ def _populate_graph(args: list[str], ctx) -> None:
     )
     if routes_updated:
         console.print(f"  [{C.DIM}]{routes_updated} routes existantes confirmées (inchangées)[/{C.DIM}]")
+    if fixed:
+        console.print(f"  [{C.DIM}]{fixed} nœud(s) 'Unknown' corrigés depuis le cache[/{C.DIM}]")
     if errors:
         console.print(f"  [{C.WARNING}]{errors} commodité(s) ignorée(s) (erreur réseau)[/{C.WARNING}]")
     console.print()

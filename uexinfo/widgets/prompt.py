@@ -23,28 +23,102 @@ _A = "__arg__"   # argument libre
 _H = "__hint__"  # hint affiché
 
 _CMD_TREE: dict = {
+    # ── Généraux ─────────────────────────────────────────────────────────
     "help":    {},
+    "h":       {},
+    "exit":    {},
+    "quit":    {},
     "bye":     {},
-    "refresh": {},
-    "go":      {_A: "destination"},
-    "dest":    {_A: "destination"},
-    "select":  {_A: "terminal"},
-    "player":  {_A: "@lieu"},
+
+    # ── Navigation / position ─────────────────────────────────────────────
+    "go": {
+        "from":  {_A: "terminal d'origine"},
+        "to":    {_A: "terminal de destination"},
+        "clear": {},
+        _A: "destination",
+    },
+    "lieu": {
+        "from":  {_A: "terminal d'origine"},
+        "to":    {_A: "terminal de destination"},
+        "clear": {},
+        _A: "destination",
+    },
+    "dest": {
+        "clear":   {},
+        "effacer": {},
+        _A: "destination",
+    },
+    "arriver":  {},
+    "arrivé":   {},
+    "arrive":   {},
+    "arrived":  {},
+
+    # ── Sélection / filtres ───────────────────────────────────────────────
+    "select": {
+        "system":   {_A: "nom de système"},
+        "planet":   {_A: "nom de planète"},
+        "station":  {_A: "nom de station"},
+        "terminal": {_A: "nom de terminal"},
+        "city":     {_A: "nom de ville"},
+        "outpost":  {_A: "nom d'avant-poste"},
+        "add": {
+            "system":   {_A: "nom"},
+            "planet":   {_A: "nom"},
+            "station":  {_A: "nom"},
+            "terminal": {_A: "nom"},
+            "city":     {_A: "nom"},
+            "outpost":  {_A: "nom"},
+        },
+        "remove": {
+            "system":   {_A: "nom"},
+            "planet":   {_A: "nom"},
+            "station":  {_A: "nom"},
+            "terminal": {_A: "nom"},
+        },
+        "clear": {},
+    },
+
+    # ── Joueur ────────────────────────────────────────────────────────────
+    "player": {
+        "info": {},
+        "ship": {
+            "add":    {_A: "nom du vaisseau"},
+            "set":    {_A: "nom du vaisseau"},
+            "select": {_A: "nom du vaisseau"},
+            "scu":    {_A: "nom du vaisseau  scu"},
+            "remove": {_A: "nom du vaisseau"},
+        },
+        "dest": {_A: "destination"},
+        _A: "@lieu",
+    },
+
+    # ── Vaisseaux ─────────────────────────────────────────────────────────
     "ship": {
         "list":   {},
         "add":    {_A: "nom du vaisseau"},
         "remove": {_A: "nom du vaisseau"},
         "set":    {_A: "nom du vaisseau"},
+        "select": {_A: "nom du vaisseau"},
         "cargo":  {_A: "nom du vaisseau  scu"},
     },
-    "info":    {_A: "lieu / commodité"},
+
+    # ── Info / exploration ────────────────────────────────────────────────
+    "info": {
+        "terminal":  {_A: "nom de terminal"},
+        "commodity": {_A: "nom de commodité"},
+        "ship":      {_A: "nom de vaisseau"},
+        _A: "lieu / commodité / vaisseau",
+    },
     "explore": {_A: "chemin (ex: ship.crusader.cutlass_black)"},
+
+    # ── Configuration ─────────────────────────────────────────────────────
     "config": {
         "ship": {
             "list":   {},
             "add":    {_A: "nom du vaisseau"},
             "remove": {_A: "nom du vaisseau"},
             "set":    {_A: "nom du vaisseau"},
+            "select": {_A: "nom du vaisseau"},
             "cargo":  {_A: "nom du vaisseau  scu"},
         },
         "trade": {
@@ -64,30 +138,89 @@ _CMD_TREE: dict = {
         },
         "player": {},
     },
+
+    # ── Scan ──────────────────────────────────────────────────────────────
     "scan": {
         "list":       {},
         "ecran":      {},
+        "screen":     {},
         "screenshot": {_A: "chemin du fichier image"},
-        "log":        {_A: "chemin du fichier log (optionnel)"},
-        "status":     {},
-        "history":    {_A: "n (optionnel, défaut 5)"},
-        "debug":      {_A: "chemin du fichier image"},
-        _A:           "n (optionnel — scanner les n derniers screenshots)",
+        "log": {
+            "all":   {},
+            "reset": {},
+            "undo":  {},
+            _A: "chemin du fichier log (optionnel)",
+        },
+        "status":  {},
+        "history": {_A: "n (optionnel, défaut 5)"},
+        "debug":   {_A: "chemin du fichier image"},
+        _A: "n (optionnel — scanner les n derniers screenshots)",
     },
+
+    # ── Automatisations ───────────────────────────────────────────────────
+    "auto": {
+        "log":          {"on": {}, "off": {}},
+        "signal.scan":  {"on": {}, "off": {}},
+        "log.accept":   {"on": {}, "off": {}},
+    },
+    "undo": {},
+
+    # ── Historique ────────────────────────────────────────────────────────
     "history": {
         "list":  {_A: "n (optionnel, défaut 50)"},
         "stats": {},
         "clear": {},
     },
+
+    # ── Trading ───────────────────────────────────────────────────────────
     "trade": {
         "buy":     {_A: "commodité"},
         "sell":    {_A: "commodité"},
         "best":    {},
-        "compare": {},
+        "compare": {_A: "commodité"},
+        "from":    {_A: "terminal d'origine"},
+        "to":      {_A: "terminal de destination"},
+    },
+
+    # ── Routes / navigation ───────────────────────────────────────────────
+    "route": {
+        "from": {_A: "terminal de départ"},
+        "to":   {_A: "terminal d'arrivée"},
+    },
+    "plan": {
+        "new":      {},
+        "add":      {_A: "terminal"},
+        "remove":   {_A: "n"},
+        "optimize": {},
+        "clear":    {},
+        "show":     {},
     },
     "nav": {
-        "route": {_A: "départ  arrivée"},
-        "plan":  {},
+        "info":         {},
+        "noeuds":       {},
+        "nodes":        {},
+        "liaisons":     {},
+        "edges":        {},
+        "sauts":        {},
+        "jumps":        {},
+        "route":        {_A: "départ  arrivée"},
+        "add-route":    {_A: "terminal_a  terminal_b  distance"},
+        "add-jump":     {_A: "système_a  système_b"},
+        "remove-route": {_A: "terminal_a  terminal_b"},
+        "remove-jump":  {_A: "système_a  système_b"},
+        "sauvegarder":  {},
+        "save":         {},
+        "raz":          {},
+        "populate":     {},
+    },
+
+    # ── Rafraîchissement ──────────────────────────────────────────────────
+    "refresh": {
+        "all":     {},
+        "static":  {},
+        "prices":  {},
+        "sctrade": {},
+        "status":  {},
     },
 }
 

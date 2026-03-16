@@ -310,6 +310,12 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
             origin_terminal = t.name
             break
 
+    # Index terminal → système depuis le cache statique (pour éviter les "Unknown")
+    _term_sys: dict[str, str] = {
+        t.name: (t.star_system_name or "Unknown")
+        for t in ctx.cache.terminals
+    }
+
     dist_map: dict[str, float] = {}
     enriched_count = 0
 
@@ -317,26 +323,32 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
         dest = route.get("terminal_name_destination") or ""
         dist = route.get("distance")
         if dest and dist is not None:
-            dist_map[dest.lower()] = float(dist)
+            dist_gm = float(dist)          # l'API retourne déjà en Gm
+            dist_map[dest.lower()] = dist_gm
 
             # Enrichir le graphe de transport (opportuniste)
             if origin_terminal:
-                # Convertir distance en Gm (API UEX retourne en Mkm = mégamètres)
-                distance_gm = float(dist) / 1000.0
-
-                # Ajouter/mettre à jour la route dans le graphe
                 modified = ctx.cache.transport_graph.add_or_update_route(
                     from_node=origin_terminal,
                     to_node=dest,
-                    distance_gm=distance_gm,
+                    distance_gm=dist_gm,
                     edge_type=EdgeType.QUANTUM,
-                    duration_sec=0,  # Pas de durée fournie par l'API
+                    duration_sec=0,
                     source="uex",
-                    notes="Auto-enrichi via API /routes",
+                    notes="auto",
                     timestamp=time.time(),
                 )
                 if modified:
                     enriched_count += 1
+
+                # Corriger le système des nœuds auto-créés ("Unknown")
+                graph = ctx.cache.transport_graph
+                for node_name in (origin_terminal, dest):
+                    node = graph.nodes.get(node_name)
+                    if node and node.system == "Unknown":
+                        sys_fixed = _term_sys.get(node_name)
+                        if sys_fixed and sys_fixed != "Unknown":
+                            node.system = sys_fixed
 
     # Afficher un feedback discret si enrichissement
     if enriched_count > 0:
@@ -715,6 +727,117 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
     console.print(tbl)
 
 
+# ── Affichage site ─────────────────────────────────────────────────────────────
+
+_NON_SHOP_TYPES = frozenset({"commodity", "commodity_raw", "refinery", "fuel"})
+
+
+def _site_key(t: Terminal) -> str:
+    """Clé de site : space_station > city > orbit > name."""
+    return (t.space_station_name or t.city_name or t.orbit_name or t.name).strip()
+
+
+def _site_terminals(t: Terminal, ctx) -> list[Terminal]:
+    """Tous les terminaux appartenant au même site."""
+    key = _site_key(t).lower()
+    return [
+        x for x in ctx.cache.terminals
+        if (x.space_station_name or x.city_name or x.orbit_name or x.name).strip().lower() == key
+    ]
+
+
+def _svc_name(t: Terminal) -> str:
+    """Nom court du service : partie avant ' - ', sinon displayname/nickname/nom."""
+    if " - " in t.name:
+        return t.name.split(" - ", 1)[0].strip()
+    return (t.displayname or t.nickname or _loc(t.name)).strip()
+
+
+def _show_site_header(t: Terminal, ctx) -> None:
+    """Affiche services et groupes de terminaux du site (juste après le titre de section)."""
+    all_t = _site_terminals(t, ctx) or [t]
+
+    # ── Agrégats services ─────────────────────────────────────────────────
+    has_fret        = any(x.has_freight_elevator for x in all_t)
+    has_auto_load   = any(x.is_auto_load for x in all_t)
+    has_refuel      = any(x.is_refuel or x.type == "fuel" for x in all_t)
+    has_repair      = any(x.is_repair for x in all_t)
+    has_docking     = any(x.has_docking_port for x in all_t)
+    has_habitation  = any(x.is_habitation for x in all_t)
+    has_medical     = any(x.is_medical for x in all_t)
+    is_player_owned = any(x.is_player_owned for x in all_t)
+    faction         = next((x.faction_name for x in all_t if x.faction_name), "")
+
+    # ── Ligne icônes services ──────────────────────────────────────────────
+    icons: list[str] = []
+    if has_fret:       icons.append(f"[{C.UEX}]↑ fret[/{C.UEX}]")
+    if has_auto_load:  icons.append(f"[{C.UEX}]⟳ auto-load[/{C.UEX}]")
+    if has_refuel:     icons.append(f"[{C.UEX}]⛽ carburant[/{C.UEX}]")
+    if has_repair:     icons.append(f"[{C.UEX}]⚙ réparation[/{C.UEX}]")
+    if has_docking:    icons.append(f"[{C.UEX}]⚓ amarrage[/{C.UEX}]")
+    if has_habitation: icons.append(f"[{C.UEX}]⌂ habitation[/{C.UEX}]")
+    if has_medical:    icons.append(f"[{C.UEX}]✚ médical[/{C.UEX}]")
+
+    extra: list[str] = []
+    if faction:
+        extra.append(f"[{C.DIM}]{faction}[/{C.DIM}]")
+    if is_player_owned:
+        extra.append(f"[bold {C.LABEL}]⚑ joueur[/bold {C.LABEL}]")
+
+    line_parts = icons + extra
+    if line_parts:
+        console.print("  " + "  ·  ".join(line_parts))
+
+    # ── Groupes de terminaux ───────────────────────────────────────────────
+    magasins = sorted(
+        [x for x in all_t
+         if x.has_freight_elevator and not x.is_medical
+         and x.type not in _NON_SHOP_TYPES],
+        key=lambda x: x.name,
+    )
+    restaurants = sorted(
+        [x for x in all_t
+         if x.type == "item" and not x.has_freight_elevator and not x.is_medical],
+        key=lambda x: x.name,
+    )
+    services = sorted(
+        [x for x in all_t
+         if x.is_medical
+         or x.type in ("commodity", "commodity_raw")
+         or x.type == "refinery"
+         or x.is_refinery],
+        key=lambda x: x.name,
+    )
+
+    def _fmt_names(terminals: list[Terminal]) -> str:
+        names: list[str] = []
+        refinery_done = False
+        for x in terminals:
+            n = _svc_name(x)
+            if n.lower().startswith("refinery") or x.is_refinery or x.type == "refinery":
+                if not refinery_done:
+                    names.append("Raffinerie")
+                    refinery_done = True
+            else:
+                names.append(n)
+        return "  ·  ".join(names)
+
+    if magasins:
+        console.print(
+            f"  [{C.DIM}]Magasins[/{C.DIM}]     [{C.NEUTRAL}]{_fmt_names(magasins)}[/{C.NEUTRAL}]"
+        )
+    if restaurants:
+        console.print(
+            f"  [{C.DIM}]Restaurants[/{C.DIM}]  [{C.NEUTRAL}]{_fmt_names(restaurants)}[/{C.NEUTRAL}]"
+        )
+    if services:
+        console.print(
+            f"  [{C.DIM}]Services[/{C.DIM}]     [{C.DIM}]{_fmt_names(services)}[/{C.DIM}]"
+        )
+    if line_parts or magasins or restaurants or services:
+        console.print()
+
+
 # ── Affichage terminal ─────────────────────────────────────────────────────────
 
 def _show_terminal(t: Terminal, ctx) -> None:
@@ -726,6 +849,7 @@ def _show_terminal(t: Terminal, ctx) -> None:
         orbit=t.orbit_name,
     )
     section(f"Marché — {dot}")
+    _show_site_header(t, ctx)
 
     rows = _terminal_prices(t, ctx)
 
@@ -787,7 +911,7 @@ def _show_terminal(t: Terminal, ctx) -> None:
                         name_raw = f"[bold {C.NEUTRAL}]{name_raw}[/bold {C.NEUTRAL}]"
                     entries.append((name_raw, price_str))
                 console.print(_multi_col_table(
-                    entries, ("Commodité (SCU)", "Vente"), n_cols,
+                    entries, ("Marchandise (SCU)", "Vente"), n_cols,
                     f"italic {C.NEUTRAL}", f"italic {C.PROFIT}",
                 ))
             else:
@@ -802,7 +926,7 @@ def _show_terminal(t: Terminal, ctx) -> None:
                     date_str = f"  ·  màj {dt.strftime('%d %b %Y %H:%M')}"
                 except Exception:
                     pass
-            console.print(f"\n[italic {C.DIM}]{total} commodités{date_str}[/italic {C.DIM}]")
+            console.print(f"\n[italic {C.DIM}]{total} marchandises{date_str}[/italic {C.DIM}]")
 
 
 # ── Affichage commodité ────────────────────────────────────────────────────────

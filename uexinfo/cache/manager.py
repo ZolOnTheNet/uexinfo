@@ -223,6 +223,18 @@ class CacheManager:
             has_docking_port=int(d.get("has_docking_port") or 0),
             has_freight_elevator=int(d.get("has_freight_elevator") or 0),
             is_refinery=int(d.get("is_refinery") or 0),
+            is_auto_load=int(d.get("is_auto_load") or 0),
+            is_habitation=int(d.get("is_habitation") or 0),
+            is_medical=int(d.get("is_medical") or 0),
+            is_food=int(d.get("is_food") or 0),
+            is_repair=int(d.get("is_repair") or 0),
+            is_refuel=int(d.get("is_refuel") or 0),
+            is_cargo_center=int(d.get("is_cargo_center") or 0),
+            is_shop_vehicle=int(d.get("is_shop_vehicle") or 0),
+            faction_name=d.get("faction_name") or "",
+            company_name=d.get("company_name") or "",
+            displayname=d.get("displayname") or "",
+            nickname=d.get("nickname") or "",
         )
 
     @staticmethod

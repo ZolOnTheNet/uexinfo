@@ -96,14 +96,15 @@ def cmd_player(args: list[str], ctx) -> None:
             if len(args) < 3:
                 print_error("Usage : /player ship add <nom> [scu]")
                 return
-            name = args[2]
+            rest = args[2:]
             scu = 0
-            if len(args) >= 4:
+            if len(rest) >= 2:
                 try:
-                    scu = int(args[3])
+                    scu = int(rest[-1])
+                    rest = rest[:-1]
                 except ValueError:
-                    print_error("SCU doit être un entier")
-                    return
+                    pass
+            name = " ".join(rest).replace("_", " ")
             # Vérifier doublon
             if any(s.name.lower() == name.lower() for s in ctx.player.ships):
                 print_warn(f"Vaisseau déjà présent : {name}")
@@ -116,7 +117,7 @@ def cmd_player(args: list[str], ctx) -> None:
             if len(args) < 3:
                 print_error("Usage : /player ship set <nom>")
                 return
-            name = args[2]
+            name = " ".join(args[2:]).replace("_", " ")
             match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
             if match is None:
                 print_error(f"Vaisseau inconnu : {name}")
@@ -129,12 +130,12 @@ def cmd_player(args: list[str], ctx) -> None:
             if len(args) < 4:
                 print_error("Usage : /player ship scu <nom> <n>")
                 return
-            name = args[2]
             try:
-                scu = int(args[3])
+                scu = int(args[-1])
             except ValueError:
                 print_error("SCU doit être un entier")
                 return
+            name = " ".join(args[2:-1]).replace("_", " ")
             match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
             if match is None:
                 print_error(f"Vaisseau inconnu : {name}")
@@ -147,7 +148,7 @@ def cmd_player(args: list[str], ctx) -> None:
             if len(args) < 3:
                 print_error("Usage : /player ship remove <nom>")
                 return
-            name = args[2]
+            name = " ".join(args[2:]).replace("_", " ")
             before = len(ctx.player.ships)
             ctx.player.ships = [s for s in ctx.player.ships if s.name.lower() != name.lower()]
             if len(ctx.player.ships) == before:

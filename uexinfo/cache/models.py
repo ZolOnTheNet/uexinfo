@@ -39,6 +39,20 @@ class Terminal:
     has_docking_port: int = 0
     has_freight_elevator: int = 0
     is_refinery: int = 0
+    # Champs service (parsés depuis l'API)
+    is_auto_load: int = 0
+    is_habitation: int = 0
+    is_medical: int = 0
+    is_food: int = 0
+    is_repair: int = 0
+    is_refuel: int = 0
+    is_cargo_center: int = 0
+    is_shop_vehicle: int = 0
+    # Métadonnées de site
+    faction_name: str = ""
+    company_name: str = ""
+    displayname: str = ""
+    nickname: str = ""
 
     @property
     def location(self) -> str:
