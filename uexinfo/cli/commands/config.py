@@ -49,7 +49,7 @@ def _show(cfg: dict, ctx=None) -> None:
         for s in p.ships:
             scu_str = str(s.scu) if s.scu else "?"
             marker  = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == active else ""
-            console.print(f"    [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} SCU[/{C.DIM}]{marker}")
+            console.print(f"    [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} {C.SCU}[/{C.DIM}]{marker}")
         console.print(f"  [bold]Position :[/bold]    [{C.UEX}]{p.location or '(non définie)'}[/{C.UEX}]")
         console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{p.destination or '(non définie)'}[/{C.UEX}]")
     else:
@@ -114,7 +114,7 @@ def _ship(args: list[str], ctx) -> None:
             marker   = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == ctx.player.active_ship else ""
             grid     = s.cargo_config or ctx.cargo_grid_manager.get_grid(s.name) or {}
             grid_str = f"  [{C.LABEL}]{format_cargo_config(grid)}[/{C.LABEL}]" if grid else ""
-            console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} SCU[/{C.DIM}]{grid_str}{marker}")
+            console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} {C.SCU}[/{C.DIM}]{grid_str}{marker}")
         return
 
     sub  = args[0].lower()
@@ -144,7 +144,7 @@ def _ship(args: list[str], ctx) -> None:
                     for v in suggestions[:5]:
                         console.print(
                             f"  [{C.UEX}]{v.name_full}[/{C.UEX}]  "
-                            f"[{C.DIM}]{v.scu} SCU · {v.pad_type}[/{C.DIM}]"
+                            f"[{C.DIM}]{v.scu} {C.SCU} · {v.pad_type}[/{C.DIM}]"
                         )
                     console.print(f"[{C.DIM}]Utilisez /explore ship pour voir tous les vaisseaux[/{C.DIM}]")
             return
@@ -159,7 +159,7 @@ def _ship(args: list[str], ctx) -> None:
             ctx.player.ships.append(Ship(name=canon, scu=scu))
             if not ctx.player.active_ship:
                 ctx.player.active_ship = canon
-            info = f"  [{C.DIM}]{vehicle.scu} SCU · pad {vehicle.pad_type}[/{C.DIM}]" if vehicle else ""
+            info = f"  [{C.DIM}]{vehicle.scu} {C.SCU} · pad {vehicle.pad_type}[/{C.DIM}]" if vehicle else ""
             if not vehicle:
                 info = f"  [{C.WARNING}]vaisseau non trouvé dans le cache — SCU à configurer manuellement[/{C.WARNING}]"
             print_ok(f"Vaisseau ajouté : {canon}{info}")
@@ -279,7 +279,7 @@ def _ship(args: list[str], ctx) -> None:
 
                 console.print(f"[bold]Modèle : {name}[/bold]")
                 total_scu = calculate_total_scu(grid)
-                console.print(f"  Capacité totale : [{C.UEX}]{total_scu} SCU[/{C.UEX}]")
+                console.print(f"  Capacité totale : [{C.UEX}]{total_scu} {C.SCU}[/{C.UEX}]")
                 if grid:
                     console.print(f"  Configuration : [{C.LABEL}]{format_cargo_config(grid)}[/{C.LABEL}]")
                 else:
@@ -318,7 +318,7 @@ def _ship(args: list[str], ctx) -> None:
             ctx.cargo_grid_manager.set_grid(name, cargo_specs)
             total_scu = calculate_total_scu(cargo_specs)
             console.print(f"[bold]Modèle modifié : {name}[/bold]")
-            console.print(f"  Capacité : [{C.UEX}]{total_scu} SCU[/{C.UEX}]")
+            console.print(f"  Capacité : [{C.UEX}]{total_scu} {C.SCU}[/{C.UEX}]")
             console.print(f"  Configuration : [{C.LABEL}]{format_cargo_config(cargo_specs)}[/{C.LABEL}]")
             print_ok("Modèle sauvegardé dans le fichier d'extension")
             return
@@ -337,7 +337,7 @@ def _ship(args: list[str], ctx) -> None:
         # Si pas d'args : afficher la config du vaisseau
         if not remaining_args:
             console.print(f"[bold]{match.name}[/bold]  [{C.DIM}](votre vaisseau)[/{C.DIM}]")
-            console.print(f"  Capacité totale : [{C.UEX}]{match.scu or '?'} SCU[/{C.UEX}]")
+            console.print(f"  Capacité totale : [{C.UEX}]{match.scu or '?'} {C.SCU}[/{C.UEX}]")
             if match.cargo_config:
                 console.print(f"  Configuration : [{C.LABEL}]{format_cargo_config(match.cargo_config)}[/{C.LABEL}]")
             else:
@@ -346,7 +346,7 @@ def _ship(args: list[str], ctx) -> None:
                 grid = ctx.cargo_grid_manager.get_grid(match.name)
                 if grid:
                     total = calculate_total_scu(grid)
-                    console.print(f"  [{C.DIM}]Modèle disponible : {format_cargo_config(grid)} = {total} SCU[/{C.DIM}]")
+                    console.print(f"  [{C.DIM}]Modèle disponible : {format_cargo_config(grid)} = {total} {C.SCU}[/{C.DIM}]")
             return
 
         # Sinon : modifier le vaisseau
@@ -384,11 +384,11 @@ def _ship(args: list[str], ctx) -> None:
 
         # Affichage de confirmation
         console.print(f"[bold]{match.name}[/bold]  [{C.DIM}](votre vaisseau)[/{C.DIM}]")
-        console.print(f"  Capacité : [{C.UEX}]{match.scu} SCU[/{C.UEX}]")
+        console.print(f"  Capacité : [{C.UEX}]{match.scu} {C.SCU}[/{C.UEX}]")
         if match.cargo_config:
             config_str = format_cargo_config(match.cargo_config)
             calculated = calculate_total_scu(match.cargo_config)
-            console.print(f"  Configuration : [{C.LABEL}]{config_str}[/{C.LABEL}]  [{C.DIM}]({calculated} SCU)[/{C.DIM}]")
+            console.print(f"  Configuration : [{C.LABEL}]{config_str}[/{C.LABEL}]  [{C.DIM}]({calculated} {C.SCU})[/{C.DIM}]")
         print_ok("Configuration cargo mise à jour")
 
     else:
@@ -536,7 +536,7 @@ def _player_config(args: list[str], ctx) -> None:
     ships = player.get("ships", [])
     if ships:
         ship_list = ", ".join(
-            f"{s['name']} ({s['scu']} SCU)" if s.get("scu") else s["name"]
+            f"{s['name']} ({s['scu']} {C.SCU})" if s.get("scu") else s["name"]
             for s in ships
         )
         console.print(f"  [bold]ships :[/bold]       {ship_list}")

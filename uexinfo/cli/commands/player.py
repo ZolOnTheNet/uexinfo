@@ -27,7 +27,7 @@ def _show_info(ctx) -> None:
 
     if p.ships:
         ship_list = ", ".join(
-            f"{s.name} ({s.scu} SCU)" if s.scu else s.name
+            f"{s.name} ({s.scu} {C.SCU})" if s.scu else s.name
             for s in p.ships
         )
         t.add_row("[bold]Vaisseaux[/bold]", ship_list)
@@ -86,7 +86,7 @@ def cmd_player(args: list[str], ctx) -> None:
                 return
             for s in ctx.player.ships:
                 marker = "[bold cyan]*[/bold cyan] " if s.name == ctx.player.active_ship else "  "
-                scu_str = f"  [{C.DIM}]{s.scu} SCU[/{C.DIM}]" if s.scu else ""
+                scu_str = f"  [{C.DIM}]{s.scu} {C.SCU}[/{C.DIM}]" if s.scu else ""
                 console.print(f"{marker}[{C.LABEL}]{s.name}[/{C.LABEL}]{scu_str}")
             return
 

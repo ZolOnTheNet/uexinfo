@@ -24,7 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 playwright = ["playwright>=1.40"]
-overlay = ["pywebview>=5.0", "pynput>=1.7", "textual-web>=0.7.0"]
+overlay = ["pywebview>=5.0", "pynput>=1.7", "websockets>=12.0"]
 
 [project.scripts]
 uexinfo     = "uexinfo.__main__:main"   # Entrée unifiée : REPL par défaut, --tui pour le TUI

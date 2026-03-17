@@ -25,7 +25,7 @@ from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.widgets import Footer, RichLog, Input
+from textual.widgets import Footer, Input, Static
 
 import uexinfo.config.settings as settings
 import uexinfo.cli.history as _history_mod
@@ -35,6 +35,7 @@ from uexinfo.cli.main import AppContext
 from uexinfo.cli.runner import run_command
 from uexinfo.location.index import LocationIndex
 from uexinfo.models.player import Player
+from uexinfo.widgets.output import OutputView
 from uexinfo.widgets.status_bar import StatusBar
 from uexinfo.widgets.completion_list import CompletionList
 from uexinfo.widgets.prompt import PromptWidget
@@ -81,19 +82,11 @@ class UexInfoApp(App):
     def __init__(self) -> None:
         super().__init__()
         self.ctx: AppContext | None = None
-        self._log_plain: list[str] = []        # historique texte brut pour Ctrl+Y
-        self._display_lines: list[str] = []    # lignes visibles pour clic-mots
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
     def compose(self) -> ComposeResult:
-        yield RichLog(
-            id="output",
-            highlight=True,
-            markup=True,
-            wrap=True,
-            auto_scroll=True,
-        )
+        yield OutputView(id="output")
         yield CompletionList(id="completion-list")
         yield PromptWidget()
         yield StatusBar(id="status-bar")
@@ -108,7 +101,7 @@ class UexInfoApp(App):
         _fmt_mod.console._width = max(40, event.size.width - 2)
 
     def _init_context(self) -> None:
-        rl = self.query_one(RichLog)
+        out = self.query_one(OutputView)
         _fmt_mod.console._width = max(40, self.size.width - 2)
 
         cfg = settings.load()
@@ -118,7 +111,7 @@ class UexInfoApp(App):
         try:
             cache.load()
         except Exception as e:
-            rl.write(Text.from_markup(f"[yellow]⚠  Cache indisponible : {e}[/yellow]"))
+            out.write_markup(f"[yellow]⚠  Cache indisponible : {e}[/yellow]")
 
         self.ctx = AppContext(cfg=cfg, cache=cache)
         self.ctx.location_index = LocationIndex(cache)
@@ -141,36 +134,26 @@ class UexInfoApp(App):
                 settings.save(cfg)
 
         # Bannière
-        _banner = [
-            f"UEXInfo v{__version__}  —  Star Citizen Trade CLI",
-            "/help · saisie libre = /info · @lieu = se positionner + info",
-            "Complétion : → ou Tab (inline) · Ctrl+↓ (liste) · ↑↓ = historique",
-            "Copier : Ctrl+Y = tout copier · Shift+clic-glisser = sélection native",
-            "Clic gauche sur un mot = /info · Clic droit = menu contextuel",
-            "",
-        ]
-        rl.write(Text.from_markup(
+        out.write_markup(
             f"[bold cyan]UEXInfo[/bold cyan] [dim]v{__version__}[/dim]"
             "  —  Star Citizen Trade CLI"
-        ))
-        rl.write(Text.from_markup(
+        )
+        out.write_markup(
             "[dim]  /help · saisie libre = /info · @lieu = se positionner + info[/dim]"
-        ))
-        rl.write(Text.from_markup(
+        )
+        out.write_markup(
             "[dim]  Complétion : [bold]→[/bold] ou [bold]Tab[/bold] (inline)"
             " · [bold]Ctrl+↓[/bold] (liste)"
             " · [bold]↑↓[/bold] = historique[/dim]"
-        ))
-        rl.write(Text.from_markup(
+        )
+        out.write_markup(
             "[dim]  Copier : [bold]Ctrl+Y[/bold] = tout copier dans le presse-papiers"
             " · [bold]Shift+clic-glisser[/bold] = sélection native dans le terminal[/dim]"
-        ))
-        rl.write(Text.from_markup(
+        )
+        out.write_markup(
             "[dim]  Clic [bold]gauche[/bold] sur un mot = /info"
             " · Clic [bold]droit[/bold] = menu contextuel[/dim]"
-        ))
-        rl.write("")
-        self._display_lines.extend(_banner)
+        )
 
         # Mettre à jour la StatusBar
         self.query_one(StatusBar).refresh_status(self.ctx)
@@ -199,24 +182,21 @@ class UexInfoApp(App):
         self.query_one(PromptWidget).accept_completion(event.value)
 
     def on_click(self, event) -> None:
-        """Clic sur le RichLog → mot interactif ; ailleurs → focus input."""
+        """Clic sur l'OutputView → mot interactif ; ailleurs → focus input."""
         target = event.widget
 
-        if isinstance(target, RichLog):
+        if isinstance(target, (OutputView, Static)):
             # Fermer tout menu ouvert
             for m in self.query(WordMenu):
                 m.remove()
 
-            word = self._word_at_click(target, event)
+            word = self._word_at_click(event)
 
             if event.button == 3 and word:
-                # Clic droit → menu contextuel
                 self._show_word_menu(word, event.screen_x, event.screen_y)
                 return
             if event.button == 1 and word:
-                # Clic gauche → lancer /info directement
                 self._run_command(f"/info {word}")
-            # Dans tous les cas on refocalise l'input
             self.query_one("#prompt-input").focus()
             return
 
@@ -228,20 +208,18 @@ class UexInfoApp(App):
             m.remove()
         self.query_one("#prompt-input").focus()
 
-    def _word_at_click(self, rl: RichLog, event) -> str:
-        """Extrait le mot textuel sous le curseur dans le RichLog."""
-        # RichLog padding: 0 1 → décalage horizontal de 1
+    def _word_at_click(self, event) -> str:
+        """Extrait le mot textuel sous le curseur depuis le line_index de l'OutputView."""
+        out = self.query_one(OutputView)
         col = max(0, event.x - 1)
-        # scroll_y = lignes défilées ; event.y = position visible dans le widget
-        line_idx = int(rl.scroll_y) + event.y
+        line_idx = int(out.scroll_y) + event.y
 
-        # Chercher d'abord la ligne exacte, puis ±1 et ±2 pour les petits décalages
-        # résiduels (wrap, blank lines internes non comptées, etc.)
         for delta in (0, 1, -1, 2, -2):
             idx = line_idx + delta
-            if not (0 <= idx < len(self._display_lines)):
+            lines = out.line_index
+            if not (0 <= idx < len(lines)):
                 continue
-            line = self._display_lines[idx]
+            line = lines[idx]
             for m in _RE_CLICK_WORD.finditer(line):
                 if m.start() <= col <= m.end():
                     word = m.group()
@@ -270,11 +248,11 @@ class UexInfoApp(App):
 
     @work(thread=True, exclusive=True)
     def _run_command(self, line: str) -> None:
-        """Exécuter une commande dans un thread, capturer la sortie Rich → RichLog."""
+        """Exécuter une commande dans un thread, capturer la sortie Rich → OutputView."""
         if self.ctx is None:
             return
 
-        rl = self.query_one(RichLog)
+        out = self.query_one(OutputView)
         prompt = self.query_one(PromptWidget)
         _fmt_mod.console._width = max(40, self.size.width - 2)
 
@@ -284,10 +262,9 @@ class UexInfoApp(App):
 
         # Echo de la saisie
         self.call_from_thread(
-            rl.write,
+            out.write_rich,
             Text.from_markup(f"[dim cyan]›[/dim cyan] [bold]{line}[/bold]"),
         )
-        self._display_lines.append(f"› {line}")
 
         # Démarrer le spinner
         self.call_from_thread(prompt.start_spinner)
@@ -332,10 +309,10 @@ class UexInfoApp(App):
                         )
         except Exception as e:
             self.call_from_thread(prompt.stop_spinner)
-            self._flush_output(rl)
+            self._flush_output(out)
             self.call_from_thread(
-                rl.write,
-                Text.from_markup(f"[red]✗ Erreur : {e}[/red]"),
+                out.write_markup,
+                f"[red]✗ Erreur : {e}[/red]",
             )
             return
 
@@ -346,10 +323,10 @@ class UexInfoApp(App):
                 self.query_one(StatusBar).refresh_status, self.ctx
             )
 
-        self._flush_output(rl)
+        self._flush_output(out)
 
-    def _flush_output(self, rl: RichLog) -> None:
-        """Récupérer la sortie du buffer StringIO et l'injecter dans le RichLog."""
+    def _flush_output(self, out: OutputView) -> None:
+        """Récupérer la sortie du buffer StringIO et l'injecter dans l'OutputView."""
         output = _output_buf.getvalue()
         _output_buf.truncate(0)
         _output_buf.seek(0)
@@ -359,39 +336,18 @@ class UexInfoApp(App):
 
         # Nettoyer les \r résiduels (Windows)
         output = output.replace("\r\n", "\n").replace("\r", "\n").rstrip()
-
-        # Supprimer les codes ANSI pour obtenir le texte brut
-        plain_raw = _re.sub(r"\x1b\[[0-9;]*m", "", output)
-
-        # Compter les lignes vides de tête (ex: section() fait console.print(f"\n{titre}"))
-        # Ces lignes vides sont visibles dans le RichLog mais perdues par .strip()
-        leading_blanks = len(plain_raw) - len(plain_raw.lstrip("\n"))
-
-        plain = plain_raw.strip()
-        if plain:
-            self._log_plain.append(plain)
-            # Réinjecter les lignes vides de tête pour aligner les indices
-            self._display_lines.extend([""] * leading_blanks)
-            self._display_lines.extend(plain.splitlines())
-
-        try:
-            rendered = Text.from_ansi(output)
-            self.call_from_thread(rl.write, rendered)
-        except Exception:
-            if plain:
-                self.call_from_thread(rl.write, plain)
+        self.call_from_thread(out.write_ansi, output)
 
     # ── Actions ───────────────────────────────────────────────────────────────
 
     def action_clear_output(self) -> None:
-        self.query_one(RichLog).clear()
-        self._log_plain.clear()
-        self._display_lines.clear()
+        self.query_one(OutputView).clear()
 
     def action_copy_to_clipboard(self) -> None:
         """Ctrl+Y — copie tout le contenu affiché dans le presse-papiers."""
         import subprocess
-        text = "\n\n".join(self._log_plain)
+        out = self.query_one(OutputView)
+        text = out.plain_text
         if not text:
             return
         try:
@@ -401,20 +357,22 @@ class UexInfoApp(App):
                 check=False,
                 shell=True,
             )
-            rl = self.query_one(RichLog)
-            rl.write(Text.from_markup("[dim green]✓  Copié dans le presse-papiers[/dim green]"))
+            out.write_markup("[dim green]✓  Copié dans le presse-papiers[/dim green]")
         except Exception:
             pass
+
+    def on_status_bar_command_request(self, event: StatusBar.CommandRequest) -> None:
+        """Commandes déclenchées par les boutons de la StatusBar."""
+        self._run_command(event.command)
 
     def action_show_help(self) -> None:
         self._run_command("/help")
 
     def _do_exit(self) -> None:
-        rl = self.query_one(RichLog)
         if self.ctx and self.ctx.cache.transport_graph.has_unsaved_changes:
             try:
                 self.ctx.cache.save_transport_graph()
-                rl.write(Text.from_markup("[green]✓  Graphe sauvegardé[/green]"))
+                self.query_one(OutputView).write_markup("[green]✓  Graphe sauvegardé[/green]")
             except Exception:
                 pass
         self.exit()

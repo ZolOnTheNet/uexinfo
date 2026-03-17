@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>UEXInfo</title>
+<style>
+/* ── Variables ────────────────────────────────────────────────────────── */
+:root {
+  --alpha:     0.76;
+  --bg:        rgba(10, 12, 18, var(--alpha));
+  --bg-input:  rgba(8,  10, 16, calc(var(--alpha) + 0.10));
+  --bg-status: rgba(6,   8, 14, calc(var(--alpha) + 0.08));
+  --accent:    #00bcd4;
+  --text:      #dde1e7;
+  --dim:       #556;
+  --yellow:    #ffd600;
+  --green:     #4caf50;
+  --red:       #ef5350;
+  --border:    rgba(0, 188, 212, 0.20);
+  --font:      "Cascadia Code", "Fira Code", "Consolas", monospace;
+  --font-size: 13px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: rgba(10, 12, 18, var(--alpha));  /* fallback si PyWebView perd la transparence */
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--font-size);
+  width: 100vw;
+  height: 100vh;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Zone de sortie ────────────────────────────────────────────────────── */
+#output {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 10px 4px;
+  line-height: 1.45;
+  background: var(--bg);
+  word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#output .line { white-space: pre-wrap; min-height: 1em; }
+#output .echo { opacity: 0.55; }
+#output .echo::before { content: "› "; color: var(--accent); opacity: 1; }
+
+/* Mots cliquables (injectés par JS après Phase B) */
+.cw {
+  text-decoration: underline;
+  text-decoration-color: rgba(0,188,212,0.3);
+  cursor: pointer;
+}
+.cw:hover { text-decoration-color: var(--accent); color: var(--accent); }
+
+/* scrollbar */
+#output::-webkit-scrollbar       { width: 4px; }
+#output::-webkit-scrollbar-track { background: transparent; }
+#output::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+/* ── Zone de saisie ────────────────────────────────────────────────────── */
+#prompt-area {
+  background: var(--bg-input);
+  border-top: 1px solid var(--border);
+  position: relative;
+  flex-shrink: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+#hint-line {
+  padding: 1px 12px 0;
+  color: var(--dim);
+  font-size: 0.82em;
+  min-height: 1.1em;
+  user-select: none;
+}
+
+#input-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px 5px;
+}
+#prompt-sym {
+  color: var(--accent);
+  font-weight: bold;
+  margin-right: 7px;
+  user-select: none;
+  transition: opacity 0.15s;
+}
+#prompt-sym.spin { color: var(--yellow); }
+#cmd-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--font-size);
+  outline: none;
+  caret-color: var(--accent);
+}
+
+/* ── Dropdown completion ───────────────────────────────────────────────── */
+#completion-list {
+  position: absolute;
+  bottom: 100%;
+  left: 0; right: 0;
+  background: rgba(12, 15, 22, 0.97);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 100;
+}
+#completion-list .ci {
+  padding: 3px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  gap: 10px;
+}
+#completion-list .ci .cv { color: var(--accent); }
+#completion-list .ci .ch { color: var(--dim); font-size: 0.88em; flex: 1; }
+#completion-list .ci.sel { background: rgba(0,188,212,0.15); }
+#completion-list .ci:hover { background: rgba(255,255,255,0.06); }
+#completion-list::-webkit-scrollbar { width: 3px; }
+#completion-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+
+/* ── Barre de statut ───────────────────────────────────────────────────── */
+#status-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  background: var(--bg-status);
+  border-top: 1px solid rgba(255,255,255,0.04);
+  padding: 1px 8px 2px;
+  gap: 2px;
+  font-size: 0.82em;
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+  user-select: none;
+}
+.sb { padding: 1px 4px; border-radius: 2px; flex-shrink: 0; }
+.sb.shrink { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sb.click { cursor: pointer; }
+.sb.click:hover { background: rgba(255,255,255,0.08); }
+.sb-pos, .sb-ship { color: var(--accent); }
+.sb-sep { color: rgba(255,255,255,0.18); padding: 0 2px; flex-shrink: 0; }
+.sb-spacer { flex: 1; min-width: 4px; }
+.sb-flag { padding: 1px 5px; border-radius: 2px; cursor: default; flex-shrink: 0; }
+.sb-flag.off { color: var(--dim); }
+.sb-flag.on  { color: var(--yellow); font-weight: bold; cursor: pointer; }
+.sb-flag.blink { opacity: 0.25; }
+.sb-btn { color: var(--text); cursor: pointer; padding: 1px 5px; border-radius: 2px; flex-shrink: 0; }
+.sb-btn:hover { background: rgba(255,255,255,0.10); }
+.sb-alpha-lbl { color: var(--dim); font-size: 0.88em; flex-shrink: 0; padding: 0 2px; }
+
+/* ── Barre de titre (mode frameless) ───────────────────────────────────── */
+#titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(6, 8, 14, 0.40);
+  border-bottom: 1px solid var(--border);
+  padding: 2px 8px;
+  flex-shrink: 0;
+  cursor: move;
+  user-select: none;
+}
+#titlebar .tb-title { color: var(--dim); font-size: 0.80em; pointer-events: none; }
+#titlebar .tb-close {
+  color: var(--dim);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 13px;
+  opacity: 0.5;
+}
+#titlebar .tb-close:hover { color: var(--red); opacity: 1; }
+
+/* ── Poignée de redimensionnement ─────────────────────────────────────── */
+#resize-grip {
+  position: fixed;
+  bottom: 0; right: 0;
+  width: 14px; height: 14px;
+  cursor: nw-resize;
+  z-index: 700;
+  opacity: 0.30;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 14px;
+  text-align: right;
+  padding-right: 1px;
+  user-select: none;
+}
+#resize-grip:hover { opacity: 0.75; color: var(--accent); }
+
+/* ── Ship selector popup ───────────────────────────────────────────────── */
+#ship-menu {
+  position: fixed;
+  background: rgba(12, 15, 22, 0.97);
+  border: 1px solid var(--border);
+  padding: 3px 0;
+  z-index: 600;
+  min-width: 160px;
+  display: none;
+}
+#ship-menu .si { padding: 5px 14px; cursor: pointer; white-space: nowrap; font-size: 0.85em; }
+#ship-menu .si:hover { background: rgba(0,188,212,0.14); }
+#ship-menu .si.active { color: var(--accent); font-weight: bold; }
+
+/* ── Menu contextuel ───────────────────────────────────────────────────── */
+#ctx-menu {
+  position: fixed;
+  background: rgba(12, 15, 22, 0.97);
+  border: 1px solid var(--border);
+  padding: 3px 0;
+  z-index: 500;
+  min-width: 160px;
+  display: none;
+}
+#ctx-menu .mi    { padding: 5px 14px; cursor: pointer; white-space: nowrap; }
+#ctx-menu .mi:hover { background: rgba(0,188,212,0.14); }
+#ctx-menu .ms    { border-top: 1px solid rgba(255,255,255,0.07); margin: 3px 0; }
+#ctx-menu .mw    { color: var(--accent); font-size: 0.85em; padding: 2px 14px 4px; opacity: 0.7; }
+</style>
+</head>
+<body>
+
+<div id="titlebar">
+  <span class="tb-title">UEXInfo</span>
+  <span class="tb-close" title="Fermer (ou /quit)" onclick="sendCmd('/quit')">✕</span>
+</div>
+<div id="output"></div>
+
+<div id="prompt-area">
+  <div id="completion-list" style="display:none"></div>
+  <div id="hint-line"></div>
+  <div id="input-row">
+    <span id="prompt-sym">›</span>
+    <input id="cmd-input" type="text" autocomplete="off" spellcheck="false"
+           placeholder="commande ou /help…">
+  </div>
+</div>
+
+<div id="status-bar">
+  <span id="sb-pos"   class="sb sb-pos click shrink" title="Cliquer pour changer la position">POS: —</span>
+  <span id="sb-arrow" class="sb sb-sep click"        title="Aller à la destination (◄)"> · </span>
+  <span id="sb-swap"    class="sb sb-sep click"      title="Inverser origine et destination"> </span>
+  <span id="sb-go-here" class="sb sb-sep click"      title="Fixer la destination au lieu actuel (►)"> </span>
+  <span id="sb-dest"  class="sb click shrink"        title="Cliquer pour changer la destination">DEST: —</span>
+  <span class="sb-sep"> │ </span>
+  <span id="sb-ship"  class="sb sb-ship click"  title="Changer de vaisseau">V: —</span>
+  <span class="sb-sep"> │ </span>
+  <span id="sb-trade" class="sb-btn" onclick="sendCmd('/trade')" title="Lancer /trade">Trade</span>
+  <span class="sb-sep"> │ </span>
+  <span id="sb-scan-sc"  class="sb-flag off" title="Scan SC détecté — cliquer pour analyser">ScanSC</span>
+  <span class="sb-sep"> </span>
+  <span id="sb-scan-log" class="sb-flag off" title="Scan log détecté — cliquer pour analyser">ScanLog</span>
+  <span class="sb-spacer"></span>
+  <span class="sb-alpha-lbl">opacité</span>
+  <span id="sb-alpha-minus" class="sb-btn" title="Moins opaque (−5%)">−</span>
+  <span id="sb-alpha-plus"  class="sb-btn" title="Plus opaque (+5%)">+</span>
+  <span class="sb-sep"> │ </span>
+  <span id="sb-config" class="sb-btn" onclick="sendCmd('/config')" title="Configuration">⚙</span>
+  <span class="sb-sep"> </span>
+  <span id="sb-help"   class="sb-btn" onclick="sendCmd('/help')"   title="Aide">?</span>
+</div>
+
+<div id="resize-grip">◢</div>
+<div id="ship-menu"></div>
+<div id="ctx-menu"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANSI → HTML parser (couvre les codes émis par Rich)
+// ═══════════════════════════════════════════════════════════════════════════════
+const ANSI = (() => {
+  const BFG = {
+    30:'#555',31:'#e06c75',32:'#98c379',33:'#e5c07b',
+    34:'#61afef',35:'#c678dd',36:'#56b6c2',37:'#abb2bf',
+    90:'#5c6370',91:'#ff7b89',92:'#b8f0b8',93:'#fffb8f',
+    94:'#88c0f0',95:'#d9a3f0',96:'#0ff',97:'#fff',
+  };
+
+  function c256(n) {
+    if (n < 16) {
+      const t = ['#000','#800','#080','#880','#008','#808','#088','#aaa',
+                 '#555','#f55','#5f5','#ff5','#55f','#f5f','#5ff','#fff'];
+      return t[n] || '#888';
+    }
+    if (n >= 232) { const v = 8 + (n-232)*10; return `rgb(${v},${v},${v})`; }
+    n -= 16;
+    const b=n%6, g=Math.floor(n/6)%6, r=Math.floor(n/36);
+    const ci = x => x ? 55+x*40 : 0;
+    return `rgb(${ci(r)},${ci(g)},${ci(b)})`;
+  }
+
+  function toHtml(raw) {
+    const re = /\x1b\[([0-9;]*)([mKJH])/g;
+    let st = {b:false,d:false,i:false,u:false,fg:null,bg:null};
+    const segs = [];
+    let last = 0, m;
+
+    function style() {
+      const s=[];
+      if (st.fg) s.push(`color:${st.fg}`);
+      if (st.bg) s.push(`background:${st.bg}`);
+      if (st.b && !st.d) s.push('font-weight:bold');
+      if (st.d) s.push('opacity:0.50');
+      if (st.i) s.push('font-style:italic');
+      if (st.u) s.push('text-decoration:underline');
+      return s.join(';');
+    }
+
+    while ((m = re.exec(raw)) !== null) {
+      if (m.index > last) segs.push({s:style(), t:raw.slice(last, m.index)});
+      last = m.index + m[0].length;
+      if (m[2] !== 'm') continue;
+      const codes = m[1] ? m[1].split(';').map(Number) : [0];
+      let ci = 0;
+      while (ci < codes.length) {
+        const c = codes[ci++];
+        if      (c===0)  { st={b:false,d:false,i:false,u:false,fg:null,bg:null}; }
+        else if (c===1)  st.b=true;
+        else if (c===2)  st.d=true;
+        else if (c===3)  st.i=true;
+        else if (c===4)  st.u=true;
+        else if (c===22) { st.b=false; st.d=false; }
+        else if (c===23) st.i=false;
+        else if (c===24) st.u=false;
+        else if (c>=30&&c<=37) st.fg=BFG[c];
+        else if (c===38) {
+          const sub=codes[ci++];
+          if (sub===5) st.fg=c256(codes[ci++]);
+          else if (sub===2) st.fg=`rgb(${codes[ci++]},${codes[ci++]},${codes[ci++]})`;
+        }
+        else if (c===39) st.fg=null;
+        else if (c>=40&&c<=47) st.bg=BFG[c+(-10)];  // rough
+        else if (c===48) {
+          const sub=codes[ci++];
+          if (sub===5) st.bg=c256(codes[ci++]);
+          else if (sub===2) st.bg=`rgb(${codes[ci++]},${codes[ci++]},${codes[ci++]})`;
+        }
+        else if (c===49) st.bg=null;
+        else if (c>=90&&c<=97) st.fg=BFG[c];
+      }
+    }
+    if (last < raw.length) segs.push({s:style(), t:raw.slice(last)});
+
+    return segs.map(seg => {
+      const e = seg.t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return seg.s ? `<span style="${seg.s}">${e}</span>` : e;
+    }).join('');
+  }
+
+  return {toHtml};
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Application
+// ═══════════════════════════════════════════════════════════════════════════════
+const WS_PORT = __WS_PORT__;   // injecté par Python
+
+let ws = null;
+let history = [];
+let histIdx = -1;
+let histSave = '';
+let completions = [];
+let compIdx = -1;
+let scanSc = false, scanLog = false;
+let blinkState = false;
+let currentShips = [];
+let currentShip  = '';
+let currentPos   = '';
+let currentDest  = '';
+let overlayAlpha = 0.76;
+
+// ── Spinner d'exécution ───────────────────────────────────────────────────────
+const SPIN_CHARS = '⣾⣽⣻⢿⡿⣟⣯⣷';
+let _spinTimer = null;
+
+function startSpin() {
+  if (_spinTimer) return;
+  let i = 0;
+  const el = document.getElementById('prompt-sym');
+  el.classList.add('spin');
+  _spinTimer = setInterval(() => {
+    el.textContent = SPIN_CHARS[i++ % SPIN_CHARS.length];
+  }, 80);
+}
+
+function stopSpin() {
+  if (!_spinTimer) return;
+  clearInterval(_spinTimer);
+  _spinTimer = null;
+  const el = document.getElementById('prompt-sym');
+  el.classList.remove('spin');
+  el.textContent = '›';
+}
+
+function setAlpha(a) {
+  overlayAlpha = Math.max(0.10, Math.min(0.99, +a || 0.76));
+  document.documentElement.style.setProperty('--alpha', overlayAlpha.toFixed(2));
+}
+function changeAlpha(delta) {
+  setAlpha(overlayAlpha + delta);
+  send({type: 'opacity', value: overlayAlpha});
+}
+
+const elOutput = document.getElementById('output');
+const elInput  = document.getElementById('cmd-input');
+const elHint   = document.getElementById('hint-line');
+const elComp   = document.getElementById('completion-list');
+const elCtx    = document.getElementById('ctx-menu');
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+
+function connect() {
+  ws = new WebSocket(`ws://localhost:${WS_PORT}`);
+  ws.onopen    = () => { ws.send(JSON.stringify({type:'status'})); };
+  ws.onmessage = e  => dispatch(JSON.parse(e.data));
+  ws.onclose   = () => {
+    appendSystem('⬤ Déconnecté — reconnexion dans 2s…');
+    setTimeout(connect, 2000);
+  };
+  ws.onerror = () => {};
+}
+
+function dispatch(msg) {
+  switch (msg.type) {
+    case 'banner':
+      appendSystem(msg.text);
+      if (msg.opacity !== undefined) setAlpha(msg.opacity);
+      break;
+    case 'echo':        appendEcho(msg.text); startSpin(); break;
+    case 'output':      stopSpin(); appendAnsi(msg.ansi); break;
+    case 'done':        stopSpin(); break;
+    case 'status':      updateStatus(msg); break;
+    case 'completions': showComps(msg.items); break;
+    case 'hint':        elHint.textContent = msg.text; break;
+    case 'history':     history = msg.items || []; break;
+    case 'quit':
+      appendSystem('✓ Fermeture…');
+      setTimeout(() => window.close(), 400);
+      break;
+  }
+}
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
+function sendCmd(text) {
+  text = text.trim();
+  if (!text) return;
+  send({type:'cmd', text});
+  if (!history.length || history[0] !== text) history.unshift(text);
+  if (history.length > 200) history.pop();
+  histIdx = -1; histSave = '';
+  elInput.value = '';
+  closeComps();
+  elHint.textContent = '';
+}
+
+// ── Sortie ────────────────────────────────────────────────────────────────────
+
+function appendSystem(text) {
+  const d = document.createElement('div');
+  d.className = 'line'; d.style.color = 'var(--dim)'; d.textContent = text;
+  elOutput.appendChild(d);
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+function appendEcho(text) {
+  const d = document.createElement('div');
+  d.className = 'line echo'; d.textContent = text;
+  elOutput.appendChild(d);
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+function appendAnsi(ansi) {
+  const html  = ANSI.toHtml(ansi);
+  const lines = html.split('\n');
+  const frag  = document.createDocumentFragment();
+  for (const line of lines) {
+    const d = document.createElement('div');
+    d.className = 'line';
+    d.innerHTML = line || '\u00a0';
+    frag.appendChild(d);
+  }
+  elOutput.appendChild(frag);
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+// ── Statut ────────────────────────────────────────────────────────────────────
+
+function updateStatus(s) {
+  currentPos  = s.pos  || '';
+  currentDest = s.dest || '';
+  currentShips = s.ships || [];
+  currentShip  = s.ship  || '';
+
+  document.getElementById('sb-pos').textContent  = `POS: ${currentPos  || '—'}`;
+  document.getElementById('sb-dest').textContent =
+    `DEST: ${currentDest || '—'}${currentDest && s.dist != null ? ` ${s.dist}Gm` : ''}`;
+  document.getElementById('sb-ship').textContent =
+    `V: ${s.ship || '—'} / ${s.cargo ? s.cargo+' □' : '— □'}`;
+
+  const arr = document.getElementById('sb-arrow');
+  arr.textContent  = currentDest ? '◄' : '·';
+  arr.style.cursor = currentDest ? 'pointer' : 'default';
+
+  const gh = document.getElementById('sb-go-here');
+  gh.textContent  = currentPos ? '►' : ' ';
+  gh.style.cursor = currentPos ? 'pointer' : 'default';
+
+  const sw = document.getElementById('sb-swap');
+  sw.textContent  = (currentPos && currentDest) ? '⇄' : ' ';
+  sw.style.cursor = (currentPos && currentDest) ? 'pointer' : 'default';
+
+  setFlag('sb-scan-sc',  s.scan_sc);
+  setFlag('sb-scan-log', s.scan_log);
+  scanSc  = !!s.scan_sc;
+  scanLog = !!s.scan_log;
+}
+
+function setFlag(id, active) {
+  const el = document.getElementById(id);
+  el.classList.toggle('on',  !!active);
+  el.classList.toggle('off', !active);
+  if (!active) el.classList.remove('blink');
+}
+
+// Clignotement flags actifs
+setInterval(() => {
+  blinkState = !blinkState;
+  ['sb-scan-sc','sb-scan-log'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.classList.contains('on'))
+      el.classList.toggle('blink', !blinkState);
+  });
+}, 800);
+
+document.getElementById('sb-alpha-minus').addEventListener('click', () => changeAlpha(-0.05));
+document.getElementById('sb-alpha-plus').addEventListener('click',  () => changeAlpha(+0.05));
+
+document.getElementById('sb-scan-sc').addEventListener('click', () => {
+  if (!scanSc) return;
+  setFlag('sb-scan-sc', false); scanSc = false;
+  sendCmd('/scan');
+});
+document.getElementById('sb-scan-log').addEventListener('click', () => {
+  if (!scanLog) return;
+  setFlag('sb-scan-log', false); scanLog = false;
+  sendCmd('/scan log');
+});
+document.getElementById('sb-pos').addEventListener('click', () => {
+  elInput.value = '@'; elInput.focus();
+  send({type:'complete', text:'@', cursor:1});
+});
+document.getElementById('sb-dest').addEventListener('click', () => {
+  elInput.value = '/dest '; elInput.focus();
+  send({type:'complete', text:'/dest ', cursor:6});
+});
+document.getElementById('sb-arrow').addEventListener('click', () => {
+  if (currentDest) sendCmd(`/go ${currentDest}`);
+});
+document.getElementById('sb-go-here').addEventListener('click', () => {
+  if (currentPos) sendCmd(`/dest ${currentPos}`);
+});
+document.getElementById('sb-swap').addEventListener('click', () => {
+  const p = currentPos, d = currentDest;
+  if (p && d) {
+    sendCmd(`/go ${d}`);
+    setTimeout(() => sendCmd(`/dest ${p}`), 250);
+  }
+});
+const elShipMenu = document.getElementById('ship-menu');
+
+document.getElementById('sb-ship').addEventListener('click', e => {
+  e.stopPropagation();
+  if (elShipMenu.style.display !== 'none') { elShipMenu.style.display = 'none'; return; }
+  if (!currentShips.length) {
+    elInput.value = '/player ship set '; elInput.focus();
+    send({type:'complete', text:'/player ship set ', cursor:17});
+    return;
+  }
+  elShipMenu.innerHTML = '';
+  currentShips.forEach(name => {
+    const d = document.createElement('div');
+    d.className = 'si' + (name === currentShip ? ' active' : '');
+    d.textContent = name;
+    d.addEventListener('mousedown', ev => {
+      ev.preventDefault();
+      sendCmd(`/player ship set ${name}`);
+      elShipMenu.style.display = 'none';
+    });
+    elShipMenu.appendChild(d);
+  });
+  const rect = document.getElementById('sb-ship').getBoundingClientRect();
+  elShipMenu.style.bottom  = (innerHeight - rect.top + 2) + 'px';
+  elShipMenu.style.right   = (innerWidth  - rect.right)  + 'px';
+  elShipMenu.style.left    = 'auto';
+  elShipMenu.style.top     = 'auto';
+  elShipMenu.style.display = 'block';
+});
+
+// ── Saisie ────────────────────────────────────────────────────────────────────
+
+elInput.addEventListener('keydown', e => {
+  const compVisible = elComp.style.display !== 'none';
+
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (compVisible && compIdx >= 0) { acceptComp(); return; }
+    sendCmd(elInput.value);
+    return;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (compVisible) { moveComp(-1); return; }
+    if (histIdx === -1) histSave = elInput.value;
+    if (histIdx < history.length-1) {
+      histIdx++;
+      elInput.value = history[histIdx];
+      elInput.setSelectionRange(elInput.value.length, elInput.value.length);
+    }
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (compVisible) { moveComp(1); return; }
+    if (histIdx > 0)      { histIdx--; elInput.value = history[histIdx]; }
+    else if (histIdx===0) { histIdx=-1; elInput.value = histSave; }
+    return;
+  }
+  if (e.key === 'Escape') { closeComps(); return; }
+  if (e.key === 'Tab' || (e.ctrlKey && e.key === ' ')) {
+    e.preventDefault();
+    if (compVisible && compIdx >= 0) acceptComp();
+    else send({type:'complete', text:elInput.value, cursor:elInput.selectionStart});
+    return;
+  }
+  histIdx = -1;
+});
+
+elInput.addEventListener('input', () => {
+  clearTimeout(elInput._t);
+  elInput._t = setTimeout(() => {
+    if (elInput.value.length > 0)
+      send({type:'complete', text:elInput.value, cursor:elInput.selectionStart});
+    else closeComps();
+  }, 250);
+});
+
+// ── Complétion ────────────────────────────────────────────────────────────────
+
+function showComps(items) {
+  completions = items;
+  compIdx = -1;
+  elComp.innerHTML = '';
+  if (!items.length) { closeComps(); return; }
+
+  items.forEach((item, i) => {
+    const d = document.createElement('div');
+    d.className = 'ci';
+    d.innerHTML =
+      `<span class="cv">${esc(item.value||'')}</span>` +
+      (item.hint ? `<span class="ch">${esc(item.hint)}</span>` : '');
+    d.addEventListener('mousedown', ev => { ev.preventDefault(); applyComp(item); });
+    elComp.appendChild(d);
+  });
+  elComp.style.display = 'block';
+}
+
+function moveComp(d) {
+  const items = elComp.querySelectorAll('.ci');
+  if (!items.length) return;
+  compIdx = Math.max(-1, Math.min(items.length-1, compIdx+d));
+  items.forEach((el,i) => el.classList.toggle('sel', i===compIdx));
+  if (compIdx >= 0) items[compIdx].scrollIntoView({block:'nearest'});
+}
+
+function acceptComp() {
+  if (compIdx >= 0 && compIdx < completions.length) applyComp(completions[compIdx]);
+  closeComps();
+}
+
+function applyComp(item) {
+  elInput.value = item.value || '';
+  elInput.focus();
+  elInput.setSelectionRange(elInput.value.length, elInput.value.length);
+  closeComps();
+}
+
+function closeComps() {
+  elComp.style.display = 'none';
+  compIdx = -1; completions = [];
+}
+
+// ── Clics sur les mots ────────────────────────────────────────────────────────
+
+function wordAt(e) {
+  let range;
+  try {
+    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    else if (document.caretPositionFromPoint) {
+      const p = document.caretPositionFromPoint(e.clientX, e.clientY);
+      if (!p) return null;
+      range = document.createRange();
+      range.setStart(p.offsetNode, p.offset);
+    }
+    if (!range) return null;
+    range.expand('word');
+    const w = range.toString().trim().replace(/[^\wÀ-ÿ'\- ]/g,'').trim();
+    return (w.length >= 3 && !/^\d+$/.test(w)) ? w : null;
+  } catch { return null; }
+}
+
+elOutput.addEventListener('click', e => {
+  closeCtx();
+  const w = wordAt(e);
+  if (w) sendCmd(`/info ${w}`);
+});
+elOutput.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const w = wordAt(e);
+  if (w) showCtx(w, e.clientX, e.clientY);
+  else closeCtx();
+});
+
+// ── Menu contextuel ───────────────────────────────────────────────────────────
+
+function showCtx(word, x, y) {
+  const ws = word.replace(/"/g,'\\"');
+  elCtx.innerHTML = `
+    <div class="mw">${esc(word)}</div>
+    <div class="mi" onclick="sendCmd('/info ${ws}');closeCtx()">Info</div>
+    <div class="mi" onclick="sendCmd('/go ${ws}');closeCtx()">Aller</div>
+    <div class="mi" onclick="sendCmd('/dest ${ws}');closeCtx()">Destination</div>
+    <div class="ms"></div>
+    <div class="mi" onclick="sendCmd('/trade');closeCtx()">Trade</div>
+    <div class="mi" onclick="sendCmd('/player ship set ${ws}');closeCtx()">Vaisseau courant</div>
+  `;
+  elCtx.style.display = 'block';
+  elCtx.style.left = Math.min(x, innerWidth-170)+'px';
+  elCtx.style.top  = Math.min(y, innerHeight-160)+'px';
+}
+function closeCtx() { elCtx.style.display='none'; }
+document.addEventListener('click', () => {
+  closeCtx();
+  elShipMenu.style.display = 'none';
+});
+
+// ── Drag titlebar (fenêtre frameless) ─────────────────────────────────────────
+
+(function() {
+  const tb = document.getElementById('titlebar');
+  let startSX, startSY, startWX, startWY, pending = false;
+
+  tb.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('tb-close')) return;
+    e.preventDefault();
+    startSX = e.screenX; startSY = e.screenY;
+    startWX = window.screenX; startWY = window.screenY;
+
+    function onMove(me) {
+      if (pending) return;
+      pending = true;
+      const dx = me.screenX - startSX, dy = me.screenY - startSY;
+      try {
+        window.pywebview.api.move(startWX + dx, startWY + dy)
+          .catch(() => {}).finally(() => { pending = false; });
+      } catch(_) { pending = false; }
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+})();
+
+// ── Raccourcis globaux ────────────────────────────────────────────────────────
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key==='y') {
+    e.preventDefault();
+    const txt = Array.from(elOutput.querySelectorAll('.line'))
+                     .map(l=>l.textContent).join('\n');
+    navigator.clipboard.writeText(txt).catch(()=>{});
+    appendSystem('✓ Copié');
+  }
+  if (e.key==='F1') { e.preventDefault(); sendCmd('/help'); }
+  // Toute touche imprimable redirige vers l'input
+  if (!e.ctrlKey && !e.altKey && e.key.length===1 && document.activeElement!==elInput)
+    elInput.focus();
+});
+
+// ── Redimensionnement (poignée bas-droite) ────────────────────────────────────
+
+(function() {
+  const grip = document.getElementById('resize-grip');
+  grip.addEventListener('mousedown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startSX = e.screenX, startSY = e.screenY;
+    const startW  = window.outerWidth, startH = window.outerHeight;
+    let pending = false;
+
+    function onMove(me) {
+      if (pending) return;
+      pending = true;
+      const nw = Math.max(200, startW + (me.screenX - startSX));
+      const nh = Math.max(200, startH + (me.screenY - startSY));
+      try {
+        window.pywebview.api.resize(nw, nh)
+          .catch(() => {}).finally(() => { pending = false; });
+      } catch(_) { pending = false; }
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+})();
+
+// ── Helper ────────────────────────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Démarrage ─────────────────────────────────────────────────────────────────
+
+window.addEventListener('load', () => {
+  connect();
+  elInput.focus();
+});
+
+// Focus input quand la fenêtre (re)prend le focus OS (hotkey toggle)
+window.addEventListener('focus', () => { elInput.focus(); });
+
+// Largeur console Rich adaptée à la fenêtre (mis à jour à chaque redimensionnement)
+(function() {
+  let _colsTimer = null;
+  function sendCols() {
+    // ~7.2px par caractère monospace à 13px ; marge padding 20px
+    const cols = Math.max(40, Math.floor((document.body.clientWidth - 20) / 7.2));
+    send({type: 'cols', value: cols});
+  }
+  new ResizeObserver(() => {
+    clearTimeout(_colsTimer);
+    _colsTimer = setTimeout(sendCols, 80);  // débounce
+  }).observe(document.body);
+})();
+</script>
+</body>
+</html>

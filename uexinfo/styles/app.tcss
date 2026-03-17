@@ -6,9 +6,9 @@ Screen {
     layers: default overlay;
 }
 
-/* ── RichLog — sortie principale ────────────────────────────────────────── */
+/* ── OutputView — sortie principale ─────────────────────────────────────── */
 
-RichLog {
+OutputView {
     height: 1fr;
     padding: 0 1;
     background: $surface;
@@ -68,17 +68,10 @@ PromptWidget {
     background: $surface-lighten-2;
 }
 
-/* ── StatusBar — état courant (1 ligne) ─────────────────────────────────── */
+/* ── StatusBar — état courant (1 ligne) — styles gérés en DEFAULT_CSS ───── */
 
 StatusBar {
     height: 1;
-    background: $panel-darken-1;
-    border-top: solid $panel-darken-2;
-    padding: 0 1;
-}
-
-#status-label {
-    width: 1fr;
 }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */

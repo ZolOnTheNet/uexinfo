@@ -1105,7 +1105,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     else:
         sys_label = ""
 
-    cargo_hint = (f"  [{C.DIM}]cargo : {player_scu} SCU[/{C.DIM}]" if player_scu
+    cargo_hint = (f"  [{C.DIM}]cargo : {player_scu} {C.SCU}[/{C.DIM}]" if player_scu
                   else f"  [{C.DIM}](cargo non configuré)[/{C.DIM}]" if ctx.player.active_ship
                   else "")
     section(f"Commodité — {c.name}  [{c.code}]{flag_str}{sys_label}{cargo_hint}")
@@ -1280,7 +1280,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             pass
     ship_note = ""
     if player_scu:
-        ship_note = f"  ·  {ctx.player.active_ship} ({player_scu} SCU)"
+        ship_note = f"  ·  {ctx.player.active_ship} ({player_scu} {C.SCU})"
     elif ctx.player.active_ship:
         ship_note = f"  ·  {ctx.player.active_ship} — /ship cargo <nom> <n> pour le {C.SCU}"
     console.print(f"\n[{C.DIM}]{n_t} terminaux{date_str}{ship_note}[/{C.DIM}]")
@@ -1364,7 +1364,7 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
 
     console.print(
         f"[{C.LABEL}]Fabricant[/{C.LABEL}]  {v.manufacturer or '—'}"
-        f"    [{C.LABEL}]Cargo[/{C.LABEL}]  [{C.UEX}]{scu_str} SCU[/{C.UEX}]"
+        f"    [{C.LABEL}]Cargo[/{C.LABEL}]  [{C.UEX}]{scu_str} {C.SCU}[/{C.UEX}]"
         f"    [{C.LABEL}]Équipage[/{C.LABEL}]  {crew_str}"
         f"    [{C.LABEL}]Pad[/{C.LABEL}]  {pad_str}"
     )

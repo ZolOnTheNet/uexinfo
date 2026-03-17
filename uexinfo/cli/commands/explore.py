@@ -152,7 +152,7 @@ def _search_ships(query: str, ctx) -> list:
 def _ship_table(vehicles: list) -> Table:
     tbl = Table(show_header=True, box=None, padding=(0, 1))
     tbl.add_column("Vaisseau",  style=C.NEUTRAL, no_wrap=True, min_width=26)
-    tbl.add_column("SCU",  style=C.UEX, justify="right")
+    tbl.add_column(C.SCU,  style=C.UEX, justify="right")
     tbl.add_column("Éq.", style=C.DIM, justify="right")
     tbl.add_column("Pad",  style=C.DIM, justify="center")
     tbl.add_column("Rôles", style=C.DIM)
