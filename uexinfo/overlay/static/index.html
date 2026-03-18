@@ -53,13 +53,16 @@ html, body {
 #output .echo { opacity: 0.55; }
 #output .echo::before { content: "› "; color: var(--accent); opacity: 1; }
 
-/* Mots cliquables (injectés par JS après Phase B) */
+/* Mots cliquables — termes reconnus par le vocabulaire */
 .cw {
-  text-decoration: underline;
-  text-decoration-color: rgba(0,188,212,0.3);
   cursor: pointer;
+  border-bottom: 1px dotted currentColor;
+  opacity: 0.9;
 }
-.cw:hover { text-decoration-color: var(--accent); color: var(--accent); }
+.cw:hover { opacity: 1; filter: brightness(1.3); }
+.cw-commodity { color: #ffd600; }
+.cw-location  { color: #00bcd4; }
+.cw-ship      { color: #69f0ae; }
 
 /* scrollbar */
 #output::-webkit-scrollbar       { width: 4px; }
@@ -384,6 +387,75 @@ let currentPos   = '';
 let currentDest  = '';
 let overlayAlpha = 0.76;
 
+// ── Vocabulaire & annotation ──────────────────────────────────────────────────
+
+const vocab = {
+  commodities: new Set(),
+  locations:   new Set(),
+  ships:       new Set(),
+};
+let vocabRe = null;
+
+function loadVocab(msg) {
+  vocab.commodities = new Set((msg.commodities || []).map(s => s.toLowerCase()));
+  vocab.locations   = new Set((msg.locations   || []).map(s => s.toLowerCase()));
+  vocab.ships       = new Set((msg.ships       || []).map(s => s.toLowerCase()));
+
+  // Construire la regex — termes triés par longueur décroissante
+  const all = [...(msg.commodities || []), ...(msg.locations || []), ...(msg.ships || [])]
+    .filter(w => w && w.length >= 3)
+    .sort((a, b) => b.length - a.length)
+    .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
+  vocabRe = all.length
+    ? new RegExp(`(?<![\\w-])(${all.join('|')})(?![\\w-])`, 'gi')
+    : null;
+}
+
+function vocabType(word) {
+  const lc = word.toLowerCase();
+  if (vocab.commodities.has(lc)) return 'commodity';
+  if (vocab.locations.has(lc))   return 'location';
+  if (vocab.ships.has(lc))       return 'ship';
+  return null;
+}
+
+function annotateNode(textNode) {
+  if (!vocabRe) return;
+  const text = textNode.textContent;
+  vocabRe.lastIndex = 0;
+  if (!vocabRe.test(text)) return;
+  vocabRe.lastIndex = 0;
+
+  const frag = document.createDocumentFragment();
+  let last = 0, m;
+  while ((m = vocabRe.exec(text)) !== null) {
+    if (m.index > last)
+      frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const word = m[1];
+    const type = vocabType(word);
+    const span = document.createElement('span');
+    span.className = `cw cw-${type}`;
+    span.dataset.word = word;
+    span.dataset.type = type;
+    span.textContent  = word;
+    frag.appendChild(span);
+    last = m.index + word.length;
+  }
+  if (last < text.length)
+    frag.appendChild(document.createTextNode(text.slice(last)));
+  textNode.parentNode.replaceChild(frag, textNode);
+}
+
+function annotateElement(el) {
+  if (!vocabRe) return;
+  // Collecter les nœuds texte d'abord (le remplacement invalide l'itérateur)
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(annotateNode);
+}
+
 // ── Spinner d'exécution ───────────────────────────────────────────────────────
 const SPIN_CHARS = '⣾⣽⣻⢿⡿⣟⣯⣷';
 let _spinTimer = null;
@@ -444,6 +516,7 @@ function dispatch(msg) {
     case 'echo':        appendEcho(msg.text); startSpin(); break;
     case 'output':      stopSpin(); appendAnsi(msg.ansi); break;
     case 'done':        stopSpin(); break;
+    case 'vocab':       loadVocab(msg); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items); break;
     case 'hint':        elHint.textContent = msg.text; break;
@@ -495,6 +568,7 @@ function appendAnsi(ansi) {
     const d = document.createElement('div');
     d.className = 'line';
     d.innerHTML = line || '\u00a0';
+    annotateElement(d);
     frag.appendChild(d);
   }
   elOutput.appendChild(frag);
@@ -728,28 +802,44 @@ function wordAt(e) {
 
 elOutput.addEventListener('click', e => {
   closeCtx();
+  const cw = e.target.closest('.cw');
+  if (cw) { sendCmd(`/info ${cw.dataset.word}`); return; }
   const w = wordAt(e);
   if (w) sendCmd(`/info ${w}`);
 });
 elOutput.addEventListener('contextmenu', e => {
   e.preventDefault();
+  const cw = e.target.closest('.cw');
+  if (cw) { showCtx(cw.dataset.word, e.clientX, e.clientY, cw.dataset.type); return; }
   const w = wordAt(e);
-  if (w) showCtx(w, e.clientX, e.clientY);
+  if (w) showCtx(w, e.clientX, e.clientY, null);
   else closeCtx();
 });
 
 // ── Menu contextuel ───────────────────────────────────────────────────────────
 
-function showCtx(word, x, y) {
+function showCtx(word, x, y, type) {
   const ws = word.replace(/"/g,'\\"');
-  elCtx.innerHTML = `
-    <div class="mw">${esc(word)}</div>
-    <div class="mi" onclick="sendCmd('/info ${ws}');closeCtx()">Info</div>
+  const typeLabel = type === 'commodity' ? '🟡 Commodité'
+                  : type === 'location'  ? '🔵 Lieu'
+                  : type === 'ship'      ? '🟢 Vaisseau'
+                  : '';
+
+  const locationActions = `
     <div class="mi" onclick="sendCmd('/go ${ws}');closeCtx()">Aller</div>
-    <div class="mi" onclick="sendCmd('/dest ${ws}');closeCtx()">Destination</div>
+    <div class="mi" onclick="sendCmd('/dest ${ws}');closeCtx()">Destination</div>`;
+  const commodityActions = `
+    <div class="mi" onclick="sendCmd('/trade');closeCtx()">Trade</div>`;
+  const shipActions = `
+    <div class="mi" onclick="sendCmd('/player ship set ${ws}');closeCtx()">Vaisseau actif</div>`;
+
+  elCtx.innerHTML = `
+    <div class="mw">${typeLabel ? typeLabel+' · ' : ''}${esc(word)}</div>
+    <div class="mi" onclick="sendCmd('/info ${ws}');closeCtx()">Info</div>
     <div class="ms"></div>
-    <div class="mi" onclick="sendCmd('/trade');closeCtx()">Trade</div>
-    <div class="mi" onclick="sendCmd('/player ship set ${ws}');closeCtx()">Vaisseau courant</div>
+    ${type === 'location'  || !type ? locationActions : ''}
+    ${type === 'commodity' || !type ? commodityActions : ''}
+    ${type === 'ship'      || !type ? shipActions : ''}
   `;
   elCtx.style.display = 'block';
   elCtx.style.left = Math.min(x, innerWidth-170)+'px';
@@ -831,6 +921,8 @@ document.addEventListener('keydown', e => {
     function onUp() {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup',   onUp);
+      // Fin du drag → restaurer la transparence DWM (perdue par SetWindowPos)
+      try { window.pywebview.api.restore_transparency().catch(() => {}); } catch(_) {}
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup',   onUp);

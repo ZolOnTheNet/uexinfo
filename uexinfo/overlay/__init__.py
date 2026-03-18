@@ -89,6 +89,20 @@ class _WindowApi:
             except Exception:
                 pass
 
+    def restore_transparency(self) -> None:
+        """Appelé depuis JS sur mouseup (fin de resize) — restaure la transparence DWM."""
+        def _do() -> None:
+            try:
+                user32 = ctypes.windll.user32
+                hwnd = user32.FindWindowW(None, "UEXInfo")
+                if hwnd:
+                    user32.ShowWindow(hwnd, 0)   # SW_HIDE
+                    time.sleep(0.08)
+                    user32.ShowWindow(hwnd, 5)   # SW_SHOW
+            except Exception:
+                pass
+        threading.Thread(target=_do, daemon=True).start()
+
 
 def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     """Point d'entrée du mode overlay (appelé par __main__.py --overlay)."""
@@ -159,6 +173,7 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     api.set_window(window)
 
     # ── 3. Hotkey global toggle show/hide ────────────────────────────────────
+    # PyWebView crée la fenêtre visible → visible=True reflète l'état réel
     visible = True
     _lock   = threading.Lock()
 
@@ -208,12 +223,10 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
 
     # ── 5. Lancer PyWebView (bloquant) ────────────────────────────────────────
     def _transparency_fix():
-        """Double toggle au démarrage pour forcer le rendu transparent."""
-        time.sleep(0.8)   # attendre que la fenêtre soit pleinement rendue
-        print("[overlay] transparency_fix : toggle × 2", flush=True)
-        toggle()           # cache
-        time.sleep(0.10)
-        toggle()           # ré-affiche → transparence + focus
+        """Restaure la transparence DWM 2 secondes après le lancement."""
+        time.sleep(2.0)
+        print("[overlay] transparency_fix : restore_transparency", flush=True)
+        api.restore_transparency()
 
     threading.Thread(target=_transparency_fix, daemon=True).start()
 

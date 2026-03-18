@@ -111,6 +111,7 @@ class OverlayServer:
                 "opacity": opacity,
             }))
             await self._send_status(websocket)
+            await self._send_vocab(websocket)
 
             async for raw in websocket:
                 try:
@@ -179,6 +180,11 @@ class OverlayServer:
             await self._send_status(ws)
 
         await ws.send(json.dumps({"type": "done"}))
+
+        # Après un refresh, le cache change → re-envoyer le vocabulaire
+        first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
+        if first in ("refresh", "r"):
+            await self._send_vocab(ws)
 
     def _exec_sync(self, line: str) -> tuple[str, bool]:
         """Exécute la commande de façon bloquante, retourne (output_ansi, needs_status)."""
@@ -270,6 +276,40 @@ class OverlayServer:
             "scan_sc":  scan_sc,
             "scan_log": scan_log,
             "ships":    ships,
+        }))
+
+    # ── Vocabulaire (annotation des termes connus) ────────────────────────────
+
+    async def _send_vocab(self, ws) -> None:
+        """Envoie la liste des termes connus pour annotation dans l'output."""
+        cache = self.ctx.cache
+        MIN = 3  # longueur minimale d'un terme
+
+        commodities = sorted({
+            c.name for c in (cache.commodities or [])
+            if c.name and len(c.name) >= MIN
+        })
+        locations = sorted({
+            name
+            for lst, attr in (
+                (cache.star_systems, "name"),
+                (cache.planets,      "name"),
+                (cache.terminals,    "name"),
+            )
+            for obj in (lst or [])
+            for name in [getattr(obj, attr, None)]
+            if name and len(name) >= MIN
+        })
+        ships = sorted({
+            s.name for s in (getattr(self.ctx.player, "ships", None) or [])
+            if s.name and len(s.name) >= MIN
+        })
+
+        await ws.send(json.dumps({
+            "type":        "vocab",
+            "commodities": commodities,
+            "locations":   locations,
+            "ships":       ships,
         }))
 
     # ── Complétion ────────────────────────────────────────────────────────────
