@@ -627,7 +627,7 @@ function dispatch(msg) {
     case 'hint':        elHint.textContent = msg.text; break;
     case 'history':     history = msg.items || []; break;
     case 'quit':
-      appendSystem('✓ Fermeture…');
+      appendSystem('✓ Fermeture…', '#ff9900');
       setTimeout(() => window.close(), 400);
       break;
   }
@@ -651,9 +651,9 @@ function sendCmd(text) {
 
 // ── Sortie ────────────────────────────────────────────────────────────────────
 
-function appendSystem(text) {
+function appendSystem(text, color) {
   const d = document.createElement('div');
-  d.className = 'line'; d.style.color = 'var(--dim)'; d.textContent = text;
+  d.className = 'line'; d.style.color = color || 'var(--dim)'; d.textContent = text;
   elOutput.appendChild(d);
   elOutput.scrollTop = elOutput.scrollHeight;
 }
