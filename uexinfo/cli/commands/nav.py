@@ -449,26 +449,26 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
         if title:
             console.print(f"[{C.DIM}]{title}[/{C.DIM}]")
 
-        col_width = 34
-        n_cols = max(1, min(4, (console.width - 4) // col_width))
+        col_width = 32   # nom ~22 + dist ~8 + padding 2
+        n_cols = max(1, min(5, (console.width - 4) // col_width))
 
         tbl = Table(show_header=False, box=None, padding=(0, 1), expand=False)
         for _ in range(n_cols):
-            tbl.add_column(max_width=22, no_wrap=True)
-            tbl.add_column(width=9, justify="right", no_wrap=True)
+            tbl.add_column(max_width=24, no_wrap=True)
+            tbl.add_column(width=8, justify="right", no_wrap=True)
 
         for i in range(0, len(entries), n_cols):
             row_entries = entries[i:i + n_cols]
             cells: list[str] = []
             for nm, dist, ntype in row_entries:
                 if ntype in (NodeType.STATION, NodeType.LAGRANGE):
-                    nc = f"[{C.UEX}]{nm[:21]}[/{C.UEX}]"
+                    nc = f"[{C.UEX}]{nm[:23]}[/{C.UEX}]"
                 elif ntype == NodeType.CITY:
-                    nc = f"[italic]{nm[:21]}[/italic]"
+                    nc = f"[italic]{nm[:23]}[/italic]"
                 elif ntype in (NodeType.PLANET, NodeType.MOON):
-                    nc = f"[{C.LABEL}]{nm[:21]}[/{C.LABEL}]"
+                    nc = f"[{C.LABEL}]{nm[:23]}[/{C.LABEL}]"
                 else:
-                    nc = f"[{C.DIM}]{nm[:21]}[/{C.DIM}]"
+                    nc = f"[{C.DIM}]{nm[:23]}[/{C.DIM}]"
 
                 if dist is not None:
                     dc = f"[{C.UEX}]{dist:.1f}[/{C.UEX}][{C.DIM}]Gm[/{C.DIM}]"
@@ -736,10 +736,12 @@ def _populate_graph(args: list[str], ctx) -> None:
     graph = ctx.cache.transport_graph
     client = UEXClient(timeout=20)
 
-    _term_sys: dict[str, str] = {
-        t.name: (t.star_system_name or "Unknown")
-        for t in ctx.cache.terminals
-    }
+    # Index terminal_name → système (pour les deux formes : nom complet et nom lieu)
+    _term_sys: dict[str, str] = {}
+    for t in ctx.cache.terminals:
+        sys = t.star_system_name or "Unknown"
+        _term_sys[t.name] = sys
+        _term_sys[_terminal_to_location(t.name)] = sys
 
     section("Populate — distances depuis UEX Corp")
     console.print(f"[{C.DIM}]Récupération des commodités...[/{C.DIM}]")
@@ -777,20 +779,28 @@ def _populate_graph(args: list[str], ctx) -> None:
             continue
 
         for r in routes:
-            origin = (r.get("terminal_name_origin") or r.get("origin_terminal_name") or "").strip()
-            dest   = (r.get("terminal_name_destination") or r.get("destination_terminal_name") or "").strip()
-            dist   = r.get("distance")
+            origin_raw = (r.get("terminal_name_origin") or r.get("origin_terminal_name") or "").strip()
+            dest_raw   = (r.get("terminal_name_destination") or r.get("destination_terminal_name") or "").strip()
+            dist       = r.get("distance")
 
-            if not origin or not dest or dist is None:
+            if not origin_raw or not dest_raw or dist is None:
+                continue
+
+            # Utiliser le nom du lieu, pas du terminal
+            origin = _terminal_to_location(origin_raw)
+            dest   = _terminal_to_location(dest_raw)
+
+            # Ignorer les paires au même lieu (même station, terminaux différents)
+            if origin.lower() == dest.lower():
                 continue
 
             dist_f = max(float(dist), 0.001)
-            pair = tuple(sorted([origin, dest]))
+            pair = tuple(sorted([origin.lower(), dest.lower()]))
             already_known = pair in seen_pairs
             seen_pairs.add(pair)
 
-            sys_o = _term_sys.get(origin) or (r.get("star_system_name_origin") or "").strip() or "Unknown"
-            sys_d = _term_sys.get(dest)   or (r.get("star_system_name_destination") or "").strip() or "Unknown"
+            sys_o = _term_sys.get(origin) or _term_sys.get(origin_raw) or (r.get("star_system_name_origin") or "").strip() or "Unknown"
+            sys_d = _term_sys.get(dest)   or _term_sys.get(dest_raw)   or (r.get("star_system_name_destination") or "").strip() or "Unknown"
 
             if origin not in graph.nodes:
                 graph.add_node(LocationNode(name=origin, type=NodeType.TERMINAL, system=sys_o,
@@ -842,6 +852,17 @@ def _populate_graph(args: list[str], ctx) -> None:
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+def _terminal_to_location(terminal_name: str) -> str:
+    """Extrait le nom du lieu depuis le nom complet d'un terminal UEX.
+
+    "Admin - Baijini Point"                     → "Baijini Point"
+    "TDD - Trade and Dev - Area 18"             → "Area 18"
+    "ArcCorp Mining Area 048 - ArcCorp Mining Area 048" → "ArcCorp Mining Area 048"
+    "New Babbage"                               → "New Babbage"
+    """
+    return terminal_name.rsplit(" - ", 1)[-1].strip()
+
+
 def _expand_alias(query: str, ctx) -> str:
     """Expande @local et @dest en noms de lieux réels du joueur."""
     ql = query.lower().strip()
@@ -853,31 +874,47 @@ def _expand_alias(query: str, ctx) -> str:
 
 
 def _resolve_node(query: str, graph) -> str | None:
-    """Résout un nom de nœud — insensible à la casse, underscores, fuzzy."""
+    """Résout un nom de nœud — insensible à la casse, underscores, fuzzy.
+
+    En cas de multiples correspondances, retourne le nom le plus long
+    (plus spécifique) : "ArcCorp Mining Area 048" avant "ArcCorp".
+    """
     q = query.lower().replace("_", " ").strip()
     if not q:
         return None
 
     node_names = list(graph.nodes.keys())
 
+    # 1. Match exact
     for name in node_names:
         if name.lower() == q:
             return name
 
-    matches = [n for n in node_names if n.lower().startswith(q)]
-    if len(matches) == 1:
+    # 2. Préfixe — plus long (plus spécifique) en premier
+    matches = sorted(
+        [n for n in node_names if n.lower().startswith(q)],
+        key=len, reverse=True,
+    )
+    if matches:
         return matches[0]
 
-    matches = [n for n in node_names if q in n.lower()]
-    if len(matches) == 1:
+    # 3. Sous-chaîne — plus long en premier
+    matches = sorted(
+        [n for n in node_names if q in n.lower()],
+        key=len, reverse=True,
+    )
+    if matches:
         return matches[0]
 
+    # 4. Fuzzy — préférer les candidats plus longs si scores proches
     try:
         from rapidfuzz import process, fuzz
-        best = process.extractOne(q, [n.lower() for n in node_names],
-                                  scorer=fuzz.WRatio, score_cutoff=70)
-        if best:
-            return node_names[[n.lower() for n in node_names].index(best[0])]
+        results = process.extract(q, [n.lower() for n in node_names],
+                                  scorer=fuzz.WRatio, limit=5, score_cutoff=70)
+        if results:
+            # Parmi les proches, prendre le plus long
+            best_name, best_score, _ = max(results, key=lambda r: (r[1], len(r[0])))
+            return node_names[[n.lower() for n in node_names].index(best_name)]
     except ImportError:
         import difflib
         m = difflib.get_close_matches(q, [n.lower() for n in node_names], n=1, cutoff=0.65)
@@ -915,9 +952,10 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
     if not terminal:
         return None
 
-    node_name = terminal.name
+    # Nœud = nom du lieu, pas du terminal
+    node_name = _terminal_to_location(terminal.name)
     console.print(
-        f"[{C.DIM}]↻ Terminal UEX : [bold]{node_name}[/bold] — récupération des distances...[/{C.DIM}]"
+        f"[{C.DIM}]↻ Lieu : [bold]{node_name}[/bold] (terminal : {terminal.name}) — distances...[/{C.DIM}]"
     )
 
     if node_name not in graph.nodes:
@@ -935,8 +973,9 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
 
         seen_dest: dict[str, float] = {}
         for r in routes:
-            dest = r.get("destination_terminal_name", "")
+            dest_raw = r.get("destination_terminal_name", "")
             dist = r.get("distance")
+            dest = _terminal_to_location(dest_raw) if dest_raw else ""
             if dest and dist is not None and dest not in seen_dest:
                 seen_dest[dest] = float(dist)
 
@@ -968,44 +1007,13 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
 
 
 def _resolve_node_uex(uex_terminal_name: str, graph) -> str | None:
-    """Résout un nom de terminal UEX vers un nœud du graphe."""
-    node_names = list(graph.nodes.keys())
+    """Résout un nom de terminal UEX vers un nœud du graphe.
 
-    def _strict_resolve(q: str) -> str | None:
-        ql = q.lower().strip()
-        if len(ql) < 4:
-            return None
-        for n in node_names:
-            if n.lower() == ql:
-                return n
-        matches = [n for n in node_names if n.lower().startswith(ql)]
-        if len(matches) == 1:
-            return matches[0]
-        matches = [n for n in node_names if ql in n.lower() and len(ql) >= 5]
-        if len(matches) == 1:
-            return matches[0]
-        try:
-            from rapidfuzz import process, fuzz
-            best = process.extractOne(ql, [n.lower() for n in node_names],
-                                      scorer=fuzz.WRatio, score_cutoff=85)
-            if best:
-                return node_names[[n.lower() for n in node_names].index(best[0])]
-        except ImportError:
-            pass
-        return None
-
-    if " - " in uex_terminal_name:
-        parts = [p.strip() for p in uex_terminal_name.split(" - ")]
-        for part in reversed(parts[1:]):
-            found = _strict_resolve(part)
-            if found:
-                return found
-        for n in node_names:
-            if n.lower() == uex_terminal_name.lower():
-                return n
-        return None
-
-    return _resolve_node(uex_terminal_name, graph)
+    Extrait d'abord le nom du lieu (partie après le dernier " - "),
+    puis cherche ce lieu dans le graphe.
+    """
+    loc = _terminal_to_location(uex_terminal_name)
+    return _resolve_node(loc, graph) or _resolve_node(uex_terminal_name, graph)
 
 
 def _find_candidates(query: str, graph) -> list[str]:
