@@ -72,6 +72,7 @@ class OverlayServer:
         self._clients: set = set()
         self._lock = threading.Lock()
         self._history: list[str] = []
+        self.on_quit: callable | None = None  # callback appelé avant os._exit
 
     # ── Initialisation du contexte CLI ────────────────────────────────────────
 
@@ -157,7 +158,10 @@ class OverlayServer:
                 await asyncio.sleep(0.15)   # laisser le message partir
             except Exception:
                 pass
-            os._exit(0)   # tue le process entier, bypasse tout le reste
+            if self.on_quit:
+                self.on_quit()        # lance _shutdown dans un thread → os._exit(0)
+                await asyncio.sleep(2)  # attendre le os._exit(0) du thread
+            os._exit(0)  # fallback au cas où on_quit ne tue pas
 
         # Sauvegarder dans l'historique
         _history_mod.append(line)
