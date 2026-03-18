@@ -8,40 +8,60 @@ from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
 from uexinfo.models.transport_network import EdgeType, JumpPoint, LocationNode, NodeType, RouteEdge
 
+# Sous-commandes explicites — tout le reste est interprété comme une route
+_SUBCOMMANDS = frozenset({
+    "info",
+    "nodes", "noeuds", "noeud", "node",
+    "edges", "edge", "liaisons", "liaison", "aretes", "arete", "arêtes", "arête",
+    "jumps", "jump", "sauts", "saut",
+    "route", "itineraire", "itinéraire", "chemin",
+    "add-route", "ajouter-route", "ajouter-liaison", "add-liaison",
+    "add-jump", "ajouter-saut", "ajouter-jump",
+    "remove-route", "supprimer-route", "supprimer-liaison",
+    "remove-jump", "supprimer-saut", "supprimer-jump",
+    "save", "sauvegarder", "enregistrer",
+    "raz", "reset", "reinitialiser", "réinitialiser",
+    "populate", "peupler", "remplir", "enrichir",
+})
+
 
 @register("nav", "navigation", "n", "qt", "quantum")
 def cmd_nav(args: list[str], ctx) -> None:
     """Gestion du réseau de transport interstellaire."""
-    if not args:
-        _show_info(ctx)
+    # Filtrer --req pour la détection de la sous-commande
+    real_args = [a for a in args if a != "--req"]
+
+    if not real_args or real_args[0].lower() not in _SUBCOMMANDS:
+        # /nav [args…]  →  calculateur de routes (mode par défaut)
+        _find_route(args, ctx)
         return
 
-    sub = args[0].lower()
+    sub = real_args[0].lower()
 
-    if sub in ("info",):
+    if sub == "info":
         _show_info(ctx)
     elif sub in ("nodes", "noeuds", "noeud", "node"):
-        _list_nodes(args[1:], ctx)
+        _list_nodes(real_args[1:], ctx)
     elif sub in ("edges", "edge", "liaisons", "liaison", "aretes", "arete", "arêtes", "arête"):
-        _list_edges(args[1:], ctx)
+        _list_edges(real_args[1:], ctx)
     elif sub in ("jumps", "jump", "sauts", "saut"):
         _list_jumps(ctx)
     elif sub in ("route", "itineraire", "itinéraire", "chemin"):
-        _find_route(args[1:], ctx)
+        _find_route(args[1:], ctx)  # on passe args complets avec --req éventuel
     elif sub in ("add-route", "ajouter-route", "ajouter-liaison", "add-liaison"):
-        _add_route(args[1:], ctx)
+        _add_route(real_args[1:], ctx)
     elif sub in ("add-jump", "ajouter-saut", "ajouter-jump"):
-        _add_jump(args[1:], ctx)
+        _add_jump(real_args[1:], ctx)
     elif sub in ("remove-route", "supprimer-route", "supprimer-liaison"):
-        _remove_route(args[1:], ctx)
+        _remove_route(real_args[1:], ctx)
     elif sub in ("remove-jump", "supprimer-saut", "supprimer-jump"):
-        _remove_jump(args[1:], ctx)
+        _remove_jump(real_args[1:], ctx)
     elif sub in ("save", "sauvegarder", "enregistrer"):
         _save_graph(ctx)
     elif sub in ("raz", "reset", "reinitialiser", "réinitialiser"):
         _reset_graph(ctx)
     elif sub in ("populate", "peupler", "remplir", "enrichir"):
-        _populate_graph(args[1:], ctx)
+        _populate_graph(real_args[1:], ctx)
     else:
         print_error(f"Sous-commande inconnue : {sub}  (/help nav)")
 
@@ -53,12 +73,10 @@ def _show_info(ctx) -> None:
     graph = ctx.cache.transport_graph
     section("Réseau de transport")
 
-    # Stats générales
     n_nodes = len(graph.nodes)
-    n_edges = len([e for e in graph.edges if e.edge_type != EdgeType.JUMP])  # Sans doublons jump
+    n_edges = len([e for e in graph.edges if e.edge_type != EdgeType.JUMP])
     n_jumps = len(graph.jump_points)
 
-    # Décompte par système
     systems = {}
     for node in graph.nodes.values():
         systems.setdefault(node.system, 0)
@@ -69,17 +87,17 @@ def _show_info(ctx) -> None:
     console.print(f"  [bold]Jump points :[/bold] {n_jumps}  [{C.DIM}](passerelles inter-systèmes)[/{C.DIM}]")
     console.print()
 
-    # Systèmes
     if systems:
         console.print(f"[bold {C.LABEL}]Systèmes couverts :[/bold {C.LABEL}]")
         for sys, count in sorted(systems.items()):
             console.print(f"  [{C.UEX}]{sys}[/{C.UEX}]  [{C.DIM}]{count} lieux[/{C.DIM}]")
 
     console.print()
-    console.print(f"[{C.DIM}]Utilisez /nav nodes, /nav edges, /nav jumps pour explorer le réseau[/{C.DIM}]")
-    console.print(f"[{C.DIM}]Utilisez /nav route <de> <vers> pour calculer un itinéraire[/{C.DIM}]")
+    console.print(f"[{C.DIM}]/nav <dest>        route depuis votre position[/{C.DIM}]")
+    console.print(f"[{C.DIM}]/nav <de> <vers>   route explicite[/{C.DIM}]")
+    console.print(f"[{C.DIM}]/nav --req          fetcher les distances manquantes depuis UEX[/{C.DIM}]")
+    console.print(f"[{C.DIM}]/nav nodes, /nav edges, /nav jumps   explorer le réseau[/{C.DIM}]")
 
-    # Indiquer s'il y a des modifications non sauvegardées
     if graph.has_unsaved_changes:
         console.print()
         console.print(
@@ -91,7 +109,6 @@ def _show_info(ctx) -> None:
 # ── Nodes ──────────────────────────────────────────────────────────────────────
 
 def _list_nodes(args: list[str], ctx) -> None:
-    """Liste les nœuds, filtrable par système."""
     graph = ctx.cache.transport_graph
     system_filter = args[0].lower() if args else None
 
@@ -105,7 +122,6 @@ def _list_nodes(args: list[str], ctx) -> None:
 
     section(f"Nœuds — {nodes[0].system if system_filter else 'Tous systèmes'}")
 
-    # Table
     tbl = Table(show_header=True, box=None, padding=(0, 1))
     tbl.add_column("Nom", style=C.LABEL)
     tbl.add_column("Type", style=C.DIM)
@@ -114,12 +130,7 @@ def _list_nodes(args: list[str], ctx) -> None:
 
     for node in sorted(nodes, key=lambda n: (n.system, n.name)):
         neighbors = graph.get_neighbors(node.name)
-        tbl.add_row(
-            node.name,
-            node.type.value,
-            node.system,
-            str(len(neighbors))
-        )
+        tbl.add_row(node.name, node.type.value, node.system, str(len(neighbors)))
 
     console.print(tbl)
     console.print(f"\n[{C.DIM}]{len(nodes)} nœuds[/{C.DIM}]")
@@ -128,7 +139,6 @@ def _list_nodes(args: list[str], ctx) -> None:
 # ── Edges ──────────────────────────────────────────────────────────────────────
 
 def _list_edges(args: list[str], ctx) -> None:
-    """Liste les arêtes, filtrable par nœud source."""
     graph = ctx.cache.transport_graph
     node_filter = " ".join(args).strip() if args else None
 
@@ -136,7 +146,6 @@ def _list_edges(args: list[str], ctx) -> None:
     if node_filter:
         edges = [e for e in edges if node_filter.lower() in e.from_node.lower()]
 
-    # Filtrer les doublons (ne garder qu'une direction)
     seen = set()
     unique_edges = []
     for e in edges:
@@ -151,7 +160,6 @@ def _list_edges(args: list[str], ctx) -> None:
 
     section(f"Routes — {node_filter or 'Toutes'}")
 
-    # Table
     tbl = Table(show_header=True, box=None, padding=(0, 1))
     tbl.add_column("De", style=C.LABEL)
     tbl.add_column("", style=C.DIM)
@@ -161,13 +169,7 @@ def _list_edges(args: list[str], ctx) -> None:
 
     for edge in sorted(unique_edges, key=lambda e: e.from_node):
         dist_str = f"{edge.distance_gm:.1f} Gm" if edge.distance_gm >= 1 else f"{edge.distance_gm * 1000:.0f} Mm"
-        tbl.add_row(
-            edge.from_node[:20],
-            "↔",
-            edge.to_node[:20],
-            dist_str,
-            edge.edge_type.value
-        )
+        tbl.add_row(edge.from_node[:20], "↔", edge.to_node[:20], dist_str, edge.edge_type.value)
 
     console.print(tbl)
     console.print(f"\n[{C.DIM}]{len(unique_edges)} routes[/{C.DIM}]")
@@ -176,7 +178,6 @@ def _list_edges(args: list[str], ctx) -> None:
 # ── Jump points ────────────────────────────────────────────────────────────────
 
 def _list_jumps(ctx) -> None:
-    """Liste tous les jump points."""
     graph = ctx.cache.transport_graph
     jumps = list(graph.jump_points.values())
 
@@ -195,14 +196,10 @@ def _list_jumps(ctx) -> None:
     tbl.add_column("État", style=C.SUCCESS)
 
     for jp in sorted(jumps, key=lambda j: j.name):
-        status = "✓" if jp.is_active else "✗"
         status_color = C.SUCCESS if jp.is_active else C.DIM
         tbl.add_row(
-            jp.name,
-            "⇨",
-            f"{jp.from_system} ↔ {jp.to_system}",
-            jp.size,
-            f"[{status_color}]{status}[/{status_color}]"
+            jp.name, "⇨", f"{jp.from_system} ↔ {jp.to_system}",
+            jp.size, f"[{status_color}]{'✓' if jp.is_active else '✗'}[/{status_color}]"
         )
 
     console.print(tbl)
@@ -212,60 +209,105 @@ def _list_jumps(ctx) -> None:
 # ── Route finding ──────────────────────────────────────────────────────────────
 
 def _find_route(args: list[str], ctx) -> None:
-    """Calcule le plus court chemin entre deux lieux."""
-    if len(args) < 2:
-        print_error("Usage: /nav route <de> [to] <vers>")
-        console.print(f"[{C.DIM}]Conseil : utilisez 'to' pour les noms à espaces :[/{C.DIM}]")
-        console.print(f"[{C.DIM}]  /nav route New_Babbage to Port_Tressler[/{C.DIM}]")
-        console.print(f"[{C.DIM}]  /nav route New_Babbage Port_Tressler[/{C.DIM}]")
-        _show_nodes_hint(ctx.cache.transport_graph)
-        return
+    """Calcule le chemin entre deux lieux.
+
+    Syntaxes :
+      /nav                       → toutes destinations du système courant
+      /nav <dest>                → de @local vers <dest>
+      /nav <de> <vers>           → route explicite
+      /nav @local <vers>         → alias position courante
+      /nav @dest <vers>          → alias destination courante
+      /nav ... --req             → force requête UEX pour distances manquantes
+    """
+    force_req = "--req" in args
+    args = [a for a in args if a != "--req"]
 
     graph = ctx.cache.transport_graph
 
-    # Parser "from X to Y" ou "X Y" (underscores → espaces partout)
-    args_norm = [a.replace("_", " ") for a in args]
+    # ── Cas 0 : aucun argument → toutes destinations depuis @local ────────────
+    if not args:
+        loc = (getattr(ctx.player, "location", None) or "").strip()
+        if not loc:
+            _show_info(ctx)
+            console.print()
+            console.print(f"[{C.DIM}]💡 Conseil : /go <lieu> pour définir votre position, puis /nav[/{C.DIM}]")
+            return
 
-    if "to" in [a.lower() for a in args]:
-        # Trouver le "to" en ignorant la casse
-        idx = next(i for i, a in enumerate(args) if a.lower() == "to")
-        from_loc = " ".join(args_norm[:idx]).strip()
-        to_loc   = " ".join(args_norm[idx + 1:]).strip()
-        from_node = _resolve_node(from_loc, graph)
-        to_node   = _resolve_node(to_loc, graph)
+        from_node = _resolve_node(loc, graph)
+        if not from_node and force_req:
+            from_node = _auto_add_from_uex(loc, graph, ctx)
+        if not from_node:
+            print_warn(f"Position [{C.LABEL}]{loc}[/{C.LABEL}] absente du graphe")
+            console.print(f"[{C.DIM}]→ /nav --req   pour fetcher les distances UEX[/{C.DIM}]")
+            console.print(f"[{C.DIM}]→ /nav populate  pour enrichir tout le graphe[/{C.DIM}]")
+            return
+
+        if force_req:
+            _fetch_missing_distances(from_node, graph, ctx)
+        _show_system_destinations(from_node, graph, ctx)
+        return
+
+    # Normaliser : underscores → espaces, puis expander @local/@dest
+    args_exp = [_expand_alias(a.replace("_", " "), ctx) for a in args]
+
+    # ── Cas 1 : un seul argument → de @local vers args[0] ────────────────────
+    if len(args_exp) == 1:
+        loc = (getattr(ctx.player, "location", None) or "").strip()
+        if not loc:
+            print_error("Position non définie — utilisez /go <lieu>")
+            return
+        from_loc = loc
+        to_loc   = args_exp[0]
+
+        from_node = _resolve_node(loc, graph)
+        if not from_node:
+            from_node = _auto_add_from_uex(loc, graph, ctx)
+        to_node = _resolve_node(to_loc, graph)
+        if not to_node:
+            to_node = _auto_add_from_uex(to_loc, graph, ctx)
+
+    # ── Cas 2+ : split heuristique (logique existante) ────────────────────────
     else:
-        # Pas de "to" : essayer toutes les coupures possibles
-        # On cherche la première (depuis la droite) où les deux moitiés résolvent
         from_node, to_node = None, None
         from_loc = to_loc = ""
-        for split in range(len(args_norm) - 1, 0, -1):
-            fl = " ".join(args_norm[:split]).strip()
-            tl = " ".join(args_norm[split:]).strip()
-            fn = _resolve_node(fl, graph)
-            tn = _resolve_node(tl, graph)
-            if fn and tn:
-                from_node, to_node = fn, tn
-                from_loc, to_loc = fl, tl
-                break
-        # Si aucune coupure ne fonctionne, essayer depuis la gauche
-        if not from_node:
-            for split in range(1, len(args_norm)):
-                fl = " ".join(args_norm[:split]).strip()
-                tl = " ".join(args_norm[split:]).strip()
+
+        if "to" in [a.lower() for a in args]:
+            idx = next(i for i, a in enumerate(args) if a.lower() == "to")
+            from_loc = " ".join(args_exp[:idx]).strip()
+            to_loc   = " ".join(args_exp[idx + 1:]).strip()
+            from_node = _resolve_node(from_loc, graph)
+            to_node   = _resolve_node(to_loc, graph)
+        else:
+            # Essayer de droite à gauche
+            for split in range(len(args_exp) - 1, 0, -1):
+                fl = " ".join(args_exp[:split]).strip()
+                tl = " ".join(args_exp[split:]).strip()
                 fn = _resolve_node(fl, graph)
                 tn = _resolve_node(tl, graph)
                 if fn and tn:
                     from_node, to_node = fn, tn
                     from_loc, to_loc = fl, tl
                     break
-        # Encore rien → résoudre chaque moitié séparément pour un meilleur message
-        if not from_node:
-            mid = len(args_norm) // 2
-            from_loc = " ".join(args_norm[:mid]).strip()
-            to_loc   = " ".join(args_norm[mid:]).strip()
-            from_node = _resolve_node(from_loc, graph)
-            to_node   = _resolve_node(to_loc, graph)
+            # Puis de gauche à droite
+            if not from_node:
+                for split in range(1, len(args_exp)):
+                    fl = " ".join(args_exp[:split]).strip()
+                    tl = " ".join(args_exp[split:]).strip()
+                    fn = _resolve_node(fl, graph)
+                    tn = _resolve_node(tl, graph)
+                    if fn and tn:
+                        from_node, to_node = fn, tn
+                        from_loc, to_loc = fl, tl
+                        break
+            # Fallback milieu
+            if not from_node:
+                mid = len(args_exp) // 2
+                from_loc = " ".join(args_exp[:mid]).strip()
+                to_loc   = " ".join(args_exp[mid:]).strip()
+                from_node = _resolve_node(from_loc, graph)
+                to_node   = _resolve_node(to_loc, graph)
 
+    # ── Auto-enrichissement UEX si nœuds introuvables ─────────────────────────
     if not from_node:
         from_node = _auto_add_from_uex(from_loc, graph, ctx)
         if not from_node:
@@ -279,16 +321,23 @@ def _find_route(args: list[str], ctx) -> None:
             _show_candidates(to_loc, graph)
             return
 
-    # Calculer le chemin
+    # ── Fetch optionnel avant calcul ──────────────────────────────────────────
+    if force_req:
+        _fetch_missing_distances(from_node, graph, ctx)
+
+    _display_route(from_node, to_node, graph)
+
+
+def _display_route(from_node: str, to_node: str, graph) -> None:
+    """Affiche le résultat d'un calcul de route Dijkstra."""
     result = graph.find_shortest_path(from_node, to_node)
 
     if not result:
         print_warn(f"Aucune route trouvée entre {from_node} et {to_node}")
+        console.print(f"[{C.DIM}]→ /nav --req {from_node} {to_node}  pour fetcher via UEX[/{C.DIM}]")
         return
 
-    # Afficher le résultat
     section(f"Route — {from_node} → {to_node}")
-
     console.print(f"  [bold]Distance totale :[/bold] [{C.UEX}]{result.total_distance:.1f} Gm[/{C.UEX}]")
     console.print(f"  [bold]Durée estimée :[/bold]   [{C.NEUTRAL}]{result.duration_formatted}[/{C.NEUTRAL}]")
     if result.jump_points:
@@ -298,8 +347,11 @@ def _find_route(args: list[str], ctx) -> None:
     for i, seg in enumerate(result.segments, 1):
         icon = "⇨" if seg["type"] == "jump" else "→"
         type_label = "[bold yellow]JUMP[/bold yellow]" if seg["type"] == "jump" else "QT"
-        dist_str = f"{seg['distance_gm']:.1f} Gm" if seg['distance_gm'] >= 1 else f"{seg['distance_gm'] * 1000:.0f} Mm"
-
+        dist_str = (
+            f"{seg['distance_gm']:.1f} Gm"
+            if seg['distance_gm'] >= 1
+            else f"{seg['distance_gm'] * 1000:.0f} Mm"
+        )
         console.print(
             f"  [{C.DIM}]{i}.[/{C.DIM}] "
             f"[{C.LABEL}]{seg['from'][:18]}[/{C.LABEL}]  "
@@ -313,10 +365,190 @@ def _find_route(args: list[str], ctx) -> None:
         console.print(f"\n[{C.WARNING}]⚠  Cette route traverse {len(result.jump_points)} jump point(s)[/{C.WARNING}]")
 
 
+def _show_system_destinations(from_node: str, graph, ctx) -> None:
+    """Affiche toutes les destinations du système courant en multi-colonnes."""
+    node = graph.nodes.get(from_node)
+    system = node.system if node else "Unknown"
+
+    sys_nodes = graph.get_nodes_in_system(system)
+    if not sys_nodes:
+        print_warn(f"Aucun nœud connu dans le système {system!r}")
+        console.print(f"[{C.DIM}]→ /nav populate  pour enrichir le graphe depuis UEX[/{C.DIM}]")
+        return
+
+    # Dijkstra unique depuis from_node
+    all_dists = graph.find_all_distances(from_node)
+
+    entries = []
+    for n in sys_nodes:
+        if n.name == from_node:
+            continue
+        dist = all_dists.get(n.name)
+        entries.append((n.name, dist, n.type))
+
+    known   = sorted([(nm, d, t) for nm, d, t in entries if d is not None], key=lambda x: x[1])
+    unknown = sorted([(nm, d, t) for nm, d, t in entries if d is None],     key=lambda x: x[0])
+    all_entries = known + unknown
+
+    if not all_entries:
+        print_warn(f"Aucune destination dans {system!r}")
+        return
+
+    section(f"Destinations depuis {from_node}  [{system}]")
+    console.print(
+        f"[{C.DIM}]@local = [bold]{from_node}[/bold]  ·  "
+        f"{len(known)}/{len(all_entries)} distances connues[/{C.DIM}]"
+    )
+    if unknown:
+        console.print(
+            f"[{C.DIM}]-?- = distance inconnue  ·  /nav --req pour les fetcher[/{C.DIM}]"
+        )
+    console.print()
+
+    # Mise en page multi-colonnes
+    col_width = 34   # nom ~22 + dist ~10 + padding 2
+    n_cols = max(1, min(4, (console.width - 4) // col_width))
+
+    tbl = Table(show_header=False, box=None, padding=(0, 1), expand=False)
+    for _ in range(n_cols):
+        tbl.add_column(max_width=22, no_wrap=True)
+        tbl.add_column(width=9, justify="right", no_wrap=True)
+
+    for i in range(0, len(all_entries), n_cols):
+        row_entries = all_entries[i:i + n_cols]
+        cells: list[str] = []
+        for nm, dist, ntype in row_entries:
+            if ntype in (NodeType.STATION, NodeType.LAGRANGE):
+                nc = f"[{C.UEX}]{nm[:21]}[/{C.UEX}]"
+            elif ntype == NodeType.CITY:
+                nc = f"[bold white]{nm[:21]}[/bold white]"
+            elif ntype in (NodeType.PLANET, NodeType.MOON):
+                nc = f"[{C.LABEL}]{nm[:21]}[/{C.LABEL}]"
+            else:
+                nc = f"[{C.DIM}]{nm[:21]}[/{C.DIM}]"
+
+            if dist is not None:
+                dc = f"[{C.UEX}]{dist:.1f}[/{C.UEX}][{C.DIM}]Gm[/{C.DIM}]"
+            else:
+                dc = f"[{C.DIM}]-?-[/{C.DIM}]"
+
+            cells.extend([nc, dc])
+
+        # Compléter la dernière ligne
+        while len(cells) < n_cols * 2:
+            cells.extend(["", ""])
+
+        tbl.add_row(*cells)
+
+    console.print(tbl)
+    console.print()
+    console.print(
+        f"[{C.DIM}]/nav <dest>       route complète  ·  "
+        f"/nav --req       fetcher distances manquantes[/{C.DIM}]"
+    )
+
+
+# ── Fetch distances UEX ────────────────────────────────────────────────────────
+
+def _fetch_missing_distances(from_node: str, graph, ctx) -> None:
+    """Interroge UEX pour récupérer les distances depuis from_node.
+
+    Identifie les terminaux associés au nœud, fait une requête par terminal,
+    et injecte les nouvelles arêtes (minimise les appels API).
+    """
+    from uexinfo.api.uex_client import UEXClient, UEXError
+
+    node = graph.nodes.get(from_node)
+
+    # 1. Trouver les terminaux UEX correspondant au nœud
+    terminals = _get_terminals_for_node(from_node, node, ctx)
+
+    if not terminals:
+        print_warn(f"Aucun terminal UEX trouvé pour {from_node!r}")
+        console.print(f"[{C.DIM}]Astuce : /nav populate  pour enrichir tout le graphe[/{C.DIM}]")
+        return
+
+    console.print(
+        f"[{C.DIM}]↻ Requête UEX — {len(terminals)} terminal(aux) pour "
+        f"[bold]{from_node}[/bold]...[/{C.DIM}]"
+    )
+
+    client = UEXClient()
+    edges_added = 0
+    seen_dests: set[str] = set()
+
+    for terminal in terminals[:5]:  # max 5 requêtes par lieu
+        try:
+            routes = client.get_routes(id_terminal_origin=terminal.id)
+        except UEXError as e:
+            console.print(f"[{C.WARNING}]⚠ UEX : {e}[/{C.WARNING}]")
+            continue
+
+        for r in routes:
+            dest = (
+                r.get("destination_terminal_name") or
+                r.get("terminal_name_destination") or ""
+            ).strip()
+            dist = r.get("distance")
+            if not dest or dist is None or dest in seen_dests:
+                continue
+            seen_dests.add(dest)
+
+            dest_node = _resolve_node_uex(dest, graph)
+            if dest_node and dest_node != from_node:
+                added = graph.add_or_update_route(
+                    from_node=from_node,
+                    to_node=dest_node,
+                    distance_gm=float(dist),
+                    edge_type=EdgeType.QUANTUM,
+                    source="uex",
+                )
+                if added:
+                    edges_added += 1
+
+    if edges_added > 0:
+        print_ok(f"{edges_added} liaison(s) UEX ajoutée(s) depuis {from_node}")
+        console.print(f"[{C.DIM}]/nav save  pour conserver[/{C.DIM}]")
+    else:
+        console.print(f"[{C.DIM}]Aucune nouvelle liaison trouvée[/{C.DIM}]")
+
+
+def _get_terminals_for_node(node_name: str, node, ctx) -> list:
+    """Retourne les terminaux UEX correspondant à un nœud du graphe."""
+    # 1. Via id_terminal dans les métadonnées
+    if node:
+        id_terminal = node.metadata.get("id_terminal")
+        if id_terminal:
+            for t in ctx.cache.terminals:
+                if t.id == id_terminal:
+                    return [t]
+
+    # 2. Par correspondance de nom
+    loc_lower = node_name.lower().strip()
+    result = []
+    seen_ids: set[int] = set()
+
+    for t in ctx.cache.terminals:
+        if t.id in seen_ids:
+            continue
+        terminal_loc = t.name.rsplit(" - ", 1)[-1].strip().lower()
+        if (
+            terminal_loc == loc_lower
+            or t.name.lower() == loc_lower
+            or loc_lower in terminal_loc
+            or (t.orbit_name or "").lower() == loc_lower
+            or (t.city_name or "").lower() == loc_lower
+            or (t.space_station_name or "").lower() == loc_lower
+        ):
+            result.append(t)
+            seen_ids.add(t.id)
+
+    return result
+
+
 # ── Add route ──────────────────────────────────────────────────────────────────
 
 def _add_route(args: list[str], ctx) -> None:
-    """Ajoute une route entre deux nœuds."""
     if len(args) < 3:
         print_error("Usage: /nav add-route <de> <vers> <distance_gm> [quantum|ground]")
         return
@@ -338,15 +570,13 @@ def _add_route(args: list[str], ctx) -> None:
 
     graph = ctx.cache.transport_graph
 
-    # Vérifier que les nœuds existent
     if from_loc not in graph.nodes:
-        print_error(f"Nœud introuvable : {from_loc}  — Ajoutez-le d'abord avec /nav add-node")
+        print_error(f"Nœud introuvable : {from_loc}")
         return
     if to_loc not in graph.nodes:
         print_error(f"Nœud introuvable : {to_loc}")
         return
 
-    # Créer l'arête
     edge = RouteEdge(
         from_node=from_loc,
         to_node=to_loc,
@@ -363,7 +593,6 @@ def _add_route(args: list[str], ctx) -> None:
 # ── Add jump ───────────────────────────────────────────────────────────────────
 
 def _add_jump(args: list[str], ctx) -> None:
-    """Ajoute un jump point."""
     if len(args) < 5:
         print_error("Usage: /nav add-jump <nom> <sys1> <sys2> <entrée> <sortie> [size]")
         return
@@ -380,15 +609,9 @@ def _add_jump(args: list[str], ctx) -> None:
         return
 
     graph = ctx.cache.transport_graph
-
-    # Créer le jump point
     jp = JumpPoint(
-        name=name,
-        from_system=from_sys,
-        to_system=to_sys,
-        entry_location=entry,
-        exit_location=exit_loc,
-        size=size,
+        name=name, from_system=from_sys, to_system=to_sys,
+        entry_location=entry, exit_location=exit_loc, size=size,
     )
     graph.add_jump_point(jp)
 
@@ -399,23 +622,18 @@ def _add_jump(args: list[str], ctx) -> None:
 # ── Remove ─────────────────────────────────────────────────────────────────────
 
 def _remove_route(args: list[str], ctx) -> None:
-    """Supprime une route."""
     if len(args) < 2:
         print_error("Usage: /nav remove-route <de> <vers>")
         return
 
-    from_loc = args[0]
-    to_loc = args[1]
+    from_loc, to_loc = args[0], args[1]
     graph = ctx.cache.transport_graph
 
-    # Supprimer les deux directions
-    removed = 0
     graph.edges = [
         e for e in graph.edges
         if not ((e.from_node == from_loc and e.to_node == to_loc) or
-                (e.from_node == to_loc and e.to_node == from_loc))
+                (e.from_node == to_loc   and e.to_node == from_loc))
     ]
-    # Reconstruire l'adjacence
     graph._adjacency.clear()
     for edge in graph.edges:
         graph._adjacency.setdefault(edge.from_node, []).append(edge)
@@ -425,7 +643,6 @@ def _remove_route(args: list[str], ctx) -> None:
 
 
 def _remove_jump(args: list[str], ctx) -> None:
-    """Supprime un jump point."""
     if not args:
         print_error("Usage: /nav remove-jump <nom>")
         return
@@ -437,12 +654,8 @@ def _remove_jump(args: list[str], ctx) -> None:
         print_error(f"Jump point introuvable : {name}")
         return
 
-    # Supprimer le jump point
     del graph.jump_points[name]
-
-    # Supprimer les arêtes associées
     graph.edges = [e for e in graph.edges if name not in e.notes]
-    # Reconstruire l'adjacence
     graph._adjacency.clear()
     for edge in graph.edges:
         graph._adjacency.setdefault(edge.from_node, []).append(edge)
@@ -454,21 +667,142 @@ def _remove_jump(args: list[str], ctx) -> None:
 # ── Save & reset ───────────────────────────────────────────────────────────────
 
 def _save_graph(ctx) -> None:
-    """Sauvegarde le graphe dans le fichier source."""
     ctx.cache.save_transport_graph()
     print_ok("Graphe de transport sauvegardé dans uexinfo/data/transport_network.json")
     console.print(f"[{C.DIM}]Pensez à commiter ce fichier avec git[/{C.DIM}]")
 
 
 def _reset_graph(ctx) -> None:
-    """Réinitialise le graphe."""
     print_warn("Cette action supprimera toutes les modifications non sauvegardées")
-    # TODO: demander confirmation via AskUserQuestion
     ctx.cache.load_transport_graph()
     print_ok("Graphe réinitialisé depuis le fichier source")
 
 
+# ── Populate ───────────────────────────────────────────────────────────────────
+
+def _populate_graph(args: list[str], ctx) -> None:
+    """Peuple le graphe de transport avec les distances depuis l'API UEX."""
+    from uexinfo.api.uex_client import UEXClient, UEXError
+    from uexinfo.models.transport_network import EdgeType, LocationNode, NodeType
+
+    graph = ctx.cache.transport_graph
+    client = UEXClient(timeout=20)
+
+    _term_sys: dict[str, str] = {
+        t.name: (t.star_system_name or "Unknown")
+        for t in ctx.cache.terminals
+    }
+
+    section("Populate — distances depuis UEX Corp")
+    console.print(f"[{C.DIM}]Récupération des commodités...[/{C.DIM}]")
+    try:
+        commodities = client.get_commodities()
+    except UEXError as e:
+        print_error(f"UEX inaccessible : {e}")
+        return
+
+    buyable = [c for c in commodities if c.get("is_buyable") == 1]
+    console.print(
+        f"  [{C.NEUTRAL}]{len(buyable)} commodités achetables[/{C.NEUTRAL}]  "
+        f"[{C.DIM}]— {len(commodities)} total[/{C.DIM}]"
+    )
+    console.print()
+
+    seen_pairs: set[tuple[str, str]] = set()
+    nodes_added    = 0
+    routes_added   = 0
+    routes_updated = 0
+    errors         = 0
+    total          = len(buyable)
+
+    for i, commodity in enumerate(buyable, 1):
+        cid   = commodity.get("id")
+        cname = commodity.get("name", "?")
+
+        if i == 1 or i % 5 == 0 or i == total:
+            console.print(f"  [{C.DIM}][{i}/{total}][/{C.DIM}]  [{C.LABEL}]{cname}[/{C.LABEL}]")
+
+        try:
+            routes = client.get_routes(id_commodity=cid)
+        except UEXError:
+            errors += 1
+            continue
+
+        for r in routes:
+            origin = (r.get("terminal_name_origin") or r.get("origin_terminal_name") or "").strip()
+            dest   = (r.get("terminal_name_destination") or r.get("destination_terminal_name") or "").strip()
+            dist   = r.get("distance")
+
+            if not origin or not dest or dist is None:
+                continue
+
+            dist_f = max(float(dist), 0.001)
+            pair = tuple(sorted([origin, dest]))
+            already_known = pair in seen_pairs
+            seen_pairs.add(pair)
+
+            sys_o = _term_sys.get(origin) or (r.get("star_system_name_origin") or "").strip() or "Unknown"
+            sys_d = _term_sys.get(dest)   or (r.get("star_system_name_destination") or "").strip() or "Unknown"
+
+            if origin not in graph.nodes:
+                graph.add_node(LocationNode(name=origin, type=NodeType.TERMINAL, system=sys_o,
+                                            metadata={"source": "uex_populate"}))
+                nodes_added += 1
+            if dest not in graph.nodes:
+                graph.add_node(LocationNode(name=dest, type=NodeType.TERMINAL, system=sys_d,
+                                            metadata={"source": "uex_populate"}))
+                nodes_added += 1
+
+            if already_known:
+                continue
+
+            added = graph.add_or_update_route(
+                from_node=origin, to_node=dest, distance_gm=dist_f,
+                edge_type=EdgeType.QUANTUM, source="uex",
+            )
+            if added:
+                routes_added += 1
+            else:
+                routes_updated += 1
+
+    fixed = 0
+    for node in graph.nodes.values():
+        if node.system == "Unknown":
+            sys_from_cache = _term_sys.get(node.name)
+            if sys_from_cache and sys_from_cache != "Unknown":
+                node.system = sys_from_cache
+                fixed += 1
+
+    console.print()
+    print_ok(
+        f"{routes_added} routes ajoutées  ·  "
+        f"{nodes_added} nouveaux nœuds  ·  "
+        f"{len(seen_pairs)} paires de terminaux couvertes"
+    )
+    if routes_updated:
+        console.print(f"  [{C.DIM}]{routes_updated} routes existantes confirmées (inchangées)[/{C.DIM}]")
+    if fixed:
+        console.print(f"  [{C.DIM}]{fixed} nœud(s) 'Unknown' corrigés depuis le cache[/{C.DIM}]")
+    if errors:
+        console.print(f"  [{C.WARNING}]{errors} commodité(s) ignorée(s) (erreur réseau)[/{C.WARNING}]")
+    console.print()
+    console.print(
+        f"[{C.DIM}]Total nœuds dans le graphe : [bold]{len(graph.nodes)}[/bold]  ·  "
+        f"Utilisez [{C.LABEL}]/nav save[/{C.LABEL}] pour sauvegarder[/{C.DIM}]"
+    )
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _expand_alias(query: str, ctx) -> str:
+    """Expande @local et @dest en noms de lieux réels du joueur."""
+    ql = query.lower().strip()
+    if ql in ("@local", "@ici", "@here", "@pos", "@loc"):
+        return (getattr(ctx.player, "location", None) or "").strip() or query
+    if ql in ("@dest", "@destination", "@d"):
+        return (getattr(ctx.player, "destination", None) or "").strip() or query
+    return query
+
 
 def _resolve_node(query: str, graph) -> str | None:
     """Résout un nom de nœud — insensible à la casse, underscores, fuzzy."""
@@ -478,22 +812,18 @@ def _resolve_node(query: str, graph) -> str | None:
 
     node_names = list(graph.nodes.keys())
 
-    # 1. Match exact (insensible à la casse)
     for name in node_names:
         if name.lower() == q:
             return name
 
-    # 2. Préfixe
     matches = [n for n in node_names if n.lower().startswith(q)]
     if len(matches) == 1:
         return matches[0]
 
-    # 3. Sous-chaîne
     matches = [n for n in node_names if q in n.lower()]
     if len(matches) == 1:
         return matches[0]
 
-    # 4. Fuzzy (rapidfuzz si disponible)
     try:
         from rapidfuzz import process, fuzz
         best = process.extractOne(q, [n.lower() for n in node_names],
@@ -510,10 +840,7 @@ def _resolve_node(query: str, graph) -> str | None:
 
 
 def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
-    """Cherche le lieu dans le cache UEX, interroge les routes, enrichit le graphe.
-
-    Retourne le nom du nœud ajouté (ou trouvé), ou None si introuvable.
-    """
+    """Cherche le lieu dans le cache UEX, interroge les routes, enrichit le graphe."""
     from uexinfo.api.uex_client import UEXClient, UEXError
     from uexinfo.models.transport_network import LocationNode, NodeType
 
@@ -521,7 +848,6 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
     if not q:
         return None
 
-    # ── 1. Chercher un terminal correspondant dans le cache UEX ──────────────
     terminal = None
     best_score = 0
 
@@ -546,7 +872,6 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
         f"[{C.DIM}]↻ Terminal UEX : [bold]{node_name}[/bold] — récupération des distances...[/{C.DIM}]"
     )
 
-    # ── 2. Créer le nœud s'il n'existe pas déjà ─────────────────────────────
     if node_name not in graph.nodes:
         graph.add_node(LocationNode(
             name=node_name,
@@ -555,21 +880,18 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
             metadata={"id_terminal": terminal.id, "source": "uex_auto"},
         ))
 
-    # ── 3. Requête API : routes depuis ce terminal pour obtenir les distances ─
     edges_added = 0
     try:
         client = UEXClient()
         routes = client.get_routes(id_terminal_origin=terminal.id)
 
-        # Dédupliquer par destination (une route par commodity → on veut une par dest)
-        seen_dest: dict[str, float] = {}  # dest_name → distance_gm
+        seen_dest: dict[str, float] = {}
         for r in routes:
             dest = r.get("destination_terminal_name", "")
             dist = r.get("distance")
             if dest and dist is not None and dest not in seen_dest:
                 seen_dest[dest] = float(dist)
 
-        # Ajouter les edges vers les nœuds déjà connus du graphe
         for dest_name, dist_gm in seen_dest.items():
             dest_node = _resolve_node_uex(dest_name, graph)
             if dest_node and dest_node != node_name:
@@ -592,40 +914,28 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
             f"[{C.DIM}]— /nav save pour conserver[/{C.DIM}]"
         )
     else:
-        console.print(
-            f"[{C.WARNING}]⚠ Nœud créé mais aucune liaison connue — route peut être incomplète[/{C.WARNING}]"
-        )
+        console.print(f"[{C.WARNING}]⚠ Nœud créé mais aucune liaison connue[/{C.WARNING}]")
 
     return node_name
 
 
 def _resolve_node_uex(uex_terminal_name: str, graph) -> str | None:
-    """Résout un nom de terminal UEX vers un nœud du graphe.
-
-    Les terminaux UEX ont des préfixes service : "Admin - New Babbage",
-    "TDD - Area 18", "Scrap - Rappel"...
-    Le graphe peut avoir le nom complet ou juste la partie lieu.
-    """
+    """Résout un nom de terminal UEX vers un nœud du graphe."""
     node_names = list(graph.nodes.keys())
 
     def _strict_resolve(q: str) -> str | None:
-        """Match exact ou sous-chaîne stricte — pas de fuzzy agressif."""
         ql = q.lower().strip()
         if len(ql) < 4:
             return None
-        # Exact
         for n in node_names:
             if n.lower() == ql:
                 return n
-        # Préfixe
         matches = [n for n in node_names if n.lower().startswith(ql)]
         if len(matches) == 1:
             return matches[0]
-        # Sous-chaîne stricte (q dans node ou node dans q — longueur minimale)
         matches = [n for n in node_names if ql in n.lower() and len(ql) >= 5]
         if len(matches) == 1:
             return matches[0]
-        # Fuzzy serré (85)
         try:
             from rapidfuzz import process, fuzz
             best = process.extractOne(ql, [n.lower() for n in node_names],
@@ -637,31 +947,22 @@ def _resolve_node_uex(uex_terminal_name: str, graph) -> str | None:
         return None
 
     if " - " in uex_terminal_name:
-        # Nom avec préfixe service ("Admin - X", "TDD - X"…)
-        # parts[0] est le type de service (Admin, TDD, Scrap…) — ne pas l'utiliser
-        # comme nom de lieu. On essaie parts[1:] du plus spécifique (fin) au début.
         parts = [p.strip() for p in uex_terminal_name.split(" - ")]
-        for part in reversed(parts[1:]):   # skip parts[0] = service prefix
+        for part in reversed(parts[1:]):
             found = _strict_resolve(part)
             if found:
                 return found
-        # Essai sur le nom complet seulement si le graphe stocke lui-même ce format
-        # (ex: "Admin - Orbituary" est un nœud du graphe)
         for n in node_names:
             if n.lower() == uex_terminal_name.lower():
                 return n
         return None
 
-    # Nom sans préfixe : fuzzy normal
     return _resolve_node(uex_terminal_name, graph)
 
 
 def _show_candidates(query: str, graph) -> None:
-    """Affiche les nœuds proches du terme non résolu."""
     q = query.lower().replace("_", " ").strip()
     node_names = list(graph.nodes.keys())
-
-    # Chercher des suggestions partielles
     suggestions = [n for n in node_names if q[:3] in n.lower()] if len(q) >= 3 else []
 
     if suggestions:
@@ -672,154 +973,7 @@ def _show_candidates(query: str, graph) -> None:
         _show_nodes_hint(graph)
 
 
-def _populate_graph(args: list[str], ctx) -> None:
-    """Peuple le graphe de transport avec les distances depuis l'API UEX.
-
-    Interroge toutes les commodités achetables, extrait les paires
-    (origine, destination, distance) uniques et les injecte dans le graphe.
-    """
-    from uexinfo.api.uex_client import UEXClient, UEXError
-    from uexinfo.models.transport_network import EdgeType, LocationNode, NodeType
-
-    graph = ctx.cache.transport_graph
-    client = UEXClient(timeout=20)
-
-    # ── 0. Index terminal → système depuis le cache statique ────────────────
-    # Plus fiable que les champs star_system_name_origin/destination de l'API
-    # qui sont souvent absents ou vides dans /commodities_routes.
-    _term_sys: dict[str, str] = {
-        t.name: (t.star_system_name or "Unknown")
-        for t in ctx.cache.terminals
-    }
-
-    # ── 1. Récupérer la liste des commodités ────────────────────────────────
-    section("Populate — distances depuis UEX Corp")
-    console.print(f"[{C.DIM}]Récupération des commodités...[/{C.DIM}]")
-    try:
-        commodities = client.get_commodities()
-    except UEXError as e:
-        print_error(f"UEX inaccessible : {e}")
-        return
-
-    buyable = [c for c in commodities if c.get("is_buyable") == 1]
-    console.print(
-        f"  [{C.NEUTRAL}]{len(buyable)} commodités achetables[/{C.NEUTRAL}]  "
-        f"[{C.DIM}]— {len(commodities)} total[/{C.DIM}]"
-    )
-    console.print()
-
-    # ── 2. Parcourir chaque commodité et collecter les routes ───────────────
-    seen_pairs: set[tuple[str, str]] = set()   # paires canoniques (trié)
-    nodes_added    = 0
-    routes_added   = 0
-    routes_updated = 0
-    errors         = 0
-    total          = len(buyable)
-
-    for i, commodity in enumerate(buyable, 1):
-        cid   = commodity.get("id")
-        cname = commodity.get("name", "?")
-
-        # Affichage de progression toutes les 5 commodités
-        if i == 1 or i % 5 == 0 or i == total:
-            console.print(
-                f"  [{C.DIM}][{i}/{total}][/{C.DIM}]  [{C.LABEL}]{cname}[/{C.LABEL}]"
-            )
-
-        try:
-            routes = client.get_routes(id_commodity=cid)
-        except UEXError:
-            errors += 1
-            continue
-
-        for r in routes:
-            # Noms de terminaux — UEX utilise terminal_name_origin / terminal_name_destination
-            origin = (
-                r.get("terminal_name_origin") or
-                r.get("origin_terminal_name") or ""
-            ).strip()
-            dest = (
-                r.get("terminal_name_destination") or
-                r.get("destination_terminal_name") or ""
-            ).strip()
-            dist = r.get("distance")
-
-            if not origin or not dest or dist is None:
-                continue
-
-            dist_f = max(float(dist), 0.001)   # éviter 0 exact (même station)
-
-            # Dédupliquer (la route A↔B est bidirectionnelle)
-            pair = tuple(sorted([origin, dest]))
-            already_known = pair in seen_pairs
-            seen_pairs.add(pair)
-
-            # Systèmes : cache statique en priorité (plus fiable que l'API routes)
-            sys_o = _term_sys.get(origin) or (r.get("star_system_name_origin") or "").strip() or "Unknown"
-            sys_d = _term_sys.get(dest)   or (r.get("star_system_name_destination") or "").strip() or "Unknown"
-
-            # Créer les nœuds si absents (avec le bon système)
-            if origin not in graph.nodes:
-                graph.add_node(LocationNode(
-                    name=origin, type=NodeType.TERMINAL,
-                    system=sys_o,
-                    metadata={"source": "uex_populate"},
-                ))
-                nodes_added += 1
-            if dest not in graph.nodes:
-                graph.add_node(LocationNode(
-                    name=dest, type=NodeType.TERMINAL,
-                    system=sys_d,
-                    metadata={"source": "uex_populate"},
-                ))
-                nodes_added += 1
-
-            if already_known:
-                continue  # distance déjà enregistrée depuis une autre commodité
-
-            added = graph.add_or_update_route(
-                from_node=origin,
-                to_node=dest,
-                distance_gm=dist_f,
-                edge_type=EdgeType.QUANTUM,
-                source="uex",
-            )
-            if added:
-                routes_added += 1
-            else:
-                routes_updated += 1
-
-    # ── 3. Corriger les nœuds "Unknown" déjà présents dans le graphe ───────
-    fixed = 0
-    for node in graph.nodes.values():
-        if node.system == "Unknown":
-            sys_from_cache = _term_sys.get(node.name)
-            if sys_from_cache and sys_from_cache != "Unknown":
-                node.system = sys_from_cache
-                fixed += 1
-
-    # ── 4. Résumé ──────────────────────────────────────────────────────────
-    console.print()
-    print_ok(
-        f"{routes_added} routes ajoutées  ·  "
-        f"{nodes_added} nouveaux nœuds  ·  "
-        f"{len(seen_pairs)} paires de terminaux couvertes"
-    )
-    if routes_updated:
-        console.print(f"  [{C.DIM}]{routes_updated} routes existantes confirmées (inchangées)[/{C.DIM}]")
-    if fixed:
-        console.print(f"  [{C.DIM}]{fixed} nœud(s) 'Unknown' corrigés depuis le cache[/{C.DIM}]")
-    if errors:
-        console.print(f"  [{C.WARNING}]{errors} commodité(s) ignorée(s) (erreur réseau)[/{C.WARNING}]")
-    console.print()
-    console.print(
-        f"[{C.DIM}]Total nœuds dans le graphe : [bold]{len(graph.nodes)}[/bold]  ·  "
-        f"Utilisez [{C.LABEL}]/nav save[/{C.LABEL}] pour sauvegarder[/{C.DIM}]"
-    )
-
-
 def _show_nodes_hint(graph) -> None:
-    """Affiche les nœuds disponibles."""
     node_names = sorted(graph.nodes.keys())
     if not node_names:
         console.print(f"[{C.DIM}]Aucun nœud dans le réseau — utilisez /nav add-route[/{C.DIM}]")

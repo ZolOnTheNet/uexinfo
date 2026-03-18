@@ -392,6 +392,37 @@ class TransportGraph:
         sizes = {"S": 1, "M": 2, "L": 3}
         return sizes.get(ship_size, 3) <= sizes.get(jp_size, 3)
 
+    def find_all_distances(self, from_loc: str) -> dict[str, float]:
+        """Dijkstra complet depuis from_loc — retourne {node_name: distance_gm}.
+
+        Contrairement à find_shortest_path, ne s'arrête pas sur une cible :
+        tous les nœuds atteignables sont couverts en un seul passage.
+        """
+        if from_loc not in self.nodes:
+            return {}
+
+        heap: list[tuple[float, str]] = [(0.0, from_loc)]
+        best: dict[str, float] = {from_loc: 0.0}
+        visited: set[str] = set()
+
+        while heap:
+            d, current = heapq.heappop(heap)
+            if current in visited:
+                continue
+            visited.add(current)
+            for edge in self._adjacency.get(current, []):
+                nd = d + edge.distance_gm
+                if edge.to_node not in best or nd < best[edge.to_node]:
+                    best[edge.to_node] = nd
+                    heapq.heappush(heap, (nd, edge.to_node))
+
+        return best
+
+    def get_nodes_in_system(self, system: str) -> list[LocationNode]:
+        """Retourne tous les nœuds d'un système stellaire donné."""
+        sl = system.lower()
+        return [n for n in self.nodes.values() if n.system.lower() == sl]
+
     def get_neighbors(self, location: str) -> list[tuple[str, float, str]]:
         """Retourne les voisins d'un nœud : [(nom, distance_gm, type)]."""
         neighbors = []

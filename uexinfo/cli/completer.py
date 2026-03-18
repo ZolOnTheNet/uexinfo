@@ -183,6 +183,9 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
     "info ship":            [],  # completions dynamiques (noms de vaisseaux)
     "explore":              [],  # completions are fully dynamic
     "nav":                  [
+        ("@local",            "Position courante du joueur"),
+        ("@dest",             "Destination courante du joueur"),
+        ("--req",             "Forcer requête UEX pour distances manquantes"),
         ("info",              "Infos sur le réseau de transport"),
         ("noeuds",            "Liste tous les nœuds (alias: nodes)"),
         ("nodes",             "Liste tous les nœuds"),
@@ -385,10 +388,21 @@ class UEXCompleter(Completer):
 
         # ── Complétion dynamique : terminaux ─────────────────────────────
         _NAV_TERMINAL_SUBS = {"route", "add-route", "remove-route", "add-jump", "remove-jump"}
-        _nav_needs_terminal = (
-            cmd == "nav"
-            and bool(typed_args)
-            and typed_args[0].lower() in _NAV_TERMINAL_SUBS
+        # /nav complète avec des terminaux si l'arg est une sous-commande de route
+        # OU si c'est directement une destination (pas une sous-commande connue)
+        _nav_first = typed_args[0].lower() if typed_args else ""
+        _NAV_ALL_SUBS = {
+            "info", "nodes", "noeuds", "noeud", "node", "edges", "edge",
+            "liaisons", "liaison", "aretes", "arete", "jumps", "jump", "sauts", "saut",
+            "route", "itineraire", "chemin", "add-route", "ajouter-route",
+            "add-jump", "ajouter-saut", "remove-route", "supprimer-route",
+            "remove-jump", "supprimer-saut", "save", "sauvegarder", "enregistrer",
+            "raz", "reset", "populate", "peupler",
+            "--req",
+        }
+        _nav_needs_terminal = cmd == "nav" and bool(typed_args) and (
+            _nav_first in _NAV_TERMINAL_SUBS
+            or _nav_first not in _NAV_ALL_SUBS
         )
         _is_terminal_ctx = (cmd in _TERMINAL_CMDS and cmd != "nav") or _trade_needs_terminal or _nav_needs_terminal
         if self.ctx and _is_terminal_ctx and (ends_space or len(words) >= 2):
