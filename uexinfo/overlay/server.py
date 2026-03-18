@@ -138,6 +138,8 @@ class OverlayServer:
         elif t == "cols":
             cols = max(40, int(msg.get("value", 100)))
             _fmt_mod.console._width = cols
+        elif t == "scan_confirm":
+            await self._handle_scan_confirm(msg.get("data", {}))
         elif t == "history":
             await ws.send(json.dumps({"type": "history", "items": self._history}))
 
@@ -167,6 +169,9 @@ class OverlayServer:
         # Écho
         await ws.send(json.dumps({"type": "echo", "text": line}))
 
+        # Capturer le scan courant avant exécution pour détecter un nouveau scan
+        prev_scan = getattr(self.ctx, "last_scan", None)
+
         # Exécution dans un thread (bloquant)
         loop = asyncio.get_event_loop()
         output, needs_status = await loop.run_in_executor(
@@ -180,6 +185,11 @@ class OverlayServer:
             await self._send_status(ws)
 
         await ws.send(json.dumps({"type": "done"}))
+
+        # Si un nouveau scan vient d'être produit → envoyer les données éditables
+        new_scan = getattr(self.ctx, "last_scan", None)
+        if new_scan is not None and new_scan is not prev_scan:
+            await self._send_scan_edit(ws, new_scan)
 
         # Après un refresh, le cache change → re-envoyer le vocabulaire
         first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
@@ -277,6 +287,56 @@ class OverlayServer:
             "scan_log": scan_log,
             "ships":    ships,
         }))
+
+    # ── Scan éditable ────────────────────────────────────────────────────────
+
+    async def _send_scan_edit(self, ws, result) -> None:
+        """Envoie les données d'un ScanResult pour édition dans l'overlay."""
+        from uexinfo.models.scan_result import ScanResult
+        if not isinstance(result, ScanResult):
+            return
+        data = {
+            "terminal":    result.terminal,
+            "mode":        result.mode,
+            "source":      result.source,
+            "commodities": [
+                {
+                    "name":         c.name,
+                    "commodity_id": c.commodity_id,
+                    "price":        c.price,
+                    "quantity":     c.quantity,
+                    "stock_status": c.stock_status,
+                }
+                for c in result.commodities
+            ],
+        }
+        await ws.send(json.dumps({"type": "scan_edit", "data": data}))
+
+    async def _handle_scan_confirm(self, data: dict) -> None:
+        """Met à jour ctx.last_scan avec les valeurs éditées par l'utilisateur."""
+        try:
+            result = getattr(self.ctx, "last_scan", None)
+            if result is None:
+                return
+            result.terminal = data.get("terminal", result.terminal)
+            result.mode     = data.get("mode",     result.mode)
+            for i, cd in enumerate(data.get("commodities", [])):
+                if i >= len(result.commodities):
+                    break
+                c = result.commodities[i]
+                c.name         = cd.get("name", c.name)
+                c.price        = int(cd.get("price") or 0)
+                qty = cd.get("quantity")
+                c.quantity     = int(qty) if qty not in (None, "") else None
+                c.stock_status = int(cd.get("stock_status") or 0)
+            # Re-persister
+            from uexinfo.cache.scan_prices import ScanPriceStore
+            try:
+                ScanPriceStore().save_result(result)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     # ── Vocabulaire (annotation des termes connus) ────────────────────────────
 

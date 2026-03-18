@@ -189,6 +189,77 @@ html, body {
 }
 #titlebar .tb-close:hover { color: var(--red); opacity: 1; }
 
+/* ── Éditeur de scan ───────────────────────────────────────────────────── */
+#scan-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 800;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#scan-overlay.open { display: flex; }
+#scan-box {
+  background: rgba(12, 15, 22, 0.98);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  width: min(520px, 96vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85em;
+}
+#scan-box .se-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; border-bottom: 1px solid var(--border);
+  color: var(--accent); font-weight: bold;
+}
+#scan-box .se-head button {
+  background: none; border: none; color: var(--dim);
+  cursor: pointer; font-size: 1em;
+}
+#scan-box .se-head button:hover { color: var(--red); }
+#scan-box .se-meta {
+  display: flex; gap: 10px; padding: 6px 10px;
+  border-bottom: 1px solid var(--border); align-items: center;
+}
+#scan-box .se-meta label { color: var(--dim); }
+#scan-box .se-meta input[type=text] {
+  flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  color: var(--text); padding: 2px 6px; font-family: var(--font); font-size: 0.95em;
+}
+#scan-box .se-meta select {
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  color: var(--text); padding: 2px 4px; font-family: var(--font);
+}
+#scan-table { overflow-y: auto; flex: 1; }
+#scan-table table { width: 100%; border-collapse: collapse; }
+#scan-table th {
+  position: sticky; top: 0;
+  background: rgba(0,0,0,0.6); color: var(--dim);
+  padding: 3px 6px; text-align: left; font-weight: normal; font-size: 0.88em;
+}
+#scan-table td { padding: 2px 4px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+#scan-table input {
+  width: 100%; background: rgba(255,255,255,0.06); border: 1px solid transparent;
+  color: var(--text); padding: 1px 4px; font-family: var(--font); font-size: 0.95em;
+}
+#scan-table input:focus { border-color: var(--accent); outline: none; }
+#scan-table input.num { text-align: right; }
+#scan-box .se-foot {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 6px 10px; border-top: 1px solid var(--border);
+}
+#scan-box .se-foot button {
+  padding: 3px 14px; border: 1px solid var(--border); border-radius: 2px;
+  cursor: pointer; font-family: var(--font); font-size: 0.9em;
+  background: rgba(255,255,255,0.05); color: var(--text);
+}
+#scan-box .se-foot button.primary {
+  border-color: var(--accent); color: var(--accent);
+}
+#scan-box .se-foot button:hover { background: rgba(255,255,255,0.12); }
+
 /* ── Poignée de redimensionnement ─────────────────────────────────────── */
 #resize-grip {
   position: fixed;
@@ -276,6 +347,39 @@ html, body {
   <span id="sb-config" class="sb-btn" onclick="sendCmd('/config')" title="Configuration">⚙</span>
   <span class="sb-sep"> </span>
   <span id="sb-help"   class="sb-btn" onclick="sendCmd('/help')"   title="Aide">?</span>
+</div>
+
+<div id="scan-overlay">
+  <div id="scan-box">
+    <div class="se-head">
+      <span id="se-title">Édition scan</span>
+      <button onclick="closeScanEditor()" title="Annuler (Échap)">✕</button>
+    </div>
+    <div class="se-meta">
+      <label>Terminal</label>
+      <input type="text" id="se-terminal">
+      <label>Mode</label>
+      <select id="se-mode">
+        <option value="buy">ACHAT</option>
+        <option value="sell">VENTE</option>
+      </select>
+    </div>
+    <div id="scan-table">
+      <table>
+        <thead><tr>
+          <th>Commodité</th>
+          <th style="width:80px">Prix aUEC</th>
+          <th style="width:60px">Qté SCU</th>
+          <th style="width:50px">Stock</th>
+        </tr></thead>
+        <tbody id="se-rows"></tbody>
+      </table>
+    </div>
+    <div class="se-foot">
+      <button onclick="closeScanEditor()">Annuler</button>
+      <button class="primary" onclick="confirmScan()">✓ Confirmer</button>
+    </div>
+  </div>
 </div>
 
 <div id="resize-grip">◢</div>
@@ -517,6 +621,7 @@ function dispatch(msg) {
     case 'output':      stopSpin(); appendAnsi(msg.ansi); break;
     case 'done':        stopSpin(); break;
     case 'vocab':       loadVocab(msg); break;
+    case 'scan_edit':   showScanEditor(msg.data); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items); break;
     case 'hint':        elHint.textContent = msg.text; break;
@@ -895,6 +1000,70 @@ document.addEventListener('keydown', e => {
   // Toute touche imprimable redirige vers l'input
   if (!e.ctrlKey && !e.altKey && e.key.length===1 && document.activeElement!==elInput)
     elInput.focus();
+});
+
+// ── Éditeur de scan ───────────────────────────────────────────────────────────
+
+let _scanData = null;
+
+function showScanEditor(data) {
+  _scanData = data;
+  document.getElementById('se-terminal').value = data.terminal || '';
+  document.getElementById('se-mode').value     = data.mode     || 'buy';
+  document.getElementById('se-title').textContent =
+    `Édition scan — ${data.source === 'log' ? 'log' : 'OCR'}`;
+
+  const tbody = document.getElementById('se-rows');
+  tbody.innerHTML = '';
+  (data.commodities || []).forEach((c, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" data-i="${i}" data-f="name"
+                 value="${esc(c.name||'')}" style="min-width:120px"></td>
+      <td><input type="number" class="num" data-i="${i}" data-f="price"
+                 value="${c.price||''}" min="0"></td>
+      <td><input type="number" class="num" data-i="${i}" data-f="quantity"
+                 value="${c.quantity!=null?c.quantity:''}" min="0"></td>
+      <td><input type="number" class="num" data-i="${i}" data-f="stock_status"
+                 value="${c.stock_status||0}" min="0" max="7"></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('scan-overlay').classList.add('open');
+  // focus le premier champ de prix
+  const first = tbody.querySelector('input[data-f="price"]');
+  if (first) setTimeout(() => first.focus(), 50);
+}
+
+function closeScanEditor() {
+  document.getElementById('scan-overlay').classList.remove('open');
+  _scanData = null;
+}
+
+function confirmScan() {
+  if (!_scanData) return;
+  const data = {
+    terminal:    document.getElementById('se-terminal').value.trim(),
+    mode:        document.getElementById('se-mode').value,
+    commodities: [],
+  };
+  document.querySelectorAll('#se-rows tr').forEach(tr => {
+    const get = f => tr.querySelector(`[data-f="${f}"]`)?.value ?? '';
+    data.commodities.push({
+      name:         get('name'),
+      price:        parseInt(get('price'))        || 0,
+      quantity:     get('quantity') !== '' ? parseInt(get('quantity')) : null,
+      stock_status: parseInt(get('stock_status')) || 0,
+    });
+  });
+  send({type: 'scan_confirm', data});
+  closeScanEditor();
+}
+
+// Fermer avec Échap
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && _scanData) { e.stopPropagation(); closeScanEditor(); }
 });
 
 // ── Redimensionnement (poignée bas-droite) ────────────────────────────────────

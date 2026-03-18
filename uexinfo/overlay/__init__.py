@@ -157,6 +157,9 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     # ── 2. Créer la fenêtre PyWebView ────────────────────────────────────────
     html = _load_html(port)
     print(f"[overlay] frameless={frameless}  transparent={frameless}  {width}×{height}", flush=True)
+    x = ov_cfg.get("x", None)   # None = position OS par défaut
+    y = ov_cfg.get("y", 40)
+
     api = _WindowApi()
     window = webview.create_window(
         title="UEXInfo",
@@ -167,7 +170,8 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
         on_top=True,
         width=width,
         height=height,
-        y=40,
+        x=x,
+        y=y,
         js_api=api,
     )
     api.set_window(window)
@@ -200,6 +204,29 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     def _shutdown():
         print("[overlay] _shutdown() — sauvegarde + os._exit(0)", flush=True)
         listener.stop()
+
+        # Sauvegarder position et dimensions via Win32
+        try:
+            import ctypes.wintypes as _wt
+            _user32 = ctypes.windll.user32
+            _hwnd = _user32.FindWindowW(None, "UEXInfo")
+            if _hwnd and server.ctx:
+                _rect = _wt.RECT()
+                _user32.GetWindowRect(_hwnd, ctypes.byref(_rect))
+                ov = server.ctx.cfg.setdefault("overlay", {})
+                ov["x"]      = _rect.left
+                ov["y"]      = _rect.top
+                ov["width"]  = _rect.right  - _rect.left
+                ov["height"] = _rect.bottom - _rect.top
+                _settings.save(server.ctx.cfg)
+                print(
+                    f"[overlay] Géométrie sauvegardée : "
+                    f"{ov['x']},{ov['y']}  {ov['width']}×{ov['height']}",
+                    flush=True,
+                )
+        except Exception as e:
+            print(f"[overlay] Erreur sauvegarde géométrie : {e}", flush=True)
+
         if server.ctx and server.ctx.cache.transport_graph.has_unsaved_changes:
             try:
                 server.ctx.cache.save_transport_graph()
