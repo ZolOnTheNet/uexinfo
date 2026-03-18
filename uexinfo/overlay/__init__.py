@@ -15,6 +15,8 @@ import sys
 import threading
 import time
 
+import uexinfo.config.settings as _settings
+
 
 def _force_focus(title: str = "UEXInfo") -> None:
     """Force le focus OS sur la fenêtre PyWebView (Windows uniquement).
