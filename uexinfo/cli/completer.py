@@ -406,7 +406,28 @@ class UEXCompleter(Completer):
         )
         _is_terminal_ctx = (cmd in _TERMINAL_CMDS and cmd != "nav") or _trade_needs_terminal or _nav_needs_terminal
         if self.ctx and _is_terminal_ctx and (ends_space or len(words) >= 2):
-            if self.ctx.location_index:
+            # ── Pour /nav : complétion depuis les nœuds du graphe (noms exacts) ──
+            if cmd == "nav" and _nav_needs_terminal and hasattr(self.ctx, "cache"):
+                try:
+                    graph = self.ctx.cache.transport_graph
+                    q = cur_lower.replace("_", " ")
+                    seen_graph: set[str] = set()
+                    for node_name, node_obj in sorted(graph.nodes.items()):
+                        nl = node_name.lower()
+                        if not q or nl.startswith(q) or (len(q) >= 3 and q in nl):
+                            slug = node_name.replace(" ", "_")
+                            if slug not in seen_graph:
+                                seen_graph.add(slug)
+                                yield Completion(
+                                    slug,
+                                    start_position=-len(current),
+                                    display=node_name,
+                                    display_meta=f"{node_obj.system} · {node_obj.type.value}",
+                                )
+                except Exception:
+                    pass
+
+            elif self.ctx.location_index:
                 # Si current vide, chercher avec une query vide (tous les terminaux)
                 search_query = current if current else ""
                 entries = list(self.ctx.location_index.search(search_query, limit=30, types={"terminal"}))
@@ -422,11 +443,9 @@ class UEXCompleter(Completer):
                 matches = []
                 for t in self.ctx.cache.terminals:
                     name = t.name
-                    # Afficher tous si current vide, sinon filtrer
                     if not cur_lower or name.lower().startswith(cur_lower):
                         matches.append((name, t.location))
 
-                # Limiter à 30 suggestions
                 for name, location in matches[:30]:
                     yield Completion(
                         name,

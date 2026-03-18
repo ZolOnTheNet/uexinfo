@@ -250,21 +250,40 @@ def _find_route(args: list[str], ctx) -> None:
     # Normaliser : underscores → espaces, puis expander @local/@dest
     args_exp = [_expand_alias(a.replace("_", " "), ctx) for a in args]
 
-    # ── Cas 1 : un seul argument → de @local vers args[0] ────────────────────
+    # ── Cas 1 : un seul argument ─────────────────────────────────────────────
     if len(args_exp) == 1:
-        loc = (getattr(ctx.player, "location", None) or "").strip()
-        if not loc:
-            print_error("Position non définie — utilisez /go <lieu>")
-            return
-        from_loc = loc
         to_loc   = args_exp[0]
+        to_node  = _resolve_node(to_loc, graph)
 
-        from_node = _resolve_node(loc, graph)
+        # Si le lieu saisi ne résout pas en nœud → chercher des candidats
+        if not to_node:
+            candidates = _find_candidates(to_loc, graph)
+            if candidates:
+                _show_candidates_choice(to_loc, candidates, graph, ctx)
+                return
+            # Tentative d'enrichissement UEX
+            to_node = _auto_add_from_uex(to_loc, graph, ctx)
+            if not to_node:
+                print_error(f"Lieu introuvable : {to_loc!r}")
+                _show_candidates(to_loc, graph)
+                return
+
+        # Si to_node correspond à @local → mode "toutes destinations depuis ce nœud"
+        loc = (getattr(ctx.player, "location", None) or "").strip()
+        from_node_local = _resolve_node(loc, graph) if loc else None
+
+        if to_node == from_node_local or not loc:
+            # L'utilisateur a tapé son propre lieu, ou pas de position définie
+            if force_req:
+                _fetch_missing_distances(to_node, graph, ctx)
+            _show_system_destinations(to_node, graph, ctx)
+            return
+
+        # Sinon : route de @local vers to_node
+        from_loc = loc
+        from_node = from_node_local
         if not from_node:
             from_node = _auto_add_from_uex(loc, graph, ctx)
-        to_node = _resolve_node(to_loc, graph)
-        if not to_node:
-            to_node = _auto_add_from_uex(to_loc, graph, ctx)
 
     # ── Cas 2+ : split heuristique (logique existante) ────────────────────────
     else:
@@ -366,12 +385,18 @@ def _display_route(from_node: str, to_node: str, graph) -> None:
 
 
 def _show_system_destinations(from_node: str, graph, ctx) -> None:
-    """Affiche toutes les destinations du système courant en multi-colonnes."""
+    """Affiche toutes les destinations du graphe en multi-colonnes.
+
+    Les destinations QT (stations, terminaux, lagranges) sont affichées en premier.
+    Les villes de surface (type CITY) sont séparées car on y arrive en atterrissant,
+    pas en quantum travel depuis une station.
+    """
     node = graph.nodes.get(from_node)
     system = node.system if node else "Unknown"
 
-    sys_nodes = graph.get_nodes_in_system(system)
-    if not sys_nodes:
+    # Tous les nœuds du système (sauf from_node)
+    all_nodes = graph.get_nodes_in_system(system)
+    if not all_nodes:
         print_warn(f"Aucun nœud connu dans le système {system!r}")
         console.print(f"[{C.DIM}]→ /nav populate  pour enrichir le graphe depuis UEX[/{C.DIM}]")
         return
@@ -379,68 +404,91 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
     # Dijkstra unique depuis from_node
     all_dists = graph.find_all_distances(from_node)
 
-    entries = []
-    for n in sys_nodes:
+    # Séparer destinations QT des villes de surface
+    _SURFACE_TYPES = {NodeType.CITY}
+    qt_entries: list[tuple[str, float | None, NodeType]] = []
+    surface_entries: list[tuple[str, float | None, NodeType]] = []
+
+    for n in all_nodes:
         if n.name == from_node:
             continue
         dist = all_dists.get(n.name)
-        entries.append((n.name, dist, n.type))
+        entry = (n.name, dist, n.type)
+        if n.type in _SURFACE_TYPES:
+            surface_entries.append(entry)
+        else:
+            qt_entries.append(entry)
 
-    known   = sorted([(nm, d, t) for nm, d, t in entries if d is not None], key=lambda x: x[1])
-    unknown = sorted([(nm, d, t) for nm, d, t in entries if d is None],     key=lambda x: x[0])
-    all_entries = known + unknown
+    def _sort_entries(entries):
+        known   = sorted([(nm, d, t) for nm, d, t in entries if d is not None], key=lambda x: x[1])
+        unknown = sorted([(nm, d, t) for nm, d, t in entries if d is None],     key=lambda x: x[0])
+        return known + unknown
 
-    if not all_entries:
+    qt_sorted      = _sort_entries(qt_entries)
+    surface_sorted = _sort_entries(surface_entries)
+
+    n_known_qt = sum(1 for _, d, _ in qt_sorted if d is not None)
+    total_qt   = len(qt_sorted)
+
+    if not qt_sorted and not surface_sorted:
         print_warn(f"Aucune destination dans {system!r}")
         return
 
     section(f"Destinations depuis {from_node}  [{system}]")
     console.print(
         f"[{C.DIM}]@local = [bold]{from_node}[/bold]  ·  "
-        f"{len(known)}/{len(all_entries)} distances connues[/{C.DIM}]"
+        f"{n_known_qt}/{total_qt} destinations QT connues[/{C.DIM}]"
     )
-    if unknown:
-        console.print(
-            f"[{C.DIM}]-?- = distance inconnue  ·  /nav --req pour les fetcher[/{C.DIM}]"
-        )
+    if any(d is None for _, d, _ in qt_sorted):
+        console.print(f"[{C.DIM}]-?- = distance inconnue  ·  /nav --req pour les fetcher[/{C.DIM}]")
     console.print()
 
-    # Mise en page multi-colonnes
-    col_width = 34   # nom ~22 + dist ~10 + padding 2
-    n_cols = max(1, min(4, (console.width - 4) // col_width))
+    def _print_section(entries: list, title: str | None = None) -> None:
+        if not entries:
+            return
+        if title:
+            console.print(f"[{C.DIM}]{title}[/{C.DIM}]")
 
-    tbl = Table(show_header=False, box=None, padding=(0, 1), expand=False)
-    for _ in range(n_cols):
-        tbl.add_column(max_width=22, no_wrap=True)
-        tbl.add_column(width=9, justify="right", no_wrap=True)
+        col_width = 34
+        n_cols = max(1, min(4, (console.width - 4) // col_width))
 
-    for i in range(0, len(all_entries), n_cols):
-        row_entries = all_entries[i:i + n_cols]
-        cells: list[str] = []
-        for nm, dist, ntype in row_entries:
-            if ntype in (NodeType.STATION, NodeType.LAGRANGE):
-                nc = f"[{C.UEX}]{nm[:21]}[/{C.UEX}]"
-            elif ntype == NodeType.CITY:
-                nc = f"[bold white]{nm[:21]}[/bold white]"
-            elif ntype in (NodeType.PLANET, NodeType.MOON):
-                nc = f"[{C.LABEL}]{nm[:21]}[/{C.LABEL}]"
-            else:
-                nc = f"[{C.DIM}]{nm[:21]}[/{C.DIM}]"
+        tbl = Table(show_header=False, box=None, padding=(0, 1), expand=False)
+        for _ in range(n_cols):
+            tbl.add_column(max_width=22, no_wrap=True)
+            tbl.add_column(width=9, justify="right", no_wrap=True)
 
-            if dist is not None:
-                dc = f"[{C.UEX}]{dist:.1f}[/{C.UEX}][{C.DIM}]Gm[/{C.DIM}]"
-            else:
-                dc = f"[{C.DIM}]-?-[/{C.DIM}]"
+        for i in range(0, len(entries), n_cols):
+            row_entries = entries[i:i + n_cols]
+            cells: list[str] = []
+            for nm, dist, ntype in row_entries:
+                if ntype in (NodeType.STATION, NodeType.LAGRANGE):
+                    nc = f"[{C.UEX}]{nm[:21]}[/{C.UEX}]"
+                elif ntype == NodeType.CITY:
+                    nc = f"[italic]{nm[:21]}[/italic]"
+                elif ntype in (NodeType.PLANET, NodeType.MOON):
+                    nc = f"[{C.LABEL}]{nm[:21]}[/{C.LABEL}]"
+                else:
+                    nc = f"[{C.DIM}]{nm[:21]}[/{C.DIM}]"
 
-            cells.extend([nc, dc])
+                if dist is not None:
+                    dc = f"[{C.UEX}]{dist:.1f}[/{C.UEX}][{C.DIM}]Gm[/{C.DIM}]"
+                else:
+                    dc = f"[{C.DIM}]-?-[/{C.DIM}]"
 
-        # Compléter la dernière ligne
-        while len(cells) < n_cols * 2:
-            cells.extend(["", ""])
+                cells.extend([nc, dc])
 
-        tbl.add_row(*cells)
+            while len(cells) < n_cols * 2:
+                cells.extend(["", ""])
+            tbl.add_row(*cells)
 
-    console.print(tbl)
+        console.print(tbl)
+
+    _print_section(qt_sorted)
+
+    if surface_sorted:
+        console.print()
+        _print_section(surface_sorted, "Surface (atterrissage requis) :")
+
     console.print()
     console.print(
         f"[{C.DIM}]/nav <dest>       route complète  ·  "
@@ -958,6 +1006,25 @@ def _resolve_node_uex(uex_terminal_name: str, graph) -> str | None:
         return None
 
     return _resolve_node(uex_terminal_name, graph)
+
+
+def _find_candidates(query: str, graph) -> list[str]:
+    """Retourne les nœuds du graphe dont le nom contient query (insensible casse)."""
+    q = query.lower().replace("_", " ").strip()
+    if not q or len(q) < 2:
+        return []
+    return [n for n in graph.nodes if q in n.lower()]
+
+
+def _show_candidates_choice(query: str, candidates: list[str], graph, ctx) -> None:
+    """Quand plusieurs nœuds correspondent, affiche la liste et demande de préciser."""
+    console.print(f"[{C.WARNING}]Plusieurs nœuds correspondent à {query!r} :[/{C.WARNING}]")
+    for name in candidates[:10]:
+        node = graph.nodes[name]
+        console.print(f"  [{C.LABEL}]{name}[/{C.LABEL}]  [{C.DIM}]{node.system}[/{C.DIM}]")
+    if len(candidates) > 10:
+        console.print(f"  [{C.DIM}]… et {len(candidates) - 10} autres[/{C.DIM}]")
+    console.print(f"[{C.DIM}]Précisez le nom, ex : /nav {candidates[0].replace(' ', '_')}[/{C.DIM}]")
 
 
 def _show_candidates(query: str, graph) -> None:
