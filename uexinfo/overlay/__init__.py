@@ -90,7 +90,8 @@ class _WindowApi:
                 pass
 
     def restore_transparency(self) -> None:
-        """Appelé depuis JS sur mouseup (fin de resize) — restaure la transparence DWM."""
+        """Appelé depuis JS sur mouseup (fin de resize) — restaure la transparence DWM
+        et sauvegarde la géométrie."""
         def _do() -> None:
             try:
                 user32 = ctypes.windll.user32
@@ -101,7 +102,12 @@ class _WindowApi:
                     user32.ShowWindow(hwnd, 5)   # SW_SHOW
             except Exception:
                 pass
+            if self.on_save_geometry:
+                self.on_save_geometry()
         threading.Thread(target=_do, daemon=True).start()
+
+    # Callback défini depuis run_overlay() après init du contexte
+    on_save_geometry = None
 
 
 def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
@@ -201,11 +207,9 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     listener.start()
 
     # ── 4. Nettoyage à la fermeture ───────────────────────────────────────────
-    def _shutdown():
-        print("[overlay] _shutdown() — sauvegarde + os._exit(0)", flush=True)
-        listener.stop()
 
-        # Sauvegarder position et dimensions via Win32
+    def _save_geometry() -> None:
+        """Sauvegarde position et dimensions via Win32 GetWindowRect."""
         try:
             import ctypes.wintypes as _wt
             _user32 = ctypes.windll.user32
@@ -226,6 +230,14 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
                 )
         except Exception as e:
             print(f"[overlay] Erreur sauvegarde géométrie : {e}", flush=True)
+
+    # Enregistrer la sauvegarde géométrie sur l'api (appelée aussi après resize)
+    api.on_save_geometry = _save_geometry
+
+    def _shutdown():
+        print("[overlay] _shutdown() — sauvegarde + os._exit(0)", flush=True)
+        _save_geometry()   # ← EN PREMIER, pendant que la fenêtre existe encore
+        listener.stop()
 
         if server.ctx and server.ctx.cache.transport_graph.has_unsaved_changes:
             try:
