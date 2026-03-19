@@ -449,26 +449,43 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
         if title:
             console.print(f"[{C.DIM}]{title}[/{C.DIM}]")
 
-        col_width = 32   # nom ~22 + dist ~8 + padding 2
-        n_cols = max(1, min(5, (console.width - 4) // col_width))
+        # ── Calcul dynamique du nombre de colonnes ────────────────────────
+        # slot = nom_max + 1 (séparateur) + dist (6 chiffres "9999.9") + "Gm" + padding inter-col (2)
+        DIST_W  = 8   # "9999.9Gm" ou "-?-      "
+        SEP_W   = 2   # padding (0,1) → 1 char de chaque côté entre colonnes
+        MARGIN  = 2   # marge anti-retour-à-la-ligne intempestif
+
+        raw_max = max((len(nm) for nm, _, _ in entries), default=10)
+        max_nm  = min(raw_max, 28)          # plafond absolu
+        slot_w  = max_nm + 1 + DIST_W + SEP_W  # largeur d'un slot complet
+
+        avail   = console.width - MARGIN
+        n_cols  = max(1, min(5, avail // slot_w))
+
+        # Espace restant → redistribué sur la colonne nom (−1 char de sécurité)
+        remaining  = avail - n_cols * slot_w
+        extra      = max(0, remaining // n_cols - 1) if n_cols > 0 else 0
+        name_w     = max_nm + extra
+        # ─────────────────────────────────────────────────────────────────
 
         tbl = Table(show_header=False, box=None, padding=(0, 1), expand=False)
         for _ in range(n_cols):
-            tbl.add_column(max_width=24, no_wrap=True)
-            tbl.add_column(width=8, justify="right", no_wrap=True)
+            tbl.add_column(width=name_w, no_wrap=True)
+            tbl.add_column(width=DIST_W, justify="right", no_wrap=True)
 
         for i in range(0, len(entries), n_cols):
             row_entries = entries[i:i + n_cols]
             cells: list[str] = []
             for nm, dist, ntype in row_entries:
+                nm_trunc = nm[:name_w]
                 if ntype in (NodeType.STATION, NodeType.LAGRANGE):
-                    nc = f"[{C.UEX}]{nm[:23]}[/{C.UEX}]"
+                    nc = f"[{C.UEX}]{nm_trunc}[/{C.UEX}]"
                 elif ntype == NodeType.CITY:
-                    nc = f"[italic]{nm[:23]}[/italic]"
+                    nc = f"[italic]{nm_trunc}[/italic]"
                 elif ntype in (NodeType.PLANET, NodeType.MOON):
-                    nc = f"[{C.LABEL}]{nm[:23]}[/{C.LABEL}]"
+                    nc = f"[{C.LABEL}]{nm_trunc}[/{C.LABEL}]"
                 else:
-                    nc = f"[{C.DIM}]{nm[:23]}[/{C.DIM}]"
+                    nc = f"[{C.DIM}]{nm_trunc}[/{C.DIM}]"
 
                 if dist is not None:
                     dc = f"[{C.UEX}]{dist:.1f}[/{C.UEX}][{C.DIM}]Gm[/{C.DIM}]"

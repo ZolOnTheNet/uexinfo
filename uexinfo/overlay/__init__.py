@@ -268,8 +268,8 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
 
     # ── 5. Lancer PyWebView (bloquant) ────────────────────────────────────────
     def _transparency_fix():
-        """Restaure la transparence DWM 2 secondes après le lancement."""
-        time.sleep(2.0)
+        """Restaure la transparence DWM 3 secondes après le lancement."""
+        time.sleep(3.0)
         print("[overlay] transparency_fix : restore_transparency", flush=True)
         api.restore_transparency()
 
