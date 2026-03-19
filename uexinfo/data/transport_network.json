@@ -1,1192 +1,6835 @@
 {
-  "version": 2,
+  "version": 3,
+  "generated_at": 1773925275,
+  "type_codes": {
+    "0": "system",
+    "1": "planet",
+    "2": "moon",
+    "3": "station",
+    "4": "outpost",
+    "5": "city"
+  },
   "nodes": [
     {
-      "name": "Port Olisar",
-      "type": "station",
+      "id": "0.55",
+      "name": "Nyx",
+      "nickname": "Nyx",
+      "aliases": [],
+      "type": "system",
+      "type_code": 0,
+      "uex_id": 55,
+      "system": "Nyx",
+      "system_id": "0.55",
+      "parent_id": null,
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "0.64",
+      "name": "Pyro",
+      "nickname": "Pyro",
+      "aliases": [],
+      "type": "system",
+      "type_code": 0,
+      "uex_id": 64,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": null,
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "0.68",
+      "name": "Stanton",
+      "nickname": "Stanton",
+      "aliases": [],
+      "type": "system",
+      "type_code": 0,
+      "uex_id": 68,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": null,
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.4",
+      "name": "ArcCorp",
+      "nickname": "ARC",
+      "aliases": [
+        "ARC"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 4,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.59",
+      "name": "Crusader",
+      "nickname": "CRU",
+      "aliases": [
+        "CRU"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 59,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.116",
+      "name": "Hurston",
+      "nickname": "HUR",
+      "aliases": [
+        "HUR"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 116,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.190",
+      "name": "MicroTech",
+      "nickname": "MIC",
+      "aliases": [
+        "MIC"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 190,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.240",
+      "name": "Pyro I",
+      "nickname": "PY1",
+      "aliases": [
+        "PY1"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 240,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "0.64",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.241",
+      "name": "Monox",
+      "nickname": "MON",
+      "aliases": [
+        "MON"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 241,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "0.64",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.242",
+      "name": "Bloom",
+      "nickname": "BLO",
+      "aliases": [
+        "BLO"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 242,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "0.64",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.243",
+      "name": "Pyro IV",
+      "nickname": "PY4",
+      "aliases": [
+        "PY4"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 243,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "0.64",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.244",
+      "name": "Pyro V",
+      "nickname": "PY5",
+      "aliases": [
+        "PY5"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 244,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "0.64",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "1.245",
+      "name": "Terminus",
+      "nickname": "TER",
+      "aliases": [
+        "TER"
+      ],
+      "type": "planet",
+      "type_code": 1,
+      "uex_id": 245,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "0.64",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {}
+    },
+    {
+      "id": "2.1",
+      "name": "Aberdeen",
+      "nickname": "ABE",
+      "aliases": [
+        "ABE"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 1,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "orbit": "Crusader"
+        "planet_name": "Hurston"
       }
     },
     {
-      "name": "Port Tressler",
-      "type": "station",
-      "system": "Stanton",
+      "id": "2.2",
+      "name": "Adir",
+      "nickname": "ADI",
+      "aliases": [
+        "ADI"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 2,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "orbit": "microTech"
+        "planet_name": "Pyro V"
       }
     },
     {
-      "name": "Everus Harbor",
-      "type": "station",
+      "id": "2.4",
+      "name": "Arial",
+      "nickname": "ARI",
+      "aliases": [
+        "ARI"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 4,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "orbit": "Hurston"
+        "planet_name": "Hurston"
       }
     },
     {
+      "id": "2.16",
+      "name": "Calliope",
+      "nickname": "CAL",
+      "aliases": [
+        "CAL"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 16,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "MicroTech"
+      }
+    },
+    {
+      "id": "2.18",
+      "name": "Cellin",
+      "nickname": "CEL",
+      "aliases": [
+        "CEL"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 18,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Crusader"
+      }
+    },
+    {
+      "id": "2.23",
+      "name": "Clio",
+      "nickname": "CLI",
+      "aliases": [
+        "CLI"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 23,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "MicroTech"
+      }
+    },
+    {
+      "id": "2.25",
+      "name": "Daymar",
+      "nickname": "DAY",
+      "aliases": [
+        "DAY"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 25,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Crusader"
+      }
+    },
+    {
+      "id": "2.34",
+      "name": "Euterpe",
+      "nickname": "EUT",
+      "aliases": [
+        "EUT"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 34,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "MicroTech"
+      }
+    },
+    {
+      "id": "2.35",
+      "name": "Fairo",
+      "nickname": "FAI",
+      "aliases": [
+        "FAI"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 35,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Pyro V"
+      }
+    },
+    {
+      "id": "2.36",
+      "name": "Fuego",
+      "nickname": "FUE",
+      "aliases": [
+        "FUE"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 36,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Pyro V"
+      }
+    },
+    {
+      "id": "2.43",
+      "name": "Ignis",
+      "nickname": "IGN",
+      "aliases": [
+        "IGN"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 43,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Pyro V"
+      }
+    },
+    {
+      "id": "2.45",
+      "name": "Ita",
+      "nickname": "ITA",
+      "aliases": [
+        "ITA"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 45,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Hurston"
+      }
+    },
+    {
+      "id": "2.50",
+      "name": "Lyria",
+      "nickname": "LYR",
+      "aliases": [
+        "LYR"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 50,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "ArcCorp"
+      }
+    },
+    {
+      "id": "2.51",
+      "name": "Magda",
+      "nickname": "MAG",
+      "aliases": [
+        "MAG"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 51,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Hurston"
+      }
+    },
+    {
+      "id": "2.69",
+      "name": "Vatra",
+      "nickname": "VAT",
+      "aliases": [
+        "VAT"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 69,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Pyro V"
+      }
+    },
+    {
+      "id": "2.73",
+      "name": "Vuur",
+      "nickname": "VUU",
+      "aliases": [
+        "VUU"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 73,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Pyro V"
+      }
+    },
+    {
+      "id": "2.74",
+      "name": "Wala",
+      "nickname": "WAL",
+      "aliases": [
+        "WAL"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 74,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "ArcCorp"
+      }
+    },
+    {
+      "id": "2.75",
+      "name": "Yela",
+      "nickname": "YEL",
+      "aliases": [
+        "YEL"
+      ],
+      "type": "moon",
+      "type_code": 2,
+      "uex_id": 75,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "planet_name": "Crusader"
+      }
+    },
+    {
+      "id": "3.1",
+      "name": "ARC-L1 Wide Forest Station",
+      "nickname": "ARC-L1",
+      "aliases": [
+        "ARC-L1",
+        "ARC-L1 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 1,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        1,
+        122,
+        131,
+        157,
+        176,
+        184,
+        196,
+        234,
+        246,
+        263,
+        353,
+        574,
+        575,
+        576,
+        577,
+        578,
+        579
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "ArcCorp Lagrange Point 1",
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.2",
+      "name": "ARC-L2 Lively Pathway Station",
+      "nickname": "ARC-L2",
+      "aliases": [
+        "ARC-L2",
+        "ARC-L2 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 2,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        2,
+        93,
+        158,
+        185,
+        197,
+        218,
+        235,
+        247,
+        354,
+        644,
+        645,
+        646
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "ArcCorp Lagrange Point 2",
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.3",
+      "name": "ARC-L3 Modern Express Station",
+      "nickname": "ARC-L3",
+      "aliases": [
+        "ARC-L3",
+        "ARC-L3 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 3,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        3,
+        171,
+        186,
+        355,
+        643
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "ArcCorp Lagrange Point 3",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.4",
+      "name": "ARC-L4 Faint Glen Station",
+      "nickname": "ARC-L4",
+      "aliases": [
+        "ARC-L4",
+        "ARC-L4 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 4,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        4,
+        172,
+        177,
+        198,
+        219,
+        250,
+        267,
+        356,
+        640,
+        641,
+        642,
+        723
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "ArcCorp Lagrange Point 4",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.5",
+      "name": "ARC-L5 Yellow Core Station",
+      "nickname": "ARC-L5",
+      "aliases": [
+        "ARC-L5",
+        "ARC-L5 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 5,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        5,
+        173,
+        187,
+        220,
+        357,
+        572,
+        573,
+        616
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "ArcCorp Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.6",
       "name": "Baijini Point",
+      "nickname": "Baijini",
+      "aliases": [
+        "Baijini"
+      ],
       "type": "station",
+      "type_code": 3,
+      "uex_id": 6,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        13,
+        95,
+        132,
+        156,
+        188,
+        199,
+        208,
+        301,
+        365,
+        588,
+        669,
+        670,
+        671,
+        672,
+        673
+      ],
       "coordinates": null,
       "metadata": {
-        "orbit": "ArcCorp"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "ArcCorp",
+        "has_refinery": false,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Lorville",
-      "type": "city",
+      "id": "3.7",
+      "name": "CRU-L1 Ambitious Dream Station",
+      "nickname": "CRU-L1",
+      "aliases": [
+        "CRU-L1",
+        "CRU-L1 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 7,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        19,
+        123,
+        133,
+        160,
+        178,
+        212,
+        221,
+        236,
+        245,
+        302,
+        367,
+        607,
+        608,
+        609,
+        610,
+        611,
+        612
+      ],
       "coordinates": null,
       "metadata": {
-        "planet": "Hurston"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Crusader Lagrange Point 1",
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Area18",
-      "type": "city",
+      "id": "3.8",
+      "name": "CRU-L4 Shallow Fields Station",
+      "nickname": "CRU-L4",
+      "aliases": [
+        "CRU-L4",
+        "CRU-L4 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 8,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        20,
+        21,
+        96,
+        134,
+        222,
+        283,
+        284,
+        368,
+        566,
+        567
+      ],
       "coordinates": null,
       "metadata": {
-        "planet": "ArcCorp"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Crusader Lagrange Point 4",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "New Babbage",
-      "type": "city",
+      "id": "3.9",
+      "name": "CRU-L5 Beautiful Glen Station",
+      "nickname": "CRU-L5",
+      "aliases": [
+        "CRU-L5",
+        "CRU-L5 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 9,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        22,
+        124,
+        135,
+        189,
+        223,
+        282,
+        352,
+        369,
+        613,
+        614,
+        615
+      ],
       "coordinates": null,
       "metadata": {
-        "planet": "microTech"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Crusader Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Orison",
-      "type": "city",
+      "id": "3.10",
+      "name": "Everus Harbor",
+      "nickname": "Everus",
+      "aliases": [
+        "Everus"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 10,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        25,
+        98,
+        136,
+        163,
+        180,
+        200,
+        210,
+        303,
+        371,
+        659,
+        660,
+        661,
+        662,
+        663,
+        664,
+        722
+      ],
       "coordinates": null,
       "metadata": {
-        "planet": "Crusader"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Hurston",
+        "has_refinery": false,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - Orbituary",
-      "type": "terminal",
+      "id": "3.11",
+      "name": "Green Imperial Housing Exchange",
+      "nickname": "Grim HEX",
+      "aliases": [
+        "Grim HEX",
+        "Green Exchange"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 11,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.75",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        27,
+        115,
+        143,
+        209,
+        340,
+        341,
+        344,
+        372,
+        818
+      ],
       "coordinates": null,
       "metadata": {
-        "location": "Port Tressler"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Crusader",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Trade - Platinum Bay",
-      "type": "terminal",
+      "id": "3.12",
+      "name": "HUR-L1 Green Glade Station",
+      "nickname": "HUR-L1",
+      "aliases": [
+        "HUR-L1",
+        "HUR-L1 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 12,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        44,
+        99,
+        125,
+        153,
+        179,
+        213,
+        224,
+        237,
+        248,
+        388,
+        624,
+        625,
+        626,
+        627,
+        628,
+        629
+      ],
       "coordinates": null,
       "metadata": {
-        "location": "Port Tressler"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Hurston Lagrange Point 1",
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - Trade Authority",
-      "type": "terminal",
+      "id": "3.13",
+      "name": "HUR-L2 Faithful Dream Station",
+      "nickname": "HUR-L2",
+      "aliases": [
+        "HUR-L2",
+        "HUR-L2 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 13,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        45,
+        126,
+        137,
+        162,
+        190,
+        214,
+        225,
+        238,
+        249,
+        304,
+        389,
+        622,
+        623
+      ],
       "coordinates": null,
       "metadata": {
-        "location": "Lorville"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Hurston Lagrange Point 2",
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - Traveller's Light",
-      "type": "terminal",
+      "id": "3.14",
+      "name": "HUR-L3 Thundering Express Station",
+      "nickname": "HUR-L3",
+      "aliases": [
+        "HUR-L3",
+        "HUR-L3 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 14,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        46,
+        138,
+        191,
+        226,
+        305,
+        390,
+        618
+      ],
       "coordinates": null,
       "metadata": {
-        "location": "Area18"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Hurston Lagrange Point 3",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Everus Exchange",
-      "type": "terminal",
+      "id": "3.15",
+      "name": "HUR-L4 Melodic Fields Station",
+      "nickname": "HUR-L4",
+      "aliases": [
+        "HUR-L4",
+        "HUR-L4 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 15,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        47,
+        102,
+        127,
+        192,
+        227,
+        391,
+        630,
+        631
+      ],
       "coordinates": null,
       "metadata": {
-        "location": "Everus Harbor"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Hurston Lagrange Point 4",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Shubin Mining Facility SMCa-8",
-      "type": "terminal",
+      "id": "3.16",
+      "name": "HUR-L5 High Course Station",
+      "nickname": "HUR-L5",
+      "aliases": [
+        "HUR-L5",
+        "HUR-L5 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 16,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        48,
+        128,
+        139,
+        193,
+        228,
+        306,
+        392,
+        632,
+        708
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Hurston Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "TDD - Trade and Development Division - Area 18",
-      "type": "terminal",
+      "id": "3.17",
+      "name": "MIC-L1 Shallow Frontier Station",
+      "nickname": "MIC-L1",
+      "aliases": [
+        "MIC-L1",
+        "MIC-L1 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 17,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        54,
+        164,
+        168,
+        181,
+        215,
+        229,
+        239,
+        242,
+        281,
+        394,
+        633,
+        634,
+        635,
+        636,
+        637,
+        638
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "microTech Lagrange Point 1",
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "TDD - Trade and Development Division - Commons - New Babbage",
-      "type": "terminal",
+      "id": "3.18",
+      "name": "MIC-L2 Long Forest Station",
+      "nickname": "MIC-L2",
+      "aliases": [
+        "MIC-L2",
+        "MIC-L2 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 18,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        55,
+        165,
+        169,
+        194,
+        216,
+        230,
+        240,
+        243,
+        279,
+        395,
+        582,
+        583,
+        584
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "microTech Lagrange Point 2",
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Samson & Son's Salvage Center",
-      "type": "terminal",
+      "id": "3.19",
+      "name": "MIC-L3 Endless Odyssey Station",
+      "nickname": "MIC-L3",
+      "aliases": [
+        "MIC-L3",
+        "MIC-L3 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 19,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        56,
+        170,
+        195,
+        231,
+        396,
+        617
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "microTech Lagrange Point 3",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Brio's Breaker Yard",
-      "type": "terminal",
+      "id": "3.20",
+      "name": "MIC-L4 Red Crossroads Station",
+      "nickname": "MIC-L4",
+      "aliases": [
+        "MIC-L4",
+        "MIC-L4 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 20,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        57,
+        182,
+        232,
+        397,
+        619,
+        620,
+        621
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "microTech Lagrange Point 4",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Devlin Scrap and Salvage",
-      "type": "terminal",
+      "id": "3.21",
+      "name": "MIC-L5 Modern Icarus Station",
+      "nickname": "MIC-L5",
+      "aliases": [
+        "MIC-L5",
+        "MIC-L5 Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 21,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        58,
+        166,
+        175,
+        217,
+        233,
+        241,
+        244,
+        398,
+        601,
+        602,
+        603
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "microTech Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "CBD - Central Business District - Lorville",
-      "type": "terminal",
+      "id": "3.22",
+      "name": "Port Olisar",
+      "nickname": "PO",
+      "aliases": [
+        "PO"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 22,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": false,
+      "is_available": false,
+      "terminal_ids": [
+        65,
+        399
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": true,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Crusader",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - Ruin Station",
-      "type": "terminal",
+      "id": "3.23",
+      "name": "Port Tressler",
+      "nickname": "Tressler",
+      "aliases": [
+        "Tressler"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 23,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        66,
+        106,
+        140,
+        167,
+        183,
+        201,
+        211,
+        262,
+        400,
+        427,
+        698,
+        699,
+        700,
+        701,
+        702
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "MicroTech",
+        "has_refinery": false,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.24",
+      "name": "Pyro Gateway (Stanton)",
+      "nickname": "Pyro Gateway (Stanton)",
+      "aliases": [
+        "Pyro (Stanton)"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 24,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        252,
+        254,
+        307,
+        309,
+        311,
+        312,
+        313,
+        314,
+        315,
+        316,
+        317,
+        318,
+        319,
+        320,
+        329,
+        419,
+        560,
+        647,
+        648,
+        649,
+        650,
+        651,
+        729
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": true,
+        "orbit_name": "Pyro Gateway (Stanton system)",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.25",
+      "name": "Nyx Gateway (Stanton)",
+      "nickname": "Nyx Gateway (Stanton)",
+      "aliases": [
+        "Nyx (Stanton)"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 25,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        253,
+        255,
+        257,
+        310,
+        321,
+        322,
+        323,
+        324,
+        326,
+        327,
+        328,
+        532,
+        674,
+        676,
+        677,
+        822,
+        823,
+        824,
+        828
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": true,
+        "orbit_name": "Nyx Gateway (Stanton system)",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.26",
+      "name": "Terra Gateway (Stanton)",
+      "nickname": "Terra Gateway (Stanton)",
+      "aliases": [
+        "Terra (Stanton)"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 26,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        251,
+        256,
+        258,
+        290,
+        291,
+        292,
+        293,
+        294,
+        295,
+        296,
+        297,
+        298,
+        299,
+        300,
+        418,
+        639,
+        733,
+        734,
+        735,
+        736,
+        737
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": true,
+        "orbit_name": "Terra Gateway (Stanton system)",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.27",
+      "name": "Seraphim Station",
+      "nickname": "Seraphim",
+      "aliases": [
+        "Seraphim"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 27,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        259,
+        278,
+        285,
+        286,
+        287,
+        288,
+        289,
+        346,
+        421,
+        519,
+        714,
+        715,
+        716,
+        717,
+        718,
+        731
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Crusader",
+        "has_refinery": false,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.28",
+      "name": "PYAM-FARSTAT-1-2",
+      "nickname": "PYAM-FARSTAT-1-2",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 28,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.240",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Pyro I Lagrange Point 2",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - Checkmate",
-      "type": "terminal",
+      "id": "3.29",
+      "name": "PYAM-FARSTAT-1-3",
+      "nickname": "PYAM-FARSTAT-1-3",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 29,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.240",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Pyro I Lagrange Point 3",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - Rod's Fuel 'N Supplies",
-      "type": "terminal",
+      "id": "3.30",
+      "name": "PYAM-FARSTAT-1-5",
+      "nickname": "PYAM-FARSTAT-1-5",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 30,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.240",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Pyro I Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - Megumi Refueling",
-      "type": "terminal",
+      "id": "3.31",
+      "name": "Checkmate Station",
+      "nickname": "Checkmate",
+      "aliases": [
+        "Checkmate"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 31,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        428,
+        431,
+        435,
+        436,
+        437,
+        438,
+        440,
+        441,
+        442,
+        490,
+        491,
+        492,
+        493,
+        494,
+        596,
+        597,
+        600,
+        689
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Monox Lagrange Point 4",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - Patch City",
-      "type": "terminal",
+      "id": "3.32",
+      "name": "Orbituary",
+      "nickname": "Orbituary",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 32,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        432,
+        443,
+        444,
+        445,
+        446,
+        449,
+        498,
+        499,
+        500,
+        501,
+        502,
+        527,
+        528,
+        592,
+        691,
+        720,
+        730
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Bloom",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - Starlight Service",
-      "type": "terminal",
+      "id": "3.33",
+      "name": "Starlight Service Station",
+      "nickname": "Starlight Service",
+      "aliases": [
+        "Starlight Service",
+        "Starlight Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 33,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        434,
+        450,
+        451,
+        452,
+        545,
+        589,
+        712
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Bloom Lagrange Point 1",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - Rat's Nest",
-      "type": "terminal",
+      "id": "3.34",
+      "name": "Patch City",
+      "nickname": "Patch City",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 34,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        430,
+        433,
+        453,
+        454,
+        455,
+        456,
+        690,
+        707
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Bloom Lagrange Point 3",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - Dudley & Daughters",
-      "type": "terminal",
+      "id": "3.35",
+      "name": "PYAM-FARSTAT-3-5",
+      "nickname": "PYAM-FARSTAT-3-5",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 35,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Bloom Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - ARC-L3",
-      "type": "terminal",
+      "id": "3.36",
+      "name": "PYAM-FARSTAT-5-1",
+      "nickname": "PYAM-FARSTAT-5-1",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 36,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Pyro V Lagrange Point 1",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.37",
+      "name": "PYAM-FARSTAT-5-3",
+      "nickname": "PYAM-FARSTAT-5-3",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 37,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Pyro V Lagrange Point 3",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.38",
+      "name": "Rod's Fuel 'N Supplies",
+      "nickname": "Rod's Fuel 'N Supplies",
+      "aliases": [
+        "Rod's Supplies"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 38,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        486,
+        487,
+        488,
+        489,
+        703,
+        704,
+        713
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Pyro V Lagrange Point 4",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.39",
+      "name": "Rat's Nest",
+      "nickname": "Rat's Nest",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 39,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        523,
+        524,
+        525,
+        526,
+        593,
+        598,
+        719
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Pyro V Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.40",
+      "name": "PYAM-FARSTAT-6-2",
+      "nickname": "PYAM-FARSTAT-6-2",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 40,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.243",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Pyro VI Lagrange Point 2",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.41",
+      "name": "Endgame",
+      "nickname": "Endgame",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 41,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.243",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        482,
+        483,
+        484,
+        485,
+        652,
+        695,
+        696
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Pyro VI Lagrange Point 3",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.42",
+      "name": "Dudley & Daughters",
+      "nickname": "Dudley & Daughters",
+      "aliases": [
+        "Dudley Daughters"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 42,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        546,
+        547,
+        548,
+        549,
+        606,
+        705,
+        706
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Pyro VI Lagrange Point 4",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.43",
+      "name": "Megumi Refueling",
+      "nickname": "Megumi Refueling",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 43,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        478,
+        479,
+        480,
+        481,
+        568,
+        569,
+        570,
+        571
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Pyro VI Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.44",
+      "name": "INS Jericho",
+      "nickname": "INS Jericho",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 44,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "microTech Lagrange Point 1",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - ARC-L4",
-      "type": "terminal",
+      "id": "3.45",
+      "name": "Ruin Station",
+      "nickname": "Ruin Station",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 45,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        457,
+        458,
+        459,
+        460,
+        461,
+        462,
+        463,
+        464,
+        465,
+        466,
+        468,
+        469,
+        470,
+        471,
+        472,
+        473,
+        536,
+        537,
+        540,
+        580,
+        586,
+        587,
+        724
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Terminus",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.46",
+      "name": "Gaslight",
+      "nickname": "Gaslight",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 46,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.244",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        511,
+        512,
+        513,
+        514,
+        515,
+        604,
+        693,
+        694
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Pyro V Lagrange Point 2",
+        "has_refinery": false,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.47",
+      "name": "PYAM-FARSTAT-2-3",
+      "nickname": "PYAM-FARSTAT-2-3",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 47,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": true,
+        "is_jump_point": false,
+        "orbit_name": "Monox Lagrange Point 3",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.48",
+      "name": "PYAM-SUPVISR-3-4",
+      "nickname": "PYAM-SUPVISR-3-4",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 48,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Bloom Lagrange Point 4",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.49",
+      "name": "PYAM-SUPVISR-3-5",
+      "nickname": "PYAM-SUPVISR-3-5",
+      "aliases": [],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 49,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": "Bloom Lagrange Point 5",
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": false,
+        "has_repair": false,
+        "has_docking_port": false,
+        "has_freight_elevator": false
+      }
+    },
+    {
+      "id": "3.50",
+      "name": "Stanton Gateway (Pyro)",
+      "nickname": "Stanton Gateway (Pyro)",
+      "aliases": [
+        "Stanton (Pyro)"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 50,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "0.64",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        520,
+        521,
+        522,
+        529,
+        530,
+        543,
+        544,
+        559,
+        561,
+        562,
+        563,
+        564,
+        581,
+        654,
+        655,
+        656,
+        657,
+        658,
+        668,
+        697
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": true,
+        "orbit_name": "Stanton Gateway (Pyro system)",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
+      }
+    },
+    {
+      "id": "3.51",
+      "name": "Wikelo Emporium Kinga Station",
+      "nickname": "Wikela Kinga",
+      "aliases": [
+        "Wikela Kinga",
+        "Wikelo Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 51,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [
+        710
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": null,
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - HUR-L3",
-      "type": "terminal",
+      "id": "3.52",
+      "name": "Wikelo Emporium Dasi Station",
+      "nickname": "Wikela Dasi",
+      "aliases": [
+        "Wikela Dasi",
+        "Wikelo Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 52,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [
+        709
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": null,
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "Admin - HUR-L4",
-      "type": "terminal",
+      "id": "3.53",
+      "name": "Wikelo Emporium Selo Station",
+      "nickname": "Wikela Selo",
+      "aliases": [
+        "Wikela Selo",
+        "Wikelo Station"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 53,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "0.68",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [
+        711
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": null,
+        "has_refinery": false,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": false,
+        "has_freight_elevator": false
       }
     },
     {
-      "name": "TDD - Trade and Development Division - Cloudview Center - Orison",
-      "type": "terminal",
-      "system": "Stanton",
+      "id": "3.55",
+      "name": "Nyx Gateway (Pyro)",
+      "nickname": "Nyx Gateway (Pyro)",
+      "aliases": [
+        "Nyx (Pyro)"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 55,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "0.64",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        738,
+        739,
+        740,
+        741,
+        742,
+        743,
+        744,
+        745,
+        746,
+        747,
+        748,
+        749,
+        750,
+        751,
+        752,
+        753,
+        754,
+        755,
+        756,
+        757
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": true,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": true,
+        "orbit_name": "Nyx Gateway (Pyro system)",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - GrimHEX",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Stanton Gateway (Nyx)",
-      "type": "terminal",
+      "id": "3.56",
+      "name": "Stanton Gateway (Nyx)",
+      "nickname": "Stanton Gateway (Nyx)",
+      "aliases": [
+        "Stanton (Nyx)"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 56,
       "system": "Nyx",
+      "system_id": "0.55",
+      "parent_id": "0.55",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        798,
+        799,
+        800,
+        801,
+        802,
+        803,
+        804,
+        805,
+        806,
+        807,
+        808,
+        809,
+        810,
+        811,
+        812,
+        813,
+        814,
+        815,
+        816,
+        817
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": true,
+        "orbit_name": "Stanton Gateway (Nyx system)",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - CRU-L1",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - CRU-L5",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - CRU-L4",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - HUR-L5",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "ArcCorp Mining Area 141",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Endgame",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shubin Mining Facility SMCa-6",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Levski",
-      "type": "terminal",
+      "id": "3.57",
+      "name": "Pyro Gateway (Nyx)",
+      "nickname": "Pyro Gateway (Nyx)",
+      "aliases": [
+        "Pyro (Nyx)"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 57,
       "system": "Nyx",
+      "system_id": "0.55",
+      "parent_id": "0.55",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        758,
+        759,
+        760,
+        761,
+        762,
+        763,
+        764,
+        765,
+        766,
+        767,
+        768,
+        769,
+        770,
+        771,
+        772,
+        773,
+        774,
+        775,
+        776,
+        825
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": true,
+        "orbit_name": "Pyro Gateway (Nyx system)",
+        "has_refinery": true,
+        "has_cargo_center": true,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Admin - HUR-L1",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Rayari Anvik Research Outpost",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Pyro Gateway (Stanton)",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Terra Mills Hydrofarm",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Seraphim",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Gaslight",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Stanton Gateway (Pyro)",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shepherd's Rest",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Deakins Research Outpost",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Hickes Research Outpost",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Terra Gateway (Stanton)",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Port Tressler",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Rayari Kaltag Research Outpost",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Reclamation and Disposal Orinth",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Locker Room - CRU-L4",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Ashland",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Fallow Field",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "The Golden Riviera",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shubin Mining Facility SM0-18",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Maintenance Room - CRU-L5",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Everus Harbor",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shubin Mining Facility SM0-22",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shubin Mining Facility SM0-10",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shubin Mining Facility SM0-13",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Woodruff",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Bezdek",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Anderson",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Nyx Gateway (Stanton)",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Norgaard",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Lathan",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Ryder",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "ArcCorp Mining Area 056",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Rayari McGrath Research Outpost",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - ARC-L1",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - ARC-L2",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Rayari Cantwell Research Outpost",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "ArcCorp Mining Area 061",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "ArcCorp Mining Area 157",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - MIC-L1",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - MIC-L2",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - MIC-L5",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Bueno Ravine",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Jackson's Swap",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Canard View",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Sacren's Plot",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Hadley",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Pinewood",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Stanhope",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Thedus",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shubin Mining Facility SAL-5",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Perlman",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "HDMS-Hahn",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shubin Mining Facility SAL-2",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Chawla's Beach",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - MIC-L4",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Rust - Pickers Field",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Scrap - Rappel",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Rust - Dunboro",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Pyro Gateway (Nyx)",
-      "type": "terminal",
+      "id": "3.58",
+      "name": "People's Service Station Delta",
+      "nickname": "PSS Delta",
+      "aliases": [
+        "PSS Delta",
+        "People's Delta"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 58,
       "system": "Nyx",
+      "system_id": "0.55",
+      "parent_id": "0.55",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        834,
+        835
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": null,
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Seer's Canyon",
-      "type": "terminal",
-      "system": "Pyro",
+      "id": "3.59",
+      "name": "People's Service Station Alpha",
+      "nickname": "PSS Alpha",
+      "aliases": [
+        "PSS Alpha",
+        "People's Alpha"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 59,
+      "system": "Nyx",
+      "system_id": "0.55",
+      "parent_id": "0.55",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        830,
+        831,
+        832,
+        833
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": null,
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Last Landings",
-      "type": "terminal",
-      "system": "Pyro",
+      "id": "3.60",
+      "name": "People's Service Station Theta",
+      "nickname": "PSS Theta",
+      "aliases": [
+        "PSS Theta",
+        "People's Theta"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 60,
+      "system": "Nyx",
+      "system_id": "0.55",
+      "parent_id": "0.55",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        836,
+        837,
+        838,
+        839,
+        840
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": null,
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Rustville",
-      "type": "terminal",
-      "system": "Pyro",
+      "id": "3.61",
+      "name": "People's Service Station Lambda",
+      "nickname": "PSS Lambda",
+      "aliases": [
+        "PSS Lambda",
+        "People's Lambda"
+      ],
+      "type": "station",
+      "type_code": 3,
+      "uex_id": 61,
+      "system": "Nyx",
+      "system_id": "0.55",
+      "parent_id": "0.55",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        841,
+        842,
+        843,
+        844,
+        845,
+        846
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "is_lagrange": false,
+        "is_jump_point": false,
+        "orbit_name": null,
+        "has_refinery": true,
+        "has_cargo_center": false,
+        "has_refuel": true,
+        "has_repair": true,
+        "has_docking_port": true,
+        "has_freight_elevator": true
       }
     },
     {
-      "name": "Sunset Mesa",
-      "type": "terminal",
-      "system": "Pyro",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Rayari Deltana Research Outpost",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - Baijini Point",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Shubin Mining Facility SCD-1",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "Admin - ARC-L5",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
-      "name": "ArcCorp Mining Area 048",
-      "type": "terminal",
-      "system": "Stanton",
-      "coordinates": null,
-      "metadata": {
-        "source": "uex_populate"
-      }
-    },
-    {
+      "id": "4.1",
       "name": "ArcCorp Mining Area 045",
-      "type": "terminal",
+      "nickname": "ArcCorp 045",
+      "aliases": [
+        "ArcCorp 045"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 1,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.74",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        6,
+        358
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
       }
     },
     {
-      "name": "Admin - HUR-L2",
-      "type": "terminal",
+      "id": "4.2",
+      "name": "ArcCorp Mining Area 048",
+      "nickname": "ArcCorp 048",
+      "aliases": [
+        "ArcCorp 048"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 2,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.74",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        7,
+        359
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
       }
     },
     {
-      "name": "Admin - MIC-L3",
-      "type": "terminal",
+      "id": "4.3",
+      "name": "ArcCorp Mining Area 056",
+      "nickname": "ArcCorp 056",
+      "aliases": [
+        "ArcCorp 056"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 3,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.74",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        8,
+        360
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
       }
     },
     {
+      "id": "4.4",
+      "name": "ArcCorp Mining Area 061",
+      "nickname": "ArcCorp 061",
+      "aliases": [
+        "ArcCorp 061"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 4,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.74",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        9,
+        361
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.5",
+      "name": "ArcCorp Mining Area 141",
+      "nickname": "ArcCorp 141",
+      "aliases": [
+        "ArcCorp 141"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 5,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.25",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        10,
+        362
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.6",
+      "name": "ArcCorp Mining Area 157",
+      "nickname": "ArcCorp 157",
+      "aliases": [
+        "ArcCorp 157"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 6,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.75",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        11,
+        363
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.7",
+      "name": "Benson Mining Outpost",
+      "nickname": "Benson",
+      "aliases": [
+        "Benson",
+        "Benson Outpost"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 7,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.75",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        14
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.8",
+      "name": "Bountiful Harvest Hydroponics",
+      "nickname": "Bontiful",
+      "aliases": [
+        "Bontiful",
+        "Bountiful Hydroponics"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 8,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.25",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        15
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.9",
+      "name": "Brio's Breaker Yard",
+      "nickname": "Brio's",
+      "aliases": [
+        "Brio's",
+        "Brio's Yard"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 9,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.25",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        16
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.10",
+      "name": "Bud's Growery",
+      "nickname": "Bud's",
+      "aliases": [
+        "Bud's"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 10,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.34",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        17
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": true,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.11",
+      "name": "Deakins Research",
+      "nickname": "Deakins",
+      "aliases": [
+        "Deakins"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 11,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.75",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        23,
+        370
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.12",
+      "name": "Devlin Scrap & Salvage",
+      "nickname": "Devlin",
+      "aliases": [
+        "Devlin",
+        "Devlin Salvage"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 12,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.34",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        24
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.13",
+      "name": "Gallete Family Farms",
+      "nickname": "Gallete",
+      "aliases": [
+        "Gallete",
+        "Gallete Farms"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 13,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.18",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        26
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.14",
+      "name": "HDMS-Anderson",
+      "nickname": "Anderson",
+      "aliases": [
+        "Anderson"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 14,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.1",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        28,
+        373
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.15",
+      "name": "HDMS-Bezdek",
+      "nickname": "Bezdek",
+      "aliases": [
+        "Bezdek"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 15,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        29,
+        374
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.16",
       "name": "HDMS-Edmond",
-      "type": "terminal",
+      "nickname": "Edmond",
+      "aliases": [
+        "Edmond"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 16,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        30,
+        375
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
       }
     },
     {
+      "id": "4.17",
+      "name": "HDMS-Hadley",
+      "nickname": "Hadley",
+      "aliases": [
+        "Hadley"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 17,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        31,
+        376
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.18",
+      "name": "HDMS-Hahn",
+      "nickname": "Hahn",
+      "aliases": [
+        "Hahn"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 18,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.51",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        32,
+        377
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.19",
+      "name": "HDMS-Lathan",
+      "nickname": "Lathan",
+      "aliases": [
+        "Lathan"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 19,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        33,
+        378
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.20",
+      "name": "HDMS-Norgaard",
+      "nickname": "Norgaard",
+      "aliases": [
+        "Norgaard"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 20,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.1",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        34,
+        379
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.21",
       "name": "HDMS-Oparei",
-      "type": "terminal",
+      "nickname": "Oparei",
+      "aliases": [
+        "Oparei"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 21,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        35,
+        380
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
       }
     },
     {
-      "name": "Admin - Nyx Gateway (Pyro)",
-      "type": "terminal",
+      "id": "4.22",
+      "name": "HDMS-Perlman",
+      "nickname": "Perlman",
+      "aliases": [
+        "Perlman"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 22,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.51",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        36,
+        381
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.23",
+      "name": "HDMS-Pinewood",
+      "nickname": "Pinewood",
+      "aliases": [
+        "Pinewood"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 23,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        37,
+        382
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.24",
+      "name": "HDMS-Ryder",
+      "nickname": "Ryder",
+      "aliases": [
+        "Ryder"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 24,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.45",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        38,
+        383
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.25",
+      "name": "HDMS-Stanhope",
+      "nickname": "Stanhope",
+      "aliases": [
+        "Stanhope"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 25,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        39,
+        384
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.26",
+      "name": "HDMS-Thedus",
+      "nickname": "Thedus",
+      "aliases": [
+        "Thedus"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 26,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        40,
+        385
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.27",
+      "name": "HDMS-Woodruff",
+      "nickname": "Woodruff",
+      "aliases": [
+        "Woodruff"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 27,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.45",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        41,
+        386
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.28",
+      "name": "Hickes Research",
+      "nickname": "Hickes",
+      "aliases": [
+        "Hickes"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 28,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.18",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        42,
+        387
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.29",
+      "name": "Humboldt Mines",
+      "nickname": "Humboldt",
+      "aliases": [
+        "Humboldt"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 29,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.50",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        43
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.30",
+      "name": "Jumptown",
+      "nickname": "Jumpdown",
+      "aliases": [
+        "Jumpdown"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 30,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.75",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.31",
+      "name": "Kudre Ore",
+      "nickname": "Kudre Ore",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 31,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.25",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        50
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": true,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.32",
+      "name": "Loveridge Mineral Reserve",
+      "nickname": "Loveridge",
+      "aliases": [
+        "Loveridge",
+        "Loveridge Reserve"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 32,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.50",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        53
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.33",
+      "name": "NT-999-XX",
+      "nickname": "NT-999-XX",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 33,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.75",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        60
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.34",
+      "name": "Nuen Waste Management",
+      "nickname": "Nuen",
+      "aliases": [
+        "Nuen",
+        "Nuen Management"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 34,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.25",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        61
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.35",
+      "name": "Outpost 54",
+      "nickname": "Outpost 54",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 35,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        63
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.36",
+      "name": "Paradise Cove",
+      "nickname": "Paradise",
+      "aliases": [
+        "Paradise"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 36,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.74",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        64
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.37",
+      "name": "Private Property",
+      "nickname": "Private",
+      "aliases": [
+        "Private"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 37,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.18",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        67
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.38",
+      "name": "Raven's Roost",
+      "nickname": "Raven",
+      "aliases": [
+        "Raven"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 38,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        68
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.39",
+      "name": "Rayari Anvik Research Outpost",
+      "nickname": "Anvik",
+      "aliases": [
+        "Anvik",
+        "Rayari Outpost"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 39,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.16",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        69,
+        401
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.40",
+      "name": "Rayari Cantwell Research Outpost",
+      "nickname": "Cantwell",
+      "aliases": [
+        "Cantwell",
+        "Rayari Outpost"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 40,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.23",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        70,
+        402
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.41",
+      "name": "Rayari Deltana Research Outpost",
+      "nickname": "Deltana",
+      "aliases": [
+        "Deltana",
+        "Rayari Outpost"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 41,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        71,
+        403
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.42",
+      "name": "Rayari Kaltag Research Outpost",
+      "nickname": "Kaltag",
+      "aliases": [
+        "Kaltag",
+        "Rayari Outpost"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 42,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.16",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        72,
+        404
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.43",
+      "name": "Rayari McGrath Research Outpost",
+      "nickname": "McGrath",
+      "aliases": [
+        "McGrath",
+        "Rayari Outpost"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 43,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.23",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        73,
+        405
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.44",
+      "name": "Reclamation & Disposal Orinth",
+      "nickname": "Reclamation",
+      "aliases": [
+        "Reclamation",
+        "Reclamation Orinth"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 44,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        74
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.45",
+      "name": "Samson & Son's Salvage Center",
+      "nickname": "Samson",
+      "aliases": [
+        "Samson",
+        "Samson Center"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 45,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.74",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        75
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.46",
+      "name": "Shubin Mining Facility SAL-2",
+      "nickname": "Shubin SAL-2",
+      "aliases": [
+        "Shubin SAL-2"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 46,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.50",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        77,
+        406
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.47",
+      "name": "Shubin Mining Facility SAL-5",
+      "nickname": "Shubin SAL-5",
+      "aliases": [
+        "Shubin SAL-5"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 47,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.50",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        78,
+        407
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.48",
+      "name": "Shubin Mining Facility SCD-1",
+      "nickname": "Shubin SCD1",
+      "aliases": [
+        "Shubin SCD1",
+        "Shubin SCD-1"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 48,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.25",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        79,
+        408
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.49",
+      "name": "Shubin Mining Facility SM0-10",
+      "nickname": "Shubin 10",
+      "aliases": [
+        "Shubin 10",
+        "Shubin SM0-10"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 49,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        80,
+        409
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.50",
+      "name": "Shubin Mining Facility SM0-13",
+      "nickname": "Shubin 13",
+      "aliases": [
+        "Shubin 13",
+        "Shubin SM0-13"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 50,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        81,
+        410
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.51",
+      "name": "Shubin Mining Facility SM0-18",
+      "nickname": "Shubin 18",
+      "aliases": [
+        "Shubin 18",
+        "Shubin SM0-18"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 51,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        82,
+        411
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.52",
+      "name": "Shubin Mining Facility SM0-22",
+      "nickname": "Shubin 22",
+      "aliases": [
+        "Shubin 22",
+        "Shubin SM0-22"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 52,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        83,
+        412
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.53",
+      "name": "Shubin Mining Facility SMCa-6",
+      "nickname": "Shubin A6",
+      "aliases": [
+        "Shubin A6",
+        "Shubin SMCa-6"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 53,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.16",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        84,
+        413
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.54",
+      "name": "Shubin Mining Facility SMCa-8",
+      "nickname": "Shubin A8",
+      "aliases": [
+        "Shubin A8",
+        "Shubin SMCa-8"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 54,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.16",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        85,
+        414
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.55",
+      "name": "Terra Mills HydroFarm",
+      "nickname": "Terra Mills",
+      "aliases": [
+        "Terra Mills",
+        "Terra HydroFarm"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 55,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.18",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        86,
+        415
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.56",
+      "name": "The Necropolis",
+      "nickname": "Necropolis",
+      "aliases": [
+        "Necropolis"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 56,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        87
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.57",
+      "name": "The Orphanage",
+      "nickname": "Orphanage",
+      "aliases": [
+        "Orphanage"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 57,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.50",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        88
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.58",
+      "name": "Tram & Myers Mining",
+      "nickname": "Tram",
+      "aliases": [
+        "Tram",
+        "Tram Mining"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 58,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.18",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        91
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.59",
+      "name": "Shady Glen",
+      "nickname": "Shady Glen",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 59,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.74",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        76
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.60",
+      "name": "Astor's Clearing",
+      "nickname": "Astor's",
+      "aliases": [
+        "Astor's"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 60,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [
+        264,
+        265
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.61",
+      "name": "Harper's Point",
+      "nickname": "Harper's",
+      "aliases": [
+        "Harper's"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 61,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.62",
+      "name": "Dunboro",
+      "nickname": "Dunboro",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 62,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        266,
+        333,
+        334,
+        338
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.63",
+      "name": "Weeping Cove",
+      "nickname": "Weeping Cove",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 63,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        269
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.64",
+      "name": "Maker's Point",
+      "nickname": "Makers",
+      "aliases": [
+        "Makers"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 64,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.65",
+      "name": "Rappel",
+      "nickname": "Rappel",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 65,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        274,
+        275
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.66",
+      "name": "Picker's Field",
+      "nickname": "Pickers",
+      "aliases": [
+        "Pickers"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 66,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        276,
+        277
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.67",
+      "name": "NT-999-XXII",
+      "nickname": "NT999II",
+      "aliases": [
+        "NT999II"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 67,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.75",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        280
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.68",
+      "name": "Rustville",
+      "nickname": "Rustville",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 68,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.240",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        533,
+        534,
+        590
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - Port Tressler",
-      "type": "terminal",
+      "id": "4.69",
+      "name": "Jackson's Swap",
+      "nickname": "Jackson's Swap",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 69,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        504,
+        539
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.70",
+      "name": "Last Ditch",
+      "nickname": "Last Ditch",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 70,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.71",
+      "name": "Sunset Mesa",
+      "nickname": "Sunset Mesa",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 71,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        541,
+        542,
+        599
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.72",
+      "name": "Yang's Place",
+      "nickname": "Yang's Place",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 72,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        503
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.73",
+      "name": "Bueno Ravine",
+      "nickname": "Bueno Ravine",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 73,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        550,
+        551
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.74",
+      "name": "Shadowfall",
+      "nickname": "Shadowfall",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 74,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.75",
+      "name": "Shepherd's Rest",
+      "nickname": "Shepherd's Rest",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 75,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        555,
+        556
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.76",
+      "name": "The Golden Riviera",
+      "nickname": "The Golden Riviera",
+      "aliases": [
+        "The Riviera"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 76,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        665
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.77",
+      "name": "The Yard",
+      "nickname": "The Yard",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 77,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        474
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.78",
+      "name": "Zephyr",
+      "nickname": "Zephyr",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 78,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [
+        336,
+        337
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - Terra Gateway (Stanton)",
-      "type": "terminal",
+      "id": "4.79",
+      "name": "Cutter's Rig",
+      "nickname": "Cutter's Rig",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 79,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - CRU-L5",
-      "type": "terminal",
+      "id": "4.80",
+      "name": "Finn's Folly",
+      "nickname": "Finn's Folly",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 80,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - CRU-L4",
-      "type": "terminal",
+      "id": "4.81",
+      "name": "Ludlow",
+      "nickname": "Ludlow",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 81,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - Baijini Point",
-      "type": "terminal",
+      "id": "4.82",
+      "name": "Bloodshot Ridge",
+      "nickname": "Bloodshot Ridge",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 82,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - HUR-L5",
-      "type": "terminal",
+      "id": "4.83",
+      "name": "Frostbite",
+      "nickname": "Frostbite",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 83,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [
+        351
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - HUR-L3",
-      "type": "terminal",
+      "id": "4.84",
+      "name": "Ghost Hollow",
+      "nickname": "Ghost Hollow",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 84,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - Everus Harbor",
-      "type": "terminal",
+      "id": "4.85",
+      "name": "Moreland Hills",
+      "nickname": "Moreland Hills",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 85,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - HUR-L2",
-      "type": "terminal",
+      "id": "4.86",
+      "name": "Razor's Edge",
+      "nickname": "Razor's Edge",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 86,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Dumper's Depot - Area 18",
-      "type": "terminal",
+      "id": "4.87",
+      "name": "Jumptown",
+      "nickname": "Jumptown",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 87,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "2.25",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [
+        332
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": true,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Dumper's Depot - GrimHEX",
-      "type": "terminal",
+      "id": "4.88",
+      "name": "Sakura Sun Magnolia Workcenter",
+      "nickname": "Sakura Sun Magnolia",
+      "aliases": [
+        "Sakura Sun Magnolia",
+        "Sakura Workcenter"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 88,
       "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": true,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - Nyx Gateway (Stanton)",
-      "type": "terminal",
-      "system": "Stanton",
+      "id": "4.89",
+      "name": "Stag's Rut",
+      "nickname": "Stag's Rut",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 89,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.240",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        692
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - CRU-L1",
-      "type": "terminal",
-      "system": "Stanton",
+      "id": "4.90",
+      "name": "Arid Reach",
+      "nickname": "Arid Reach",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 90,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        686
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
-      "name": "Platinum Bay - Pyro Gateway (Stanton)",
-      "type": "terminal",
-      "system": "Stanton",
+      "id": "4.92",
+      "name": "Ostler's Claim",
+      "nickname": "Ostler's Claim",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 92,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        538
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
       }
     },
     {
+      "id": "4.93",
+      "name": "Carver's Ridge",
+      "nickname": "Carver's Ridge",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 93,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        679
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.94",
+      "name": "Frigid Knot",
+      "nickname": "Frigid Knot",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 94,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        558
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.95",
+      "name": "Narena's Rest",
+      "nickname": "Narena's Rest",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 95,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        505
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.96",
+      "name": "Windfall",
+      "nickname": "Windfall",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 96,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        557,
+        666
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.98",
+      "name": "Ashland",
+      "nickname": "Ashland",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 98,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "2.43",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        507,
+        508
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.99",
+      "name": "Chawla's Beach",
+      "nickname": "Chawla's Beach",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 99,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.243",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        509,
+        510,
+        594
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.100",
+      "name": "Fallow Field",
+      "nickname": "Fallow Field",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 100,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.243",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        605,
+        687
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.101",
+      "name": "Goner's Deal",
+      "nickname": "Goner's Deal",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 101,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.243",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        585
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.102",
+      "name": "Sacren's Plot",
+      "nickname": "Sacren's Plot",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 102,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.243",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        688,
+        728
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.103",
+      "name": "Kabir's Post",
+      "nickname": "Kabir's Post",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 103,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "2.43",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        552
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.104",
+      "name": "Blackrock Exchange",
+      "nickname": "Blackrock Exchange",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 104,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        476
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.105",
+      "name": "Bullock's Reach",
+      "nickname": "Bullock's Reach",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 105,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        820
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.106",
+      "name": "Canard View",
+      "nickname": "Canard View",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 106,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        475,
+        591
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.107",
+      "name": "Kinder Plots",
+      "nickname": "Kinder Plots",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 107,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        821
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.108",
+      "name": "Last Landings",
+      "nickname": "Last Landings",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 108,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        565,
+        667,
+        721
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.109",
+      "name": "Rough Landing",
+      "nickname": "Rough Landing",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 109,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        497
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.110",
       "name": "Scarper's Turn",
-      "type": "terminal",
+      "nickname": "Scarper's Turn",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 110,
       "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        477
+      ],
       "coordinates": null,
       "metadata": {
-        "source": "uex_populate"
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.111",
+      "name": "Stonetree",
+      "nickname": "Stonetree",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 111,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.112",
+      "name": "Prophet's Peak",
+      "nickname": "Porphet's Peak",
+      "aliases": [
+        "Porphet's Peak"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 112,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "2.2",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        516
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": false,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.113",
+      "name": "Seer's Canyon",
+      "nickname": "Seer's Canyon",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 113,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "2.69",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        517,
+        518,
+        531
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.114",
+      "name": "Prospect Depot",
+      "nickname": "Prospect Depot",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 114,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.242",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        680
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.115",
+      "name": "Dinger's Depot",
+      "nickname": "Dinger's Depot",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 115,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.243",
+      "is_dest": false,
+      "is_available": false,
+      "terminal_ids": [
+        682
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.116",
+      "name": "Slowburn Depot",
+      "nickname": "Slowburn Depot",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 116,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.241",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        684
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.117",
+      "name": "Feo Canyon Depot",
+      "nickname": "Feo Canyon Depot",
+      "aliases": [
+        "Feo Depot"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 117,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "2.35",
+      "is_dest": false,
+      "is_available": true,
+      "terminal_ids": [
+        681
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.118",
+      "name": "Gray Gardens Depot",
+      "nickname": "Gray Gardens Depot",
+      "aliases": [
+        "Gray Depot"
+      ],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 118,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.240",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        683
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "4.119",
+      "name": "Watcher's Depot",
+      "nickname": "Watcher's Depot",
+      "aliases": [],
+      "type": "outpost",
+      "type_code": 4,
+      "uex_id": 119,
+      "system": "Pyro",
+      "system_id": "0.64",
+      "parent_id": "1.245",
+      "is_dest": false,
+      "is_available": false,
+      "terminal_ids": [
+        685
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": false,
+        "is_armistice": false,
+        "is_landable": false,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_trade_terminal": true,
+        "has_refinery": false
+      }
+    },
+    {
+      "id": "5.1",
+      "name": "Area 18",
+      "nickname": "AR18",
+      "aliases": [
+        "AR18"
+      ],
+      "type": "city",
+      "type_code": 5,
+      "uex_id": 1,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.4",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        12,
+        49,
+        94,
+        107,
+        113,
+        114,
+        148,
+        151,
+        155,
+        331,
+        364,
+        553,
+        554,
+        653,
+        826
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_refinery": false,
+        "has_cargo_center": false
+      }
+    },
+    {
+      "id": "5.2",
+      "name": "Levski",
+      "nickname": "LEVS",
+      "aliases": [
+        "LEVS"
+      ],
+      "type": "city",
+      "type_code": 5,
+      "uex_id": 2,
+      "system": "Nyx",
+      "system_id": "0.55",
+      "parent_id": "0.55",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        109,
+        110,
+        116,
+        119,
+        120,
+        145,
+        393,
+        777,
+        778,
+        779,
+        780,
+        781,
+        782,
+        783,
+        784,
+        785,
+        786,
+        787,
+        788,
+        789,
+        790,
+        791,
+        793,
+        794,
+        796,
+        797,
+        819
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_refinery": true,
+        "has_cargo_center": true
+      }
+    },
+    {
+      "id": "5.3",
+      "name": "Lorville",
+      "nickname": "LORV",
+      "aliases": [
+        "LORV"
+      ],
+      "type": "city",
+      "type_code": 5,
+      "uex_id": 3,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.116",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        18,
+        51,
+        144,
+        149,
+        152,
+        203,
+        207,
+        366,
+        732,
+        827,
+        829
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_refinery": false,
+        "has_cargo_center": false
+      }
+    },
+    {
+      "id": "5.4",
+      "name": "New Babbage",
+      "nickname": "NEWB",
+      "aliases": [
+        "NEWB"
+      ],
+      "type": "city",
+      "type_code": 5,
+      "uex_id": 4,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.190",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        59,
+        89,
+        108,
+        130,
+        142,
+        147,
+        260,
+        261,
+        339,
+        342,
+        345,
+        416,
+        423,
+        424,
+        425,
+        426
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_refinery": false,
+        "has_cargo_center": false
+      }
+    },
+    {
+      "id": "5.5",
+      "name": "Orison",
+      "nickname": "ORIS",
+      "aliases": [
+        "ORIS"
+      ],
+      "type": "city",
+      "type_code": 5,
+      "uex_id": 5,
+      "system": "Stanton",
+      "system_id": "0.68",
+      "parent_id": "1.59",
+      "is_dest": true,
+      "is_available": true,
+      "terminal_ids": [
+        62,
+        90,
+        111,
+        112,
+        121,
+        141,
+        150,
+        204,
+        205,
+        206,
+        268,
+        343,
+        347,
+        348,
+        350,
+        417
+      ],
+      "coordinates": null,
+      "metadata": {
+        "is_monitored": true,
+        "is_armistice": true,
+        "is_landable": true,
+        "is_decommissioned": false,
+        "is_nqa": false,
+        "has_refinery": false,
+        "has_cargo_center": false
       }
     }
   ],
