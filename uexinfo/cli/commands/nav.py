@@ -450,22 +450,24 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
             console.print(f"[{C.DIM}]{title}[/{C.DIM}]")
 
         # ── Calcul dynamique du nombre de colonnes ────────────────────────
-        # slot = nom_max + 1 (séparateur) + dist (6 chiffres "9999.9") + "Gm" + padding inter-col (2)
-        DIST_W  = 8   # "9999.9Gm" ou "-?-      "
-        SEP_W   = 2   # padding (0,1) → 1 char de chaque côté entre colonnes
-        MARGIN  = 2   # marge anti-retour-à-la-ligne intempestif
+        # padding=(0,1) → 1 char gauche + 1 char droite par colonne.
+        # Un slot = 2 colonnes (nom + dist) → +4 chars de padding total.
+        # slot_w = (max_nm + 2) + (DIST_W + 2) = max_nm + DIST_W + 4
+        COL_PAD = 1   # padding=(0,1)
+        DIST_W  = 8   # "9999.9Gm" ou "-?-     "
+        MARGIN  = 2   # marge anti-retour-à-la-ligne
 
         raw_max = max((len(nm) for nm, _, _ in entries), default=10)
-        max_nm  = min(raw_max, 28)          # plafond absolu
-        slot_w  = max_nm + 1 + DIST_W + SEP_W  # largeur d'un slot complet
+        max_nm  = min(raw_max, 28)
+        slot_w  = (max_nm + 2 * COL_PAD) + (DIST_W + 2 * COL_PAD)  # entier exact
 
         avail   = console.width - MARGIN
         n_cols  = max(1, min(5, avail // slot_w))
 
         # Espace restant → redistribué sur la colonne nom (−1 char de sécurité)
-        remaining  = avail - n_cols * slot_w
-        extra      = max(0, remaining // n_cols - 1) if n_cols > 0 else 0
-        name_w     = max_nm + extra
+        remaining = avail - n_cols * slot_w
+        extra     = max(0, remaining // n_cols - 1) if n_cols > 0 else 0
+        name_w    = max_nm + extra
         # ─────────────────────────────────────────────────────────────────
 
         tbl = Table(show_header=False, box=None, padding=(0, 1), expand=False)
