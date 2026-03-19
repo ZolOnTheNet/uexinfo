@@ -753,6 +753,22 @@ def _svc_name(t: Terminal) -> str:
     return (t.displayname or t.nickname or _loc(t.name)).strip()
 
 
+def _site_graph_node(t: Terminal, ctx):
+    """Retourne le LocationNode correspondant au site du terminal, ou None."""
+    key = _site_key(t)
+    graph = ctx.cache.transport_graph
+    node = graph.find_node_by_alias(key)
+    if node:
+        return node
+    # Fallback : cherche par space_station_name ou city_name
+    for candidate in (t.space_station_name, t.city_name):
+        if candidate:
+            node = graph.find_node_by_alias(candidate)
+            if node:
+                return node
+    return None
+
+
 def _show_site_header(t: Terminal, ctx) -> None:
     """Affiche services et groupes de terminaux du site (juste après le titre de section)."""
     all_t = _site_terminals(t, ctx) or [t]
@@ -767,6 +783,10 @@ def _show_site_header(t: Terminal, ctx) -> None:
     has_medical     = any(x.is_medical for x in all_t)
     is_player_owned = any(x.is_player_owned for x in all_t)
     faction         = next((x.faction_name for x in all_t if x.faction_name), "")
+
+    # ── Statuts sécurité depuis le graphe de lieux ─────────────────────────
+    node = _site_graph_node(t, ctx)
+    meta = node.metadata if node else {}
 
     # ── Ligne icônes services ──────────────────────────────────────────────
     icons: list[str] = []
@@ -787,6 +807,24 @@ def _show_site_header(t: Terminal, ctx) -> None:
     line_parts = icons + extra
     if line_parts:
         console.print("  " + "  ·  ".join(line_parts))
+
+    # ── Ligne statuts sécurité (si données disponibles dans le graphe) ─────
+    if meta:
+        sec: list[str] = []
+        # Surveillance (👁 = oeil)
+        if meta.get("is_monitored"):
+            sec.append(f"[{C.DIM}]👁 surveillé[/{C.DIM}]")
+        else:
+            sec.append(f"[yellow]👁 hors radar[/yellow]")
+        # Armistice (⚔ = arme)
+        if meta.get("is_armistice"):
+            sec.append(f"[{C.DIM}]🛡 armistice[/{C.DIM}]")
+        else:
+            sec.append(f"[red]⚔ zone combat[/red]")
+        # NQA (🎭 = masque)
+        if meta.get("is_nqa"):
+            sec.append(f"[orange1]🎭 NQA[/orange1]")
+        console.print("  " + "  ·  ".join(sec))
 
     # ── Groupes de terminaux ───────────────────────────────────────────────
     magasins = sorted(
@@ -1614,7 +1652,7 @@ def _show_terminal_by_name(query: str, ctx) -> bool:
 
 # ── Commande principale ────────────────────────────────────────────────────────
 
-@register("info", "i")
+@register("info", "i", "?")
 def cmd_info(args: list[str], ctx) -> None:
     # Extraire les flags système (--all, --Sys,Sys) avant de router
     player_sys = _player_system(ctx)

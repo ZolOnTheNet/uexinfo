@@ -9,14 +9,15 @@ from enum import Enum
 
 class NodeType(Enum):
     """Type de nœud dans le graphe."""
-    TERMINAL = "terminal"
-    STATION = "station"
-    CITY = "city"
-    PLANET = "planet"
-    MOON = "moon"
-    LAGRANGE = "lagrange"
-    SYSTEM = "system"
+    TERMINAL  = "terminal"
+    STATION   = "station"
+    CITY      = "city"
+    PLANET    = "planet"
+    MOON      = "moon"
+    LAGRANGE  = "lagrange"
+    SYSTEM    = "system"
     JUMP_POINT = "jump_point"
+    OUTPOST   = "outpost"
 
 
 class EdgeType(Enum):
@@ -34,7 +35,18 @@ class LocationNode:
     type: NodeType
     system: str                # Nom du système stellaire
     coordinates: tuple[float, float, float] | None = None
-    metadata: dict = field(default_factory=dict)  # id_terminal, etc.
+    metadata: dict = field(default_factory=dict)
+    # Champs v3 (base de données lieux)
+    node_id: str = ""          # "type_code.uex_id"  ex: "3.11"
+    nickname: str = ""         # Nom court UEX
+    aliases: list = field(default_factory=list)
+    type_code: int = -1        # 0=system 1=planet 2=moon 3=station 4=outpost 5=city
+    uex_id: int = 0
+    system_id: str = ""        # "0.68"
+    parent_id: str | None = None
+    is_dest: bool = False      # has_quantum_marker
+    is_available: bool = True
+    terminal_ids: list = field(default_factory=list)
 
     def __hash__(self):
         return hash(self.name)
@@ -43,22 +55,51 @@ class LocationNode:
         return isinstance(other, LocationNode) and self.name == other.name
 
     def to_dict(self) -> dict:
-        return {
+        d: dict = {
             "name": self.name,
             "type": self.type.value,
             "system": self.system,
             "coordinates": list(self.coordinates) if self.coordinates else None,
             "metadata": self.metadata,
         }
+        # Champs v3 — seulement si remplis
+        if self.node_id:
+            d["id"]          = self.node_id
+            d["nickname"]    = self.nickname
+            d["aliases"]     = self.aliases
+            d["type_code"]   = self.type_code
+            d["uex_id"]      = self.uex_id
+            d["system_id"]   = self.system_id
+            d["parent_id"]   = self.parent_id
+            d["is_dest"]     = self.is_dest
+            d["is_available"] = self.is_available
+            d["terminal_ids"] = self.terminal_ids
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> LocationNode:
+        type_str = d.get("type", "terminal")
+        try:
+            node_type = NodeType(type_str)
+        except ValueError:
+            node_type = NodeType.TERMINAL
         return cls(
-            name=d["name"],
-            type=NodeType(d["type"]),
-            system=d["system"],
-            coordinates=tuple(d["coordinates"]) if d.get("coordinates") else None,
-            metadata=d.get("metadata", {}),
+            name        = d["name"],
+            type        = node_type,
+            system      = d.get("system", ""),
+            coordinates = tuple(d["coordinates"]) if d.get("coordinates") else None,
+            metadata    = d.get("metadata", {}),
+            # Champs v3
+            node_id     = d.get("id", ""),
+            nickname    = d.get("nickname", ""),
+            aliases     = d.get("aliases", []),
+            type_code   = d.get("type_code", -1),
+            uex_id      = d.get("uex_id", 0),
+            system_id   = d.get("system_id", ""),
+            parent_id   = d.get("parent_id"),
+            is_dest     = bool(d.get("is_dest", False)),
+            is_available = bool(d.get("is_available", True)),
+            terminal_ids = d.get("terminal_ids", []),
         )
 
 
@@ -175,7 +216,9 @@ class TransportGraph:
         self.edges: list[RouteEdge] = []
         self.jump_points: dict[str, JumpPoint] = {}
         self._adjacency: dict[str, list[RouteEdge]] = {}
-        self._unsaved_changes: int = 0  # Compteur de modifications non sauvegardées
+        self._unsaved_changes: int = 0
+        # Métadonnées v3 préservées au chargement
+        self._meta: dict = {}
 
     def add_node(self, node: LocationNode) -> None:
         """Ajoute un nœud au graphe."""
@@ -430,31 +473,50 @@ class TransportGraph:
             neighbors.append((edge.to_node, edge.distance_gm, edge.edge_type.value))
         return neighbors
 
+    def find_node_by_alias(self, query: str) -> LocationNode | None:
+        """Cherche un nœud par name, nickname ou alias (insensible à la casse)."""
+        q = query.lower().strip()
+        # Correspondance exacte sur le name
+        if query in self.nodes:
+            return self.nodes[query]
+        # Correspondance insensible à la casse + nickname/aliases
+        for node in self.nodes.values():
+            if node.name.lower() == q:
+                return node
+            if node.nickname.lower() == q:
+                return node
+            if any(a.lower() == q for a in node.aliases):
+                return node
+        return None
+
     def to_json(self) -> dict:
-        """Exporte le graphe en JSON."""
-        return {
-            "version": 2,
-            "nodes": [n.to_dict() for n in self.nodes.values()],
-            "edges": [e.to_dict() for e in self.edges],
-            "jump_points": [jp.to_dict() for jp in self.jump_points.values()],
-        }
+        """Exporte le graphe en JSON (préserve les métadonnées v3)."""
+        out = dict(self._meta)   # préserve version, generated_at, type_codes
+        out["version"]     = self._meta.get("version", 3)
+        out["nodes"]       = [n.to_dict() for n in self.nodes.values()]
+        out["edges"]       = [e.to_dict() for e in self.edges]
+        out["jump_points"] = [jp.to_dict() for jp in self.jump_points.values()]
+        return out
 
     @classmethod
     def from_json(cls, data: dict) -> TransportGraph:
-        """Importe le graphe depuis JSON."""
+        """Importe le graphe depuis JSON (v2 et v3)."""
         graph = cls()
 
-        # Charger les nœuds
+        # Préserver les métadonnées v3
+        graph._meta = {
+            k: v for k, v in data.items()
+            if k not in ("nodes", "edges", "jump_points")
+        }
+
         for n_data in data.get("nodes", []):
             node = LocationNode.from_dict(n_data)
             graph.add_node(node)
 
-        # Charger les jump points
         for jp_data in data.get("jump_points", []):
             jp = JumpPoint.from_dict(jp_data)
             graph.jump_points[jp.name] = jp
 
-        # Charger les arêtes (sans bidirectional pour éviter les doublons)
         for e_data in data.get("edges", []):
             edge = RouteEdge.from_dict(e_data)
             graph.edges.append(edge)

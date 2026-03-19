@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "generated_at": 1773925275,
+  "generated_at": 1773925885,
   "type_codes": {
     "0": "system",
     "1": "planet",
@@ -4130,7 +4130,7 @@
     },
     {
       "id": "4.30",
-      "name": "Jumptown",
+      "name": "Jumptown (Yela)",
       "nickname": "Jumpdown",
       "aliases": [
         "Jumpdown"
@@ -5756,7 +5756,7 @@
     },
     {
       "id": "4.87",
-      "name": "Jumptown",
+      "name": "Jumptown (Daymar)",
       "nickname": "Jumptown",
       "aliases": [],
       "type": "outpost",

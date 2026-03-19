@@ -236,6 +236,14 @@ for s in stations:
         },
     ))
 
+# Index des noms pour détecter les doublons (outposts + stations + villes)
+_seen_names: dict[str, int] = {}   # name -> count
+for _o in outposts:
+    _seen_names[_o["name"]] = _seen_names.get(_o["name"], 0) + 1
+
+# Index lune id → nom
+moon_names: dict[int, str] = {m["id"]: m["name"] for m in moons}
+
 # 5. Avant-postes
 for o in outposts:
     if o["id_star_system"] not in avail_sys:
@@ -253,10 +261,17 @@ for o in outposts:
     if o["id"] == 59 and nick == "Samson":
         nick = "Shady Glen"
 
+    # Désambiguïsation : si le nom est partagé, ajouter la lune parentale
+    canonical = o["name"]
+    if _seen_names.get(canonical, 1) > 1 and o.get("id_moon"):
+        moon_n = moon_names.get(o["id_moon"], "")
+        if moon_n:
+            canonical = f"{canonical} ({moon_n})"
+
     nodes.append(make_node(
         type_code    = T_OUT,
         uex_id       = o["id"],
-        name         = o["name"],
+        name         = canonical,
         nickname     = nick,
         aliases      = build_aliases(o["name"], nick),
         system       = o["star_system_name"],
