@@ -1,6 +1,9 @@
 """Commande /mission — catalogue de missions."""
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from rich.table import Table
 
 from uexinfo.cli.commands import register
@@ -13,6 +16,8 @@ _SUBS = frozenset({
     # alias français
     "liste", "ajouter", "modifier", "supprimer",
 })
+
+_IMAGE_EXTS = frozenset({".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"})
 
 
 @register("mission", "m")
@@ -30,8 +35,9 @@ def cmd_mission(args: list[str], ctx) -> None:
     elif sub in ("add", "ajouter"):
         rest = args[1:]
         if not rest:
-            # Sans arguments → tenter depuis le dernier scan
             _cmd_add_from_scan(ctx)
+        elif _is_image(rest[0]):
+            _cmd_add_from_file(rest[0], ctx)
         else:
             _cmd_add(rest, ctx)
 
@@ -43,7 +49,13 @@ def cmd_mission(args: list[str], ctx) -> None:
 
     elif sub == "scan":
         print_warn("Scan de mission par screenshot — Phase 2 (non encore implémenté)")
-        console.print(f"[{C.DIM}]Scannez d'abord : /scan <fichier>  puis /mission add pour ajouter.[/{C.DIM}]")
+        console.print(f"[{C.DIM}]Workflow : /scan <fichier>  puis /mission add[/{C.DIM}]")
+        console.print(f"[{C.DIM}]Ou directement : /mission add <fichier.jpg>[/{C.DIM}]")
+
+
+def _is_image(path: str) -> bool:
+    p = Path(path)
+    return p.suffix.lower() in _IMAGE_EXTS or p.exists()
 
 
 # ── Affichage liste ───────────────────────────────────────────────────────────
@@ -57,16 +69,17 @@ def _cmd_list(ctx) -> None:
 
     section("Catalogue de missions")
 
-    tbl = Table(show_header=True, box=None, padding=(0, 1))
+    tbl = Table(show_header=True, box=None, padding=(0, 1),
+                row_styles=["", f"on grey7"])
     tbl.add_column("#",          style=C.DIM,    width=3, justify="right")
-    tbl.add_column("Nom",        style=C.LABEL,  max_width=24)
-    tbl.add_column("Départ",     style=C.UEX,    max_width=16)
+    tbl.add_column("Nom",        style=C.LABEL,  max_width=45)
+    tbl.add_column("Départ",     style=C.UEX,    max_width=18)
     tbl.add_column("→",          style=C.DIM,    width=1)
-    tbl.add_column("Arrivée",    style=C.UEX,    max_width=16)
+    tbl.add_column("Arrivée",    style=C.UEX,    max_width=18)
     tbl.add_column("Dist",       justify="right", width=7)
-    tbl.add_column("SCU",        justify="right", width=4)
+    tbl.add_column("SCU",        justify="right", width=5)
     tbl.add_column("Récompense", justify="right", width=12)
-    tbl.add_column("Synergies",  width=6)
+    tbl.add_column("Syn",        width=4)
 
     graph = ctx.cache.transport_graph
 
@@ -77,14 +90,17 @@ def _cmd_list(ctx) -> None:
         reward_str = f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
         tags = " ".join(mm.synergies(m))
 
-        # Distance via graphe
+        # Distance via graphe — résolution fuzzy des noms de lieux
         dist_str = "?"
         if m.all_sources and m.all_destinations:
             try:
-                result = graph.shortest_path(m.all_sources[0], m.all_destinations[0])
-                if result:
-                    d = result.total_distance
-                    dist_str = f"{d:.1f}Gm" if d >= 1 else f"{d*1000:.0f}Mm"
+                src_node = _resolve_graph_node(m.all_sources[0], graph)
+                dst_node = _resolve_graph_node(m.all_destinations[0], graph)
+                if src_node and dst_node:
+                    result = graph.shortest_path(src_node, dst_node)
+                    if result:
+                        d = result.total_distance
+                        dist_str = f"{d:.1f}Gm" if d >= 1 else f"{d*1000:.0f}Mm"
             except Exception:
                 pass
 
@@ -98,7 +114,19 @@ def _cmd_list(ctx) -> None:
         )
 
     console.print(tbl)
-    console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s) · /mission add pour ajouter · /voyage pour planifier[/{C.DIM}]")
+    console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s) · /mission add <fichier> ou <nom> · /voyage pour planifier[/{C.DIM}]")
+
+
+def _resolve_graph_node(name: str, graph) -> str | None:
+    """Résout un nom de lieu (potentiellement long) vers un nœud du graphe."""
+    from uexinfo.cli.commands.nav import _resolve_node
+    # Essayer le nom complet d'abord, puis les tokens les plus courts
+    node = _resolve_node(name, graph)
+    if node:
+        return node
+    # Extraire le code court : "MIC-L2 Long Forest Station" → "MIC-L2"
+    short = re.split(r"\s+", name.strip())[0]
+    return _resolve_node(short, graph)
 
 
 # ── Add depuis dernier scan ───────────────────────────────────────────────────
@@ -107,27 +135,60 @@ def _cmd_add_from_scan(ctx) -> None:
     from uexinfo.models.mission_result import MissionResult
     last = ctx.last_scan
     if last is None:
-        print_warn("Aucun scan disponible — faites d'abord /scan <fichier>")
-        console.print(f"[{C.DIM}]Ou : /mission add <nom> reward:<n> obj:... pour saisie manuelle.[/{C.DIM}]")
+        print_warn("Aucun scan disponible")
+        console.print(f"[{C.DIM}]Usage : /mission add <fichier.jpg>  ou  /scan <fichier> puis /mission add[/{C.DIM}]")
         return
     if not isinstance(last, MissionResult):
         print_warn("Le dernier scan est un terminal de commerce, pas une mission")
-        console.print(f"[{C.DIM}]Scannez un screenshot de l'écran Contrats.[/{C.DIM}]")
+        console.print(f"[{C.DIM}]Usage : /mission add <fichier.jpg> pour scanner directement[/{C.DIM}]")
         return
-    if not last.parsed_objectives:
-        print_warn("Le scan ne contient pas d'objectifs parsés")
-        console.print(f"[{C.DIM}]Utilisez /scan debug pour diagnostiquer l'image.[/{C.DIM}]")
+    _add_mission_result(last, ctx)
+
+
+def _cmd_add_from_file(path_str: str, ctx) -> None:
+    """Scanne un fichier image et ajoute la mission au catalogue."""
+    from pathlib import Path as _Path
+    p = _Path(path_str)
+    if not p.exists():
+        print_error(f"Fichier introuvable : {path_str}")
         return
 
-    kwargs = last.to_mission_kwargs()
+    from uexinfo.cli.commands.scan import _scan_image_file
+    from uexinfo.models.mission_result import MissionResult
+
+    console.print(f"[{C.DIM}]Scan de {p.name}...[/{C.DIM}]")
+    try:
+        result = _scan_image_file(ctx, p)
+    except Exception as e:
+        print_error(f"Erreur OCR : {e}")
+        return
+
+    if result is None:
+        print_error("OCR n'a rien extrait")
+        return
+    if not isinstance(result, MissionResult):
+        print_warn(f"Ce screenshot ({p.name}) est un terminal de commerce, pas une mission")
+        return
+
+    ctx.last_scan = result
+    _add_mission_result(result, ctx)
+
+
+def _add_mission_result(mr, ctx) -> None:
+    from uexinfo.models.mission_result import MissionResult
+    if not mr.parsed_objectives:
+        print_warn("Pas d'objectifs parsés dans ce scan")
+        console.print(f"[{C.DIM}]Utilisez /scan debug <fichier> pour diagnostiquer.[/{C.DIM}]")
+        return
+
+    kwargs = mr.to_mission_kwargs()
     mm = ctx.mission_manager
     m = Mission(id=0, **kwargs)
     mm.add(m)
 
     reward_str = f"{m.reward_uec:,}".replace(",", " ")
-    print_ok(f"Mission #{m.id} ajoutée depuis scan : {m.name}  [{C.DIM}]{reward_str} aUEC  {len(m.objectives)} objectif(s)[/{C.DIM}]")
-    # Résumé des objectifs
-    for o in last.parsed_objectives:
+    print_ok(f"Mission #{m.id} ajoutée : {m.name}  [{C.DIM}]{reward_str} aUEC  {len(m.objectives)} objectif(s)[/{C.DIM}]")
+    for o in mr.parsed_objectives:
         if o.kind == "collect":
             console.print(f"  [{C.DIM}]↑ Collect {o.commodity} depuis {o.location}[/{C.DIM}]")
         elif o.kind == "deliver":
@@ -273,21 +334,23 @@ def _cmd_remove(args: list[str], ctx) -> None:
 def _show_help() -> None:
     section("Aide — /mission")
     lines = [
-        ("list",        "Liste le catalogue de missions"),
-        ("add",         "Ajoute une mission manuellement (voir ci-dessous)"),
-        ("edit <id>",   "Modifie une mission existante"),
-        ("remove <id>", "Supprime une mission du catalogue"),
-        ("scan",        "Scan de mission par screenshot (Phase 2)"),
+        ("list",             "Liste le catalogue de missions"),
+        ("add",              "Depuis le dernier scan (/scan d'abord)"),
+        ("add <fichier>",    "Scanne directement un screenshot de contrat"),
+        ("add <nom> ...",    "Saisie manuelle (voir ci-dessous)"),
+        ("edit <id>",        "Modifie une mission existante"),
+        ("remove <id>",      "Supprime une mission du catalogue"),
+        ("scan",             "Scan par screenshot (Phase 2)"),
     ]
     for cmd, desc in lines:
-        console.print(f"  [bold {C.LABEL}]/mission {cmd:<16}[/bold {C.LABEL}]  [{C.DIM}]{desc}[/{C.DIM}]")
+        console.print(f"  [bold {C.LABEL}]/mission {cmd:<20}[/bold {C.LABEL}]  [{C.DIM}]{desc}[/{C.DIM}]")
     console.print()
     _show_add_help()
     console.print(f"  [{C.DIM}]Pour planifier un trajet, utilisez /voyage[/{C.DIM}]")
 
 
 def _show_add_help() -> None:
-    console.print(f"  [{C.DIM}]Syntaxe add :[/{C.DIM}]")
+    console.print(f"  [{C.DIM}]Syntaxe add manuelle :[/{C.DIM}]")
     console.print(f"  [bold {C.LABEL}]/mission add <nom> reward:<aUEC>[/bold {C.LABEL}]")
     console.print(f"  [bold {C.LABEL}]    [obj:<commodité> from:<source> to:<dest> scu:<n> [tdd|shop|delay:<r>]]+[/bold {C.LABEL}]")
     console.print()
