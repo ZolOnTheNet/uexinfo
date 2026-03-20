@@ -383,12 +383,12 @@ def _fetch_container_sizes(commodity_id: int, ctx) -> dict[str, str]:
     sizes: dict[str, str] = {}
     for route in routes:
         # origin
-        t_orig = (route.get("terminal_name_origin") or "").strip()
+        t_orig = (route.get("origin_terminal_name") or "").strip()
         cs_orig = route.get("container_sizes_origin")
         if t_orig and cs_orig:
             sizes[t_orig.lower()] = _fmt_container_sizes(cs_orig)
         # destination
-        t_dest = (route.get("terminal_name_destination") or "").strip()
+        t_dest = (route.get("destination_terminal_name") or "").strip()
         cs_dest = route.get("container_sizes_destination")
         if t_dest and cs_dest:
             sizes[t_dest.lower()] = _fmt_container_sizes(cs_dest)

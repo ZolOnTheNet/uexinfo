@@ -348,6 +348,11 @@ def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult
                 f"[{C.DIM}]Configurez le chemin avec : /config scan logpath <chemin>[/{C.DIM}]"
             )
             return []
+        # Marquer le log comme "vu" même si aucun nouveau scan (évite le clignotement permanent)
+        try:
+            ctx.log_last_mtime = effective_path.stat().st_mtime
+        except OSError:
+            pass
         results = parser.parse_all() if full else parser.parse_new()
         if not results:
             print_warn(f"Aucun nouveau scan dans le log. (offset: {parser.get_offset()} octets)")
@@ -489,9 +494,11 @@ def _scan_screenshot_new(ctx, max_files: int = 5) -> list:
         if result:
             results.append(result)
 
-    # Mémoriser le timestamp du fichier le plus récent traité
+    # Mémoriser le timestamp du fichier le plus récent traité + marquer comme "vu"
     if images:
+        import time as _time
         ctx._last_scan_mtime = max(p.stat().st_mtime for p in images)
+        ctx.screenshots_last_seen_ts = _time.time()
 
     return results
 
@@ -714,6 +721,91 @@ def _display_result(result, ctx) -> None:
         _display_scan(result, ctx)
 
 
+def _run_debug_on(ctx, image_path: Path) -> None:
+    """Lance le debug OCR sur un seul fichier image (factorisation)."""
+    from uexinfo.ocr.engine import TesseractEngine
+    cfg_scan = ctx.cfg.get("scan", {})
+    exe = Path(cfg_scan["tesseract_exe"]) if cfg_scan.get("tesseract_exe") else None
+    try:
+        engine = TesseractEngine(exe=exe)
+    except RuntimeError as e:
+        print_error(str(e))
+        return
+
+    screen_type = engine.detect_screen_type(image_path)
+    console.print(
+        f"\n[bold]Debug OCR[/bold] — [{C.DIM}]{image_path.name}[/{C.DIM}]"
+        f"  Type détecté : [cyan]{screen_type}[/cyan]"
+    )
+
+    if screen_type == "mission":
+        zones = engine.debug_mission(image_path)
+        for zone_name, zone_text in zones.items():
+            console.print(f"\n[bold]── {zone_name} ──[/bold]")
+            if zone_text.strip():
+                for i, line in enumerate(zone_text.splitlines()):
+                    if line.strip():
+                        console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")
+            else:
+                console.print(f"  [{C.DIM}](vide)[/{C.DIM}]")
+    else:
+        console.print(f"\n[bold]Terminal (zone haut-gauche) :[/bold]")
+        for tl in engine.debug_terminal(image_path):
+            console.print(f"  {tl}")
+        console.print(f"\n[bold]Commodités (panneau droit) :[/bold]")
+        lines = engine.debug_lines(image_path)
+        for i, line in enumerate(lines):
+            console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")
+        console.print(f"\n[{C.DIM}]{len(lines)} lignes extraites[/{C.DIM}]")
+
+
+def _debug_select(ctx, mode: str) -> None:
+    """Ouvre le sélecteur d'images pour /scan debug list|selected."""
+    import datetime
+    from uexinfo.cli.selector import SelectItem
+
+    sc_dir = _screenshots_dir(ctx)
+    if not sc_dir.exists():
+        print_error(f"Dossier introuvable : {sc_dir}")
+        return
+
+    images = sorted(
+        (p for p in sc_dir.iterdir() if p.suffix.lower() in _IMAGE_SUFFIXES),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not images:
+        print_warn(f"Aucun fichier image dans : {sc_dir}")
+        return
+
+    items = [
+        SelectItem(
+            label    = p.name,
+            value    = p,
+            meta     = (
+                datetime.datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+                + f"  {p.stat().st_size // 1024} Ko"
+            ),
+        )
+        for p in images[:50]
+    ]
+
+    title = (
+        "Debug OCR — choisir une image"
+        if mode == "single"
+        else "Debug OCR — sélectionner les images"
+    )
+    from uexinfo.cli.selector import pick
+    chosen = pick(ctx, items, title=title, mode=mode)
+
+    if not chosen:
+        print_warn("Annulé." if chosen is None else "Aucune image sélectionnée.")
+        return
+
+    for item in chosen:
+        _run_debug_on(ctx, item.value)
+
+
 @register("scan", "s")
 def cmd_scan(args: list[str], ctx) -> None:
     if not args:
@@ -861,56 +953,30 @@ def cmd_scan(args: list[str], ctx) -> None:
             _display_result(result, ctx)
         return
 
-    # /scan debug <fichier>  — affiche les lignes OCR brutes pour diagnostic
+    # /scan debug <fichier>|list|selected  — debug OCR
     if sub == "debug":
+        sub2 = args[1].lower() if len(args) >= 2 else ""
+
+        # /scan debug list — sélecteur interactif (single : une image → debug)
+        if sub2 == "list":
+            _debug_select(ctx, mode="single")
+            return
+
+        # /scan debug selected — sélecteur multi : plusieurs images → debug
+        if sub2 == "selected":
+            _debug_select(ctx, mode="multi")
+            return
+
+        # /scan debug <fichier>
         if len(args) < 2:
-            print_error("Usage : /scan debug <fichier>")
+            print_error("Usage : /scan debug <fichier|list|selected>")
             return
         raw = " ".join(args[1:]).strip("\"'")
         image_path = _resolve_image_path(raw, ctx)
         if not image_path.exists():
             print_error(f"Fichier introuvable : {image_path}  (cherché aussi dans {_screenshots_dir(ctx)})")
             return
-        from uexinfo.ocr.engine import TesseractEngine
-        cfg_scan = ctx.cfg.get("scan", {})
-        exe = Path(cfg_scan["tesseract_exe"]) if cfg_scan.get("tesseract_exe") else None
-        try:
-            engine = TesseractEngine(exe=exe)
-        except RuntimeError as e:
-            print_error(str(e))
-            return
-        from uexinfo.display import colors as C
-
-        # Détection du type
-        screen_type = engine.detect_screen_type(image_path)
-        console.print(
-            f"\n[bold]Debug OCR[/bold] — [{C.DIM}]{image_path.name}[/{C.DIM}]"
-            f"  Type détecté : [cyan]{screen_type}[/cyan]"
-        )
-
-        if screen_type == "mission":
-            # ── Debug mission ──────────────────────────────────────────────
-            zones = engine.debug_mission(image_path)
-            for zone_name, zone_text in zones.items():
-                console.print(f"\n[bold]── {zone_name} ──[/bold]")
-                if zone_text.strip():
-                    for i, line in enumerate(zone_text.splitlines()):
-                        if line.strip():
-                            console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")
-                else:
-                    console.print(f"  [{C.DIM}](vide)[/{C.DIM}]")
-        else:
-            # ── Debug terminal (existant) ──────────────────────────────────
-            console.print(f"\n[bold]Terminal (zone haut-gauche) :[/bold]")
-            term_lines = engine.debug_terminal(image_path)
-            for tl in term_lines:
-                console.print(f"  {tl}")
-
-            console.print(f"\n[bold]Commodités (panneau droit) :[/bold]")
-            lines = engine.debug_lines(image_path)
-            for i, line in enumerate(lines):
-                console.print(f"  [{C.DIM}]{i:3}[/{C.DIM}]  {line}")
-            console.print(f"\n[{C.DIM}]{len(lines)} lignes extraites[/{C.DIM}]")
+        _run_debug_on(ctx, image_path)
         return
 
     print_error(f"Sous-commande inconnue : {sub}  —  /scan [list|ecran|screenshot|log|status|history|debug]")

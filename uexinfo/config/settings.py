@@ -56,6 +56,7 @@ DEFAULT: dict = {
         "width": 700,
         "height": 900,
         "opacity": 0.95,
+        "close": "normal",  # "normal" = ✕ ferme | "dblclick" = ✕ masque, double-clic ferme
     },
 }
 

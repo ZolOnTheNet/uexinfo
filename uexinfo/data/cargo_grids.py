@@ -308,23 +308,54 @@ class CargoGridManager:
         with open(self.ext_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
+    @staticmethod
+    def _normalize(name: str) -> str:
+        """Normalise : minuscules + underscores→espaces + espaces multiples collapsés."""
+        return " ".join(name.lower().replace("_", " ").split())
+
     def get_grid(self, ship_name: str) -> dict[int, int] | None:
         """
         Retourne la grid cargo d'un vaisseau (override ou base).
 
-        Args:
-            ship_name: Nom du vaisseau
-
-        Returns:
-            dict {taille_scu: quantité} ou None si introuvable
+        Matching par ordre de priorité :
+        1. Override exact
+        2. Override normalisé (casse + underscores)
+        3. Grid de base exacte
+        4. Grid de base normalisée
+        5. Grid dont la clé est un préfixe du nom vaisseau
+           (ex: "Crusader M2 Hercules" ⊂ "Crusader M2 Hercules Starlifter")
         """
-        # Priorité 1 : override utilisateur
+        # 1. Override exact
         if ship_name in self.overrides:
             return self.overrides[ship_name]
 
-        # Priorité 2 : grid de base
+        norm = self._normalize(ship_name)
+
+        # 2. Override normalisé
+        for key, val in self.overrides.items():
+            if self._normalize(key) == norm:
+                return val
+
+        # 3. Grid de base exacte
         if ship_name in SHIP_CARGO_GRIDS:
             return SHIP_CARGO_GRIDS[ship_name]
+
+        # 4. Grid de base normalisée exacte
+        for key, val in SHIP_CARGO_GRIDS.items():
+            if self._normalize(key) == norm:
+                return val
+
+        # 5. Grid dont la clé normalisée est contenue dans le nom du vaisseau
+        #    (variante avec suffixe supplémentaire, ex: "Starlifter", "Best In Show…")
+        best_key: str | None = None
+        best_len = 0
+        for key in SHIP_CARGO_GRIDS:
+            key_norm = self._normalize(key)
+            if key_norm in norm and len(key_norm) > best_len:
+                best_key = key
+                best_len = len(key_norm)
+        if best_key:
+            return SHIP_CARGO_GRIDS[best_key]
 
         return None
 

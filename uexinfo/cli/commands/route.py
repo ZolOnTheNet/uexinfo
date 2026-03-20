@@ -33,23 +33,9 @@ def cmd_route(args: list[str], ctx) -> None:
         _usage(ctx)
         return
 
-    # Résoudre les tokens @local / @dest dans les arguments
-    resolved = []
-    for a in args:
-        r = _resolve_at(a, ctx)
-        if a.startswith("@") and r == "":
-            # @local ou @dest non défini
-            key = a[1:].lower()
-            if key in ("local", "loc", "ici", "here", "position", "pos"):
-                print_error("Position courante non définie — utilisez /go <lieu> ou @<terminal>")
-            else:
-                print_error(f"Destination non définie — utilisez /go to <lieu>")
-            return
-        resolved.append(r)
-
-    # Déléguer à la logique de /nav route
+    # Déléguer directement — _find_route gère @local, @dest, multi-dest et wildcards
     from uexinfo.cli.commands.nav import _find_route
-    _find_route(resolved, ctx)
+    _find_route(args, ctx)
 
 
 def _usage(ctx) -> None:
@@ -59,9 +45,12 @@ def _usage(ctx) -> None:
         f"[{C.LABEL}]/route[/{C.LABEL}]  [{C.DIM}]Itinéraire QT entre deux lieux[/{C.DIM}]\n"
         f"\n"
         f"  [bold]Exemples :[/bold]\n"
-        f"  /route @local @dest          Depuis ta position vers ta destination\n"
-        f"  /route GrimHEX Port_Tressler Calcule le chemin entre deux terminaux\n"
-        f"  /route @local to Area_18     Depuis ta position vers Area 18\n"
+        f"  /route @local @dest              Depuis ta position vers ta destination\n"
+        f"  /route GrimHEX Port_Tressler     Chemin entre deux terminaux\n"
+        f"  /route to Area_18                Depuis ta position (auto) vers Area 18\n"
+        f"  /route to @dest                  Vers la destination configurée\n"
+        f"  /route to cru-l1, cru-l2         Vers plusieurs destinations\n"
+        f"  /route to cru-*                  Vers tous les nœuds cru-*\n"
         f"\n"
         f"  [bold]Raccourcis :[/bold]\n"
         f"  @local  →  position courante : [{C.UEX}]{loc}[/{C.UEX}]\n"

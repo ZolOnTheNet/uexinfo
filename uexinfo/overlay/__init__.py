@@ -91,6 +91,14 @@ class _WindowApi:
             except Exception:
                 pass
 
+    def hide_window(self) -> None:
+        """Masque la fenêtre (utilisé en mode close=dblclick, clic simple sur ✕)."""
+        if self._win:
+            try:
+                self._win.hide()
+            except Exception:
+                pass
+
     def restore_transparency(self) -> None:
         """Appelé depuis JS sur mouseup (fin de resize) — restaure la transparence DWM
         et sauvegarde la géométrie."""
@@ -142,11 +150,12 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     except Exception:
         ov_cfg = {}
 
-    hotkey    = hotkey or ov_cfg.get("hotkey", "alt+shift+u")
-    port      = port   or ov_cfg.get("port", 8090)
-    width     = ov_cfg.get("width",    500)
-    height    = ov_cfg.get("height",   880)
-    frameless = ov_cfg.get("frameless", True)    # True = titlebar HTML + drag JS
+    hotkey     = hotkey or ov_cfg.get("hotkey", "alt+shift+u")
+    port       = port   or ov_cfg.get("port", 8090)
+    width      = ov_cfg.get("width",    500)
+    height     = ov_cfg.get("height",   880)
+    frameless  = ov_cfg.get("frameless", True)    # True = titlebar HTML + drag JS
+    close_mode = ov_cfg.get("close", "normal")    # "normal" | "dblclick"
 
     print(f"[overlay] Démarrage — ws://localhost:{port}  hotkey: {hotkey}")
 
@@ -259,9 +268,30 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
 
     server.on_quit = _on_quit
 
+    _close_last_t = [0.0]   # timestamp du dernier clic sur ✕ (mode dblclick)
+
     def on_closing():
-        print("[overlay] on_closing() → _shutdown", flush=True)
-        threading.Thread(target=_shutdown, daemon=False).start()
+        nonlocal visible
+        if close_mode == "dblclick":
+            now = time.monotonic()
+            if now - _close_last_t[0] < 0.5:
+                # Double-clic → fermeture réelle
+                print("[overlay] on_closing() dblclick confirmé → _shutdown", flush=True)
+                threading.Thread(target=_shutdown, daemon=False).start()
+            else:
+                # Premier clic → masquer au lieu de fermer
+                print("[overlay] on_closing() dblclick 1er clic → hide", flush=True)
+                _close_last_t[0] = now
+                with _lock:
+                    try:
+                        window.hide()
+                    except Exception:
+                        pass
+                    visible = False
+            return False   # annule TOUJOURS la fermeture native en mode dblclick
+        else:
+            print("[overlay] on_closing() → _shutdown", flush=True)
+            threading.Thread(target=_shutdown, daemon=False).start()
 
     window.events.closing += on_closing
 

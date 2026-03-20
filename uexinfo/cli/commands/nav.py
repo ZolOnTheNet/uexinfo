@@ -252,7 +252,34 @@ def _find_route(args: list[str], ctx) -> None:
 
     # ── Cas 1 : un seul argument ─────────────────────────────────────────────
     if len(args_exp) == 1:
-        to_loc   = args_exp[0]
+        to_raw = args_exp[0]
+
+        # Wildcard ou multi-dest sans mot-clé "to" (ex: /route cru-*, /route l1,l2)
+        if "*" in to_raw or "," in to_raw:
+            dest_nodes = _parse_destinations(to_raw, graph, ctx)
+            if not dest_nodes:
+                print_error(f"Destination(s) introuvable(s) : {to_raw!r}")
+                _show_candidates(to_raw.split(",")[0].strip().replace("*", ""), graph)
+                return
+            loc = (getattr(ctx.player, "location", None) or "").strip()
+            from_loc = loc
+            from_node = _resolve_node(loc, graph) if loc else None
+            if not from_node:
+                from_node = _auto_add_from_uex(loc, graph, ctx) if loc else None
+            if not from_node:
+                print_error("Position courante non définie — utilisez /go <lieu>")
+                return
+            if force_req:
+                _fetch_missing_distances(from_node, graph, ctx)
+            if len(dest_nodes) == 1:
+                to_node = dest_nodes[0]
+                to_loc  = to_node
+                _display_route(from_node, to_node, graph)
+            else:
+                _display_multi_route(from_node, dest_nodes, graph)
+            return
+
+        to_loc   = to_raw
         to_node  = _resolve_node(to_loc, graph)
 
         # Si le lieu saisi ne résout pas en nœud → chercher des candidats
@@ -293,9 +320,38 @@ def _find_route(args: list[str], ctx) -> None:
         if "to" in [a.lower() for a in args]:
             idx = next(i for i, a in enumerate(args) if a.lower() == "to")
             from_loc = " ".join(args_exp[:idx]).strip()
-            to_loc   = " ".join(args_exp[idx + 1:]).strip()
+            to_raw   = " ".join(args_exp[idx + 1:]).strip()
+
+            # Origine non fournie → position courante du joueur
+            if not from_loc:
+                from_loc = _expand_alias("@local", ctx)
+            if not from_loc:
+                print_error("Position courante non définie — utilisez /go <lieu>")
+                return
+
             from_node = _resolve_node(from_loc, graph)
-            to_node   = _resolve_node(to_loc, graph)
+
+            # Résoudre destination(s) — virgules + wildcards
+            dest_nodes = _parse_destinations(to_raw, graph, ctx)
+            if not dest_nodes:
+                print_error(f"Destination(s) introuvable(s) : {to_raw!r}")
+                _show_candidates(to_raw.split(",")[0].strip(), graph)
+                return
+
+            if len(dest_nodes) > 1:
+                if not from_node:
+                    from_node = _auto_add_from_uex(from_loc, graph, ctx)
+                if not from_node:
+                    print_error(f"Lieu de départ introuvable : {from_loc!r}")
+                    _show_candidates(from_loc, graph)
+                    return
+                if force_req:
+                    _fetch_missing_distances(from_node, graph, ctx)
+                _display_multi_route(from_node, dest_nodes, graph)
+                return
+            else:
+                to_node = dest_nodes[0]   # déjà résolu par _parse_destinations
+                to_loc  = to_node
         else:
             # Essayer de droite à gauche
             for split in range(len(args_exp) - 1, 0, -1):
@@ -364,6 +420,41 @@ def _display_route(from_node: str, to_node: str, graph) -> None:
 
     if result.jump_points:
         console.print(f"\n[{C.WARNING}]⚠  Cette route traverse {len(result.jump_points)} jump point(s)[/{C.WARNING}]")
+
+
+def _display_multi_route(from_node: str, to_nodes: list[str], graph) -> None:
+    """Affiche un tableau comparatif de routes depuis un nœud vers plusieurs destinations."""
+    section(f"Routes depuis {from_node}")
+
+    rows: list[tuple[str, float, str, int]] = []
+    missing: list[str] = []
+    for dest in to_nodes:
+        result = graph.find_shortest_path(from_node, dest)
+        if result:
+            rows.append((dest, result.total_distance, result.duration_formatted,
+                         len(result.jump_points)))
+        else:
+            missing.append(dest)
+
+    rows.sort(key=lambda r: r[1])
+
+    tbl = Table(show_header=True, box=None, padding=(0, 1))
+    tbl.add_column("Destination", style=C.LABEL)
+    tbl.add_column("Distance",    style=C.UEX,     justify="right")
+    tbl.add_column("Durée",       style=C.NEUTRAL,  justify="right")
+    tbl.add_column("JP",          style=C.WARNING,  justify="center")
+
+    for dest, dist, dur, jp_count in rows:
+        dist_str = f"{dist:.1f} Gm" if dist >= 1 else f"{dist * 1000:.0f} Mm"
+        jp_str   = str(jp_count) if jp_count else "—"
+        tbl.add_row(dest, dist_str, dur, jp_str)
+
+    for dest in missing:
+        tbl.add_row(dest, f"[{C.DIM}]?[/{C.DIM}]", f"[{C.DIM}]?[/{C.DIM}]", "—")
+
+    console.print(tbl)
+    note = f"{len(rows)} route(s) · {len(missing)} introuvable(s)" if missing else f"{len(rows)} route(s)"
+    console.print(f"\n[{C.DIM}]{note} · /nav route <dest> pour le détail complet[/{C.DIM}]")
 
 
 def _show_system_destinations(from_node: str, graph, ctx) -> None:
@@ -1023,6 +1114,53 @@ def _find_candidates(query: str, graph) -> list[str]:
     if not q or len(q) < 2:
         return []
     return [n for n in graph.nodes if q in n.lower()]
+
+
+def _expand_wildcard(pattern: str, graph) -> list[str]:
+    """Développe un pattern avec * vers la liste des nœuds correspondants.
+
+    Le * est un joker pour n'importe quelle suite de caractères, positionnée
+    n'importe où dans le mot (ex: cru-* → CRU-L1, CRU-L2 … ; *l1 → CRU-L1…)
+    Correspondance insensible à la casse.
+    """
+    import re
+    p = re.escape(pattern.lower().replace("_", " "))
+    p = p.replace(r"\*", ".*")   # * → .*  (joker)
+    rx = re.compile(p)
+    return sorted(n for n in graph.nodes if rx.search(n.lower()))
+
+
+def _parse_destinations(raw: str, graph, ctx) -> list[str]:
+    """Parse une chaîne de destinations (virgules + wildcards) → nœuds résolus.
+
+    Exemples :
+        "cru-l1"          → ["CRU-L1"]
+        "cru-l1, cru-l2"  → ["CRU-L1", "CRU-L2"]
+        "cru-*"           → ["CRU-L1", "CRU-L2", "CRU-L3", "CRU-L4", "CRU-L5"]
+        "@dest"           → [<destination joueur>]
+    """
+    # Normaliser : remplacer underscores, séparer les virgules
+    parts = [p.strip() for p in raw.replace("_", " ").split(",") if p.strip()]
+
+    result: list[str] = []
+    for part in parts:
+        part = _expand_alias(part, ctx)
+        if not part:
+            continue
+        if "*" in part:
+            result.extend(_expand_wildcard(part, graph))
+        else:
+            node = _resolve_node(part, graph)
+            if node:
+                result.append(node)
+    # Dédoublonner tout en conservant l'ordre
+    seen: set[str] = set()
+    unique = []
+    for n in result:
+        if n not in seen:
+            seen.add(n)
+            unique.append(n)
+    return unique
 
 
 def _show_candidates_choice(query: str, candidates: list[str], graph, ctx) -> None:

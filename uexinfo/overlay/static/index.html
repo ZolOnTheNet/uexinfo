@@ -261,6 +261,68 @@ html, body {
 }
 #scan-box .se-foot button:hover { background: rgba(255,255,255,0.12); }
 
+/* ── Sélecteur générique ───────────────────────────────────────────────── */
+#select-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 900;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#select-overlay.open { display: flex; }
+#select-box {
+  background: rgba(12, 15, 22, 0.98);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  width: min(480px, 96vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85em;
+}
+#select-box .sl-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; border-bottom: 1px solid var(--border);
+  color: var(--accent); font-weight: bold;
+}
+#select-box .sl-head button {
+  background: none; border: none; color: var(--dim);
+  cursor: pointer; font-size: 1em;
+}
+#select-box .sl-head button:hover { color: var(--red); }
+#select-list {
+  overflow-y: auto; flex: 1; padding: 4px 0;
+}
+#select-list::-webkit-scrollbar { width: 3px; }
+#select-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+.sl-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 12px; cursor: pointer; user-select: none;
+}
+.sl-item:hover { background: rgba(0,188,212,0.10); }
+.sl-item.sl-focus { background: rgba(0,188,212,0.18); }
+.sl-item input[type=checkbox] { flex-shrink: 0; accent-color: var(--accent); }
+.sl-item .sl-label { flex: 1; }
+.sl-item .sl-meta { color: var(--dim); font-size: 0.88em; white-space: nowrap; }
+#select-box .sl-quick {
+  display: flex; gap: 6px; padding: 4px 10px;
+  border-top: 1px solid var(--border);
+}
+#select-box .sl-foot {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 6px 10px; border-top: 1px solid var(--border);
+}
+#select-box .sl-quick button,
+#select-box .sl-foot button {
+  padding: 3px 12px; border: 1px solid var(--border); border-radius: 2px;
+  cursor: pointer; font-family: var(--font); font-size: 0.9em;
+  background: rgba(255,255,255,0.05); color: var(--text);
+}
+#select-box .sl-foot button.primary { border-color: var(--accent); color: var(--accent); }
+#select-box .sl-quick button:hover,
+#select-box .sl-foot button:hover  { background: rgba(255,255,255,0.12); }
+
 /* ── Poignée de redimensionnement ─────────────────────────────────────── */
 #resize-grip {
   position: fixed;
@@ -312,7 +374,7 @@ html, body {
 
 <div id="titlebar">
   <span class="tb-title">UEXInfo</span>
-  <span class="tb-close" title="Fermer (ou /quit)" onclick="sendCmd('/quit')">✕</span>
+  <span id="tb-close-btn" class="tb-close" title="Fermer (ou /quit)" onclick="handleCloseClick()">✕</span>
 </div>
 <div id="output"></div>
 
@@ -381,6 +443,24 @@ html, body {
     <div class="se-foot">
       <button onclick="closeScanEditor()">Annuler</button>
       <button class="primary" onclick="confirmScan()">✓ Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<div id="select-overlay">
+  <div id="select-box">
+    <div class="sl-head">
+      <span id="sl-title">Sélectionner</span>
+      <button onclick="closeSelectPanel()" title="Annuler (Échap)">✕</button>
+    </div>
+    <div id="select-list"></div>
+    <div id="sl-quick-bar" class="sl-quick" style="display:none">
+      <button onclick="selectAll()">Tous</button>
+      <button onclick="selectNone()">Aucun</button>
+    </div>
+    <div class="sl-foot">
+      <button onclick="closeSelectPanel()">Annuler</button>
+      <button class="primary" onclick="confirmSelectPanel()">✓ Valider</button>
     </div>
   </div>
 </div>
@@ -622,12 +702,14 @@ function dispatch(msg) {
     case 'banner':
       appendSystem(msg.text);
       if (msg.opacity !== undefined) setAlpha(msg.opacity);
+      if (msg.close_mode !== undefined) applyCloseMode(msg.close_mode);
       break;
     case 'echo':        appendEcho(msg.text); startSpin(); break;
     case 'output':      stopSpin(); appendAnsi(msg.ansi); break;
     case 'done':        stopSpin(); break;
     case 'vocab':       loadVocab(msg); break;
     case 'scan_edit':   showScanEditor(msg.data); break;
+    case 'select':      showSelectPanel(msg); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items); break;
     case 'hint':        elHint.textContent = msg.text; break;
@@ -641,6 +723,45 @@ function dispatch(msg) {
 
 function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
+// ── Fermeture overlay ──────────────────────────────────────────────────────────
+
+let _closeMode = 'normal';
+let _closeTimer = null;
+
+function applyCloseMode(mode) {
+  _closeMode = mode;
+  const btn = document.getElementById('tb-close-btn');
+  if (!btn) return;
+  if (mode === 'dblclick') {
+    btn.title = 'Masquer (double-clic = fermer définitivement)';
+  } else {
+    btn.title = 'Fermer (ou /quit)';
+  }
+}
+
+function handleCloseClick() {
+  if (_closeMode !== 'dblclick') {
+    sendCmd('/quit');
+    return;
+  }
+  // Mode dblclick : 1er clic → masquer ; 2e clic dans 400ms → fermer
+  if (_closeTimer !== null) {
+    clearTimeout(_closeTimer);
+    _closeTimer = null;
+    sendCmd('/quit');          // double-clic confirmé → fermeture réelle
+  } else {
+    _closeTimer = setTimeout(() => {
+      _closeTimer = null;
+      // Masquer via l'API pywebview
+      try {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.hide_window) {
+          window.pywebview.api.hide_window().catch(() => {});
+        }
+      } catch (_) {}
+    }, 400);
+  }
 }
 
 function sendCmd(text) {
@@ -1038,6 +1159,117 @@ document.addEventListener('keydown', e => {
     elInput.focus();
 });
 
+// ── Sélecteur générique ───────────────────────────────────────────────────────
+
+let _selectMode  = 'multi';
+let _selectItems = [];   // [{idx, label, meta}]
+let _selectFocus = -1;
+
+function showSelectPanel(msg) {
+  _selectMode  = msg.mode  || 'multi';
+  _selectItems = msg.items || [];
+  _selectFocus = _selectItems.length ? 0 : -1;
+
+  document.getElementById('sl-title').textContent = msg.title || 'Sélectionner';
+  document.getElementById('sl-quick-bar').style.display = _selectMode === 'multi' ? 'flex' : 'none';
+
+  const list = document.getElementById('select-list');
+  list.innerHTML = '';
+  _selectItems.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'sl-item' + (i === 0 ? ' sl-focus' : '');
+    div.dataset.idx = item.idx;
+    if (_selectMode === 'multi') {
+      div.innerHTML =
+        `<input type="checkbox" id="sl-cb-${i}">` +
+        `<label class="sl-label" for="sl-cb-${i}">${esc(item.label)}</label>` +
+        (item.meta ? `<span class="sl-meta">${esc(item.meta)}</span>` : '');
+      div.addEventListener('click', e => {
+        if (e.target.tagName !== 'INPUT') {
+          const cb = div.querySelector('input');
+          cb.checked = !cb.checked;
+        }
+        _selectFocus = i;
+        _updateSelectFocus();
+      });
+    } else {
+      div.innerHTML =
+        `<span class="sl-label">${esc(item.label)}</span>` +
+        (item.meta ? `<span class="sl-meta">${esc(item.meta)}</span>` : '');
+      div.addEventListener('click', () => {
+        _selectFocus = i;
+        _updateSelectFocus();
+        // Single mode : clic = valider immédiatement
+        _confirmSelectSingle(i);
+      });
+    }
+    list.appendChild(div);
+  });
+
+  document.getElementById('select-overlay').classList.add('open');
+}
+
+function _updateSelectFocus() {
+  document.querySelectorAll('#select-list .sl-item').forEach((el, i) => {
+    el.classList.toggle('sl-focus', i === _selectFocus);
+  });
+  const focused = document.querySelectorAll('#select-list .sl-item')[_selectFocus];
+  if (focused) focused.scrollIntoView({block: 'nearest'});
+}
+
+function _confirmSelectSingle(i) {
+  const item = _selectItems[i];
+  if (!item) { closeSelectPanel(); return; }
+  send({type: 'select_confirm', indices: [item.idx]});
+  document.getElementById('select-overlay').classList.remove('open');
+}
+
+function selectAll() {
+  document.querySelectorAll('#select-list input[type=checkbox]')
+    .forEach(cb => cb.checked = true);
+}
+
+function selectNone() {
+  document.querySelectorAll('#select-list input[type=checkbox]')
+    .forEach(cb => cb.checked = false);
+}
+
+function closeSelectPanel() {
+  document.getElementById('select-overlay').classList.remove('open');
+  send({type: 'select_cancel'});
+}
+
+function confirmSelectPanel() {
+  if (_selectMode === 'single') return;   // géré par clic direct
+  const indices = [];
+  document.querySelectorAll('#select-list .sl-item').forEach((div, i) => {
+    const cb = div.querySelector('input[type=checkbox]');
+    if (cb && cb.checked) indices.push(_selectItems[i].idx);
+  });
+  send({type: 'select_confirm', indices});
+  document.getElementById('select-overlay').classList.remove('open');
+}
+
+// Navigation clavier dans le sélecteur
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('select-overlay').classList.contains('open')) return;
+  if (e.key === 'Escape') { e.stopPropagation(); closeSelectPanel(); return; }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); _selectFocus = Math.max(0, _selectFocus-1); _updateSelectFocus(); return; }
+  if (e.key === 'ArrowDown') { e.preventDefault(); _selectFocus = Math.min(_selectItems.length-1, _selectFocus+1); _updateSelectFocus(); return; }
+  if (e.key === ' ' && _selectMode === 'multi') {
+    e.preventDefault();
+    const cb = document.querySelectorAll('#select-list input[type=checkbox]')[_selectFocus];
+    if (cb) cb.checked = !cb.checked;
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_selectMode === 'single') _confirmSelectSingle(_selectFocus);
+    else confirmSelectPanel();
+    return;
+  }
+});
+
 // ── Éditeur de scan ───────────────────────────────────────────────────────────
 
 let _scanData = null;
@@ -1097,7 +1329,7 @@ function confirmScan() {
   closeScanEditor();
 }
 
-// Fermer avec Échap
+// Fermer scan-editor avec Échap (le sélecteur gère le sien dans son propre handler)
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && _scanData) { e.stopPropagation(); closeScanEditor(); }
 });

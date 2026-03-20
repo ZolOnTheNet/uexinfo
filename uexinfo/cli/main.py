@@ -70,6 +70,7 @@ class AppContext:
     debug_level: int = 0
     log_last_mtime: float = 0.0          # mtime du log lors du dernier check auto
     screenshots_last_seen_ts: float = 0.0  # wall-clock du dernier check screenshots
+    select_fn: object = None             # callable | None — injecté par overlay server
 
 
 def _banner() -> None:

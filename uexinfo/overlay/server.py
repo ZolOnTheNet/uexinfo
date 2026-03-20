@@ -79,6 +79,12 @@ class OverlayServer:
         self._history: list[str] = []
         self.on_quit: callable | None = None  # callback appelé avant os._exit
 
+        # ── Sélecteur interactif ──────────────────────────────────────────────
+        # Utilisé pour suspendre _exec_sync en attendant la réponse JS.
+        self._select_event  = threading.Event()
+        self._select_indices: list[int] | None = None   # None = annulé
+        self._loop: asyncio.AbstractEventLoop | None = None
+
     # ── Initialisation du contexte CLI ────────────────────────────────────────
 
     def init_context(self) -> None:
@@ -113,11 +119,14 @@ class OverlayServer:
         try:
             # Envoyer le statut initial + bannière
             from uexinfo import __version__
-            opacity = self.ctx.cfg.get("overlay", {}).get("opacity", 0.76)
+            ov_cfg     = self.ctx.cfg.get("overlay", {})
+            opacity    = ov_cfg.get("opacity", 0.76)
+            close_mode = ov_cfg.get("close", "normal")
             await websocket.send(json.dumps({
-                "type":    "banner",
-                "text":    f"UEXInfo v{__version__} — /help pour l'aide",
-                "opacity": opacity,
+                "type":       "banner",
+                "text":       f"UEXInfo v{__version__} — /help pour l'aide",
+                "opacity":    opacity,
+                "close_mode": close_mode,
             }))
             await self._send_status(websocket)
             await self._send_vocab(websocket)
@@ -149,6 +158,12 @@ class OverlayServer:
             _fmt_mod.console._width = cols
         elif t == "scan_confirm":
             await self._handle_scan_confirm(msg.get("data", {}))
+        elif t == "select_confirm":
+            self._select_indices = msg.get("indices", [])
+            self._select_event.set()
+        elif t == "select_cancel":
+            self._select_indices = None
+            self._select_event.set()
         elif t == "history":
             await ws.send(json.dumps({"type": "history", "items": self._history}))
 
@@ -186,11 +201,18 @@ class OverlayServer:
         # Capturer le scan courant avant exécution pour détecter un nouveau scan
         prev_scan = getattr(self.ctx, "last_scan", None)
 
+        # Injecter select_fn pour ce websocket (permet aux commandes d'ouvrir
+        # le sélecteur overlay au lieu du TUI terminal)
+        self.ctx.select_fn = lambda items, title="", mode="multi": \
+            self._overlay_select_sync(ws, items, title, mode)
+
         # Exécution dans un thread (bloquant)
         loop = asyncio.get_event_loop()
         output, needs_status = await loop.run_in_executor(
             None, self._exec_sync, line
         )
+
+        self.ctx.select_fn = None
 
         if output:
             await ws.send(json.dumps({"type": "output", "ansi": output}))
@@ -276,15 +298,34 @@ class OverlayServer:
                 pass
 
         # Détection scans actifs
-        scan_sc  = bool(getattr(self.ctx, "last_scan", None))
+        import os as _os, time as _t
+        # scan_log : le fichier log a-t-il changé depuis la dernière lecture ?
         scan_log = False
         try:
-            import os, time as _t
             log_path = self.ctx.cfg.get("scan", {}).get("sc_log_path", "")
-            if log_path and os.path.exists(log_path):
-                mtime = os.path.getmtime(log_path)
+            if log_path and _os.path.exists(log_path):
+                mtime = _os.path.getmtime(log_path)
                 last  = getattr(self.ctx, "log_last_mtime", 0) or 0
                 scan_log = (mtime > last)
+        except Exception:
+            pass
+
+        # scan_sc : y a-t-il de nouveaux screenshots depuis le dernier scan ?
+        scan_sc = False
+        try:
+            from uexinfo.cli.commands.scan import _screenshots_dir, _IMAGE_SUFFIXES
+            sc_dir  = _screenshots_dir(self.ctx)
+            last_ts = getattr(self.ctx, "screenshots_last_seen_ts", 0.0) or 0.0
+            if sc_dir.is_dir():
+                if last_ts == 0.0:
+                    # Première fois : initialiser sans signaler
+                    self.ctx.screenshots_last_seen_ts = _t.time()
+                else:
+                    scan_sc = any(
+                        p.stat().st_mtime > last_ts
+                        for p in sc_dir.iterdir()
+                        if p.suffix.lower() in _IMAGE_SUFFIXES
+                    )
         except Exception:
             pass
 
@@ -426,13 +467,78 @@ class OverlayServer:
 
     # ── Démarrage ─────────────────────────────────────────────────────────────
 
+    async def _periodic_status(self) -> None:
+        """Pousse le statut toutes les 10s — détecte les nouveaux screenshots sans interaction."""
+        while True:
+            await asyncio.sleep(10)
+            if not self._clients or not self.ctx:
+                continue
+            for ws in list(self._clients):
+                try:
+                    await self._send_status(ws)
+                except Exception:
+                    pass
+
     async def serve(self, host: str = "localhost", port: int = 8090) -> None:
         async with websockets.serve(self.handler, host, port):
+            asyncio.create_task(self._periodic_status())
             await asyncio.Future()  # tourne indéfiniment
 
     def start_background(self, host: str = "localhost", port: int = 8090) -> None:
         """Lance le serveur WebSocket dans un thread daemon."""
+        ready = threading.Event()
+
         def _run() -> None:
-            asyncio.run(self.serve(host, port))
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            self._loop = loop
+            ready.set()
+            loop.run_until_complete(self.serve(host, port))
+
         t = threading.Thread(target=_run, daemon=True, name="overlay-ws")
         t.start()
+        ready.wait(timeout=5)
+
+    # ── Sélecteur interactif (appelé depuis le thread executor) ──────────────
+
+    def _overlay_select_sync(
+        self,
+        ws,
+        items: list,        # list[SelectItem]
+        title: str,
+        mode: str,
+    ) -> list | None:
+        """Envoie la liste au JS et attend la réponse (bloquant dans le thread exec)."""
+        if self._loop is None:
+            return None
+
+        # Construire le message
+        select_msg = json.dumps({
+            "type":  "select",
+            "mode":  mode,
+            "title": title,
+            "items": [
+                {"idx": i, "label": it.label, "meta": it.meta}
+                for i, it in enumerate(items)
+            ],
+        })
+
+        # Envoyer depuis le thread asyncio
+        self._select_event.clear()
+        self._select_indices = None
+        future = asyncio.run_coroutine_threadsafe(
+            ws.send(select_msg), self._loop
+        )
+        try:
+            future.result(timeout=5)
+        except Exception:
+            return None
+
+        # Attendre la réponse JS (2 min max)
+        if not self._select_event.wait(timeout=120):
+            return None   # timeout
+
+        indices = self._select_indices  # None si annulé
+        if indices is None:
+            return None
+        return [items[i] for i in indices if 0 <= i < len(items)]

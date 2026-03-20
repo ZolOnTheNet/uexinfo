@@ -365,9 +365,9 @@ def _print_trade_entry(d: dict) -> None:
         f"  [{C.DIM}]{d['date']}[/{C.DIM}]"
         f"  {stock_flow}"
         f"  {qty_str} {C.SCU}"
-        + (f"  [{C.DIM}]dest:[/{C.DIM}] {dest_sz}" if dest_sz not in ("—", "", None) else "")
-        + dist_part
         + (f"  [{C.DIM}]orig:[/{C.DIM}] {orig_sz}" if orig_sz not in ("—", "", None) else "")
+        + dist_part
+        + (f"  [{C.DIM}]dest:[/{C.DIM}] {dest_sz}" if dest_sz not in ("—", "", None) else "")
     )
 
     rest = f" [{C.DIM}]· {d['remainder']} restant[/{C.DIM}]" if d["remainder"] else ""
@@ -464,11 +464,47 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
     ship_grid    = _ship_slot_grid(ctx)          # {slot_size: nb_slots} ou {}
     ship_szs     = set(_ship_container_sizes(ctx))  # fallback si pas de grille
 
+    _STD_SIZES = [32, 24, 16, 8, 4, 2, 1]
+
     def _ps(raw: str) -> set[int]:
         return (
             {int(x) for x in raw.split("/") if x.strip().isdigit()}
             if raw and raw != "—" else set()
         )
+
+    def _term_fallback(max_scu: int) -> set[int]:
+        """Tailles inférées depuis max_container_size quand les routes API sont absentes.
+        Convention SC : grand terminal (max>=8) → plage 8-max ; petit → 1-max.
+        Ex: max=32 → {8,16,24,32}  |  max=4 → {1,2,4}  |  max=8 → {8}
+        """
+        if max_scu <= 0:
+            return set()
+        floor = 8 if max_scu >= 8 else 1
+        return {s for s in _STD_SIZES if floor <= s <= max_scu}
+
+    def _range(sizes: set[int], approx: bool = False) -> str:
+        """Convertit un ensemble de tailles en notation range SC.
+        {8,16,24,32} → '8-32'  |  {1,2,4} → '1-4'  |  {8} → '8'
+        approx=True ajoute '~' pour indiquer une valeur inférée.
+        """
+        if not sizes:
+            return "—"
+        lo, hi = min(sizes), max(sizes)
+        r = f"{lo}-{hi}" if lo != hi else str(lo)
+        return r + "~" if approx else r
+
+    def _fmt_szs(raw: str, fb: set[int]) -> str:
+        if raw and raw != "—":
+            # Convertir la liste slash de l'API en notation range
+            parts = {int(x) for x in raw.split("/") if x.strip().isdigit()}
+            return _range(parts)
+        if fb:
+            return _range(fb, approx=True)
+        return "—"
+
+    # Fallback terminal à partir du max_container_size (utilisé si routes API vide)
+    orig_term_fb = _term_fallback(origin.max_container_size)
+    dest_term_fb = _term_fallback(dest.max_container_size)
 
     entries = []
     for r in buy_rows:
@@ -513,7 +549,14 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
             for s in term_sets[1:]:
                 term_szs &= s
         else:
-            term_szs = set()
+            # Routes API vide → fallback max_container_size
+            fb_sets = [s for s in [orig_term_fb, dest_term_fb] if s]
+            if fb_sets:
+                term_szs = fb_sets[0].copy()
+                for s in fb_sets[1:]:
+                    term_szs &= s
+            else:
+                term_szs = set()
 
         if ship_grid:
             pack_map  = _pack_grid(qty, ship_grid, term_szs)
@@ -532,8 +575,8 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
             "status_buy": status_buy, "status_sell": status_sell,
             "qty": qty, "qty_sell": qty_sell, "qty_unsold": qty_unsold,
             "scu_origin": _scu(scu_min, scu_max),
-            "dest_sizes": dest_raw,
-            "orig_sizes": orig_raw,
+            "dest_sizes": _fmt_szs(dest_raw, dest_term_fb),
+            "orig_sizes": _fmt_szs(orig_raw, orig_term_fb),
             "packing": packing, "remainder": remainder,
             "total_buy": total_buy, "total_sell": total_sell,
             "profit": profit, "dest_dist": dest_dist, "dist_str": dist_str,

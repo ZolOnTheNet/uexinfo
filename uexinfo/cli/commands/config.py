@@ -29,6 +29,8 @@ def cmd_config(args: list[str], ctx) -> None:
         _scan(rest, ctx)
     elif sub == "player":
         _player_config(rest, ctx)
+    elif sub == "close":
+        _overlay_close(rest, ctx)
     else:
         print_error(f"Sous-commande inconnue : {sub}  (/help config)")
 
@@ -60,6 +62,14 @@ def _show(cfg: dict, ctx=None) -> None:
         console.print(f"  [bold]Vaisseau actif :[/bold] [{C.UEX}]{current or '(non défini)'}[/{C.UEX}]")
         console.print(f"  [bold]Position :[/bold]    [{C.UEX}]{pos.get('current') or '(non définie)'}[/{C.UEX}]")
         console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{pos.get('destination') or '(non définie)'}[/{C.UEX}]")
+
+    # ── Overlay ────────────────────────────────────────────────────────────
+    ov = cfg.get("overlay", {})
+    close_mode = ov.get("close", "normal")
+    close_label = "normal (✕ ferme)" if close_mode == "normal" else "dblclick (✕ masque, double-clic ferme)"
+    console.print(f"  [bold]overlay.close :[/bold]    {close_label}")
+    console.print(f"  [bold]overlay.hotkey :[/bold]   {ov.get('hotkey', 'alt+shift+u')}")
+    console.print(f"  [bold]overlay.opacity :[/bold]  {ov.get('opacity', 0.95)}")
 
     # ── Trade / cache / scan ───────────────────────────────────────────────
     console.print(f"  [bold]Profit min/{C.SCU} :[/bold] {trade.get('min_profit_per_scu', 0)} {C.AUEC}")
@@ -521,6 +531,24 @@ def _scan(args: list[str], ctx) -> None:
 
     else:
         print_error(f"Sous-clé inconnue : {key}  (mode|tesseract|logpath|screenshots)")
+
+
+# ── Overlay close ────────────────────────────────────────────────────────────
+
+def _overlay_close(args: list[str], ctx) -> None:
+    if not args or args[0].lower() not in ("normal", "dblclick"):
+        print_error("Usage : /config close normal|dblclick")
+        console.print(f"  [{C.DIM}]normal   — ✕ ferme immédiatement la fenêtre[/{C.DIM}]")
+        console.print(f"  [{C.DIM}]dblclick — ✕ masque la fenêtre ; double-clic sur ✕ = fermer[/{C.DIM}]")
+        return
+    mode = args[0].lower()
+    ctx.cfg.setdefault("overlay", {})["close"] = mode
+    settings.save(ctx.cfg)
+    if mode == "normal":
+        print_ok("Fermeture : mode normal (✕ ferme)")
+    else:
+        print_ok("Fermeture : mode dblclick (✕ masque · double-clic ferme)")
+    console.print(f"[{C.DIM}]Effectif au prochain lancement de l'overlay.[/{C.DIM}]")
 
 
 # ── Player config ─────────────────────────────────────────────────────────────
