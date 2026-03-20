@@ -362,24 +362,6 @@ def _display_route(from_node: str, to_node: str, graph) -> None:
     if result.jump_points:
         console.print(f"  [bold]Jump points :[/bold]     [{C.WARNING}]{len(result.jump_points)}[/{C.WARNING}]")
 
-    console.print(f"\n[bold {C.LABEL}]Étapes :[/bold {C.LABEL}]")
-    for i, seg in enumerate(result.segments, 1):
-        icon = "⇨" if seg["type"] == "jump" else "→"
-        type_label = "[bold yellow]JUMP[/bold yellow]" if seg["type"] == "jump" else "QT"
-        dist_str = (
-            f"{seg['distance_gm']:.1f} Gm"
-            if seg['distance_gm'] >= 1
-            else f"{seg['distance_gm'] * 1000:.0f} Mm"
-        )
-        console.print(
-            f"  [{C.DIM}]{i}.[/{C.DIM}] "
-            f"[{C.LABEL}]{seg['from'][:18]}[/{C.LABEL}]  "
-            f"[{C.DIM}]{icon}[/{C.DIM}]  "
-            f"[{C.LABEL}]{seg['to'][:18]}[/{C.LABEL}]  "
-            f"[{C.UEX}]{dist_str:>8}[/{C.UEX}]  "
-            f"[{C.DIM}][{type_label}][/{C.DIM}]"
-        )
-
     if result.jump_points:
         console.print(f"\n[{C.WARNING}]⚠  Cette route traverse {len(result.jump_points)} jump point(s)[/{C.WARNING}]")
 

@@ -21,6 +21,8 @@ from uexinfo.cli.runner import normalize_command, run_command
 from uexinfo.data.cargo_grids import CargoGridManager
 from uexinfo.display import colors as C
 from uexinfo.location.index import LocationIndex
+from uexinfo.cache.mission_manager import MissionManager
+from uexinfo.cache.voyage_manager import VoyageManager
 from uexinfo.models.player import Player
 from uexinfo.models.scan_result import ScanResult
 
@@ -41,6 +43,8 @@ import uexinfo.cli.commands.auto     # noqa: F401
 import uexinfo.cli.commands.undo     # noqa: F401
 import uexinfo.cli.commands.calc     # noqa: F401
 import uexinfo.cli.commands.route    # noqa: F401
+import uexinfo.cli.commands.mission  # noqa: F401
+import uexinfo.cli.commands.voyage   # noqa: F401
 
 console = Console()
 
@@ -61,6 +65,8 @@ class AppContext:
     last_scan: ScanResult | None = None
     scan_history: list[ScanResult] = field(default_factory=list)
     _price_cache: PriceCache = field(default_factory=PriceCache)
+    mission_manager: MissionManager = field(default_factory=MissionManager)
+    voyage_manager: VoyageManager = field(default_factory=VoyageManager)
     debug_level: int = 0
     log_last_mtime: float = 0.0          # mtime du log lors du dernier check auto
     screenshots_last_seen_ts: float = 0.0  # wall-clock du dernier check screenshots
@@ -77,9 +83,10 @@ def _banner() -> None:
     console.print()
 
 
-def _cleanup(ctx: AppContext) -> None:
+def _cleanup(ctx: AppContext, tbc: bool = False) -> None:
     """Nettoyage avant fermeture : sauvegarde du graphe de transport et du cache prix."""
     ctx._price_cache.flush()   # écrit price_cache.json si modifié
+    ctx.voyage_manager.on_session_end(tbc=tbc)
     if ctx.cache.transport_graph.has_unsaved_changes:
         count = ctx.cache.transport_graph._unsaved_changes
         console.print(
@@ -230,9 +237,14 @@ def main() -> None:
         if not line:
             continue
 
-        if line.lower().lstrip("/") in ("exit", "quit", "bye"):
-            _cleanup(ctx)
-            console.print(f"[{C.DIM}]Au revoir, fly safe o7[/{C.DIM}]")
+        _quit_parts = line.lower().lstrip("/").split()
+        if _quit_parts and _quit_parts[0] in ("exit", "quit", "bye"):
+            _tbc = "-tbc" in _quit_parts
+            _cleanup(ctx, tbc=_tbc)
+            if _tbc:
+                console.print(f"[{C.DIM}]Session suspendue (to be continued) o7[/{C.DIM}]")
+            else:
+                console.print(f"[{C.DIM}]Au revoir, fly safe o7[/{C.DIM}]")
             break
 
         # Pre-hook : avant /info, mettre à jour ctx.last_scan sans afficher

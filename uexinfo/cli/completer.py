@@ -214,6 +214,29 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
     "exit":                 [],
     "quit":                 [],
     "bye":                  [],
+    "mission":              [
+        ("list",    "Liste les missions du catalogue"),
+        ("add",     "Ajoute une mission manuellement"),
+        ("edit",    "Modifie une mission existante"),
+        ("remove",  "Supprime une mission du catalogue"),
+        ("scan",    "Scanne une capture d'écran (Phase 2)"),
+    ],
+    "m":                    [],  # alias mission
+    "voyage":               [
+        ("on",      "Active le dernier voyage ou crée un nouveau"),
+        ("off",     "Désactive le voyage courant (conservé)"),
+        ("new",     "Crée un nouveau voyage et l'active"),
+        ("list",    "Missions du voyage actif, ou tous les voyages"),
+        ("name",    "Renomme le voyage actif"),
+        ("clear",   "Vide les missions du voyage actif"),
+        ("add",     "Ajoute des missions au voyage actif"),
+        ("remove",  "Retire une mission du voyage"),
+        ("copy",    "Copie/fusionne le voyage vers un autre"),
+        ("accept",  "Valide + analyse, désactive le voyage"),
+        ("later",   "Sauvegarde sans analyse, désactive"),
+        ("cancel",  "Annule les modifications depuis la dernière sauvegarde"),
+    ],
+    "v":                    [],  # alias voyage
 }
 
 # Rétro-compatibilité : version simple pour le code existant
@@ -266,6 +289,10 @@ _COMMAND_HELP: dict[str, str] = {
     "rf": "Alias de 'refresh'",
     "history": "Historique des commandes",
     "hist": "Alias de 'history'",
+    "mission": "Catalogue de missions",
+    "m": "Alias de 'mission'",
+    "voyage": "Planification de voyages (ensemble de missions)",
+    "v": "Alias de 'voyage'",
     "exit": "Quitte l'application",
     "quit": "Quitte l'application",
     "bye": "Quitte l'application",

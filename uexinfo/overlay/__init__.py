@@ -174,6 +174,7 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
         html=html,
         frameless=frameless,
         transparent=frameless,      # transparence seulement si frameless
+        easy_drag=False,            # drag géré manuellement via JS sur #titlebar uniquement
         background_color="#0A0C12", # fond sombre immédiat, évite le flash blanc
         on_top=True,
         width=width,

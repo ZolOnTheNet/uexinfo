@@ -14,7 +14,7 @@ import statistics
 from pathlib import Path
 
 from uexinfo.models.scan_result import ScannedCommodity, ScanResult
-from uexinfo.models.mission_result import MissionResult
+from uexinfo.models.mission_result import MissionResult, ParsedObjective
 
 # ── Chemins ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +47,25 @@ _RE_CONTRACTED  = re.compile(r"Contracted\s+By\s+(.+)", re.IGNORECASE)
 _RE_AVAIL       = re.compile(r"Contract\s+Availability\s+(.+)", re.IGNORECASE)
 _RE_MISSION_AMT = re.compile(r"(\d+)\s*[kK]$")   # "40k" dans la liste de missions
 _RE_BULLET      = re.compile(r"^[•◇◆\-\*\u25c6\u2666\u00b7]\s*")
+
+# ── Patterns parsing structuré des objectifs ──────────────────────────────────
+# OCR introduit des préfixes parasites : ©, <, >, |, [ etc.
+_RE_OBJ_NOISE   = re.compile(r"^[©<>|\[\]]+\s*")
+# "Collect <commodity> from <location>"
+_RE_OBJ_COLLECT = re.compile(r"collect\s+(.+?)\s+from\s+(.+)", re.IGNORECASE)
+# "Deliver 0/53 SCU of <commodity> to <location>"  (location peut être coupée)
+_RE_OBJ_DELIVER = re.compile(
+    r"deliver\s+\d+/(\d+)\s*SCU\s+of\s+(.+?)(?:\s+to\s+(.+))?$", re.IGNORECASE
+)
+# Continuation "above <planet>" (fin ou continuation de ligne)
+_RE_OBJ_ABOVE   = re.compile(r"above\s+(.+?)\.?\s*$", re.IGNORECASE)
+# Boutons UI à ignorer
+_RE_OBJ_UI      = re.compile(
+    r"^(ACCEPT\s+OFFER|MARK\s+ALL|PRIMARY\s+OBJ|CONTRACT\s+AVAIL|CONTRACTED\s+BY)",
+    re.IGNORECASE
+)
+# Format Dispo depuis l'UI : "1h 56m" ou "0h 23m" ou "23m"
+_RE_DISPO       = re.compile(r"Dispo\s*[:\-]?\s*(\d+h\s*\d+m|\d+m)", re.IGNORECASE)
 
 _MISSION_KEYWORDS = {
     "OFFERS", "ACCEPTED", "HISTORY",
@@ -419,6 +438,7 @@ class TesseractEngine:
         # ── Objectifs (colonne droite) ────────────────────────────────────────
         objectives_text = _ocr((int(w*.62), int(h*.25), int(w*.93), int(h*.86)), psm=4)
         objectives = self._parse_objectives(objectives_text)
+        parsed_objectives = self._parse_objectives_structured(objectives)
 
         # ── Liste missions panneau gauche ─────────────────────────────────────
         list_text = _ocr((int(w*.06), int(h*.06), int(w*.31), int(h*.88)), psm=4)
@@ -435,6 +455,7 @@ class TesseractEngine:
             contracted_by=contracted_by,
             details=details_text,
             objectives=objectives,
+            parsed_objectives=parsed_objectives,
             blue_text=blue_text,
             mission_list=mission_list,
         )
@@ -462,19 +483,92 @@ class TesseractEngine:
         return reward, availability, contracted_by
 
     def _parse_objectives(self, text: str) -> list[str]:
-        """Extrait les objectifs de mission (lignes avec bullets)."""
+        """Extrait les objectifs de mission (lignes brutes, bullets supprimés)."""
         objectives = []
         for line in text.splitlines():
             line = line.strip()
             if not line:
                 continue
-            # Ignorer l'en-tête "PRIMARY OBJECTIVES"
             if re.match(r"primary\s+obj", line, re.IGNORECASE):
                 continue
             line_clean = _RE_BULLET.sub("", line).strip()
             if len(line_clean) > 5:
                 objectives.append(line_clean)
         return objectives
+
+    def _parse_objectives_structured(self, raw_lines: list[str]) -> list[ParsedObjective]:
+        """Parse structurel des objectifs : Collect/Deliver → commodity, SCU, location."""
+        results: list[ParsedObjective] = []
+        pending: ParsedObjective | None = None
+
+        for raw in raw_lines:
+            # Nettoyer bullet + préfixes OCR parasites
+            line = _RE_BULLET.sub("", raw).strip()
+            line = _RE_OBJ_NOISE.sub("", line).strip()
+            line = line.rstrip(".")
+
+            if not line or len(line) < 4:
+                continue
+            if _RE_OBJ_UI.match(line):
+                continue
+
+            # ── Collect ──────────────────────────────────────────────────────
+            m = _RE_OBJ_COLLECT.match(line)
+            if m:
+                if pending:
+                    results.append(pending)
+                pending = ParsedObjective(
+                    kind="collect",
+                    commodity=m.group(1).strip().title(),
+                    location=m.group(2).strip(),
+                    raw=line,
+                )
+                continue
+
+            # ── Deliver ──────────────────────────────────────────────────────
+            m = _RE_OBJ_DELIVER.match(line)
+            if m:
+                if pending:
+                    results.append(pending)
+                qty = int(m.group(1))
+                commodity = m.group(2).strip().title()
+                location = m.group(3).strip() if m.group(3) else None
+                # Cas "above" en fin de location sur la même ligne
+                hint = None
+                if location:
+                    m_above = _RE_OBJ_ABOVE.search(location)
+                    if m_above:
+                        hint = m_above.group(1).strip()
+                        location = location[:m_above.start()].strip()
+                # Cas "Baijini Point above" — ligne coupée, "above" en suspens
+                if location and re.search(r"\babove\s*$", location, re.IGNORECASE):
+                    location = re.sub(r"\s*\babove\s*$", "", location, flags=re.IGNORECASE).strip()
+                    # hint reste None : sera complété par la ligne suivante si présente
+                pending = ParsedObjective(
+                    kind="deliver",
+                    commodity=commodity,
+                    quantity_scu=qty,
+                    location=location,
+                    location_hint=hint,
+                    raw=line,
+                )
+                continue
+
+            # ── Ligne de continuation ─────────────────────────────────────────
+            if pending:
+                m_above = _RE_OBJ_ABOVE.search(line)
+                if m_above:
+                    pending.location_hint = m_above.group(1).strip()
+                elif line.lower().startswith("above "):
+                    pending.location_hint = line[6:].strip()
+                elif pending.location is None:
+                    # La localisation était coupée — cette ligne est la suite
+                    pending.location = line
+                # Sinon bruit OCR → ignorer
+
+        if pending:
+            results.append(pending)
+        return results
 
     def _parse_mission_list(self, text: str) -> list[tuple[str, int]]:
         """Parse la liste des missions avec récompenses (ex. 'ALLIANCE AID... 40k')."""

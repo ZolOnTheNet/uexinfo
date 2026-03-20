@@ -48,10 +48,14 @@ import uexinfo.cli.commands.history_cmd  # noqa: F401
 import uexinfo.cli.commands.debug        # noqa: F401
 import uexinfo.cli.commands.auto         # noqa: F401
 import uexinfo.cli.commands.undo         # noqa: F401
+import uexinfo.cli.commands.mission      # noqa: F401
+import uexinfo.cli.commands.voyage       # noqa: F401
 
 from uexinfo.cli.runner import run_command
 from uexinfo.cli.main import AppContext
 from uexinfo.cache.manager import CacheManager
+from uexinfo.cache.mission_manager import MissionManager
+from uexinfo.cache.voyage_manager import VoyageManager
 from uexinfo.location.index import LocationIndex
 from uexinfo.models.player import Player
 import uexinfo.config.settings as _settings
@@ -60,7 +64,8 @@ import uexinfo.cli.history as _history_mod
 _RE_ANSI = re.compile(r"\x1b\[[0-9;]*[mK]")
 
 # Commandes qui nécessitent une mise à jour de la barre de statut
-_STATUS_CMDS = frozenset({"player", "p", "go", "lieu", "ship", "config", "dest", "arriver", "arrivé", "arrived"})
+_STATUS_CMDS = frozenset({"player", "p", "go", "lieu", "ship", "config", "dest", "arriver", "arrivé", "arrived",
+                          "mission", "m", "voyage", "v"})
 _QUIT_CMDS   = frozenset({"quit", "exit", "bye", "quitter", "/quit", "/exit", "/bye", "/quitter"})
 
 
@@ -96,6 +101,9 @@ class OverlayServer:
         self.ctx = AppContext(cfg=cfg, cache=cache)
         self.ctx.location_index = LocationIndex(cache)
         self.ctx.player = Player.from_config(cfg.get("player", {}))
+        self.ctx.mission_manager = MissionManager()
+        retention = self.ctx.cfg.get("voyages", {}).get("retention", 24)
+        self.ctx.voyage_manager = VoyageManager(retention=retention)
         self._history = _history_mod.last_n(500)
 
     # ── Handler WebSocket ─────────────────────────────────────────────────────
@@ -197,7 +205,7 @@ class OverlayServer:
 
         # Après un refresh, le cache change → re-envoyer le vocabulaire
         first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
-        if first in ("refresh", "r"):
+        if first in ("refresh", "r", "voyage", "v", "mission", "m"):
             await self._send_vocab(ws)
 
     def _exec_sync(self, line: str) -> tuple[str, bool]:
@@ -280,13 +288,20 @@ class OverlayServer:
 
         ships = [s.name for s in p.ships] if getattr(p, "ships", None) else []
 
+        vm = getattr(self.ctx, "voyage_manager", None)
+        active_voyage = vm.get_active() if vm else None
+        voyage_name   = active_voyage.name if active_voyage else ""
+        voyage_count  = len(active_voyage.mission_ids) if active_voyage else 0
+
         await ws.send(json.dumps({
-            "type":     "status",
-            "pos":      p.location    or "",
-            "dest":     p.destination or "",
-            "ship":     p.active_ship or "",
-            "cargo":    cargo,
-            "dist":     dist,
+            "type":          "status",
+            "pos":           p.location    or "",
+            "dest":          p.destination or "",
+            "ship":          p.active_ship or "",
+            "cargo":         cargo,
+            "dist":          dist,
+            "voyage_name":  voyage_name,
+            "voyage_count": voyage_count,
             "scan_sc":  scan_sc,
             "scan_log": scan_log,
             "ships":    ships,
@@ -368,12 +383,15 @@ class OverlayServer:
             s.name for s in (getattr(self.ctx.player, "ships", None) or [])
             if s.name and len(s.name) >= MIN
         })
+        vm = getattr(self.ctx, "voyage_manager", None)
+        voyages = sorted(vm.voyage_names()) if vm else []
 
         await ws.send(json.dumps({
             "type":        "vocab",
             "commodities": commodities,
             "locations":   locations,
             "ships":       ships,
+            "voyages":     voyages,
         }))
 
     # ── Complétion ────────────────────────────────────────────────────────────

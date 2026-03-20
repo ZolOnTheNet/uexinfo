@@ -63,6 +63,7 @@ html, body {
 .cw-commodity { color: #ffd600; }
 .cw-location  { color: #00bcd4; }
 .cw-ship      { color: #69f0ae; }
+.cw-voyage    { color: #ff9800; }
 
 /* scrollbar */
 #output::-webkit-scrollbar       { width: 4px; }
@@ -339,6 +340,8 @@ html, body {
   <span id="sb-scan-sc"  class="sb-flag off" title="Scan SC détecté — cliquer pour analyser">ScanSC</span>
   <span class="sb-sep"> </span>
   <span id="sb-scan-log" class="sb-flag off" title="Scan log détecté — cliquer pour analyser">ScanLog</span>
+  <span class="sb-sep"> │ </span>
+  <span id="sb-voyage" class="sb-flag off" title="Voyage actif — cliquer pour afficher">🗺</span>
   <span class="sb-spacer"></span>
   <span class="sb-alpha-lbl">opacité</span>
   <span id="sb-alpha-minus" class="sb-btn" title="Moins opaque (−5%)">−</span>
@@ -497,6 +500,7 @@ const vocab = {
   commodities: new Set(),
   locations:   new Set(),
   ships:       new Set(),
+  voyages:     new Set(),
 };
 let vocabRe = null;
 
@@ -504,9 +508,10 @@ function loadVocab(msg) {
   vocab.commodities = new Set((msg.commodities || []).map(s => s.toLowerCase()));
   vocab.locations   = new Set((msg.locations   || []).map(s => s.toLowerCase()));
   vocab.ships       = new Set((msg.ships       || []).map(s => s.toLowerCase()));
+  vocab.voyages     = new Set((msg.voyages     || []).map(s => s.toLowerCase()));
 
   // Construire la regex — termes triés par longueur décroissante
-  const all = [...(msg.commodities || []), ...(msg.locations || []), ...(msg.ships || [])]
+  const all = [...(msg.commodities || []), ...(msg.locations || []), ...(msg.ships || []), ...(msg.voyages || [])]
     .filter(w => w && w.length >= 3)
     .sort((a, b) => b.length - a.length)
     .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
@@ -521,6 +526,7 @@ function vocabType(word) {
   if (vocab.commodities.has(lc)) return 'commodity';
   if (vocab.locations.has(lc))   return 'location';
   if (vocab.ships.has(lc))       return 'ship';
+  if (vocab.voyages.has(lc))     return 'voyage';
   return null;
 }
 
@@ -710,6 +716,17 @@ function updateStatus(s) {
   setFlag('sb-scan-log', s.scan_log);
   scanSc  = !!s.scan_sc;
   scanLog = !!s.scan_log;
+
+  const vEl = document.getElementById('sb-voyage');
+  if (s.voyage_name) {
+    vEl.classList.add('on'); vEl.classList.remove('off');
+    vEl.textContent  = `🗺 ${s.voyage_name}${s.voyage_count ? ' · ' + s.voyage_count + 'm' : ''}`;
+    vEl.style.cursor = 'pointer';
+  } else {
+    vEl.classList.add('off'); vEl.classList.remove('on');
+    vEl.textContent  = '🗺';
+    vEl.style.cursor = 'default';
+  }
 }
 
 function setFlag(id, active) {
@@ -741,6 +758,9 @@ document.getElementById('sb-scan-log').addEventListener('click', () => {
   if (!scanLog) return;
   setFlag('sb-scan-log', false); scanLog = false;
   sendCmd('/scan log');
+});
+document.getElementById('sb-voyage').addEventListener('click', () => {
+  sendCmd('/voyage list');
 });
 document.getElementById('sb-pos').addEventListener('click', () => {
   elInput.value = '@'; elInput.focus();
@@ -905,47 +925,63 @@ function wordAt(e) {
   } catch { return null; }
 }
 
-elOutput.addEventListener('click', e => {
+elOutput.addEventListener('dblclick', e => {
   closeCtx();
   const cw = e.target.closest('.cw');
-  if (cw) { sendCmd(`/info ${cw.dataset.word}`); return; }
+  if (cw) {
+    if (cw.dataset.type === 'voyage') sendCmd(`/voyage ${cw.dataset.word} list`);
+    else sendCmd(`/info ${cw.dataset.word}`);
+    return;
+  }
   const w = wordAt(e);
   if (w) sendCmd(`/info ${w}`);
 });
 elOutput.addEventListener('contextmenu', e => {
   e.preventDefault();
+  const sel = window.getSelection()?.toString().trim() || '';
   const cw = e.target.closest('.cw');
-  if (cw) { showCtx(cw.dataset.word, e.clientX, e.clientY, cw.dataset.type); return; }
+  if (cw) { showCtx(cw.dataset.word, e.clientX, e.clientY, cw.dataset.type, sel); return; }
   const w = wordAt(e);
-  if (w) showCtx(w, e.clientX, e.clientY, null);
+  if (w) showCtx(w, e.clientX, e.clientY, null, sel);
+  else if (sel) showCtx(null, e.clientX, e.clientY, null, sel);
   else closeCtx();
 });
 
 // ── Menu contextuel ───────────────────────────────────────────────────────────
 
-function showCtx(word, x, y, type) {
-  const ws = word.replace(/"/g,'\\"');
+function showCtx(word, x, y, type, sel) {
+  const ws = word ? word.replace(/"/g,'\\"') : '';
   const typeLabel = type === 'commodity' ? '🟡 Commodité'
                   : type === 'location'  ? '🔵 Lieu'
                   : type === 'ship'      ? '🟢 Vaisseau'
+                  : type === 'voyage'    ? '🗺 Voyage'
                   : '';
 
-  const locationActions = `
-    <div class="mi" onclick="sendCmd('/go ${ws}');closeCtx()">Aller</div>
-    <div class="mi" onclick="sendCmd('/dest ${ws}');closeCtx()">Destination</div>`;
-  const commodityActions = `
-    <div class="mi" onclick="sendCmd('/trade');closeCtx()">Trade</div>`;
-  const shipActions = `
-    <div class="mi" onclick="sendCmd('/player ship set ${ws}');closeCtx()">Vaisseau actif</div>`;
+  const copyAction = sel ? `
+    <div class="mi" onclick="navigator.clipboard.writeText(${JSON.stringify(sel)});closeCtx()">📋 Copier la sélection</div>
+    <div class="ms"></div>` : '';
 
-  elCtx.innerHTML = `
+  const wordSection = word ? (type === 'voyage' ? `
+    <div class="mw">🗺 Voyage · ${esc(word)}</div>
+    <div class="mi" onclick="sendCmd('/voyage ${ws} list');closeCtx()">Afficher</div>
+    <div class="mi" onclick="sendCmd('/voyage ${ws}');closeCtx()"><b>Activer</b></div>
+    <div class="ms"></div>
+    <div class="mi" onclick="sendCmd('/voyage ${ws} accept');closeCtx()">Analyser</div>
+    <div class="mi" onclick="sendCmd('/voyage ${ws} copy');closeCtx()">Copier</div>
+    <div class="ms"></div>
+    <div class="mi" onclick="sendCmd('/voyage ${ws} clear');closeCtx()" style="color:#f44336">Vider</div>
+  ` : `
     <div class="mw">${typeLabel ? typeLabel+' · ' : ''}${esc(word)}</div>
     <div class="mi" onclick="sendCmd('/info ${ws}');closeCtx()">Info</div>
     <div class="ms"></div>
-    ${type === 'location'  || !type ? locationActions : ''}
-    ${type === 'commodity' || !type ? commodityActions : ''}
-    ${type === 'ship'      || !type ? shipActions : ''}
-  `;
+    ${type === 'location'  || !type ? `<div class="mi" onclick="sendCmd('/go ${ws}');closeCtx()">Aller</div><div class="mi" onclick="sendCmd('/dest ${ws}');closeCtx()">Destination</div>` : ''}
+    ${type === 'commodity' || !type ? `<div class="mi" onclick="sendCmd('/trade');closeCtx()">Trade</div>` : ''}
+    ${type === 'ship'      || !type ? `<div class="mi" onclick="sendCmd('/player ship set ${ws}');closeCtx()">Vaisseau actif</div>` : ''}
+  `) : '';
+
+  if (!copyAction && !wordSection) return;
+
+  elCtx.innerHTML = copyAction + wordSection;
   elCtx.style.display = 'block';
   elCtx.style.left = Math.min(x, innerWidth-170)+'px';
   elCtx.style.top  = Math.min(y, innerHeight-160)+'px';
@@ -1118,8 +1154,14 @@ window.addEventListener('focus', () => { elInput.focus(); });
 (function() {
   let _colsTimer = null;
   function sendCols() {
-    // ~7.2px par caractère monospace à 13px ; marge padding 20px
-    const cols = Math.max(40, Math.floor((document.body.clientWidth - 20) / 7.2));
+    // Mesure la largeur réelle d'un caractère monospace dans le contexte actuel
+    const span = document.createElement('span');
+    span.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-family:inherit;font-size:inherit';
+    span.textContent = 'x'.repeat(80);
+    document.body.appendChild(span);
+    const pxPerChar = span.offsetWidth / 80;
+    document.body.removeChild(span);
+    const cols = Math.max(40, Math.floor((document.body.clientWidth - 20) / pxPerChar));
     send({type: 'cols', value: cols});
   }
   new ResizeObserver(() => {

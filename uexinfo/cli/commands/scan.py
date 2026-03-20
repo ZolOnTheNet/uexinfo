@@ -636,8 +636,31 @@ def _display_mission(result) -> None:
         f"   [dim]Contractant :[/dim] [cyan]{result.contracted_by or '—'}[/cyan]"
     )
 
-    # Objectifs
-    if result.objectives:
+    # Objectifs structurés (si disponibles)
+    if result.parsed_objectives:
+        console.print(f"\n  [bold]Objectifs principaux[/bold]")
+        for o in result.parsed_objectives:
+            if o.kind == "collect":
+                loc = f"[{C.UEX}]{o.location}[/{C.UEX}]" if o.location else "[dim]?[/dim]"
+                console.print(
+                    f"    [cyan]◇[/cyan] [dim]Collect[/dim]"
+                    f"  [{C.LABEL}]{o.commodity or '?'}[/{C.LABEL}]"
+                    f"  [dim]depuis[/dim] {loc}"
+                )
+            elif o.kind == "deliver":
+                loc = f"[{C.UEX}]{o.location}[/{C.UEX}]" if o.location else "[dim]?[/dim]"
+                hint = f"  [dim](above {o.location_hint})[/dim]" if o.location_hint else ""
+                scu = f"  [{C.DIM}]{o.quantity_scu} SCU[/{C.DIM}]" if o.quantity_scu else ""
+                console.print(
+                    f"    [cyan]◇[/cyan] [dim]Deliver[/dim]"
+                    f"  [{C.LABEL}]{o.commodity or '?'}[/{C.LABEL}]"
+                    f"{scu}"
+                    f"  [dim]→[/dim] {loc}{hint}"
+                )
+            else:
+                console.print(f"    [cyan]◇[/cyan] {o.raw}")
+    elif result.objectives:
+        # Fallback : lignes brutes si le parser structuré n'a rien extrait
         console.print(f"\n  [bold]Objectifs principaux[/bold]")
         for obj in result.objectives:
             console.print(f"    [cyan]◇[/cyan] {obj}")
