@@ -250,9 +250,14 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
                 print(f"[overlay] Erreur sauvegarde : {e}", flush=True)
         os._exit(0)
 
-    # Enregistrer le callback sur le serveur (utilisé par /quit)
+    # Enregistrer le callback sur le serveur (utilisé par /quit [-tbc])
     # Appelé depuis le thread asyncio → déléguer à un thread non-daemon
-    server.on_quit = lambda: threading.Thread(target=_shutdown, daemon=False).start()
+    def _on_quit(tbc: bool = False) -> None:
+        if server.ctx:
+            server.ctx.voyage_manager.on_session_end(tbc=tbc)
+        threading.Thread(target=_shutdown, daemon=False).start()
+
+    server.on_quit = _on_quit
 
     def on_closing():
         print("[overlay] on_closing() → _shutdown", flush=True)

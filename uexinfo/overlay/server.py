@@ -159,7 +159,9 @@ class OverlayServer:
             return
 
         # Commandes de sortie — tuer le process directement (le plus fiable)
-        if line.lower().strip() in _QUIT_CMDS:
+        _parts = line.lower().strip().split()
+        _tbc = "-tbc" in _parts
+        if _parts and _parts[0] in _QUIT_CMDS:
             print(f"[overlay] Commande de sortie reçue : {line!r} → os._exit(0)", flush=True)
             try:
                 await ws.send(json.dumps({"type": "quit"}))
@@ -167,8 +169,8 @@ class OverlayServer:
             except Exception:
                 pass
             if self.on_quit:
-                self.on_quit()        # lance _shutdown dans un thread → os._exit(0)
-                await asyncio.sleep(2)  # attendre le os._exit(0) du thread
+                self.on_quit(tbc=_tbc)    # lance _shutdown dans un thread → os._exit(0)
+                await asyncio.sleep(2)    # attendre le os._exit(0) du thread
             os._exit(0)  # fallback au cas où on_quit ne tue pas
 
         # Sauvegarder dans l'historique
