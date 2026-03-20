@@ -28,7 +28,12 @@ def cmd_mission(args: list[str], ctx) -> None:
         _cmd_list(ctx)
 
     elif sub in ("add", "ajouter"):
-        _cmd_add(args[1:], ctx)
+        rest = args[1:]
+        if not rest:
+            # Sans arguments → tenter depuis le dernier scan
+            _cmd_add_from_scan(ctx)
+        else:
+            _cmd_add(rest, ctx)
 
     elif sub in ("edit", "modifier"):
         _cmd_edit(args[1:], ctx)
@@ -38,7 +43,7 @@ def cmd_mission(args: list[str], ctx) -> None:
 
     elif sub == "scan":
         print_warn("Scan de mission par screenshot — Phase 2 (non encore implémenté)")
-        console.print(f"[{C.DIM}]Utilisez /mission add pour saisir manuellement.[/{C.DIM}]")
+        console.print(f"[{C.DIM}]Scannez d'abord : /scan <fichier>  puis /mission add pour ajouter.[/{C.DIM}]")
 
 
 # ── Affichage liste ───────────────────────────────────────────────────────────
@@ -94,6 +99,40 @@ def _cmd_list(ctx) -> None:
 
     console.print(tbl)
     console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s) · /mission add pour ajouter · /voyage pour planifier[/{C.DIM}]")
+
+
+# ── Add depuis dernier scan ───────────────────────────────────────────────────
+
+def _cmd_add_from_scan(ctx) -> None:
+    from uexinfo.models.mission_result import MissionResult
+    last = ctx.last_scan
+    if last is None:
+        print_warn("Aucun scan disponible — faites d'abord /scan <fichier>")
+        console.print(f"[{C.DIM}]Ou : /mission add <nom> reward:<n> obj:... pour saisie manuelle.[/{C.DIM}]")
+        return
+    if not isinstance(last, MissionResult):
+        print_warn("Le dernier scan est un terminal de commerce, pas une mission")
+        console.print(f"[{C.DIM}]Scannez un screenshot de l'écran Contrats.[/{C.DIM}]")
+        return
+    if not last.parsed_objectives:
+        print_warn("Le scan ne contient pas d'objectifs parsés")
+        console.print(f"[{C.DIM}]Utilisez /scan debug pour diagnostiquer l'image.[/{C.DIM}]")
+        return
+
+    kwargs = last.to_mission_kwargs()
+    mm = ctx.mission_manager
+    m = Mission(id=0, **kwargs)
+    mm.add(m)
+
+    reward_str = f"{m.reward_uec:,}".replace(",", " ")
+    print_ok(f"Mission #{m.id} ajoutée depuis scan : {m.name}  [{C.DIM}]{reward_str} aUEC  {len(m.objectives)} objectif(s)[/{C.DIM}]")
+    # Résumé des objectifs
+    for o in last.parsed_objectives:
+        if o.kind == "collect":
+            console.print(f"  [{C.DIM}]↑ Collect {o.commodity} depuis {o.location}[/{C.DIM}]")
+        elif o.kind == "deliver":
+            hint = f" above {o.location_hint}" if o.location_hint else ""
+            console.print(f"  [{C.DIM}]↓ Deliver {o.quantity_scu} SCU → {o.location}{hint}[/{C.DIM}]")
 
 
 # ── Add ───────────────────────────────────────────────────────────────────────

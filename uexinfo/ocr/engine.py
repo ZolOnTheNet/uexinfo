@@ -59,6 +59,10 @@ _RE_OBJ_DELIVER = re.compile(
 )
 # Continuation "above <planet>" (fin ou continuation de ligne)
 _RE_OBJ_ABOVE   = re.compile(r"above\s+(.+?)\.?\s*$", re.IGNORECASE)
+# Format alternatif ACCEPTED : "at ArcCorp's L2 Lagrange point" → hint = "ArcCorp L2"
+_RE_OBJ_AT_LAGRANGE = re.compile(
+    r"\s+at\s+(.+?)(?:'s\s+L\d\s+Lagrange\s+point)?\.?\s*$", re.IGNORECASE
+)
 # Boutons UI à ignorer
 _RE_OBJ_UI      = re.compile(
     r"^(ACCEPT\s+OFFER|MARK\s+ALL|PRIMARY\s+OBJ|CONTRACT\s+AVAIL|CONTRACTED\s+BY)",
@@ -517,10 +521,11 @@ class TesseractEngine:
             if m:
                 if pending:
                     results.append(pending)
+                loc_raw = m.group(2).strip()
                 pending = ParsedObjective(
                     kind="collect",
                     commodity=m.group(1).strip().title(),
-                    location=m.group(2).strip(),
+                    location=loc_raw,
                     raw=line,
                 )
                 continue
@@ -533,17 +538,22 @@ class TesseractEngine:
                 qty = int(m.group(1))
                 commodity = m.group(2).strip().title()
                 location = m.group(3).strip() if m.group(3) else None
-                # Cas "above" en fin de location sur la même ligne
                 hint = None
                 if location:
+                    # Format "above X" (cas le plus courant, onglet OFFERS)
                     m_above = _RE_OBJ_ABOVE.search(location)
                     if m_above:
                         hint = m_above.group(1).strip()
                         location = location[:m_above.start()].strip()
-                # Cas "Baijini Point above" — ligne coupée, "above" en suspens
-                if location and re.search(r"\babove\s*$", location, re.IGNORECASE):
-                    location = re.sub(r"\s*\babove\s*$", "", location, flags=re.IGNORECASE).strip()
-                    # hint reste None : sera complété par la ligne suivante si présente
+                    # Format "at X's L2 Lagrange point" (onglet ACCEPTED)
+                    elif re.search(r"\s+at\s+", location, re.IGNORECASE):
+                        m_at = _RE_OBJ_AT_LAGRANGE.search(location)
+                        if m_at:
+                            hint = m_at.group(1).strip()
+                            location = location[:m_at.start()].strip()
+                    # Ligne coupée : "Baijini Point above" — "above" traîne en fin
+                    elif re.search(r"\babove\s*$", location, re.IGNORECASE):
+                        location = re.sub(r"\s*\babove\s*$", "", location, flags=re.IGNORECASE).strip()
                 pending = ParsedObjective(
                     kind="deliver",
                     commodity=commodity,

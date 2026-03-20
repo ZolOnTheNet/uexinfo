@@ -665,6 +665,10 @@ def _display_mission(result) -> None:
         for obj in result.objectives:
             console.print(f"    [cyan]◇[/cyan] {obj}")
 
+    # Hint → catalogue
+    if result.parsed_objectives:
+        console.print(f"  [{C.DIM}]/mission add  pour ajouter au catalogue[/{C.DIM}]")
+
     # Lieux/liens bleus
     if result.blue_text:
         console.print(f"\n  [bold]Lieux importants[/bold] [dim](texte bleu)[/dim]")
