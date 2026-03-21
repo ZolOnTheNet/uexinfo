@@ -81253,6 +81253,986 @@
       "updated_at": 1773958198.5933132,
       "source": "uex",
       "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Rappel",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6897242,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rappel",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6897242,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Picker's Field",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Picker's Field",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Dunboro",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Dunboro",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Everus Harbor",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Everus Harbor",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Area 18",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Area 18",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "New Babbage",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "New Babbage",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Orbituary",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Orbituary",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.690724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Levski",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Levski",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Pyro Gateway (Nyx)",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Pyro Gateway (Nyx)",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Stanton Gateway (Nyx)",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Stanton Gateway (Nyx)",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Nyx Gateway (Pyro)",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Nyx Gateway (Pyro)",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Orison",
+      "distance_gm": 18.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Orison",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 18.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Ruin Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Ruin Station",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Samson & Son's Salvage Center",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Samson & Son's Salvage Center",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Brio's Breaker Yard",
+      "distance_gm": 18.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Brio's Breaker Yard",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 18.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.691724,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Devlin Scrap & Salvage",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Devlin Scrap & Salvage",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Nyx Gateway (Stanton)",
+      "distance_gm": 43.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Nyx Gateway (Stanton)",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 43.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Terra Gateway (Stanton)",
+      "distance_gm": 79.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Terra Gateway (Stanton)",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 79.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Pyro Gateway (Stanton)",
+      "distance_gm": 51.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Pyro Gateway (Stanton)",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 51.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Rayari McGrath Research Outpost",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rayari McGrath Research Outpost",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Rayari Anvik Research Outpost",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rayari Anvik Research Outpost",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6937275,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Deakins Research",
+      "distance_gm": 18.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Deakins Research",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 18.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Lorville",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Lorville",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Seraphim Station",
+      "distance_gm": 18.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 18.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "CRU-L1 Ambitious Dream Station",
+      "distance_gm": 19.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "CRU-L1 Ambitious Dream Station",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 19.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "ARC-L1 Wide Forest Station",
+      "distance_gm": 54.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L1 Wide Forest Station",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 54.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "ARC-L2 Lively Pathway Station",
+      "distance_gm": 60.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L2 Lively Pathway Station",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 60.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Rayari Cantwell Research Outpost",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rayari Cantwell Research Outpost",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Rayari Kaltag Research Outpost",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rayari Kaltag Research Outpost",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Stanton Gateway (Pyro)",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Stanton Gateway (Pyro)",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "CRU-L4 Shallow Fields Station",
+      "distance_gm": 37.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "CRU-L4 Shallow Fields Station",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 37.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Jackson's Swap",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Jackson's Swap",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Rat's Nest",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rat's Nest",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Ashland",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Ashland",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Canard View",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Canard View",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6947253,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Fallow Field",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Fallow Field",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "The Golden Riviera",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "The Golden Riviera",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Sacren's Plot",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Sacren's Plot",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Checkmate Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Checkmate Station",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Rod's Fuel 'N Supplies",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rod's Fuel 'N Supplies",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Megumi Refueling",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Megumi Refueling",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Patch City",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Patch City",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Starlight Service Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Starlight Service Station",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Endgame",
+      "distance_gm": 138.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Endgame",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 138.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Gaslight",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Gaslight",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Dudley & Daughters",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Dudley & Daughters",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "HDMS-Hahn",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HDMS-Hahn",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "Reclamation & Disposal Orinth",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Reclamation & Disposal Orinth",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "ARC-L3 Modern Express Station",
+      "to": "HDMS-Perlman",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HDMS-Perlman",
+      "to": "ARC-L3 Modern Express Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
     }
   ],
   "jump_points": []
