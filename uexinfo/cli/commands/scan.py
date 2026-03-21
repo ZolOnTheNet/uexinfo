@@ -355,8 +355,11 @@ def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult
             pass
         results = parser.parse_all() if full else parser.parse_new()
         if not results:
-            print_warn(f"Aucun nouveau scan dans le log. (offset: {parser.get_offset()} octets)")
-            console.print(f"[{C.DIM}]Utilisez /scan log all pour tout relire depuis le début.[/{C.DIM}]")
+            if full:
+                print_warn(f"Aucun scan trouvé dans le log.")
+            else:
+                print_warn(f"Aucun nouveau scan dans le log. (offset: {parser.get_offset()} octets)")
+                console.print(f"[{C.DIM}]Utilisez /scan log pour tout relire depuis le début.[/{C.DIM}]")
         return results
     except Exception as e:
         print_error(f"Erreur lecture log : {e}")
@@ -913,17 +916,25 @@ def cmd_scan(args: list[str], ctx) -> None:
             )
             return
 
-        full = sub2 == "all"
-        raw_args = args[2:] if full else (args[1:] if sub2 not in ("", "all") else [])
+        # /scan log new  → incrémental depuis le dernier offset (auto-check)
+        # /scan log [all] → lit TOUT le fichier (défaut) puis avance l'offset à la fin
+        incremental = (sub2 == "new")
+        full        = not incremental   # "all" ou "" → tout lire
+        raw_args    = args[2:] if sub2 in ("all", "new") else (
+                          args[1:] if sub2 not in ("", "all", "new") else [])
         log_path = _resolve_log_path(raw_args, ctx)
-        # log_path == None peut signifier :
-        #   a) erreur sur un chemin explicite (message déjà affiché) → raw_args ou sc_log_path configuré
-        #   b) aucun chemin configuré → LogParser utilisera _DEFAULT_LOG (ne pas retourner)
         sc_log_configured = bool(ctx.cfg.get("scan", {}).get("sc_log_path", "")) or bool(raw_args)
         if log_path is None and sc_log_configured:
             return  # erreur de chemin → message déjà affiché
 
         results = _scan_log(ctx, log_path=log_path, full=full)
+
+        # Après un parse_all explicite, avancer l'offset pour que l'auto-check
+        # ne retraite pas les mêmes scans lors des prochaines commandes.
+        if full:
+            from uexinfo.ocr.log_parser import LogParser
+            LogParser(log_path).advance_to_end()
+
         for result in results:
             _store_result(ctx, result)
             _display_scan(result, ctx)

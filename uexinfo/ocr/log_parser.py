@@ -79,6 +79,21 @@ class LogParser:
         """Remet l'offset à 0 et efface le contexte terminal sauvegardé."""
         self._save_state(0, 0.0, prev_offset=0, last_terminal="", last_type="buy")
 
+    def advance_to_end(self) -> None:
+        """Avance l'offset persisté à la fin du fichier sans lire le contenu.
+
+        Appelé après parse_all() pour que l'auto-check ne re-traite pas
+        les scans déjà affichés explicitement.
+        """
+        if not self.log_path.is_file():
+            return
+        stat = self.log_path.stat()
+        self._save_state(
+            stat.st_size, stat.st_mtime,
+            prev_offset=self.get_offset(),
+            last_terminal="", last_type="buy",
+        )
+
     def undo_offset(self) -> bool:
         """Restaure l'offset avant la dernière lecture (annule le dernier parse_new).
 

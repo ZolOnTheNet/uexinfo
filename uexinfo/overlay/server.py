@@ -198,8 +198,8 @@ class OverlayServer:
         # Écho
         await ws.send(json.dumps({"type": "echo", "text": line}))
 
-        # Capturer le scan courant avant exécution pour détecter un nouveau scan
-        prev_scan = getattr(self.ctx, "last_scan", None)
+        # Capturer la longueur de l'historique AVANT exec pour détecter les nouveaux scans
+        prev_history_len = len(getattr(self.ctx, "scan_history", []))
 
         # Injecter select_fn pour ce websocket (permet aux commandes d'ouvrir
         # le sélecteur overlay au lieu du TUI terminal)
@@ -222,10 +222,10 @@ class OverlayServer:
 
         await ws.send(json.dumps({"type": "done"}))
 
-        # Si un nouveau scan vient d'être produit → envoyer les données éditables
-        new_scan = getattr(self.ctx, "last_scan", None)
-        if new_scan is not None and new_scan is not prev_scan:
-            await self._send_scan_edit(ws, new_scan)
+        # Envoyer un éditeur pour chaque nouveau ScanResult (tous les types de scan)
+        new_scans = getattr(self.ctx, "scan_history", [])[prev_history_len:]
+        for result in new_scans:
+            await self._send_scan_edit(ws, result)
 
         # Après un refresh, le cache change → re-envoyer le vocabulaire
         first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""

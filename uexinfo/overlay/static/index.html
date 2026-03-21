@@ -247,6 +247,23 @@ html, body {
 }
 #scan-table input:focus { border-color: var(--accent); outline: none; }
 #scan-table input.num { text-align: right; }
+
+/* Combobox commodité / stock — transparent au repos */
+#scan-table select.se-select {
+  width: 100%; background: transparent; border: 1px solid transparent;
+  color: var(--text); padding: 1px 2px; font-family: var(--font); font-size: 0.88em;
+  cursor: pointer; appearance: auto;
+}
+#scan-table select.se-select:hover { border-color: rgba(0,188,212,0.35); background: rgba(255,255,255,0.05); }
+#scan-table select.se-select:focus { border-color: var(--accent); outline: none; background: rgba(255,255,255,0.08); }
+#scan-table select.se-select option { background: #0d1018; color: var(--text); }
+
+/* Input prix/qté — borderless au repos, s'allume au clic */
+#scan-table input.se-inline {
+  background: transparent; border: 1px solid transparent;
+}
+#scan-table input.se-inline:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }
+#scan-table input.se-inline:focus { border-color: var(--accent); background: rgba(255,255,255,0.06); }
 #scan-box .se-foot {
   display: flex; justify-content: flex-end; gap: 8px;
   padding: 6px 10px; border-top: 1px solid var(--border);
@@ -433,16 +450,16 @@ html, body {
       <table>
         <thead><tr>
           <th>Commodité</th>
-          <th style="width:80px">Prix aUEC</th>
-          <th style="width:60px">Qté SCU</th>
-          <th style="width:50px">Stock</th>
+          <th style="width:86px">Prix aUEC</th>
+          <th style="width:64px">Qté SCU</th>
+          <th style="width:90px">Niveau stock</th>
         </tr></thead>
         <tbody id="se-rows"></tbody>
       </table>
     </div>
     <div class="se-foot">
-      <button onclick="closeScanEditor()">Annuler</button>
-      <button class="primary" onclick="confirmScan()">✓ Confirmer</button>
+      <button id="se-skip-btn" onclick="closeScanEditor()">Passer</button>
+      <button class="primary" id="se-confirm-btn" onclick="confirmScan()">✓ Confirmer</button>
     </div>
   </div>
 </div>
@@ -577,15 +594,17 @@ let overlayAlpha = 0.76;
 // ── Vocabulaire & annotation ──────────────────────────────────────────────────
 
 const vocab = {
-  commodities: new Set(),
-  locations:   new Set(),
-  ships:       new Set(),
-  voyages:     new Set(),
+  commodities:    new Set(),
+  commoditiesRaw: [],
+  locations:      new Set(),
+  ships:          new Set(),
+  voyages:        new Set(),
 };
 let vocabRe = null;
 
 function loadVocab(msg) {
-  vocab.commodities = new Set((msg.commodities || []).map(s => s.toLowerCase()));
+  vocab.commodities    = new Set((msg.commodities || []).map(s => s.toLowerCase()));
+  vocab.commoditiesRaw = (msg.commodities || []).slice().sort();   // casse originale pour les <select>
   vocab.locations   = new Set((msg.locations   || []).map(s => s.toLowerCase()));
   vocab.ships       = new Set((msg.ships       || []).map(s => s.toLowerCase()));
   vocab.voyages     = new Set((msg.voyages     || []).map(s => s.toLowerCase()));
@@ -708,7 +727,7 @@ function dispatch(msg) {
     case 'output':      stopSpin(); appendAnsi(msg.ansi); break;
     case 'done':        stopSpin(); break;
     case 'vocab':       loadVocab(msg); break;
-    case 'scan_edit':   showScanEditor(msg.data); break;
+    case 'scan_edit':   enqueueScanEditor(msg.data); break;
     case 'select':      showSelectPanel(msg); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items); break;
@@ -1272,31 +1291,78 @@ document.addEventListener('keydown', e => {
 
 // ── Éditeur de scan ───────────────────────────────────────────────────────────
 
-let _scanData = null;
+let _scanData  = null;
+let _scanQueue = [];   // scans en attente d'édition (si éditeur déjà ouvert)
+
+const _STOCK_LABELS = ['?', 'Out', 'Very Low', 'Low', 'Medium', 'High', 'Very High', 'Max'];
+
+function _buildNameSelect(i, nameVal) {
+  const list = vocab.commoditiesRaw || [];
+  let opts = '';
+  let found = false;
+  list.forEach(n => {
+    const sel = n.toLowerCase() === nameVal.toLowerCase();
+    if (sel) found = true;
+    opts += `<option value="${esc(n)}"${sel ? ' selected' : ''}>${esc(n)}</option>`;
+  });
+  // Si le nom scanné n'est pas dans le vocab (OCR imparfait), l'ajouter en tête
+  if (!found && nameVal)
+    opts = `<option value="${esc(nameVal)}" selected>${esc(nameVal)}</option>` + opts;
+  return `<select data-i="${i}" data-f="name" class="se-select">${opts}</select>`;
+}
+
+function _buildStockSelect(i, stockStatus) {
+  const opts = _STOCK_LABELS.map((lbl, idx) =>
+    `<option value="${idx}"${idx === (stockStatus || 0) ? ' selected' : ''}>${lbl}</option>`
+  ).join('');
+  return `<select data-i="${i}" data-f="stock_status" class="se-select">${opts}</select>`;
+}
+
+function enqueueScanEditor(data) {
+  if (_scanData) {
+    // Éditeur déjà ouvert → mettre en file d'attente
+    _scanQueue.push(data);
+    // Mettre à jour le titre pour indiquer la file
+    const total = 1 + _scanQueue.length;
+    document.getElementById('se-title').textContent =
+      document.getElementById('se-title').textContent.replace(/ \(\d+\/\d+\)$/, '')
+      + ` (1/${total})`;
+    return;
+  }
+  showScanEditor(data);
+}
+
+function _nextScanEditor() {
+  if (_scanQueue.length === 0) return;
+  showScanEditor(_scanQueue.shift());
+}
 
 function showScanEditor(data) {
   _scanData = data;
   document.getElementById('se-terminal').value = data.terminal || '';
   document.getElementById('se-mode').value     = data.mode     || 'buy';
+  const queueInfo = _scanQueue.length > 0 ? ` (1/${1 + _scanQueue.length})` : '';
   document.getElementById('se-title').textContent =
-    `Édition scan — ${data.source === 'log' ? 'log' : 'OCR'}`;
+    `Édition scan — ${data.source === 'log' ? 'log' : 'OCR'}${queueInfo}`;
 
   const tbody = document.getElementById('se-rows');
   tbody.innerHTML = '';
   (data.commodities || []).forEach((c, i) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input type="text" data-i="${i}" data-f="name"
-                 value="${esc(c.name||'')}" style="min-width:120px"></td>
-      <td><input type="number" class="num" data-i="${i}" data-f="price"
-                 value="${c.price||''}" min="0"></td>
-      <td><input type="number" class="num" data-i="${i}" data-f="quantity"
-                 value="${c.quantity!=null?c.quantity:''}" min="0"></td>
-      <td><input type="number" class="num" data-i="${i}" data-f="stock_status"
-                 value="${c.stock_status||0}" min="0" max="7"></td>
+      <td>${_buildNameSelect(i, c.name || '')}</td>
+      <td><input type="number" class="num se-inline" data-i="${i}" data-f="price"
+                 value="${c.price || ''}" min="0" placeholder="—"></td>
+      <td><input type="number" class="num se-inline" data-i="${i}" data-f="quantity"
+                 value="${c.quantity != null ? c.quantity : ''}" min="0" placeholder="—"></td>
+      <td>${_buildStockSelect(i, c.stock_status)}</td>
     `;
     tbody.appendChild(tr);
   });
+
+  // Label bouton Passer / Annuler selon file d'attente
+  document.getElementById('se-skip-btn').textContent =
+    _scanQueue.length > 0 ? `Passer →` : 'Annuler';
 
   document.getElementById('scan-overlay').classList.add('open');
   // focus le premier champ de prix
@@ -1307,6 +1373,8 @@ function showScanEditor(data) {
 function closeScanEditor() {
   document.getElementById('scan-overlay').classList.remove('open');
   _scanData = null;
+  // Ouvrir le prochain scan en attente (s'il y en a un)
+  setTimeout(_nextScanEditor, 120);
 }
 
 function confirmScan() {
