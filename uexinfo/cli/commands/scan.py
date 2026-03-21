@@ -360,6 +360,21 @@ def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult
             else:
                 print_warn(f"Aucun nouveau scan dans le log. (offset: {parser.get_offset()} octets)")
                 console.print(f"[{C.DIM}]Utilisez /scan log pour tout relire depuis le début.[/{C.DIM}]")
+            return results
+
+        # Pour les scans validés (soumis à UEX), remplacer les données OCR brutes
+        # par les prix UEX frais qui reflètent les corrections faites dans SC-Datarunner.
+        refreshed = 0
+        for r in results:
+            if r.validated:
+                if _refresh_validated_from_uex(r, ctx):
+                    refreshed += 1
+        if refreshed:
+            console.print(
+                f"[{C.DIM}]  {refreshed} scan(s) validé(s) rechargés depuis l'API UEX "
+                f"(données post-correction).[/{C.DIM}]"
+            )
+
         return results
     except Exception as e:
         print_error(f"Erreur lecture log : {e}")
@@ -567,6 +582,77 @@ def _scan_game_window(ctx) -> ScanResult | None:
         tmp_path.unlink(missing_ok=True)
 
 
+def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
+    """Pour un scan log validé, remplace les données OCR brutes par les prix UEX actuels.
+
+    SC-Datarunner envoie les prix corrigés à UEX juste avant de logger la soumission.
+    L'API UEX reflète immédiatement ces prix → on les récupère et on remplace le scan.
+    Retourne True si le refresh a réussi et a produit des données.
+    """
+    from uexinfo.api.uex_client import UEXClient, UEXError
+    import time
+
+    if not result.terminal:
+        return False
+
+    name_lower = result.terminal.lower()
+    is_sell    = result.mode == "sell"
+    price_key  = "price_sell" if is_sell else "price_buy"
+
+    # Trouver l'ID terminal dans le cache
+    matches = [
+        t for t in (ctx.cache.terminals or [])
+        if t.name.rsplit(" - ", 1)[-1].strip().lower() == name_lower
+    ]
+    terminal = matches[0] if len(matches) == 1 else None
+
+    cache_key = f"uex_refresh_{name_lower}_{result.mode}"
+    cached = ctx._price_cache.get(cache_key)
+    if cached:
+        _ts, rows = cached
+    else:
+        try:
+            client = UEXClient()
+            if terminal:
+                rows = client.get_prices(id_terminal=terminal.id)
+            else:
+                rows = client.get_prices(terminal_name=name_lower)
+        except UEXError:
+            return False
+        ctx._price_cache[cache_key] = (time.time(), rows)
+
+    if not rows:
+        return False
+
+    # Construire un dict {commodity_name_lower: (price, qty, stock_status)}
+    price_map: dict[str, tuple[int, int, int]] = {}
+    for r in rows:
+        price = r.get(price_key)
+        cname = (r.get("commodity_name") or "").lower()
+        if price and cname:
+            qty = int(r.get("scu_buy") or r.get("scu_sell") or 0)
+            status = int(r.get("status_buy") or r.get("status_sell") or 0)
+            price_map[cname] = (int(price), qty, status)
+
+    if not price_map:
+        return False
+
+    # Mettre à jour les commodités du scan avec les données UEX fraîches
+    updated = 0
+    for sc in result.commodities:
+        key = sc.name.lower()
+        if key in price_map:
+            uex_price, uex_qty, uex_status = price_map[key]
+            sc.price = uex_price
+            if uex_qty:
+                sc.quantity = uex_qty
+            if uex_status:
+                sc.stock_status = uex_status
+            updated += 1
+
+    return updated > 0
+
+
 def _refine_terminal(result: ScanResult, location_index) -> None:
     """Affine le nom du terminal OCR par fuzzy match sur le LocationIndex."""
     raw = result.terminal
@@ -614,12 +700,14 @@ def _scan_image_file(ctx, image_path: Path):
         print_info("Type détecté : écran Contrats (mission)")
         return result
 
-    # ScanResult : affiner le nom du terminal
-    if result and ctx.location_index:
-        raw = result.terminal
-        _refine_terminal(result, ctx.location_index)
-        if result.terminal != raw:
-            print_info(f"Terminal : {raw!r} → {result.terminal!r}")
+    # ScanResult : affiner le nom du terminal + mémoriser le chemin image
+    if result:
+        result.image_path = str(image_path)
+        if ctx.location_index:
+            raw = result.terminal
+            _refine_terminal(result, ctx.location_index)
+            if result.terminal != raw:
+                print_info(f"Terminal : {raw!r} → {result.terminal!r}")
 
     return result
 

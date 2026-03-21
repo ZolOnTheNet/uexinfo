@@ -24,3 +24,4 @@ class ScanResult:
     source: str = "ocr"     # "ocr" | "log"
     mode: str = "buy"       # "buy" = IN STOCK (achat) | "sell" = IN DEMAND / SELLABLE CARGO (vente)
     validated: bool = False  # True = soumis à l'API UEX par l'utilisateur (données confirmées)
+    image_path: str = ""     # Chemin absolu du screenshot source (source="ocr" uniquement)

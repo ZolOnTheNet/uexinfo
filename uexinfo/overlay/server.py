@@ -357,10 +357,27 @@ class OverlayServer:
         from uexinfo.models.scan_result import ScanResult
         if not isinstance(result, ScanResult):
             return
+
+        # Encoder l'image source en base64 si disponible (scans OCR uniquement)
+        image_b64 = ""
+        if result.image_path:
+            try:
+                import base64
+                from pathlib import Path
+                img_path = Path(result.image_path)
+                if img_path.is_file() and img_path.stat().st_size < 5 * 1024 * 1024:
+                    suffix = img_path.suffix.lower().lstrip(".")
+                    mime   = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "bmp": "bmp"}.get(suffix, "jpeg")
+                    image_b64 = f"data:image/{mime};base64," + base64.b64encode(img_path.read_bytes()).decode()
+            except Exception:
+                pass
+
         data = {
             "terminal":    result.terminal,
             "mode":        result.mode,
             "source":      result.source,
+            "validated":   result.validated,
+            "image_b64":   image_b64,
             "commodities": [
                 {
                     "name":         c.name,

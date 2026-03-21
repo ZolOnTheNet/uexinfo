@@ -198,33 +198,102 @@ html, body {
   display: none;
   align-items: center;
   justify-content: center;
+  padding: 8px;
 }
 #scan-overlay.open { display: flex; }
 #scan-box {
   background: rgba(12, 15, 22, 0.98);
   border: 1px solid var(--accent);
   border-radius: 4px;
-  width: min(520px, 96vw);
-  max-height: 80vh;
+  width: min(920px, 98vw);
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   font-size: 0.85em;
 }
+
+/* Titre */
 #scan-box .se-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 6px 10px; border-bottom: 1px solid var(--border);
-  color: var(--accent); font-weight: bold;
+  color: var(--accent); font-weight: bold; flex-shrink: 0;
 }
 #scan-box .se-head button {
   background: none; border: none; color: var(--dim);
   cursor: pointer; font-size: 1em;
 }
 #scan-box .se-head button:hover { color: var(--red); }
+
+/* Corps : image à gauche + form à droite */
+#scan-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Panneau image */
+#scan-img-panel {
+  width: 340px;
+  min-width: 180px;
+  max-width: 50%;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: rgba(0,0,0,0.30);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+#scan-img-panel.hidden { display: none; }
+
+#scan-img-wrap {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  cursor: crosshair;
+}
+#scan-img-el {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: 0 0;
+  transition: transform 0.1s;
+  pointer-events: none;
+  display: block;
+}
+#scan-img-hint {
+  position: absolute; bottom: 4px; left: 0; right: 0;
+  text-align: center; font-size: 0.76em; color: var(--dim);
+  pointer-events: none; user-select: none;
+}
+#scan-img-zoom-bar {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 6px; border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#scan-img-zoom-bar button {
+  background: none; border: 1px solid var(--border); color: var(--dim);
+  padding: 0 6px; cursor: pointer; font-size: 1em; border-radius: 2px;
+}
+#scan-img-zoom-bar button:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+#scan-img-zoom-lbl { color: var(--dim); font-size: 0.8em; flex: 1; text-align: center; }
+
+/* Panneau formulaire */
+#scan-form-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 #scan-box .se-meta {
   display: flex; gap: 10px; padding: 6px 10px;
   border-bottom: 1px solid var(--border); align-items: center;
+  flex-shrink: 0;
 }
-#scan-box .se-meta label { color: var(--dim); }
+#scan-box .se-meta label { color: var(--dim); white-space: nowrap; }
 #scan-box .se-meta input[type=text] {
   flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
   color: var(--text); padding: 2px 6px; font-family: var(--font); font-size: 0.95em;
@@ -264,18 +333,21 @@ html, body {
 }
 #scan-table input.se-inline:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }
 #scan-table input.se-inline:focus { border-color: var(--accent); background: rgba(255,255,255,0.06); }
+
 #scan-box .se-foot {
-  display: flex; justify-content: flex-end; gap: 8px;
-  padding: 6px 10px; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 6px 10px; border-top: 1px solid var(--border); flex-shrink: 0;
 }
+#scan-box .se-foot .se-source-badge {
+  font-size: 0.8em; color: var(--dim); font-style: italic;
+}
+#scan-box .se-foot .se-btns { display: flex; gap: 8px; }
 #scan-box .se-foot button {
   padding: 3px 14px; border: 1px solid var(--border); border-radius: 2px;
   cursor: pointer; font-family: var(--font); font-size: 0.9em;
   background: rgba(255,255,255,0.05); color: var(--text);
 }
-#scan-box .se-foot button.primary {
-  border-color: var(--accent); color: var(--accent);
-}
+#scan-box .se-foot button.primary { border-color: var(--accent); color: var(--accent); }
 #scan-box .se-foot button:hover { background: rgba(255,255,255,0.12); }
 
 /* ── Sélecteur générique ───────────────────────────────────────────────── */
@@ -437,29 +509,50 @@ html, body {
       <span id="se-title">Édition scan</span>
       <button onclick="closeScanEditor()" title="Annuler (Échap)">✕</button>
     </div>
-    <div class="se-meta">
-      <label>Terminal</label>
-      <input type="text" id="se-terminal">
-      <label>Mode</label>
-      <select id="se-mode">
-        <option value="buy">ACHAT</option>
-        <option value="sell">VENTE</option>
-      </select>
-    </div>
-    <div id="scan-table">
-      <table>
-        <thead><tr>
-          <th>Commodité</th>
-          <th style="width:86px">Prix aUEC</th>
-          <th style="width:64px">Qté SCU</th>
-          <th style="width:90px">Niveau stock</th>
-        </tr></thead>
-        <tbody id="se-rows"></tbody>
-      </table>
-    </div>
-    <div class="se-foot">
-      <button id="se-skip-btn" onclick="closeScanEditor()">Passer</button>
-      <button class="primary" id="se-confirm-btn" onclick="confirmScan()">✓ Confirmer</button>
+    <div id="scan-body">
+      <!-- Panneau image (masqué si pas d'image) -->
+      <div id="scan-img-panel" class="hidden">
+        <div id="scan-img-wrap">
+          <img id="scan-img-el" src="" alt="screenshot">
+          <div id="scan-img-hint">Scroll = zoom · Clic = zoom×2</div>
+        </div>
+        <div id="scan-img-zoom-bar">
+          <button onclick="imgZoom(-0.25)">−</button>
+          <span id="scan-img-zoom-lbl">100%</span>
+          <button onclick="imgZoom(+0.25)">+</button>
+          <button onclick="imgZoomReset()" title="Réinitialiser">↺</button>
+        </div>
+      </div>
+      <!-- Panneau formulaire -->
+      <div id="scan-form-panel">
+        <div class="se-meta">
+          <label>Terminal</label>
+          <input type="text" id="se-terminal">
+          <label>Mode</label>
+          <select id="se-mode">
+            <option value="buy">ACHAT</option>
+            <option value="sell">VENTE</option>
+          </select>
+        </div>
+        <div id="scan-table">
+          <table>
+            <thead><tr>
+              <th>Commodité</th>
+              <th style="width:86px">Prix aUEC</th>
+              <th style="width:64px">Qté SCU</th>
+              <th style="width:90px">Niveau stock</th>
+            </tr></thead>
+            <tbody id="se-rows"></tbody>
+          </table>
+        </div>
+        <div class="se-foot">
+          <span id="se-source-badge" class="se-source-badge"></span>
+          <div class="se-btns">
+            <button id="se-skip-btn" onclick="closeScanEditor()">Passer</button>
+            <button class="primary" id="se-confirm-btn" onclick="confirmScan()">✓ Confirmer</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1294,6 +1387,45 @@ document.addEventListener('keydown', e => {
 let _scanData  = null;
 let _scanQueue = [];   // scans en attente d'édition (si éditeur déjà ouvert)
 
+// ── Zoom image scan ───────────────────────────────────────────────────────────
+
+let _imgScale = 1.0;
+let _imgOrigin = {x: 0, y: 0};   // position du drag (non implémenté ici, zoom simple)
+
+function imgZoom(delta) {
+  _imgScale = Math.max(0.25, Math.min(8.0, _imgScale + delta));
+  _applyImgZoom();
+}
+function imgZoomReset() {
+  _imgScale = 1.0;
+  _applyImgZoom();
+}
+function _applyImgZoom() {
+  const el = document.getElementById('scan-img-el');
+  if (el) el.style.transform = `scale(${_imgScale})`;
+  const lbl = document.getElementById('scan-img-zoom-lbl');
+  if (lbl) lbl.textContent = Math.round(_imgScale * 100) + '%';
+}
+
+(function() {
+  // Scroll = zoom sur le panneau image
+  document.addEventListener('wheel', e => {
+    const panel = document.getElementById('scan-img-wrap');
+    if (!panel || !panel.contains(e.target)) return;
+    e.preventDefault();
+    imgZoom(e.deltaY < 0 ? +0.25 : -0.25);
+  }, {passive: false});
+
+  // Clic gauche = toggle zoom 1× ↔ 2.5×
+  document.addEventListener('click', e => {
+    const wrap = document.getElementById('scan-img-wrap');
+    if (!wrap || !wrap.contains(e.target)) return;
+    if (e.target.id === 'scan-img-hint') return;
+    _imgScale = (_imgScale < 1.5) ? 2.5 : 1.0;
+    _applyImgZoom();
+  });
+})();
+
 const _STOCK_LABELS = ['?', 'Out', 'Very Low', 'Low', 'Medium', 'High', 'Very High', 'Max'];
 
 function _buildNameSelect(i, nameVal) {
@@ -1341,9 +1473,39 @@ function showScanEditor(data) {
   _scanData = data;
   document.getElementById('se-terminal').value = data.terminal || '';
   document.getElementById('se-mode').value     = data.mode     || 'buy';
+
   const queueInfo = _scanQueue.length > 0 ? ` (1/${1 + _scanQueue.length})` : '';
+  const sourceLabel = data.source === 'log'
+    ? (data.validated ? 'log · validé' : 'log · non soumis')
+    : 'OCR';
   document.getElementById('se-title').textContent =
-    `Édition scan — ${data.source === 'log' ? 'log' : 'OCR'}${queueInfo}`;
+    `Édition scan — ${sourceLabel}${queueInfo}`;
+
+  // Badge source
+  const badge = document.getElementById('se-source-badge');
+  if (badge) {
+    if (data.source === 'log' && !data.validated) {
+      badge.textContent = '⚠ données OCR brutes — non encore soumises à UEX';
+      badge.style.color = 'var(--yellow)';
+    } else if (data.source === 'log' && data.validated) {
+      badge.textContent = '✓ prix rechargés depuis UEX (post-correction)';
+      badge.style.color = 'var(--green)';
+    } else {
+      badge.textContent = '';
+    }
+  }
+
+  // Image
+  const imgPanel = document.getElementById('scan-img-panel');
+  const imgEl    = document.getElementById('scan-img-el');
+  if (data.image_b64 && imgEl && imgPanel) {
+    imgEl.src = data.image_b64;
+    imgPanel.classList.remove('hidden');
+    _imgScale = 1.0;
+    _applyImgZoom();
+  } else if (imgPanel) {
+    imgPanel.classList.add('hidden');
+  }
 
   const tbody = document.getElementById('se-rows');
   tbody.innerHTML = '';
