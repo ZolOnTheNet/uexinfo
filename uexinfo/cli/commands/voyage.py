@@ -37,6 +37,12 @@ def cmd_voyage(args: list[str], ctx) -> None:
         return
 
     if sub in ("on", "activer"):
+        # /voyage on <ref> → activer le voyage donné
+        if voyage is None and rest:
+            voyage = vm.get(rest[0])
+            if voyage is None:
+                print_warn(f"Voyage introuvable : {rest[0]}")
+                return
         if voyage:
             vm.activate(str(voyage.id))
             print_ok(f"Voyage activé : [{C.UEX}]{voyage.name}[/{C.UEX}]")
@@ -408,7 +414,153 @@ def _cmd_remove(args: list[str], voyage: Voyage, ctx) -> None:
             print_warn(f"{m.name} n'est pas dans ce voyage")
 
 
-# ── Analyse (Phase 1 basique) ─────────────────────────────────────────────────
+# ── Analyse TSP + distances ───────────────────────────────────────────────────
+
+def _fmt_dist(d: float | None) -> str:
+    if d is None:
+        return "?"
+    return f"{d:.1f}Gm" if d >= 1 else f"{d*1000:.0f}Mm"
+
+
+def _path_dist(graph, a: str | None, b: str | None) -> float | None:
+    """Distance entre deux nœuds résolus (None si injoignable)."""
+    if not a or not b:
+        return None
+    if a == b:
+        return 0.0
+    try:
+        r = graph.find_shortest_path(a, b)
+        return r.total_distance if r is not None else None
+    except Exception:
+        return None
+
+
+def _resolve_locs(raw_locs: list[str], graph) -> dict[str, str | None]:
+    """Résout une liste de noms bruts en nœuds du graphe (fuzzy)."""
+    from uexinfo.cache.mission_scan import _resolve_graph_node
+    resolved: dict[str, str | None] = {}
+    # Premier passage : résoudre les non-gateways pour dériver le system_hint
+    from uexinfo.cache.mission_scan import _node_system
+    system_counts: dict[str, int] = {}
+    for loc in raw_locs:
+        node = _resolve_graph_node(loc, graph)
+        resolved[loc] = node
+        if node and "gateway" not in (node or "").lower():
+            sys = _node_system(node, graph)
+            if sys:
+                system_counts[sys] = system_counts.get(sys, 0) + 1
+    system_hint = max(system_counts, key=system_counts.__getitem__) if system_counts else None
+    # Second passage : gateways avec system_hint
+    for loc in raw_locs:
+        if resolved[loc] and "gateway" in resolved[loc].lower():
+            resolved[loc] = _resolve_graph_node(loc, graph, system_hint=system_hint)
+    return resolved
+
+
+def _build_dist_matrix(
+    graph,
+    nodes: list[str | None],
+) -> dict[tuple[str | None, str | None], float | None]:
+    """Calcule toutes les distances pairwise entre les nœuds résolus."""
+    matrix: dict[tuple[str | None, str | None], float | None] = {}
+    for a in nodes:
+        for b in nodes:
+            if (a, b) in matrix:
+                continue
+            if a == b:
+                matrix[(a, b)] = 0.0
+            elif (b, a) in matrix:
+                matrix[(a, b)] = matrix[(b, a)]
+            else:
+                matrix[(a, b)] = _path_dist(graph, a, b)
+    return matrix
+
+
+def _tsp_nearest_neighbor(
+    start_node: str | None,
+    missions: list,
+    resolved: dict[str, str | None],
+    dist: dict,
+) -> tuple[list, float]:
+    """Heuristique du plus proche voisin."""
+    remaining = list(range(len(missions)))
+    order: list[int] = []
+    cur = start_node
+    total = 0.0
+
+    while remaining:
+        best_i = None
+        best_d = float("inf")
+        for i in remaining:
+            m = missions[i]
+            src_raw = m.all_sources[0] if m.all_sources else None
+            src = resolved.get(src_raw) if src_raw else None
+            d = dist.get((cur, src))
+            if d is None:
+                d = float("inf")
+            if d < best_d:
+                best_d = d
+                best_i = i
+        if best_i is None:
+            best_i = remaining[0]
+            best_d = 0.0
+        order.append(best_i)
+        remaining.remove(best_i)
+        m = missions[best_i]
+        src_raw = m.all_sources[0] if m.all_sources else None
+        dst_raw = m.all_destinations[0] if m.all_destinations else None
+        src = resolved.get(src_raw) if src_raw else None
+        dst = resolved.get(dst_raw) if dst_raw else None
+        total += best_d
+        d_inner = dist.get((src, dst))
+        total += d_inner if d_inner is not None else 0.0
+        cur = dst or src
+    return order, total
+
+
+def _tsp_brute_force(
+    start_node: str | None,
+    missions: list,
+    resolved: dict[str, str | None],
+    dist: dict,
+) -> tuple[list, float]:
+    """Parcours exhaustif (≤8 missions)."""
+    import itertools
+    best_order = list(range(len(missions)))
+    best_total = float("inf")
+
+    for perm in itertools.permutations(range(len(missions))):
+        total = 0.0
+        cur = start_node
+        for i in perm:
+            m = missions[i]
+            src_raw = m.all_sources[0] if m.all_sources else None
+            dst_raw = m.all_destinations[0] if m.all_destinations else None
+            src = resolved.get(src_raw) if src_raw else None
+            dst = resolved.get(dst_raw) if dst_raw else None
+            if src:
+                total += dist.get((cur, src)) or 0.0
+                cur = src
+            if dst:
+                total += dist.get((cur, dst)) or 0.0
+                cur = dst
+        if total < best_total:
+            best_total = total
+            best_order = list(perm)
+
+    return best_order, best_total
+
+
+def _active_ship(player):
+    """Retourne le vaisseau actif du joueur (active_ship en priorité)."""
+    if not player or not player.ships:
+        return None
+    if player.active_ship:
+        for s in player.ships:
+            if s.name.lower() == player.active_ship.lower():
+                return s
+    return None
+
 
 def _run_analysis(voyage: Voyage, ctx) -> None:
     mm = ctx.mission_manager
@@ -419,33 +571,240 @@ def _run_analysis(voyage: Voyage, ctx) -> None:
 
     section(f"Analyse — {voyage.name}")
 
-    # Lieux uniques
-    locs: dict[str, None] = {}
-    for m in missions:
-        for loc in m.all_sources + m.all_destinations:
-            locs[loc] = None
-    console.print(f"  [{C.DIM}]Lieux impliqués : {len(locs)}[/{C.DIM}]")
-    for loc in locs:
-        console.print(f"    [{C.LABEL}]{loc}[/{C.LABEL}]")
-
     total_scu = sum(m.total_scu for m in missions)
     total_rew = sum(m.reward_uec for m in missions)
     rew_str = f"{total_rew:,}".replace(",", " ")
-    console.print(f"\n  [bold]Total :[/bold]  {len(missions)} mission(s)  ·  {total_scu:.0f} SCU  ·  {rew_str} aUEC")
 
-    # Suggestion vaisseau
+    # ── Vaisseau actif ────────────────────────────────────────────────────────
     player = ctx.player
-    if player.ships:
+    ship_scu = 0
+    current_ship = _active_ship(player)
+    if current_ship:
+        ship_scu = current_ship.scu or 0
+        if ship_scu < total_scu:
+            print_warn(
+                f"Vaisseau actif [{C.UEX}]{current_ship.name}[/{C.UEX}] "
+                f"({ship_scu} SCU) insuffisant — {total_scu:.0f} SCU requis"
+            )
+        else:
+            console.print(
+                f"  [bold]Vaisseau :[/bold] [{C.UEX}]{current_ship.name}[/{C.UEX}]"
+                f"  [{C.DIM}]{ship_scu} SCU — {total_scu:.0f} utilisés[/{C.DIM}]"
+            )
+    elif player and player.ships:
         suitable = [s for s in player.ships if (s.scu or 0) >= total_scu]
         if suitable:
-            best = min(suitable, key=lambda s: s.scu or 0)
-            console.print(f"\n  [bold]Vaisseau suggéré :[/bold] [{C.UEX}]{best.name}[/{C.UEX}]  [{C.DIM}]{best.scu} SCU[/{C.DIM}]")
+            best_ship = min(suitable, key=lambda s: s.scu or 0)
+            ship_scu = best_ship.scu or 0
+            console.print(
+                f"  [{C.DIM}]Aucun vaisseau actif — suggestion : "
+                f"[/{C.DIM}][{C.UEX}]{best_ship.name}[/{C.UEX}]"
+                f"  [{C.DIM}]({ship_scu} SCU)[/{C.DIM}]"
+            )
         else:
             biggest = max(player.ships, key=lambda s: s.scu or 0)
+            ship_scu = biggest.scu or 0
             print_warn(f"Aucun vaisseau assez grand ({total_scu:.0f} SCU requis)")
-            console.print(f"  [{C.DIM}]Plus grand disponible : {biggest.name} ({biggest.scu} SCU)[/{C.DIM}]")
+    else:
+        print_warn("Aucun vaisseau configuré — /player ship <nom> <scu>")
 
-    console.print(f"\n[{C.DIM}]⚠ Optimisation de route — Phase 3[/{C.DIM}]")
+    # ── Résolution des lieux + calcul des distances ───────────────────────────
+    graph = ctx.cache.transport_graph
+    if not graph:
+        print_warn("Graphe de transport indisponible")
+        return
+
+    console.print(f"\n  [{C.DIM}]Résolution des lieux et calcul des distances…[/{C.DIM}]")
+
+    start_raw = voyage.departure or (player.location if player else None) or ""
+    raw_locs: list[str] = []
+    if start_raw:
+        raw_locs.append(start_raw)
+    for m in missions:
+        for loc in m.all_sources + m.all_destinations:
+            if loc and loc not in raw_locs:
+                raw_locs.append(loc)
+
+    resolved = _resolve_locs(raw_locs, graph)
+
+    # Afficher les résolutions non trouvées
+    missing = [r for r in raw_locs if not resolved.get(r)]
+    if missing:
+        console.print(
+            f"  [{C.WARNING}]Lieux non résolus dans le graphe : "
+            f"{', '.join(missing)}[/{C.WARNING}]"
+        )
+
+    # Matrice de distances sur les nœuds résolus (dédupliqués)
+    node_list = list(dict.fromkeys(v for v in resolved.values() if v))
+    dist = _build_dist_matrix(graph, node_list)
+
+    start_node = resolved.get(start_raw) if start_raw else None
+    if not start_node and missions[0].all_sources:
+        start_node = resolved.get(missions[0].all_sources[0])
+
+    # ── TSP ───────────────────────────────────────────────────────────────────
+    if len(missions) <= 8:
+        order, tour_dist = _tsp_brute_force(start_node, missions, resolved, dist)
+        algo = "exhaustif"
+    else:
+        order, tour_dist = _tsp_nearest_neighbor(start_node, missions, resolved, dist)
+        algo = "heuristique"
+
+    console.print(
+        f"\n  [bold]Route optimisée[/bold] [{C.DIM}]({algo})[/{C.DIM}] ·"
+        f" distance totale : [bold]{_fmt_dist(tour_dist)}[/bold]\n"
+    )
+
+    tbl = Table(show_header=True, box=None, padding=(0, 1))
+    tbl.add_column("Étape", style=C.DIM, width=5, justify="right")
+    tbl.add_column("Mission", style=C.LABEL, max_width=22)
+    tbl.add_column("Départ", style=C.UEX, max_width=16)
+    tbl.add_column("→", style=C.DIM, width=1)
+    tbl.add_column("Arrivée", style=C.UEX, max_width=16)
+    tbl.add_column("Trajet", justify="right", width=8)
+    tbl.add_column("Leg", justify="right", width=8)
+    tbl.add_column("SCU", justify="right", width=4)
+    tbl.add_column("Récompense", justify="right", width=12)
+
+    cur_node = start_node
+    cumul = 0.0
+    for step, i in enumerate(order, 1):
+        m = missions[i]
+        src_raw = m.all_sources[0] if m.all_sources else None
+        dst_raw = m.all_destinations[0] if m.all_destinations else None
+        src_node = resolved.get(src_raw) if src_raw else None
+        dst_node = resolved.get(dst_raw) if dst_raw else None
+        travel = dist.get((cur_node, src_node)) if cur_node and src_node else None
+        leg    = dist.get((src_node, dst_node)) if src_node and dst_node else None
+        cumul += (travel or 0.0) + (leg or 0.0)
+        scu_s = f"{m.total_scu:.0f}□" if m.total_scu else "—"
+        rew_s = f"{m.reward_uec:,}".replace(",", " ")
+        tbl.add_row(
+            str(step),
+            m.name,
+            src_raw or "—",
+            "→",
+            dst_raw or "—",
+            _fmt_dist(travel),
+            _fmt_dist(leg),
+            scu_s,
+            rew_s + " aUEC",
+        )
+        cur_node = dst_node or src_node
+
+    console.print(tbl)
+    console.print(
+        f"\n  [{C.DIM}]{len(missions)} mission(s) · "
+        f"[bold]{total_scu:.0f}[/bold] SCU · "
+        f"[bold]{rew_str}[/bold] aUEC · "
+        f"distance cumulée [bold]{_fmt_dist(cumul)}[/bold][/{C.DIM}]"
+    )
+
+    # ── Suggestions de rentabilité ────────────────────────────────────────────
+    spare_scu = ship_scu - total_scu
+    if spare_scu >= 1:
+        _suggest_cargo(missions, order, spare_scu, resolved, dist, ctx)
+
+
+def _suggest_cargo(missions: list, order: list[int], spare_scu: float,
+                   resolved: dict, dist: dict, ctx) -> None:
+    """Propose des cargaisons rentables pour remplir le SCU disponible."""
+    try:
+        from uexinfo.api.uex_client import UEXClient
+        client = UEXClient(ctx.cfg.get("api_key", ""))
+    except Exception:
+        return
+
+    console.print(f"\n  [bold]Cargo supplémentaire disponible :[/bold] [{C.DIM}]{spare_scu:.0f} SCU libres[/{C.DIM}]")
+
+    # Collecter les legs du voyage optimisé (départ_leg, arrivée_leg)
+    legs: list[tuple[str, str]] = []
+    for i in order:
+        m = missions[i]
+        src = m.all_sources[0] if m.all_sources else None
+        dst = m.all_destinations[0] if m.all_destinations else None
+        if src and dst:
+            legs.append((src, dst))
+
+    if not legs:
+        return
+
+    # Pour chaque leg, chercher les meilleures routes commerciales
+    suggestions: list[tuple[float, str, str, str, float, float]] = []
+    # (profit_par_scu, commodity, from, to, buy_price, sell_price)
+
+    cache = ctx.cache
+    if not cache:
+        return
+
+    for from_loc, to_loc in legs[:3]:  # limiter aux 3 premiers legs
+        from_terminals = _loc_terminals(from_loc, cache)
+        to_terminals   = _loc_terminals(to_loc,   cache)
+        if not from_terminals or not to_terminals:
+            continue
+        for ft in from_terminals[:2]:
+            for tt in to_terminals[:2]:
+                try:
+                    prices = client.get_prices(terminal_name=ft.name)
+                    buys = {p.commodity_name: p for p in prices if p.operation == "buy"}
+                except Exception:
+                    continue
+                try:
+                    prices2 = client.get_prices(terminal_name=tt.name)
+                    sells = {p.commodity_name: p for p in prices2 if p.operation == "sell"}
+                except Exception:
+                    continue
+                for name, bp in buys.items():
+                    if name not in sells:
+                        continue
+                    sp = sells[name]
+                    if not bp.price or not sp.price:
+                        continue
+                    profit = sp.price - bp.price
+                    if profit > 0:
+                        suggestions.append((profit, name, ft.name, tt.name, bp.price, sp.price))
+
+    if not suggestions:
+        console.print(f"  [{C.DIM}]Aucune opportunité commerciale détectée sur ces legs.[/{C.DIM}]")
+        return
+
+    suggestions.sort(reverse=True)
+    tbl = Table(show_header=True, box=None, padding=(0, 1))
+    tbl.add_column("Commodité", style=C.LABEL, max_width=18)
+    tbl.add_column("De", style=C.DIM, max_width=16)
+    tbl.add_column("→", style=C.DIM, width=1)
+    tbl.add_column("Vers", style=C.DIM, max_width=16)
+    tbl.add_column("Profit/SCU", justify="right", width=10)
+    tbl.add_column("Profit total", justify="right", width=12)
+
+    seen: set[str] = set()
+    shown = 0
+    for profit, name, frm, to, buy, sell in suggestions:
+        key = f"{name}|{frm}|{to}"
+        if key in seen:
+            continue
+        seen.add(key)
+        total_p = profit * spare_scu
+        tp_str = f"{total_p:,.0f}".replace(",", " ") + " aUEC"
+        pp_str = f"{profit:,.0f}".replace(",", " ") + " aUEC"
+        tbl.add_row(name, frm, "→", to, pp_str, f"[bold {C.PROFIT}]{tp_str}[/bold {C.PROFIT}]")
+        shown += 1
+        if shown >= 5:
+            break
+
+    if shown:
+        console.print(tbl)
+
+
+def _loc_terminals(loc_name: str, cache) -> list:
+    """Retourne les terminaux proches d'un lieu (par nom)."""
+    name_l = loc_name.lower()
+    return [
+        t for t in (cache.terminals or [])
+        if (t.name or "").lower() == name_l
+        or name_l in (t.name or "").lower()
+    ][:3]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

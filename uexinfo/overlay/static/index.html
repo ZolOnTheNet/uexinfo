@@ -233,6 +233,17 @@ html, body {
   border: 1px solid rgba(0,188,212,0.4);
   color: var(--accent);
 }
+#sb-screencap.spinning {
+  display: inline-block;
+  background: rgba(255,160,0,0.15);
+  border: 1px solid rgba(255,160,0,0.4);
+  color: #ffa000;
+  animation: ocr-pulse 1s ease-in-out infinite;
+}
+@keyframes ocr-pulse {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
 
 /* scrollbar */
 #output::-webkit-scrollbar       { width: 4px; }
@@ -1111,6 +1122,7 @@ function dispatch(msg) {
     case 'scan_log_inline':     appendScanInline(msg); break;
     case 'mission_scan_list':   showMissionScanList(msg); break;
     case 'screenshot_processed': onScreenshotProcessed(msg); break;
+    case 'ocr_queued':           onOcrQueued(msg); break;
     case 'trade_pick':  showTradePick(msg); break;
     case 'select':      showSelectPanel(msg); break;
     case 'status':      updateStatus(msg); break;
@@ -1293,6 +1305,10 @@ document.getElementById('sb-voyage').addEventListener('click', () => {
 document.getElementById('sb-pos').addEventListener('click', () => {
   elInput.value = '@'; elInput.focus();
   send({type:'complete', text:'@', cursor:1});
+});
+document.getElementById('sb-pos').addEventListener('dblclick', (e) => {
+  e.stopPropagation();
+  sendCmd('/info @local');
 });
 document.getElementById('sb-dest').addEventListener('click', () => {
   elInput.value = '/dest '; elInput.focus();
@@ -1794,7 +1810,8 @@ function appendScanInline(msg) {
         `<th>Stock</th><th>Qté</th><th>Prix</th><th></th>` +
       `</tr></thead>` +
       `<tbody>${rows}</tbody>` +
-    `</table>`;
+    `</table>` +
+    `<button class="si-maj-btn" onclick="submitScanInline(this)">✓ Valider tout</button>`;
 
   elOutput.appendChild(div);
   elOutput.scrollTop = elOutput.scrollHeight;
@@ -2226,14 +2243,32 @@ function submitMissionScan(addToVoyage) {
   send({ type: 'mission_scan_confirm', data: { files, add_to_voyage: addToVoyage } });
 }
 
-// Badge "📷 N" dans la statusbar
-function onScreenshotProcessed(msg) {
-  const n   = (msg.n_missions || 0);
+// Badge "📷 N" dans la statusbar — spinner OCR
+function onOcrQueued(msg) {
   const el  = document.getElementById('sb-screencap');
   const nEl = document.getElementById('sb-screencap-n');
-  if (n > 0) {
-    el.classList.remove('off'); el.classList.add('on');
+  el.classList.remove('off', 'on');
+  el.classList.add('spinning');
+  nEl.textContent = '⟳ OCR…';
+}
+
+function onScreenshotProcessed(msg) {
+  const n       = (msg.n_missions || 0);
+  const pending = (msg.pending    || 0);
+  const el  = document.getElementById('sb-screencap');
+  const nEl = document.getElementById('sb-screencap-n');
+  if (pending > 0) {
+    // encore des images en queue → garder spinner
+    el.classList.remove('off', 'on');
+    el.classList.add('spinning');
+    nEl.textContent = '⟳ OCR…';
+  } else if (n > 0) {
+    el.classList.remove('off', 'spinning');
+    el.classList.add('on');
     nEl.textContent = n + ' mission' + (n > 1 ? 's' : '');
+  } else {
+    el.classList.remove('spinning', 'on');
+    el.classList.add('off');
   }
 }
 

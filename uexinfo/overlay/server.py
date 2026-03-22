@@ -247,7 +247,9 @@ class OverlayServer:
         for extra_msg in _send_q:
             await ws.send(json.dumps(extra_msg))
 
-        if output:
+        # Pour /scan log, le formulaire inline remplace l'output texte
+        is_scan_log = line.strip().lstrip("/").lower().startswith("scan log")
+        if output and not is_scan_log:
             await ws.send(json.dumps({"type": "output", "ansi": output}))
 
         if needs_status:
@@ -471,8 +473,7 @@ class OverlayServer:
             prev_len = len(getattr(self.ctx, "scan_history", []))
             loop = asyncio.get_event_loop()
             output, _ = await loop.run_in_executor(None, self._exec_sync, "/scan log")
-            if output:
-                await ws.send(json.dumps({"type": "output", "ansi": output}))
+            # output texte supprimé : le formulaire inline remplace l'affichage
             await ws.send(json.dumps({"type": "done"}))
             # Envoyer l'éditeur pour les nouveaux scans détectés
             new_scans = getattr(self.ctx, "scan_history", [])[prev_len:]
@@ -566,6 +567,7 @@ class OverlayServer:
                             continue
                         kwargs = mr.to_mission_kwargs()
                         kwargs["source_raw"] = source_raw_from_entry(e)
+                        kwargs["scanned_at"] = e.file_mtime
                         m = Mission(id=0, **kwargs)
                         mm.add(m)
                         added += 1
@@ -706,6 +708,7 @@ class OverlayServer:
         except Exception:
             n_miss, n_term = 0, 0
 
+        pending = self._ocr_worker.qsize() if self._ocr_worker else 0
         msg = json.dumps({
             "type":     "screenshot_processed",
             "file":     entry.file,
@@ -714,6 +717,7 @@ class OverlayServer:
             "n_missions":  n_miss,
             "n_terminals": n_term,
             "errors":   entry.errors,
+            "pending":  pending,
         })
         asyncio.run_coroutine_threadsafe(
             self._broadcast_raw(msg), self._loop
@@ -736,7 +740,9 @@ class OverlayServer:
             if not self._clients or not self.ctx:
                 continue
             # Soumettre les nouveaux screenshots à l'OCR worker
-            self._check_and_queue_screenshots()
+            n_queued = self._check_and_queue_screenshots()
+            if n_queued > 0:
+                await self._broadcast_raw(json.dumps({"type": "ocr_queued", "n": n_queued}))
             for ws in list(self._clients):
                 try:
                     await self._send_status(ws)

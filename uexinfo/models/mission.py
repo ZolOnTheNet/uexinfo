@@ -36,6 +36,7 @@ class Mission:
     is_selected: bool = True       # Incluse dans le calcul du voyage
     source_raw: str | None = None  # Origine (fichier scan, clipboard, manual)
     notes: str | None = None
+    scanned_at: float | None = None  # Unix timestamp du scan/import
 
     @property
     def all_sources(self) -> list[str]:
@@ -58,6 +59,7 @@ class Mission:
             "is_selected": self.is_selected,
             "source_raw":  self.source_raw,
             "notes":       self.notes,
+            "scanned_at":  self.scanned_at,
         }
 
     @classmethod
@@ -71,4 +73,5 @@ class Mission:
             is_selected=d.get("is_selected", True),
             source_raw=d.get("source_raw"),
             notes=d.get("notes"),
+            scanned_at=d.get("scanned_at"),
         )

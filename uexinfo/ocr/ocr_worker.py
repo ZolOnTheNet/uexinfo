@@ -244,6 +244,10 @@ class OcrWorker:
                 count += 1
         return count
 
+    def qsize(self) -> int:
+        """Nombre d'éléments encore en attente dans la queue."""
+        return self._queue.qsize()
+
     def stop(self) -> None:
         self._queue.put(None)
         self._thread.join(timeout=5)

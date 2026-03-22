@@ -263,6 +263,7 @@ def _add_selected_missions(missions, indices: list[int], add_to_voyage: bool, ct
             continue
         kwargs = mr.to_mission_kwargs()
         kwargs["source_raw"] = source_raw_from_entry(e)
+        kwargs["scanned_at"] = e.file_mtime
         from uexinfo.models.mission import Mission
         m = Mission(id=0, **kwargs)
         mm.add(m)
@@ -322,16 +323,18 @@ def _cmd_list(ctx) -> None:
     tbl = Table(show_header=True, box=None, padding=(0, 1),
                 row_styles=["", f"on grey7"])
     tbl.add_column("#",          style=C.DIM,    width=3, justify="right")
-    tbl.add_column("Nom",        style=C.LABEL,  max_width=45)
-    tbl.add_column("Départ",     style=C.UEX,    max_width=18)
+    tbl.add_column("Scan",       style=C.DIM,    width=11)
+    tbl.add_column("Nom",        style=C.LABEL,  max_width=38)
+    tbl.add_column("Départ",     style=C.UEX,    max_width=16)
     tbl.add_column("→",          style=C.DIM,    width=1)
-    tbl.add_column("Arrivée",    style=C.UEX,    max_width=18)
+    tbl.add_column("Arrivée",    style=C.UEX,    max_width=16)
     tbl.add_column("Dist",       justify="right", width=7)
     tbl.add_column("SCU",        justify="right", width=5)
     tbl.add_column("Récompense", justify="right", width=12)
     tbl.add_column("Syn",        width=4)
 
     graph = ctx.cache.transport_graph
+    from datetime import datetime as _dt
 
     for m in mm.missions:
         srcs = ", ".join(m.all_sources[:2]) or "—"
@@ -339,6 +342,16 @@ def _cmd_list(ctx) -> None:
         scu_str = f"{m.total_scu:.0f}□" if m.total_scu else "—"
         reward_str = f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
         tags = " ".join(mm.synergies(m))
+
+        # Date de scan
+        if m.scanned_at:
+            scan_str = _dt.fromtimestamp(m.scanned_at).strftime("%d/%m %H:%M")
+        elif m.source_raw == "manual":
+            scan_str = "manuel"
+        elif m.source_raw == "trade":
+            scan_str = "trade"
+        else:
+            scan_str = "—"
 
         # Distance via graphe — résolution fuzzy des noms de lieux
         dist_str = "?"
@@ -358,7 +371,7 @@ def _cmd_list(ctx) -> None:
         name_display = m.name + (f" [{C.WARNING}]⏱[/{C.WARNING}]" if has_delay else "")
 
         tbl.add_row(
-            str(m.id),
+            str(m.id), scan_str,
             name_display, srcs, "→", dsts,
             dist_str, scu_str, reward_str, tags,
         )
