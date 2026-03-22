@@ -80876,26 +80876,6 @@
     },
     {
       "from": "Port Tressler",
-      "to": "Seraphim Station",
-      "distance_gm": 57.0,
-      "type": "quantum",
-      "duration_sec": 0,
-      "updated_at": 1773958198.5906432,
-      "source": "uex",
-      "notes": ""
-    },
-    {
-      "from": "Seraphim Station",
-      "to": "Port Tressler",
-      "distance_gm": 57.0,
-      "type": "quantum",
-      "duration_sec": 0,
-      "updated_at": 1773958198.5906432,
-      "source": "uex",
-      "notes": ""
-    },
-    {
-      "from": "Port Tressler",
       "to": "Hickes Research",
       "distance_gm": 57.0,
       "type": "quantum",
@@ -82231,6 +82211,1006 @@
       "type": "quantum",
       "duration_sec": 0,
       "updated_at": 1774039489.6957266,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Nyx Gateway (Stanton)",
+      "distance_gm": 54.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4413826,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Nyx Gateway (Stanton)",
+      "to": "Seraphim Station",
+      "distance_gm": 54.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4413826,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Rod's Fuel 'N Supplies",
+      "distance_gm": 86.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.442383,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rod's Fuel 'N Supplies",
+      "to": "Seraphim Station",
+      "distance_gm": 86.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.442383,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Patch City",
+      "distance_gm": 88.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4433827,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Patch City",
+      "to": "Seraphim Station",
+      "distance_gm": 88.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4433827,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Endgame",
+      "distance_gm": 120.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.444384,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Endgame",
+      "to": "Seraphim Station",
+      "distance_gm": 120.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.444384,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Gaslight",
+      "distance_gm": 129.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4453828,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Gaslight",
+      "to": "Seraphim Station",
+      "distance_gm": 129.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4453828,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Dudley & Daughters",
+      "distance_gm": 152.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.446383,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Dudley & Daughters",
+      "to": "Seraphim Station",
+      "distance_gm": 152.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.446383,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Lorville",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4473827,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Lorville",
+      "to": "Seraphim Station",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4473827,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Area 18",
+      "distance_gm": 42.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4489226,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Area 18",
+      "to": "Seraphim Station",
+      "distance_gm": 42.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4489226,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "New Babbage",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4500504,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "New Babbage",
+      "to": "Seraphim Station",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4500504,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Orison",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.45205,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Orison",
+      "to": "Seraphim Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.45205,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Levski",
+      "distance_gm": 67.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.45305,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Levski",
+      "to": "Seraphim Station",
+      "distance_gm": 67.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.45305,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Rappel",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4540498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rappel",
+      "to": "Seraphim Station",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4540498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Picker's Field",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4550498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Picker's Field",
+      "to": "Seraphim Station",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4550498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Dunboro",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4570498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Dunboro",
+      "to": "Seraphim Station",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4570498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Everus Harbor",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4580498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Everus Harbor",
+      "to": "Seraphim Station",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4580498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Orbituary",
+      "distance_gm": 94.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4590497,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Orbituary",
+      "to": "Seraphim Station",
+      "distance_gm": 94.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4590497,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Pyro Gateway (Nyx)",
+      "distance_gm": 99.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4600499,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Pyro Gateway (Nyx)",
+      "to": "Seraphim Station",
+      "distance_gm": 99.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4600499,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Stanton Gateway (Nyx)",
+      "distance_gm": 54.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4610498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Stanton Gateway (Nyx)",
+      "to": "Seraphim Station",
+      "distance_gm": 54.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4610498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Nyx Gateway (Pyro)",
+      "distance_gm": 137.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4620497,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Nyx Gateway (Pyro)",
+      "to": "Seraphim Station",
+      "distance_gm": 137.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4620497,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Ruin Station",
+      "distance_gm": 116.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.46305,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Ruin Station",
+      "to": "Seraphim Station",
+      "distance_gm": 116.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.46305,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Port Tressler",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4640498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Port Tressler",
+      "to": "Seraphim Station",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4640498,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "CRU-L5 Beautiful Glen Station",
+      "distance_gm": 19.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4650521,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "CRU-L5 Beautiful Glen Station",
+      "to": "Seraphim Station",
+      "distance_gm": 19.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4650521,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "CRU-L1 Ambitious Dream Station",
+      "distance_gm": 2.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4660506,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "CRU-L1 Ambitious Dream Station",
+      "to": "Seraphim Station",
+      "distance_gm": 2.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4660506,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "MIC-L5 Modern Icarus Station",
+      "distance_gm": 62.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4660506,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "MIC-L5 Modern Icarus Station",
+      "to": "Seraphim Station",
+      "distance_gm": 62.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4660506,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "MIC-L2 Long Forest Station",
+      "distance_gm": 62.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4680717,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "MIC-L2 Long Forest Station",
+      "to": "Seraphim Station",
+      "distance_gm": 62.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4680717,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "HUR-L2 Faithful Dream Station",
+      "distance_gm": 33.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4680717,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HUR-L2 Faithful Dream Station",
+      "to": "Seraphim Station",
+      "distance_gm": 33.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4680717,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "MIC-L1 Shallow Frontier Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.470075,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "MIC-L1 Shallow Frontier Station",
+      "to": "Seraphim Station",
+      "distance_gm": 53.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.470075,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "HUR-L1 Green Glade Station",
+      "distance_gm": 31.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.470075,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HUR-L1 Green Glade Station",
+      "to": "Seraphim Station",
+      "distance_gm": 31.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.470075,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "HUR-L4 Melodic Fields Station",
+      "distance_gm": 29.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4720778,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HUR-L4 Melodic Fields Station",
+      "to": "Seraphim Station",
+      "distance_gm": 29.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4720778,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "CRU-L4 Shallow Fields Station",
+      "distance_gm": 19.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4740813,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "CRU-L4 Shallow Fields Station",
+      "to": "Seraphim Station",
+      "distance_gm": 19.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4740813,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "HUR-L3 Thundering Express Station",
+      "distance_gm": 7.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4740813,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HUR-L3 Thundering Express Station",
+      "to": "Seraphim Station",
+      "distance_gm": 7.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4740813,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "MIC-L4 Red Crossroads Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4760869,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "MIC-L4 Red Crossroads Station",
+      "to": "Seraphim Station",
+      "distance_gm": 41.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4760869,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "HUR-L5 High Course Station",
+      "distance_gm": 27.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4760869,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HUR-L5 High Course Station",
+      "to": "Seraphim Station",
+      "distance_gm": 27.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4760869,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "MIC-L3 Endless Odyssey Station",
+      "distance_gm": 35.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4780905,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "MIC-L3 Endless Odyssey Station",
+      "to": "Seraphim Station",
+      "distance_gm": 35.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4780905,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Baijini Point",
+      "distance_gm": 42.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4800935,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Baijini Point",
+      "to": "Seraphim Station",
+      "distance_gm": 42.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4800935,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Pyro Gateway (Stanton)",
+      "distance_gm": 34.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4800935,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Pyro Gateway (Stanton)",
+      "to": "Seraphim Station",
+      "distance_gm": 34.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4800935,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Checkmate Station",
+      "distance_gm": 81.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4818382,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Checkmate Station",
+      "to": "Seraphim Station",
+      "distance_gm": 81.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4818382,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Stanton Gateway (Pyro)",
+      "distance_gm": 34.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4818382,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Stanton Gateway (Pyro)",
+      "to": "Seraphim Station",
+      "distance_gm": 34.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4818382,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Megumi Refueling",
+      "distance_gm": 56.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4838424,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Megumi Refueling",
+      "to": "Seraphim Station",
+      "distance_gm": 56.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4838424,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Starlight Service Station",
+      "distance_gm": 93.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.485846,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Starlight Service Station",
+      "to": "Seraphim Station",
+      "distance_gm": 93.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.485846,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Rat's Nest",
+      "distance_gm": 124.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4868486,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rat's Nest",
+      "to": "Seraphim Station",
+      "distance_gm": 124.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4868486,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Brio's Breaker Yard",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4868486,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Brio's Breaker Yard",
+      "to": "Seraphim Station",
+      "distance_gm": 0.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4868486,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Samson & Son's Salvage Center",
+      "distance_gm": 42.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4888518,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Samson & Son's Salvage Center",
+      "to": "Seraphim Station",
+      "distance_gm": 42.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4888518,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "HDMS-Hahn",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4888518,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HDMS-Hahn",
+      "to": "Seraphim Station",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4888518,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Devlin Scrap & Salvage",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.490855,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Devlin Scrap & Salvage",
+      "to": "Seraphim Station",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.490855,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Reclamation & Disposal Orinth",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.49286,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Reclamation & Disposal Orinth",
+      "to": "Seraphim Station",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.49286,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "HDMS-Perlman",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4948635,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "HDMS-Perlman",
+      "to": "Seraphim Station",
+      "distance_gm": 32.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4948635,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Terra Gateway (Stanton)",
+      "distance_gm": 70.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4948635,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Terra Gateway (Stanton)",
+      "to": "Seraphim Station",
+      "distance_gm": 70.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4948635,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Rayari McGrath Research Outpost",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4968667,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rayari McGrath Research Outpost",
+      "to": "Seraphim Station",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4968667,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Seraphim Station",
+      "to": "Rayari Cantwell Research Outpost",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4986777,
+      "source": "uex",
+      "notes": ""
+    },
+    {
+      "from": "Rayari Cantwell Research Outpost",
+      "to": "Seraphim Station",
+      "distance_gm": 57.0,
+      "type": "quantum",
+      "duration_sec": 0,
+      "updated_at": 1774107923.4986777,
       "source": "uex",
       "notes": ""
     }

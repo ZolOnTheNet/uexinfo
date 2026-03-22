@@ -287,28 +287,71 @@ def _commodity_prices(c_id: int, ctx) -> list[dict]:
 
 
 
-def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
-    """Retourne {terminal_name_lower: distance_gm} depuis terminal_id (routes UEX).
+def _add_graph_distances(dist_map: dict[str, float], origin_t_obj, ctx) -> None:
+    """Complète dist_map avec les distances Dijkstra du graphe de transport local.
 
-    Enrichit automatiquement le graphe de transport avec les distances découvertes.
+    Ne remplace pas les entrées déjà présentes (priorité UEX API).
+    """
+    if not origin_t_obj:
+        return
+    graph = ctx.cache.transport_graph
+    origin_node = _site_graph_node(origin_t_obj, ctx)
+    origin_node_name = origin_node.name if origin_node else origin_t_obj.name
+    if not origin_node_name:
+        return
+    graph_dists = graph.find_all_distances(origin_node_name)
+    if not graph_dists:
+        return
+    for t in ctx.cache.terminals:
+        t_lo   = t.name.lower()
+        loc_lo = _loc(t.name).lower()
+        if t_lo in dist_map or loc_lo in dist_map:
+            continue
+        d = graph_dists.get(t.name)
+        if d is None:
+            d = graph_dists.get(_site_key(t))
+        if d is not None and d > 0:
+            dist_map[t_lo] = d
+            if loc_lo != t_lo:
+                dist_map[loc_lo] = d
+
+
+def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
+    """Retourne {terminal_name_lower: distance_gm} depuis terminal_id.
+
+    Sources (par ordre de priorité) :
+    1. API UEX routes (si disponible)
+    2. Graphe de transport local (fallback)
+
+    Enrichit automatiquement le graphe de transport avec les distances UEX découvertes.
     """
     key = f"rd_{terminal_id}"
+
+    # Récupérer le terminal d'origine (nécessaire pour le graphe local)
+    origin_t_obj = None
+    origin_terminal = None
+    for t in ctx.cache.terminals:
+        if t.id == terminal_id:
+            origin_t_obj = t
+            origin_terminal = t.name
+            break
+
+    # Cache valide ET non-vide → retour direct
     cached = ctx._price_cache.get(key)
     if cached:
         _ts, data = cached
-        return data
+        if data:
+            return data
+        # Données vides en cache → complète depuis le graphe local sans re-fetch
+        dist_map = {}
+        _add_graph_distances(dist_map, origin_t_obj, ctx)
+        return dist_map
+
     client = UEXClient()
     try:
         routes = client.get_routes(id_terminal_origin=terminal_id)
     except UEXError:
-        return {}
-
-    # Récupérer le nom du terminal d'origine
-    origin_terminal = None
-    for t in ctx.cache.terminals:
-        if t.id == terminal_id:
-            origin_terminal = t.name
-            break
+        routes = []
 
     # Index terminal → système depuis le cache statique (pour éviter les "Unknown")
     _term_sys: dict[str, str] = {
@@ -355,6 +398,9 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
         console.print(
             f"[{C.DIM}]⊕ Graphe enrichi : {enriched_count} nouvelle(s) route(s)[/{C.DIM}]"
         )
+
+    # ── Fallback : graphe de transport local ─────────────────────────────────
+    _add_graph_distances(dist_map, origin_t_obj, ctx)
 
     ctx._price_cache[key] = (time.time(), dist_map)
     return dist_map
@@ -536,21 +582,35 @@ def _stock_bar(status: int, sell: bool) -> str:
     return f"[{color}]{bar}[/{color}]"
 
 
-def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx, player_dest: str = "") -> list[dict]:
+def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx,
+                      player_dest: str = "", sys_filter=None) -> list[dict]:
     """Trouve les terminaux achetant cette commodité (price_sell > 0), triés par :
     1. Destination du joueur (si définie)
     2. Prix de vente (décroissant)
     Exclut le terminal d'origine. Retourne les 3 meilleurs acheteurs.
+    sys_filter : None=système joueur, []=tous, [str,…]=liste explicite.
     """
     if not id_commodity:
         return []
 
     rows = _commodity_prices(id_commodity, ctx)
 
-    # Terminaux acheteurs (price_sell > 0), hors terminal d'origine
+    # Calcul du filtre effectif (même logique que _show_commodity)
+    player_sys = _player_system(ctx)
+    if sys_filter is None:
+        effective_filter: list[str] | None = [player_sys] if player_sys else None
+    elif sys_filter == []:          # --all
+        effective_filter = None
+    else:
+        effective_filter = sys_filter
+
+    # Terminaux acheteurs (price_sell > 0), hors terminal d'origine, filtrés par système
     buyers = [
         r for r in rows
-        if r.get("price_sell") and int(r.get("id_terminal") or 0) != origin_terminal_id
+        if r.get("price_sell")
+        and int(r.get("id_terminal") or 0) != origin_terminal_id
+        and (not effective_filter
+             or (r.get("star_system_name") or "").lower() in effective_filter)
     ]
 
     if not buyers:
@@ -565,7 +625,7 @@ def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx, player_de
     return sorted(buyers, key=sort_key)[:3]
 
 
-def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> None:
+def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys_filter=None) -> None:
     """Affiche la section Acheter avec table alignée, triée par profit décroissant."""
     # Récupérer le cargo du vaisseau actif
     ship_cargo = 0
@@ -609,7 +669,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
         qty_buy          = min(ship_cargo, stock_available) if stock_available > 0 else ship_cargo
         total_buy        = qty_buy * price_buy
 
-        best_buyers = _find_best_buyers(id_comm, origin_terminal.id, ctx, player_dest)
+        best_buyers = _find_best_buyers(id_comm, origin_terminal.id, ctx, player_dest, sys_filter=sys_filter)
 
         if not best_buyers:
             entries.append((0.0, {
@@ -676,7 +736,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
     tbl.add_column("Commodité",      no_wrap=True, min_width=14)
     tbl.add_column(f"Prix/{C.SCU}",  justify="right", no_wrap=True)
     tbl.add_column("Âge",            style=C.DIM,    justify="right", no_wrap=True)
-    tbl.add_column("→ Dest",         no_wrap=True,   min_width=14)
+    tbl.add_column("→ Dest",         no_wrap=True,   min_width=20, max_width=32)
     tbl.add_column(f"→Prix/{C.SCU}", justify="right", no_wrap=True)
     tbl.add_column("Dist",           style=C.DIM,    justify="right", no_wrap=True)
     tbl.add_column(C.SCU,            style=C.DIM,    justify="right", no_wrap=True)
@@ -702,7 +762,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx) -> 
             price_cell = f"[italic {C.UEX}]{_price_short(d['price_buy'])}[/italic {C.UEX}]"
             sell_cell  = f"[italic {C.PROFIT}]{_price_short(d.get('price_sell'))}[/italic {C.PROFIT}]"
 
-        dest_str = f"[{d['dest_tag']}]{_abbrev_name(d['dest'], 18)}[/{d['dest_tag']}]"
+        dest_str = f"[{d['dest_tag']}]{d['dest']}[/{d['dest_tag']}]"
         if player_dest and d.get("dest_name_raw", "").lower() == player_dest:
             dest_str = f"⭐ {dest_str}"
 
@@ -878,7 +938,7 @@ def _show_site_header(t: Terminal, ctx) -> None:
 
 # ── Affichage terminal ─────────────────────────────────────────────────────────
 
-def _show_terminal(t: Terminal, ctx) -> None:
+def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
     player_sys = _player_system(ctx)
     dot = _dot_name(
         t.name, t.star_system_name, player_sys,
@@ -918,7 +978,7 @@ def _show_terminal(t: Terminal, ctx) -> None:
             n_cols = _n_cols(term_w)
 
             if buy_rows:
-                _show_buy_detailed(buy_rows, t, ctx)
+                _show_buy_detailed(buy_rows, t, ctx, sys_filter=sys_filter)
             else:
                 console.print(f"\n[bold {C.UEX}]▼ Acheter sur place[/bold {C.UEX}]")
                 console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à vendre ici[/italic {C.DIM}]")
@@ -1617,7 +1677,7 @@ def _find_vehicle(query: str, ctx) -> Vehicle | None:
     return None
 
 
-def _show_terminal_by_name(query: str, ctx) -> bool:
+def _show_terminal_by_name(query: str, ctx, sys_filter=None) -> bool:
     """Requête directe pour les terminaux absents du cache (ex: système Pyro).
     Construit un Terminal virtuel depuis les données de prix et l'affiche.
     """
@@ -1646,7 +1706,7 @@ def _show_terminal_by_name(query: str, ctx) -> bool:
     tid_key = f"t{t.id}"
     if tid_key not in ctx._price_cache:
         ctx._price_cache.copy_entry(cache_key, tid_key)
-    _show_terminal(t, ctx)
+    _show_terminal(t, ctx, sys_filter=sys_filter)
     return True
 
 
@@ -1665,8 +1725,8 @@ def cmd_info(args: list[str], ctx) -> None:
             return
         t = _find_terminal(loc, ctx)
         if t:
-            _show_terminal(t, ctx)
-        elif not _show_terminal_by_name(loc, ctx):
+            _show_terminal(t, ctx, sys_filter=sys_filter)
+        elif not _show_terminal_by_name(loc, ctx, sys_filter=sys_filter):
             print_warn(f"Position actuelle introuvable comme terminal : {loc}")
         return
 
@@ -1683,7 +1743,7 @@ def cmd_info(args: list[str], ctx) -> None:
             if t is None:
                 print_warn(f"Terminal introuvable : {query}")
             else:
-                _show_terminal(t, ctx)
+                _show_terminal(t, ctx, sys_filter=sys_filter)
         elif first == "commodity":
             c = _find_commodity(query, ctx)
             if c is None:
@@ -1709,19 +1769,19 @@ def cmd_info(args: list[str], ctx) -> None:
     # qu'un nom de terminal comme "Devlin Scrap and Salvage" écrase la commodité "Scrap".
     t = _find_terminal(query, ctx, strong=True)
     if t:
-        _show_terminal(t, ctx)
+        _show_terminal(t, ctx, sys_filter=sys_filter)
         return
     c = _find_commodity(query, ctx)
     if c:
         _show_commodity(c, ctx, sys_filter=sys_filter)
         return
     # Fallback : terminal hors cache (Pyro, etc.) → requête directe par nom
-    if _show_terminal_by_name(query, ctx):
+    if _show_terminal_by_name(query, ctx, sys_filter=sys_filter):
         return
     # Fallback : terminal match "contient" (ex: "devlin scrap" → Devlin Scrap and Salvage)
     t = _find_terminal(query, ctx)
     if t:
-        _show_terminal(t, ctx)
+        _show_terminal(t, ctx, sys_filter=sys_filter)
         return
     # Fallback : vaisseau
     v = _find_vehicle(query, ctx)

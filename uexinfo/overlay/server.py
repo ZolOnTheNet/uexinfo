@@ -56,16 +56,20 @@ from uexinfo.cli.main import AppContext
 from uexinfo.cache.manager import CacheManager
 from uexinfo.cache.mission_manager import MissionManager
 from uexinfo.cache.voyage_manager import VoyageManager
+from uexinfo.cache.screenshot_db import ScreenshotDB
 from uexinfo.location.index import LocationIndex
 from uexinfo.models.player import Player
+from uexinfo.ocr.ocr_worker import OcrWorker
 import uexinfo.config.settings as _settings
 import uexinfo.cli.history as _history_mod
 
-_RE_ANSI = re.compile(r"\x1b\[[0-9;]*[mK]")
+_RE_ANSI    = re.compile(r"\x1b\[[0-9;]*[mK]")
+_WARN_COLOR = "yellow"
+_DIM_COLOR  = "dim"
 
 # Commandes qui nécessitent une mise à jour de la barre de statut
 _STATUS_CMDS = frozenset({"player", "p", "go", "lieu", "ship", "config", "dest", "arriver", "arrivé", "arrived",
-                          "mission", "m", "voyage", "v"})
+                          "mission", "m", "voyage", "v", "scan", "s"})
 _QUIT_CMDS   = frozenset({"quit", "exit", "bye", "quitter", "/quit", "/exit", "/bye", "/quitter"})
 
 
@@ -84,6 +88,10 @@ class OverlayServer:
         self._select_event  = threading.Event()
         self._select_indices: list[int] | None = None   # None = annulé
         self._loop: asyncio.AbstractEventLoop | None = None
+
+        # ── Screenshot DB + OCR worker ────────────────────────────────────────
+        self._screenshot_db: ScreenshotDB | None = None
+        self._ocr_worker:    OcrWorker    | None = None
 
     # ── Initialisation du contexte CLI ────────────────────────────────────────
 
@@ -111,6 +119,16 @@ class OverlayServer:
         retention = self.ctx.cfg.get("voyages", {}).get("retention", 24)
         self.ctx.voyage_manager = VoyageManager(retention=retention)
         self._history = _history_mod.last_n(500)
+
+        # ── Screenshot DB + OCR worker ────────────────────────────────────────
+        self._screenshot_db = ScreenshotDB()
+        self._ocr_worker    = OcrWorker(self._screenshot_db, self.ctx)
+        self._ocr_worker.set_gap_minutes(
+            self.ctx.cfg.get("scan", {}).get("session_gap", 60)
+        )
+        self._ocr_worker.on_processed(self._on_screenshot_processed)
+        # Exposer la DB dans le contexte pour les commandes CLI
+        self.ctx.screenshot_db = self._screenshot_db
 
     # ── Handler WebSocket ─────────────────────────────────────────────────────
 
@@ -157,13 +175,17 @@ class OverlayServer:
             cols = max(40, int(msg.get("value", 100)))
             _fmt_mod.console._width = cols
         elif t == "scan_confirm":
-            await self._handle_scan_confirm(msg.get("data", {}))
+            await self._handle_scan_confirm(ws, msg.get("data", {}))
         elif t == "select_confirm":
             self._select_indices = msg.get("indices", [])
             self._select_event.set()
         elif t == "select_cancel":
             self._select_indices = None
             self._select_event.set()
+        elif t == "trade_chosen":
+            await self._handle_trade_chosen(msg.get("idx"))
+        elif t == "mission_scan_confirm":
+            await self._handle_mission_scan_confirm(ws, msg.get("data", {}))
         elif t == "history":
             await ws.send(json.dumps({"type": "history", "items": self._history}))
 
@@ -200,11 +222,17 @@ class OverlayServer:
 
         # Capturer la longueur de l'historique AVANT exec pour détecter les nouveaux scans
         prev_history_len = len(getattr(self.ctx, "scan_history", []))
+        # Capturer l'id de last_trade_entries pour détecter une mise à jour
+        prev_trade_id = id(getattr(self.ctx, "last_trade_entries", None))
 
         # Injecter select_fn pour ce websocket (permet aux commandes d'ouvrir
         # le sélecteur overlay au lieu du TUI terminal)
-        self.ctx.select_fn = lambda items, title="", mode="multi": \
-            self._overlay_select_sync(ws, items, title, mode)
+        self.ctx.select_fn = lambda items, title="", mode="multi", confirm_label="": \
+            self._overlay_select_sync(ws, items, title, mode, confirm_label)
+
+        # Injecter _overlay_send_fn : permet à /mission scan d'envoyer mission_scan_list
+        _send_q: list[dict] = []
+        self.ctx._overlay_send_fn = _send_q.append
 
         # Exécution dans un thread (bloquant)
         loop = asyncio.get_event_loop()
@@ -213,6 +241,11 @@ class OverlayServer:
         )
 
         self.ctx.select_fn = None
+        self.ctx._overlay_send_fn = None
+
+        # Envoyer les messages générés par la commande (ex: mission_scan_list)
+        for extra_msg in _send_q:
+            await ws.send(json.dumps(extra_msg))
 
         if output:
             await ws.send(json.dumps({"type": "output", "ansi": output}))
@@ -226,6 +259,11 @@ class OverlayServer:
         new_scans = getattr(self.ctx, "scan_history", [])[prev_history_len:]
         for result in new_scans:
             await self._send_scan_edit(ws, result)
+
+        # Envoyer trade_pick si les résultats trade ont changé
+        new_trade = getattr(self.ctx, "last_trade_entries", None)
+        if new_trade is not None and id(new_trade) != prev_trade_id:
+            await ws.send(json.dumps({"type": "trade_pick", **new_trade}))
 
         # Après un refresh, le cache change → re-envoyer le vocabulaire
         first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
@@ -241,14 +279,6 @@ class OverlayServer:
             needs_status = False
             try:
                 first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
-
-                # Pre-hook scan (identique au CLI)
-                if first not in ("scan", "s"):
-                    try:
-                        from uexinfo.cli.commands.scan import check_log_auto
-                        check_log_auto(self.ctx)
-                    except Exception:
-                        pass
 
                 result = run_command(line, self.ctx)
                 needs_status = bool(result & _STATUS_CMDS) if result else False
@@ -289,10 +319,10 @@ class OverlayServer:
         dist = None
         if p.location and p.destination and p.location != p.destination:
             try:
-                path = self.ctx.cache.transport_graph.shortest_path(
+                path = self.ctx.cache.transport_graph.find_shortest_path(
                     p.location, p.destination
                 )
-                if path and getattr(path, "total_distance", None):
+                if path is not None and path.total_distance is not None:
                     dist = round(path.total_distance, 1)
             except Exception:
                 pass
@@ -345,7 +375,8 @@ class OverlayServer:
             "dist":          dist,
             "voyage_name":  voyage_name,
             "voyage_count": voyage_count,
-            "scan_sc":  scan_sc,
+            # ScanLog a la priorité : ScanSC ne clignote pas quand ScanLog est en attente
+            "scan_sc":  scan_sc and not scan_log,
             "scan_log": scan_log,
             "ships":    ships,
         }))
@@ -389,33 +420,176 @@ class OverlayServer:
                 for c in result.commodities
             ],
         }
-        await ws.send(json.dumps({"type": "scan_edit", "data": data}))
+        # Scans log validés → formulaire inline dans l'output (pas de panel plein-écran)
+        msg_type = (
+            "scan_log_inline"
+            if result.source == "log" and result.validated
+            else "scan_edit"
+        )
+        await ws.send(json.dumps({"type": msg_type, "data": data}))
 
-    async def _handle_scan_confirm(self, data: dict) -> None:
-        """Met à jour ctx.last_scan avec les valeurs éditées par l'utilisateur."""
+    async def _handle_scan_confirm(self, ws, data: dict) -> None:
+        """Met à jour le ScanResult correspondant avec les valeurs éditées,
+        puis re-exécute /scan log pour afficher le résultat mis à jour."""
         try:
-            result = getattr(self.ctx, "last_scan", None)
+            # Pour les scans inline (log), trouver le bon résultat par terminal+mode
+            terminal_key = (data.get("terminal") or "").strip().lower()
+            mode_key     = data.get("mode") or ""
+            result       = None
+            if terminal_key and mode_key:
+                history = getattr(self.ctx, "scan_history", [])
+                for r in reversed(history):
+                    if r.terminal.lower() == terminal_key and r.mode == mode_key:
+                        result = r
+                        break
+            if result is None:
+                result = getattr(self.ctx, "last_scan", None)
             if result is None:
                 return
             result.terminal = data.get("terminal", result.terminal)
             result.mode     = data.get("mode",     result.mode)
+            single_idx = data.get("single_idx")   # None = tout, int = une seule ligne
             for i, cd in enumerate(data.get("commodities", [])):
                 if i >= len(result.commodities):
                     break
+                if single_idx is not None and i != single_idx:
+                    continue
                 c = result.commodities[i]
                 c.name         = cd.get("name", c.name)
                 c.price        = int(cd.get("price") or 0)
                 qty = cd.get("quantity")
                 c.quantity     = int(qty) if qty not in (None, "") else None
                 c.stock_status = int(cd.get("stock_status") or 0)
-            # Re-persister
+            # Persister
             from uexinfo.cache.scan_prices import ScanPriceStore
-            try:
-                ScanPriceStore().save_result(result)
-            except Exception:
-                pass
+            ScanPriceStore().save_result(result)
+        except Exception:
+            return
+
+        # Re-exécuter /scan log — même comportement qu'une commande manuelle
+        try:
+            prev_len = len(getattr(self.ctx, "scan_history", []))
+            loop = asyncio.get_event_loop()
+            output, _ = await loop.run_in_executor(None, self._exec_sync, "/scan log")
+            if output:
+                await ws.send(json.dumps({"type": "output", "ansi": output}))
+            await ws.send(json.dumps({"type": "done"}))
+            # Envoyer l'éditeur pour les nouveaux scans détectés
+            new_scans = getattr(self.ctx, "scan_history", [])[prev_len:]
+            for r in new_scans:
+                await self._send_scan_edit(ws, r)
+            # Mettre à jour les flags (scan_log consommé → scan_sc peut réapparaître)
+            await self._send_status(ws)
         except Exception:
             pass
+
+    # ── Trade pick (choisir un trade → mission) ───────────────────────────────
+
+    async def _handle_trade_chosen(self, idx) -> None:
+        """Crée une mission simple à partir de la ligne de trade choisie."""
+        entries_data = getattr(self.ctx, "last_trade_entries", None)
+        if not entries_data:
+            return
+        try:
+            entry = next((e for e in entries_data["entries"] if e["idx"] == idx), None)
+            if not entry:
+                return
+            from uexinfo.models.mission import Mission, MissionObjective
+            obj = MissionObjective(
+                commodity=entry["name"],
+                source=entries_data["origin"],
+                destination=entries_data["dest"],
+                quantity_scu=float(entry["qty"]) if entry.get("qty") else None,
+            )
+            name = f'{entry["name"]} {entries_data["origin"]}→{entries_data["dest"]}'
+            mission = Mission(
+                id=0,
+                name=name[:45],
+                reward_uec=int(entry["profit"]),
+                objectives=[obj],
+                source_raw="trade",
+            )
+            mm = getattr(self.ctx, "mission_manager", None)
+            if mm:
+                mm.add(mission)
+                print(f"[overlay] Mission créée : {mission.name}", flush=True)
+        except Exception as e:
+            print(f"[overlay] trade_chosen error: {e}", flush=True)
+
+    # ── Mission scan — sélection overlay ─────────────────────────────────────
+
+    async def _handle_mission_scan_confirm(self, ws, data: dict) -> None:
+        """Ajoute les missions sélectionnées au catalogue (et au voyage si demandé)."""
+        files        = data.get("files", [])
+        add_to_voyage = data.get("add_to_voyage", False)
+
+        if not files or not self._screenshot_db:
+            await ws.send(json.dumps({"type": "done"}))
+            return
+
+        loop = asyncio.get_event_loop()
+        output, _ = await loop.run_in_executor(
+            None, self._exec_mission_scan_add, files, add_to_voyage
+        )
+
+        if output:
+            await ws.send(json.dumps({"type": "output", "ansi": output}))
+        await ws.send(json.dumps({"type": "done"}))
+        await self._send_status(ws)
+
+    def _exec_mission_scan_add(self, files: list[str], add_to_voyage: bool) -> tuple[str, bool]:
+        """Exécute l'ajout des missions sélectionnées (thread bloquant)."""
+        with self._lock:
+            _buf.truncate(0)
+            _buf.seek(0)
+            try:
+                from uexinfo.cache.mission_scan import entry_to_mission_result, source_raw_from_entry
+                from uexinfo.models.mission import Mission
+
+                entries = [
+                    self._screenshot_db.get(f)
+                    for f in files
+                    if self._screenshot_db.has(f)
+                ]
+                entries = [e for e in entries if e and e.is_mission]
+
+                if not entries:
+                    _fmt_mod.console.print(f"[{_WARN_COLOR}]⚠ Aucune mission valide sélectionnée[/{_WARN_COLOR}]")
+                else:
+                    mm = self.ctx.mission_manager
+                    vm = self.ctx.voyage_manager
+                    active = vm.get_active() if add_to_voyage else None
+                    added  = 0
+                    for e in entries:
+                        mr = entry_to_mission_result(e)
+                        if mr is None:
+                            continue
+                        kwargs = mr.to_mission_kwargs()
+                        m = Mission(id=0, source_raw=source_raw_from_entry(e), **kwargs)
+                        mm.add(m)
+                        added += 1
+                        _fmt_mod.console.print(
+                            f"  [green]✓[/green] [bold]#{m.id}[/bold] {m.name}"
+                            f"  [{_DIM_COLOR}]{m.reward_uec:,} aUEC[/{_DIM_COLOR}]"
+                        )
+                        if active:
+                            active.mission_ids.append(m.id)
+                    if active and added:
+                        vm.update(active)
+                        _fmt_mod.console.print(
+                            f"[green]✓ {added} mission(s) ajoutée(s) au catalogue "
+                            f"et au voyage « {active.name} »[/green]"
+                        )
+                    elif added:
+                        _fmt_mod.console.print(f"[green]✓ {added} mission(s) ajoutée(s) au catalogue[/green]")
+
+            except Exception as exc:
+                _fmt_mod.console.print(f"[red]✗ Erreur : {exc}[/red]")
+
+            output = _buf.getvalue()
+            _buf.truncate(0)
+            _buf.seek(0)
+        return output.replace("\r\n", "\n").replace("\r", "\n").rstrip(), True
 
     # ── Vocabulaire (annotation des termes connus) ────────────────────────────
 
@@ -424,20 +598,29 @@ class OverlayServer:
         cache = self.ctx.cache
         MIN = 3  # longueur minimale d'un terme
 
+        def _loc(full_name: str) -> str:
+            """Retire le préfixe service ('Admin - ', 'Shop - ', …)."""
+            return full_name.rsplit(" - ", 1)[-1].strip()
+
         commodities = sorted({
             c.name for c in (cache.commodities or [])
             if c.name and len(c.name) >= MIN
         })
         locations = sorted({
-            name
+            name_variant
             for lst, attr in (
                 (cache.star_systems, "name"),
                 (cache.planets,      "name"),
                 (cache.terminals,    "name"),
             )
             for obj in (lst or [])
-            for name in [getattr(obj, attr, None)]
-            if name and len(name) >= MIN
+            for raw in [getattr(obj, attr, None)]
+            if raw and len(raw) >= MIN
+            for name_variant in (
+                # Pour les terminaux : émettre aussi le nom court (sans préfixe service)
+                ([raw, _loc(raw)] if lst is cache.terminals else [raw])
+            )
+            if name_variant and len(name_variant) >= MIN
         })
         ships = sorted({
             s.name for s in (getattr(self.ctx.player, "ships", None) or [])
@@ -482,6 +665,67 @@ class OverlayServer:
             print(f"[overlay] complete error: {e}", flush=True)
             return []
 
+    # ── Screenshot DB / OCR ───────────────────────────────────────────────────
+
+    def _check_and_queue_screenshots(self) -> int:
+        """Détecte les nouveaux screenshots et les soumet à l'OcrWorker.
+
+        Retourne le nombre de nouveaux fichiers mis en queue.
+        """
+        if not self._ocr_worker or not self.ctx:
+            return 0
+        auto_ocr = self.ctx.cfg.get("scan", {}).get("auto_ocr", True)
+        if not auto_ocr:
+            return 0
+
+        try:
+            from uexinfo.cli.commands.scan import _screenshots_dir, _IMAGE_SUFFIXES
+            sc_dir = _screenshots_dir(self.ctx)
+            if not sc_dir.is_dir():
+                return 0
+            paths = [
+                p for p in sc_dir.iterdir()
+                if p.suffix.lower() in _IMAGE_SUFFIXES
+            ]
+            return self._ocr_worker.submit_many(paths)
+        except Exception:
+            return 0
+
+    def _on_screenshot_processed(self, entry) -> None:
+        """Callback OCR (depuis le thread worker) → broadcast WebSocket thread-safe."""
+        if not self._loop or not self._clients:
+            return
+        # Compter les missions disponibles dans la fenêtre configurée
+        try:
+            import time as _t
+            hours  = (self.ctx.cfg.get("scan", {}).get("hour", 2) if self.ctx else 2)
+            since  = _t.time() - hours * 3600
+            n_miss = len(self._screenshot_db.missions(since=since))
+            n_term = len(self._screenshot_db.terminals(since=since))
+        except Exception:
+            n_miss, n_term = 0, 0
+
+        msg = json.dumps({
+            "type":     "screenshot_processed",
+            "file":     entry.file,
+            "sctype":   entry.type,
+            "category": entry.category,
+            "n_missions":  n_miss,
+            "n_terminals": n_term,
+            "errors":   entry.errors,
+        })
+        asyncio.run_coroutine_threadsafe(
+            self._broadcast_raw(msg), self._loop
+        )
+
+    async def _broadcast_raw(self, msg: str) -> None:
+        """Envoie un message brut JSON à tous les clients connectés."""
+        for ws in list(self._clients):
+            try:
+                await ws.send(msg)
+            except Exception:
+                pass
+
     # ── Démarrage ─────────────────────────────────────────────────────────────
 
     async def _periodic_status(self) -> None:
@@ -490,6 +734,8 @@ class OverlayServer:
             await asyncio.sleep(10)
             if not self._clients or not self.ctx:
                 continue
+            # Soumettre les nouveaux screenshots à l'OCR worker
+            self._check_and_queue_screenshots()
             for ws in list(self._clients):
                 try:
                     await self._send_status(ws)
@@ -524,6 +770,7 @@ class OverlayServer:
         items: list,        # list[SelectItem]
         title: str,
         mode: str,
+        confirm_label: str = "",
     ) -> list | None:
         """Envoie la liste au JS et attend la réponse (bloquant dans le thread exec)."""
         if self._loop is None:
@@ -534,8 +781,10 @@ class OverlayServer:
             "type":  "select",
             "mode":  mode,
             "title": title,
+            "confirm_label": confirm_label,
             "items": [
-                {"idx": i, "label": it.label, "meta": it.meta}
+                {"idx": i, "label": it.label, "meta": it.meta,
+                 "selected": bool(getattr(it, "selected", False))}
                 for i, it in enumerate(items)
             ],
         })

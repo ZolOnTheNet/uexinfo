@@ -40,10 +40,13 @@ DEFAULT: dict = {
         "destination": "",
     },
     "scan": {
-        "mode": "ocr",
-        "tesseract_exe": "",
-        "sc_log_path": "",
+        "mode":             "ocr",
+        "tesseract_exe":    "",
+        "sc_log_path":      "",
         "sc_screenshots_dir": "",
+        "auto_ocr":         True,   # Lancer l'OCR dès qu'un nouveau screenshot est détecté
+        "hour":             2,      # Fenêtre de recherche (heures en arrière) pour /mission scan
+        "session_gap":      60,     # Gap en minutes entre deux screenshots = nouvelle session
     },
     "auto": {
         "log":          True,   # Lire le log SC-Datarunner automatiquement si chemin défini

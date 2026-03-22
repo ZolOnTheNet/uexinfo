@@ -150,8 +150,8 @@ class StatusBar(Widget):
         if ctx.player.location and ctx.player.destination and ctx.player.location != "—":
             try:
                 graph = ctx.cache.transport_graph
-                path_info = graph.shortest_path(ctx.player.location, ctx.player.destination)
-                if path_info and path_info.total_distance:
+                path_info = graph.find_shortest_path(ctx.player.location, ctx.player.destination)
+                if path_info is not None and path_info.total_distance is not None:
                     dist_str = f" — {path_info.total_distance:.1f} Gm"
             except Exception:
                 pass

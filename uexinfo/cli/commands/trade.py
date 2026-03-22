@@ -358,10 +358,15 @@ def _print_trade_entry(d: dict) -> None:
 
     dist_part = f"  {d['dist_str']}" if d.get("dist_str") else ""
 
+    player     = d.get("_player", False)
+    name_pfx   = f"★ {_abbrev_name(d['name'], 20)}" if player else _abbrev_name(d['name'], 22)
+    buy_color  = f"bold {C.UEX}" if player else C.UEX
+    sell_color = f"bold {C.PROFIT}" if player else C.PROFIT
+
     part1 = (
-        f"[bold {C.NEUTRAL}]▶ {_abbrev_name(d['name'], 18)}[/bold {C.NEUTRAL}]"
-        f"  [{C.DIM}]A:[/{C.DIM}][{C.UEX}]{_price_short(d['price_buy'])}[/{C.UEX}] ->"
-        f"  [{C.DIM}]V:[/{C.DIM}][{C.PROFIT}]{_price_short(d['price_sell'])}[/{C.PROFIT}]"
+        f"[bold {C.NEUTRAL}]▶ {name_pfx}[/bold {C.NEUTRAL}]"
+        f"  [{C.DIM}]A:[/{C.DIM}][{buy_color}]{_price_short(d['price_buy'])}[/{buy_color}] ->"
+        f"  [{C.DIM}]V:[/{C.DIM}][{sell_color}]{_price_short(d['price_sell'])}[/{sell_color}]"
         f"  [{C.DIM}]{d['date']}[/{C.DIM}]"
         f"  {stock_flow}"
         f"  {qty_str} {C.SCU}"
@@ -451,10 +456,13 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
     player_sys = _player_system(ctx)
     dest_name_lo = _loc(dest.name).lower()
     dest_dist  = dist_map.get(dest.name.lower()) or dist_map.get(dest_name_lo)
-    dist_str   = _dist_label(dest.name, dest.star_system_name, player_sys, dist_map)
-    # "local" n'apporte rien ici : origine et destination sont déjà dans le titre
-    if re.sub(r'\[/?[^\]]*\]', '', dist_str).strip() == "local":
-        dist_str = ""
+    # Afficher la distance en Gm (même si "local") — utile pour planifier le trajet
+    if dest_dist and dest_dist > 0:
+        dist_str = f"{dest_dist:.1f}Gm" if dest_dist >= 1 else f"{dest_dist*1000:.0f}Mm"
+    else:
+        dist_str = _dist_label(dest.name, dest.star_system_name, player_sys, dist_map)
+        if re.sub(r'\[/?[^\]]*\]', '', dist_str).strip() == "local":
+            dist_str = ""
 
     stock_mult = {1: 0, 2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
     inv_mult   = {1: 1.0, 2: 0.8, 3: 0.6, 4: 0.4, 5: 0.2, 7: 0}
@@ -485,13 +493,13 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
     def _range(sizes: set[int], approx: bool = False) -> str:
         """Convertit un ensemble de tailles en notation range SC.
         {8,16,24,32} → '8-32'  |  {1,2,4} → '1-4'  |  {8} → '8'
-        approx=True ajoute '~' pour indiquer une valeur inférée.
+        approx=True ajoute '□' pour indiquer une valeur inférée.
         """
         if not sizes:
             return "—"
         lo, hi = min(sizes), max(sizes)
         r = f"{lo}-{hi}" if lo != hi else str(lo)
-        return r + "~" if approx else r
+        return r + C.SCU if approx else r
 
     def _fmt_szs(raw: str, fb: set[int]) -> str:
         if raw and raw != "—":
@@ -608,3 +616,21 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
 
     for d in entries:
         _print_trade_entry(d)
+
+    # Stocker les entrées pour le panneau "Choisir" de l'overlay
+    ctx.last_trade_entries = {
+        "origin":  _loc(origin.name),
+        "dest":    _loc(dest.name),
+        "entries": [
+            {
+                "idx":        i,
+                "name":       d["name"],
+                "profit":     int(d["profit"]),
+                "qty":        d["qty"],
+                "packing":    re.sub(r'\[/?[^\]]*\]', '', d["packing"]).strip(),
+                "price_buy":  int(d["price_buy"]),
+                "price_sell": int(d["price_sell"]),
+            }
+            for i, d in enumerate(entries)
+        ],
+    }

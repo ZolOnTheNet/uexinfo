@@ -48,9 +48,258 @@ def cmd_mission(args: list[str], ctx) -> None:
         _cmd_remove(args[1:], ctx)
 
     elif sub == "scan":
-        print_warn("Scan de mission par screenshot — Phase 2 (non encore implémenté)")
-        console.print(f"[{C.DIM}]Workflow : /scan <fichier>  puis /mission add[/{C.DIM}]")
-        console.print(f"[{C.DIM}]Ou directement : /mission add <fichier.jpg>[/{C.DIM}]")
+        _cmd_scan_db(args[1:], ctx)
+
+
+# ── Scan depuis la DB screenshots ─────────────────────────────────────────────
+
+def _cmd_scan_db(args: list[str], ctx) -> None:
+    """Lit la ScreenshotDB et affiche les missions capturées pour sélection."""
+    import time
+
+    db = getattr(ctx, "screenshot_db", None)
+    if db is None:
+        # CLI pur : instancier la DB localement (pas d'OcrWorker actif)
+        try:
+            from uexinfo.cache.screenshot_db import ScreenshotDB
+            db = ScreenshotDB()
+            ctx.screenshot_db = db
+        except Exception as e:
+            print_error(f"Impossible d'accéder à la base screenshots : {e}")
+            return
+
+    # Paramètre : "all", "today", ou rien (fenêtre scan.hour)
+    scope = args[0].lower() if args else ""
+    hours = ctx.cfg.get("scan", {}).get("hour", 2)
+
+    if scope == "all":
+        since = 0.0
+        scope_label = "toute la base"
+    elif scope == "today":
+        from datetime import datetime
+        since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        scope_label = "aujourd'hui"
+    elif scope == "terminal":
+        _show_terminal_scans(db, ctx)
+        return
+    else:
+        since = time.time() - hours * 3600
+        scope_label = f"{hours}h"
+
+    missions = db.missions(since=since)
+    pending  = [e for e in db.pending_entries() if e.file_mtime >= since]
+
+    if not missions and not pending:
+        print_warn(f"Aucune mission dans la DB ({scope_label})")
+        console.print(f"[{C.DIM}]Les screenshots sont analysés automatiquement toutes les 10s.[/{C.DIM}]")
+        console.print(f"[{C.DIM}]Config : /config scan.hour {hours}  /config scan.auto_ocr on[/{C.DIM}]")
+        return
+
+    # Overlay disponible ? → envoyer mission_scan_list
+    select_fn = getattr(ctx, "select_fn", None)
+    send_fn   = getattr(ctx, "_overlay_send_fn", None)
+    if send_fn is not None:
+        _send_mission_scan_list(send_fn, missions, pending, scope_label, ctx)
+        return
+
+    # CLI pur → affichage tableau + saisie
+    _display_mission_scan_cli(missions, pending, scope_label, ctx)
+
+
+def _send_mission_scan_list(send_fn, missions, pending, scope_label, ctx) -> None:
+    """Envoie le message mission_scan_list à l'overlay."""
+    from uexinfo.ocr.ocr_worker import category_label
+    from uexinfo.cache.mission_scan import already_imported_set, compute_entry_distances
+
+    mm = getattr(ctx, "mission_manager", None)
+    imported = already_imported_set(mm) if mm else set()
+    graph = ctx.cache.transport_graph
+
+    items = []
+    for e in missions:
+        dist = compute_entry_distances(e, graph)
+        items.append({
+            "file":            e.file,
+            "session_id":      e.session_id,
+            "category":        e.category,
+            "category_label":  category_label(e.category),
+            "title":           e.title,
+            "reward":          e.reward,
+            "total_scu":       e.total_scu,
+            "sources":         e.sources,
+            "destinations":    e.destinations,
+            "availability":    e.data.get("availability", ""),
+            "contracted_by":   e.data.get("contracted_by", ""),
+            "objectives":      e.data.get("objectives", []),
+            "hour":            e.timestamp.strftime("%H:%M"),
+            "errors":          e.errors,
+            "already_imported": e.file in imported,
+            "distances":       dist,
+        })
+
+    send_fn({
+        "type":        "mission_scan_list",
+        "scope":       scope_label,
+        "n_missions":  len(missions),
+        "n_pending":   len(pending),
+        "items":       items,
+    })
+
+
+def _display_mission_scan_cli(missions, pending, scope_label, ctx) -> None:
+    """Affichage CLI du tableau des missions + saisie sélection."""
+    from uexinfo.ocr.ocr_worker import category_label
+
+    if pending:
+        console.print(f"[{C.WARNING}]⏳ {len(pending)} screenshot(s) en attente d'OCR...[/{C.WARNING}]")
+
+    if not missions:
+        print_warn(f"Aucune mission traitée ({scope_label})")
+        return
+
+    section(f"Missions détectées — {scope_label} — {len(missions)} screenshot(s)")
+
+    tbl = Table(show_header=True, box=None, padding=(0, 1),
+                row_styles=["", "on grey7"])
+    tbl.add_column("#",          style=C.DIM,    width=3,  justify="right")
+    tbl.add_column("Heure",      style=C.DIM,    width=5)
+    tbl.add_column("Catégorie",  style=C.LABEL,  max_width=22)
+    tbl.add_column("Titre",      style="bold",   max_width=38)
+    tbl.add_column("SCU",        justify="right", width=5)
+    tbl.add_column("Récompense", justify="right", width=12)
+    tbl.add_column("Départ",     style=C.UEX,    max_width=20)
+    tbl.add_column("→",          style=C.DIM,    width=1)
+    tbl.add_column("Arrivée",    style=C.UEX,    max_width=20)
+
+    for i, e in enumerate(missions, 1):
+        scu_str    = f"{e.total_scu:.0f}□" if e.total_scu else "—"
+        reward_str = f"{e.reward:,}".replace(",", " ") if e.reward else "—"
+        srcs = ", ".join(e.sources[:2]) or "—"
+        dsts = ", ".join(e.destinations[:2]) or "—"
+        cat  = category_label(e.category)
+        err  = f" [{C.WARNING}]⚠[/{C.WARNING}]" if e.errors else ""
+        tbl.add_row(
+            str(i), e.timestamp.strftime("%H:%M"), cat,
+            e.title + err, scu_str, reward_str, srcs, "→", dsts,
+        )
+
+    console.print(tbl)
+    console.print()
+
+    # Saisie sélection
+    console.print(f"[{C.LABEL}]Sélection[/{C.LABEL}] [{C.DIM}](ex: 1,3,5-8  ou  all  ou  Entrée pour annuler) :[/{C.DIM}] ", end="")
+    try:
+        raw = input().strip()
+    except (EOFError, KeyboardInterrupt):
+        return
+
+    if not raw or raw.lower() in ("n", "non", "annuler", "cancel", ""):
+        return
+
+    selected = _parse_selection(raw, len(missions))
+    if not selected:
+        print_warn("Aucune sélection valide")
+        return
+
+    console.print()
+    console.print(f"[{C.DIM}]Ajouter au : [bold]catalogue[/bold] seulement (c)  ou  catalogue + [bold]voyage actif[/bold] (v) ?[/{C.DIM}] ", end="")
+    try:
+        dest = input().strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        dest = "c"
+
+    add_to_voyage = dest in ("v", "voyage")
+    added = _add_selected_missions(missions, selected, add_to_voyage, ctx)
+    console.print()
+    if add_to_voyage and ctx.voyage_manager.get_active():
+        v = ctx.voyage_manager.get_active()
+        print_ok(f"{added} mission(s) ajoutée(s) au catalogue et au voyage « {v.name} »")
+    else:
+        print_ok(f"{added} mission(s) ajoutée(s) au catalogue")
+
+
+def _parse_selection(raw: str, max_n: int) -> list[int]:
+    """Parse '1,3,5-8' ou 'all' → liste d'indices 0-based."""
+    if raw.lower() == "all":
+        return list(range(max_n))
+    indices = []
+    for part in raw.split(","):
+        part = part.strip()
+        if "-" in part:
+            try:
+                a, b = part.split("-", 1)
+                for n in range(int(a), int(b) + 1):
+                    if 1 <= n <= max_n:
+                        indices.append(n - 1)
+            except ValueError:
+                pass
+        else:
+            try:
+                n = int(part)
+                if 1 <= n <= max_n:
+                    indices.append(n - 1)
+            except ValueError:
+                pass
+    # dédupliquer en conservant l'ordre
+    seen = set()
+    return [i for i in indices if not (i in seen or seen.add(i))]
+
+
+def _add_selected_missions(missions, indices: list[int], add_to_voyage: bool, ctx) -> int:
+    """Ajoute les missions sélectionnées au catalogue (et éventuellement au voyage)."""
+    from uexinfo.cache.mission_scan import entry_to_mission_result, source_raw_from_entry
+    mm = ctx.mission_manager
+    vm = ctx.voyage_manager
+    added = 0
+
+    for i in indices:
+        if i >= len(missions):
+            continue
+        e = missions[i]
+        # Reconstruire MissionResult depuis le dict data de la DB
+        mr = entry_to_mission_result(e)
+        if mr is None:
+            print_warn(f"#{i+1} : données manquantes, ignoré")
+            continue
+        kwargs = mr.to_mission_kwargs()
+        from uexinfo.models.mission import Mission
+        m = Mission(id=0, source_raw=source_raw_from_entry(e), **kwargs)
+        mm.add(m)
+        added += 1
+        console.print(f"  [{C.SUCCESS}]✓[/{C.SUCCESS}] [{C.LABEL}]#{m.id}[/{C.LABEL}] {m.name}")
+
+        if add_to_voyage:
+            active = vm.get_active()
+            if active:
+                active.mission_ids.append(m.id)
+                vm.update(active)
+
+    return added
+
+
+def _show_terminal_scans(db, ctx) -> None:
+    """Affiche les terminaux scannés dans la DB."""
+    from uexinfo.ocr.ocr_worker import category_label
+    terminals = db.terminals()
+    if not terminals:
+        print_warn("Aucun terminal scanné dans la base")
+        return
+    section(f"Terminaux scannés — {len(terminals)} captures")
+    tbl = Table(show_header=True, box=None, padding=(0, 1),
+                row_styles=["", "on grey7"])
+    tbl.add_column("Heure",    style=C.DIM,   width=8)
+    tbl.add_column("Terminal", style=C.LABEL, max_width=30)
+    tbl.add_column("Type",     style=C.DIM,   width=12)
+    tbl.add_column("Commodités", justify="right", width=5)
+    for e in terminals:
+        n_comm = len(e.data.get("commodities", []))
+        tbl.add_row(
+            e.timestamp.strftime("%d/%m %H:%M"),
+            e.data.get("terminal", e.file),
+            category_label(e.category),
+            str(n_comm),
+        )
+    console.print(tbl)
 
 
 def _is_image(path: str) -> bool:
@@ -97,8 +346,8 @@ def _cmd_list(ctx) -> None:
                 src_node = _resolve_graph_node(m.all_sources[0], graph)
                 dst_node = _resolve_graph_node(m.all_destinations[0], graph)
                 if src_node and dst_node:
-                    result = graph.shortest_path(src_node, dst_node)
-                    if result:
+                    result = graph.find_shortest_path(src_node, dst_node)
+                    if result is not None and result.total_distance is not None:
                         d = result.total_distance
                         dist_str = f"{d:.1f}Gm" if d >= 1 else f"{d*1000:.0f}Mm"
             except Exception:
@@ -340,7 +589,10 @@ def _show_help() -> None:
         ("add <nom> ...",    "Saisie manuelle (voir ci-dessous)"),
         ("edit <id>",        "Modifie une mission existante"),
         ("remove <id>",      "Supprime une mission du catalogue"),
-        ("scan",             "Scan par screenshot (Phase 2)"),
+        ("scan",             "Liste les missions des screenshots récents (DB OCR)"),
+        ("scan all",         "Toute la base de screenshots"),
+        ("scan today",       "Captures d'aujourd'hui"),
+        ("scan terminal",    "Terminaux scannés"),
     ]
     for cmd, desc in lines:
         console.print(f"  [bold {C.LABEL}]/mission {cmd:<20}[/bold {C.LABEL}]  [{C.DIM}]{desc}[/{C.DIM}]")

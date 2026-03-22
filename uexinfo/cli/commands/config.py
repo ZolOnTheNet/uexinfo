@@ -76,10 +76,13 @@ def _show(cfg: dict, ctx=None) -> None:
     console.print(f"  [bold]Marge min :[/bold]     {trade.get('min_margin_percent', 0)} %")
     console.print(f"  [bold]Illégal :[/bold]       {'oui' if trade.get('illegal_commodities') else 'non'}")
     console.print(f"  [bold]TTL cache :[/bold]     {cache_cfg.get('ttl_static', 86400)}s statique  /  {cache_cfg.get('ttl_prices', 300)}s prix")
-    console.print(f"  [bold]scan.mode :[/bold]        {scan.get('mode', 'ocr')}  [{C.DIM}](ocr|log|confirm)[/{C.DIM}]")
-    console.print(f"  [bold]scan.tesseract :[/bold]   {scan.get('tesseract_exe') or '(auto)'}  [{C.DIM}](moteur OCR pour lire les screenshots)[/{C.DIM}]")
-    console.print(f"  [bold]scan.logpath :[/bold]     {scan.get('sc_log_path') or '(non défini)'}")
-    console.print(f"  [bold]scan.screenshots :[/bold] {scan.get('sc_screenshots_dir') or '(non défini)'}")
+    console.print(f"  [bold]scan.mode :[/bold]         {scan.get('mode', 'ocr')}  [{C.DIM}](ocr|log|confirm)[/{C.DIM}]")
+    console.print(f"  [bold]scan.tesseract :[/bold]    {scan.get('tesseract_exe') or '(auto)'}  [{C.DIM}](moteur OCR pour lire les screenshots)[/{C.DIM}]")
+    console.print(f"  [bold]scan.logpath :[/bold]      {scan.get('sc_log_path') or '(non défini)'}")
+    console.print(f"  [bold]scan.screenshots :[/bold]  {scan.get('sc_screenshots_dir') or '(non défini)'}")
+    console.print(f"  [bold]scan.auto_ocr :[/bold]     {'on' if scan.get('auto_ocr', True) else 'off'}  [{C.DIM}](OCR auto dès détection d'un screenshot)[/{C.DIM}]")
+    console.print(f"  [bold]scan.hour :[/bold]         {scan.get('hour', 2)}h  [{C.DIM}](fenêtre /mission scan)[/{C.DIM}]")
+    console.print(f"  [bold]scan.session_gap :[/bold]  {scan.get('session_gap', 60)} min  [{C.DIM}](gap = nouvelle session)[/{C.DIM}]")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -529,8 +532,41 @@ def _scan(args: list[str], ctx) -> None:
         settings.save(ctx.cfg)
         print_ok(f"sc_screenshots_dir = {path}")
 
+    elif key == "auto_ocr":
+        if len(args) < 2:
+            print_error("Usage: /config scan auto_ocr on|off")
+            return
+        enabled = args[1].lower() in ("on", "true", "oui", "1", "yes")
+        ctx.cfg.setdefault("scan", {})["auto_ocr"] = enabled
+        settings.save(ctx.cfg)
+        print_ok(f"OCR automatique : {'activé' if enabled else 'désactivé'}")
+
+    elif key == "hour":
+        if len(args) < 2:
+            print_error("Usage: /config scan hour <n>  — fenêtre de recherche en heures")
+            return
+        try:
+            h = max(1, int(args[1]))
+            ctx.cfg.setdefault("scan", {})["hour"] = h
+            settings.save(ctx.cfg)
+            print_ok(f"Fenêtre de recherche missions : {h}h")
+        except ValueError:
+            print_error("Valeur entière attendue (heures)")
+
+    elif key == "session_gap":
+        if len(args) < 2:
+            print_error("Usage: /config scan session_gap <minutes>  — gap entre sessions")
+            return
+        try:
+            gap = max(5, int(args[1]))
+            ctx.cfg.setdefault("scan", {})["session_gap"] = gap
+            settings.save(ctx.cfg)
+            print_ok(f"Gap de session : {gap} min")
+        except ValueError:
+            print_error("Valeur entière attendue (minutes)")
+
     else:
-        print_error(f"Sous-clé inconnue : {key}  (mode|tesseract|logpath|screenshots)")
+        print_error(f"Sous-clé inconnue : {key}  (mode|tesseract|logpath|screenshots|auto_ocr|hour|session_gap)")
 
 
 # ── Overlay close ────────────────────────────────────────────────────────────

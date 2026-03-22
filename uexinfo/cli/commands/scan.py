@@ -6,7 +6,7 @@ from pathlib import Path
 
 from uexinfo.cli.commands import register
 from uexinfo.models.scan_result import ScanResult
-from uexinfo.display.formatter import console, print_error, print_ok, print_warn, print_info, make_table
+from uexinfo.display.formatter import console, print_error, print_ok, print_warn, print_info, make_table, section
 from uexinfo.display import colors as C
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
@@ -850,6 +850,36 @@ def _run_debug_on(ctx, image_path: Path) -> None:
         console.print(f"\n[{C.DIM}]{len(lines)} lignes extraites[/{C.DIM}]")
 
 
+def _debug_list_images(ctx) -> None:
+    """Affiche la liste des images de scan disponibles (non-interactif)."""
+    import datetime
+    sc_dir = _screenshots_dir(ctx)
+    if not sc_dir.exists():
+        print_error(f"Dossier introuvable : {sc_dir}")
+        return
+    images = sorted(
+        (p for p in sc_dir.iterdir() if p.suffix.lower() in _IMAGE_SUFFIXES),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not images:
+        print_warn(f"Aucun fichier image dans : {sc_dir}")
+        return
+    section("Images de scan disponibles")
+    for p in images[:50]:
+        ts = datetime.datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+        sz = p.stat().st_size // 1024
+        console.print(
+            f"  [{C.LABEL}]{p.name}[/{C.LABEL}]"
+            f"  [{C.DIM}]{ts}  {sz} Ko[/{C.DIM}]"
+        )
+    console.print(
+        f"\n[{C.DIM}]{len(images)} fichier(s) · "
+        f"/scan debug <nom>  pour analyser  ·  "
+        f"/scan debug selected  pour sélectionner plusieurs[/{C.DIM}]"
+    )
+
+
 def _debug_select(ctx, mode: str) -> None:
     """Ouvre le sélecteur d'images pour /scan debug list|selected."""
     import datetime
@@ -1056,9 +1086,9 @@ def cmd_scan(args: list[str], ctx) -> None:
     if sub == "debug":
         sub2 = args[1].lower() if len(args) >= 2 else ""
 
-        # /scan debug list — sélecteur interactif (single : une image → debug)
+        # /scan debug list — liste non-interactive des images disponibles
         if sub2 == "list":
-            _debug_select(ctx, mode="single")
+            _debug_list_images(ctx)
             return
 
         # /scan debug selected — sélecteur multi : plusieurs images → debug

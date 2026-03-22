@@ -67,6 +67,7 @@ class AppContext:
     _price_cache: PriceCache = field(default_factory=PriceCache)
     mission_manager: MissionManager = field(default_factory=MissionManager)
     voyage_manager: VoyageManager = field(default_factory=VoyageManager)
+    screenshot_db: object | None = None   # ScreenshotDB (injecté par overlay ou CLI)
     debug_level: int = 0
     log_last_mtime: float = 0.0          # mtime du log lors du dernier check auto
     screenshots_last_seen_ts: float = 0.0  # wall-clock du dernier check screenshots

@@ -4,6 +4,7 @@ from __future__ import annotations
 from rich.table import Table
 
 from uexinfo.cli.commands import register
+from uexinfo.cli.selector import SelectItem, pick
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
 from uexinfo.models.voyage import Voyage
@@ -302,8 +303,8 @@ def _cmd_show(voyage: Voyage, ctx) -> None:
         dist_str = "?"
         if m.all_sources and m.all_destinations:
             try:
-                result = graph.shortest_path(m.all_sources[0], m.all_destinations[0])
-                if result:
+                result = graph.find_shortest_path(m.all_sources[0], m.all_destinations[0])
+                if result is not None and result.total_distance is not None:
                     d = result.total_distance
                     dist_str = f"{d:.1f}Gm" if d >= 1 else f"{d*1000:.0f}Mm"
             except Exception:
@@ -336,21 +337,37 @@ def _cmd_add(args: list[str], voyage: Voyage, ctx) -> None:
     mm = ctx.mission_manager
 
     if not args:
-        # Afficher le catalogue pour référence
-        console.print(f"[{C.DIM}]Catalogue des missions :[/{C.DIM}]")
         if not mm.missions:
             print_warn("Catalogue vide — /mission add pour créer des missions")
             return
-        for m in mm.missions:
-            in_v = "✓" if m.id in voyage.mission_ids else " "
-            srcs = "→".join(filter(None, m.all_sources[:1] + m.all_destinations[:1])) or "—"
-            console.print(
-                f"  [{C.DIM}][{in_v}][/{C.DIM}] "
-                f"[{C.LABEL}]#{m.id}[/{C.LABEL}]  "
-                f"[bold]{m.name}[/bold]  "
-                f"[{C.DIM}]{srcs}  {m.reward_uec:,} aUEC[/{C.DIM}]"
+        items = [
+            SelectItem(
+                label    = f"#{m.id}  {m.name}",
+                value    = m,
+                meta     = (
+                    "→".join(filter(None, m.all_sources[:1] + m.all_destinations[:1])) or "—"
+                ) + f"  {m.reward_uec:,} aUEC",
+                selected = m.id in voyage.mission_ids,
             )
-        console.print(f"[{C.DIM}]/voyage add <id> [id2 ...]  pour ajouter[/{C.DIM}]")
+            for m in mm.missions
+        ]
+        chosen = pick(ctx, items,
+                      title=f"Missions → {voyage.name}",
+                      mode="multi",
+                      confirm_label="✓ Ajouter")
+        if chosen is None:
+            print_warn("Annulé.")
+            return
+        to_add = [it.value.id for it in chosen
+                  if it.value.id not in voyage.mission_ids]
+        if to_add:
+            n = vm.add_missions(voyage, to_add)
+            added_names = ", ".join(
+                mm.get(str(mid)).name for mid in to_add if mm.get(str(mid))
+            )
+            print_ok(f"{n} mission(s) ajoutée(s) à [{C.UEX}]{voyage.name}[/{C.UEX}] : {added_names}")
+        else:
+            console.print(f"[{C.DIM}]Aucune nouvelle mission sélectionnée.[/{C.DIM}]")
         return
 
     added = []

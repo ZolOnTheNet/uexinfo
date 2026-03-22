@@ -346,9 +346,10 @@ class ListSelector:
 
 def pick(
     ctx,
-    items:  list[SelectItem],
-    title:  str = "",
-    mode:   str = "multi",
+    items:          list[SelectItem],
+    title:          str = "",
+    mode:           str = "multi",
+    confirm_label:  str = "",
 ) -> list[SelectItem] | None:
     """Sélectionne dans une liste — overlay si disponible, sinon TUI terminal.
 
@@ -357,5 +358,5 @@ def pick(
     """
     select_fn = getattr(ctx, "select_fn", None)
     if callable(select_fn):
-        return select_fn(items, title=title, mode=mode)
+        return select_fn(items, title=title, mode=mode, confirm_label=confirm_label)
     return ListSelector(items, title=title, mode=mode).run()

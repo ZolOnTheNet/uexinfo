@@ -60,10 +60,179 @@ html, body {
   opacity: 0.9;
 }
 .cw:hover { opacity: 1; filter: brightness(1.3); }
+/* Terme tronqué (préfixe «…») — tirets pour signaler que le nom complet est au survol */
+.cw.cw-truncated { border-bottom-style: dashed; }
+
+/* ── Formulaire scan log inline ────────────────────────────────────────────── */
+.scan-inline {
+  background: rgba(0, 120, 150, 0.06);
+  border-left: 2px solid rgba(0, 188, 212, 0.28);
+  margin: 5px 0;
+  padding: 4px 8px 7px;
+  font-size: 0.88em;
+}
+.scan-inline .si-head {
+  display: flex; gap: 10px; align-items: center; margin-bottom: 5px;
+  border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 3px;
+}
+.scan-inline .si-term  { color: var(--accent); font-weight: bold; }
+.scan-inline .si-mode-buy  { color: var(--accent); }
+.scan-inline .si-mode-sell { color: var(--yellow, #e5c07b); }
+.si-warn {
+  font-size: 0.80em; color: var(--yellow, #ffd600); opacity: 0.72;
+  margin-bottom: 5px; padding: 2px 0;
+}
+.scan-inline table { border-collapse: collapse; }
+.scan-inline th { color: var(--dim); font-weight: normal; font-size: 0.85em;
+                  padding: 0 6px 2px; text-align: right; }
+.scan-inline th:first-child { text-align: left; }
+.scan-inline td { padding: 1px 4px; vertical-align: middle; }
+.si-maj-btn {
+  margin-top: 6px;
+  background: transparent;
+  border: 1px solid rgba(0,188,212,0.40);
+  color: var(--accent);
+  padding: 1px 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.88em;
+}
+.si-maj-btn:hover { background: rgba(0,188,212,0.18); }
+.si-maj-btn.done  { color: #4caf50; border-color: #4caf50; cursor: default; }
+.si-row-btn {
+  background: transparent;
+  border: 1px solid rgba(0,188,212,0.30);
+  color: var(--accent);
+  padding: 0 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.82em;
+  white-space: nowrap;
+}
+.si-row-btn:hover { background: rgba(0,188,212,0.14); }
+.si-row-btn.done  { color: #4caf50; border-color: #4caf50; cursor: default; }
 .cw-commodity { color: #ffd600; }
 .cw-location  { color: #00bcd4; }
 .cw-ship      { color: #69f0ae; }
 .cw-voyage    { color: #ff9800; }
+
+/* ── Mission scan overlay ────────────────────────────────────────────────── */
+#mission-scan-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.72);
+  z-index: 200;
+  overflow-y: auto;
+  padding: 16px;
+  box-sizing: border-box;
+}
+#mission-scan-overlay.open { display: flex; flex-direction: column; }
+#mission-scan-box {
+  background: var(--bg, #1a1a2e);
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 6px;
+  padding: 14px 16px;
+  max-width: 860px;
+  width: 100%;
+  margin: auto;
+  font-family: var(--font);
+  font-size: 0.88em;
+}
+#mission-scan-box h3 {
+  color: var(--accent);
+  margin: 0 0 10px;
+  font-size: 1em;
+  font-weight: bold;
+}
+.ms-pending-note {
+  color: var(--yellow, #ffd600);
+  font-size: 0.82em;
+  margin-bottom: 8px;
+  opacity: 0.85;
+}
+.ms-session-head {
+  color: var(--dim);
+  font-size: 0.78em;
+  margin: 8px 0 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding-bottom: 2px;
+}
+#mission-scan-box table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#mission-scan-box th {
+  color: var(--dim);
+  font-weight: normal;
+  font-size: 0.82em;
+  padding: 2px 6px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+#mission-scan-box td {
+  padding: 2px 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+#mission-scan-box tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+#mission-scan-box tr:hover           { background: rgba(0,188,212,0.08); cursor: pointer; }
+.ms-cb     { width: 20px; text-align: center; }
+.ms-hour   { color: var(--dim); width: 44px; }
+.ms-cat    { color: var(--dim); font-size: 0.82em; max-width: 120px; }
+.ms-title  { font-weight: bold; max-width: 220px; }
+.ms-scu    { text-align: right; width: 44px; color: #69f0ae; }
+.ms-reward { text-align: right; width: 80px; color: #ffd600; }
+.ms-src    { color: var(--accent); max-width: 140px; }
+.ms-dst    { color: var(--accent); max-width: 140px; }
+.ms-dist   { text-align: right; width: 64px; color: var(--dim); font-size: 0.85em; }
+.ms-err    { color: #ff5722; font-size: 0.78em; }
+.ms-imported { opacity: 0.55; }
+.ms-btn-row {
+  display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.ms-btn {
+  background: transparent;
+  border: 1px solid rgba(0,188,212,0.4);
+  color: var(--accent);
+  padding: 3px 18px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.88em;
+}
+.ms-btn:hover        { background: rgba(0,188,212,0.18); }
+.ms-btn.ms-btn-voy   { border-color: rgba(255,152,0,0.5); color: #ff9800; }
+.ms-btn.ms-btn-voy:hover { background: rgba(255,152,0,0.18); }
+.ms-btn.ms-btn-cancel { border-color: rgba(255,255,255,0.18); color: var(--dim); }
+.ms-btn.ms-btn-cancel:hover { background: rgba(255,255,255,0.07); }
+.ms-sel-all {
+  font-size: 0.78em; color: var(--dim); cursor: pointer;
+  margin-bottom: 4px;
+}
+.ms-sel-all:hover { color: var(--fg); }
+/* badge screenshot processed */
+#sb-screencap {
+  font-size: 0.78em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+#sb-screencap.off { display: none; }
+#sb-screencap.on  {
+  display: inline-block;
+  background: rgba(0,188,212,0.18);
+  border: 1px solid rgba(0,188,212,0.4);
+  color: var(--accent);
+}
 
 /* scrollbar */
 #output::-webkit-scrollbar       { width: 4px; }
@@ -190,6 +359,26 @@ html, body {
 }
 #titlebar .tb-close:hover { color: var(--red); opacity: 1; }
 
+/* ── Bouton Choisir inline (fin de ligne trade) ──────────────────────────── */
+.tp-btn {
+  background: transparent;
+  border: 1px solid rgba(0,188,212,0.40);
+  color: var(--accent);
+  border-radius: 3px; cursor: pointer;
+  padding: 0 7px; font-size: 0.82em;
+  font-family: var(--font);
+  margin-left: 10px;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+.tp-btn:hover { background: rgba(0,188,212,0.22); }
+.tp-btn.chosen { background: rgba(76,175,80,0.18); border-color: #4caf50; color: #4caf50; cursor: default; }
+/* ── Timer barre de statut ─────────────────── */
+#sb-timer { display: none; color: var(--accent); cursor: pointer; padding: 1px 5px; border-radius: 2px; font-variant-numeric: tabular-nums; }
+#sb-timer.running { display: inline; }
+#sb-timer:hover { background: rgba(255,255,255,0.08); }
+#sb-timer-sep { display: none; }
+
 /* ── Éditeur de scan ───────────────────────────────────────────────────── */
 #scan-overlay {
   position: fixed; inset: 0;
@@ -315,24 +504,32 @@ html, body {
   color: var(--text); padding: 1px 4px; font-family: var(--font); font-size: 0.95em;
 }
 #scan-table input:focus { border-color: var(--accent); outline: none; }
-#scan-table input.num { text-align: right; }
+#scan-table input.num, .scan-inline input.num { text-align: right; }
 
 /* Combobox commodité / stock — transparent au repos */
-#scan-table select.se-select {
+#scan-table select.se-select,
+.scan-inline select.se-select {
   width: 100%; background: transparent; border: 1px solid transparent;
   color: var(--text); padding: 1px 2px; font-family: var(--font); font-size: 0.88em;
   cursor: pointer; appearance: auto;
 }
-#scan-table select.se-select:hover { border-color: rgba(0,188,212,0.35); background: rgba(255,255,255,0.05); }
-#scan-table select.se-select:focus { border-color: var(--accent); outline: none; background: rgba(255,255,255,0.08); }
-#scan-table select.se-select option { background: #0d1018; color: var(--text); }
+#scan-table select.se-select:hover,
+.scan-inline select.se-select:hover { border-color: rgba(0,188,212,0.35); background: rgba(255,255,255,0.05); }
+#scan-table select.se-select:focus,
+.scan-inline select.se-select:focus { border-color: var(--accent); outline: none; background: rgba(255,255,255,0.08); }
+#scan-table select.se-select option,
+.scan-inline select.se-select option { background: #0d1018; color: var(--text); }
 
 /* Input prix/qté — borderless au repos, s'allume au clic */
-#scan-table input.se-inline {
+#scan-table input.se-inline,
+.scan-inline input.se-inline {
   background: transparent; border: 1px solid transparent;
+  color: inherit; font-family: var(--font); font-size: inherit;
 }
-#scan-table input.se-inline:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }
-#scan-table input.se-inline:focus { border-color: var(--accent); background: rgba(255,255,255,0.06); }
+#scan-table input.se-inline:hover,
+.scan-inline input.se-inline:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }
+#scan-table input.se-inline:focus,
+.scan-inline input.se-inline:focus { border-color: var(--accent); background: rgba(255,255,255,0.06); outline: none; }
 
 #scan-box .se-foot {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -493,6 +690,10 @@ html, body {
   <span id="sb-scan-log" class="sb-flag off" title="Scan log détecté — cliquer pour analyser">ScanLog</span>
   <span class="sb-sep"> │ </span>
   <span id="sb-voyage" class="sb-flag off" title="Voyage actif — cliquer pour afficher">🗺</span>
+  <span class="sb-sep"> │ </span>
+  <span id="sb-screencap" class="off" title="Captures en attente — cliquer pour voir les missions">📷 <span id="sb-screencap-n"></span></span>
+  <span class="sb-sep" id="sb-timer-sep"> │ </span>
+  <span id="sb-timer" title="Double-clic pour arrêter" ondblclick="stopTimer()"></span>
   <span class="sb-spacer"></span>
   <span class="sb-alpha-lbl">opacité</span>
   <span id="sb-alpha-minus" class="sb-btn" title="Moins opaque (−5%)">−</span>
@@ -501,6 +702,25 @@ html, body {
   <span id="sb-config" class="sb-btn" onclick="sendCmd('/config')" title="Configuration">⚙</span>
   <span class="sb-sep"> </span>
   <span id="sb-help"   class="sb-btn" onclick="sendCmd('/help')"   title="Aide">?</span>
+</div>
+
+<!-- #trade-pick panel remplacé par boutons inline dans le texte -->
+<div id="trade-pick" style="display:none">
+  <div id="trade-pick-head">
+    <span id="trade-pick-title">Trade</span>
+    <button id="trade-pick-close" onclick="closeTradePick()" title="Fermer">✕</button>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Commodité</th>
+      <th>Profit/SCU</th>
+      <th>Qté</th>
+      <th>Achat</th>
+      <th>Vente</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="trade-pick-rows"></tbody>
+  </table>
 </div>
 
 <div id="scan-overlay">
@@ -557,6 +777,23 @@ html, body {
   </div>
 </div>
 
+<div id="mission-scan-overlay">
+  <div id="mission-scan-box">
+    <h3 id="ms-title">Missions détectées</h3>
+    <div id="ms-pending-note" class="ms-pending-note" style="display:none"></div>
+    <div class="ms-sel-all">
+      <span onclick="msSel(true)">Tout sélectionner</span> ·
+      <span onclick="msSel(false)">Tout désélectionner</span>
+    </div>
+    <div id="ms-body"></div>
+    <div class="ms-btn-row">
+      <button class="ms-btn ms-btn-cancel" onclick="closeMissionScan()">Annuler</button>
+      <button class="ms-btn" onclick="submitMissionScan(false)">Ajouter au catalogue</button>
+      <button class="ms-btn ms-btn-voy" onclick="submitMissionScan(true)">+ Voyage actif</button>
+    </div>
+  </div>
+</div>
+
 <div id="select-overlay">
   <div id="select-box">
     <div class="sl-head">
@@ -570,7 +807,7 @@ html, body {
     </div>
     <div class="sl-foot">
       <button onclick="closeSelectPanel()">Annuler</button>
-      <button class="primary" onclick="confirmSelectPanel()">✓ Valider</button>
+      <button class="primary" id="sl-confirm-btn" onclick="confirmSelectPanel()">✓ Valider</button>
     </div>
   </div>
 </div>
@@ -694,13 +931,20 @@ const vocab = {
   voyages:        new Set(),
 };
 let vocabRe = null;
+const vocabFullNames = new Map();  // lowercase → nom complet canonique (pour tooltip hover)
 
 function loadVocab(msg) {
-  vocab.commodities    = new Set((msg.commodities || []).map(s => s.toLowerCase()));
+  vocabFullNames.clear();
   vocab.commoditiesRaw = (msg.commodities || []).slice().sort();   // casse originale pour les <select>
-  vocab.locations   = new Set((msg.locations   || []).map(s => s.toLowerCase()));
-  vocab.ships       = new Set((msg.ships       || []).map(s => s.toLowerCase()));
-  vocab.voyages     = new Set((msg.voyages     || []).map(s => s.toLowerCase()));
+
+  const _fill = (set, arr) => {
+    set.clear();
+    for (const n of (arr || [])) { set.add(n.toLowerCase()); vocabFullNames.set(n.toLowerCase(), n); }
+  };
+  _fill(vocab.commodities, msg.commodities);
+  _fill(vocab.locations,   msg.locations);
+  _fill(vocab.ships,       msg.ships);
+  _fill(vocab.voyages,     msg.voyages);
 
   // Construire la regex — termes triés par longueur décroissante
   const all = [...(msg.commodities || []), ...(msg.locations || []), ...(msg.ships || []), ...(msg.voyages || [])]
@@ -722,35 +966,73 @@ function vocabType(word) {
   return null;
 }
 
-function annotateNode(textNode) {
-  if (!vocabRe) return;
-  const text = textNode.textContent;
-  vocabRe.lastIndex = 0;
-  if (!vocabRe.test(text)) return;
-  vocabRe.lastIndex = 0;
+// Retourne vrai si `haystack` commence par `needle` suivi d'un séparateur (espace, point, parenthèse…)
+function _vocabWordPrefix(haystack, needle) {
+  if (!haystack.startsWith(needle)) return false;
+  if (haystack.length === needle.length) return true;
+  const c = haystack[needle.length];
+  return c === ' ' || c === '.' || c === '(' || c === '[';
+}
 
-  const frag = document.createDocumentFragment();
-  let last = 0, m;
-  while ((m = vocabRe.exec(text)) !== null) {
-    if (m.index > last)
-      frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-    const word = m[1];
-    const type = vocabType(word);
-    const span = document.createElement('span');
-    span.className = `cw cw-${type}`;
-    span.dataset.word = word;
-    span.dataset.type = type;
-    span.textContent  = word;
-    frag.appendChild(span);
-    last = m.index + word.length;
+function annotateNode(textNode) {
+  if (!vocabRe && !vocabFullNames.size) return;
+  const text = textNode.textContent;
+  const isTruncated = text.endsWith('\u2026');
+
+  // ── Passage 1 : regex normale (fonctionne aussi sur texte tronqué partiel) ──
+  if (vocabRe) {
+    vocabRe.lastIndex = 0;
+    if (vocabRe.test(text)) {
+      vocabRe.lastIndex = 0;
+      const frag = document.createDocumentFragment();
+      let last = 0, m;
+      while ((m = vocabRe.exec(text)) !== null) {
+        if (m.index > last)
+          frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const word = m[1];
+        const type = vocabType(word);
+        const span = document.createElement('span');
+        span.className = `cw cw-${type}`;
+        span.dataset.word = word;
+        span.dataset.type = type;
+        span.title        = vocabFullNames.get(word.toLowerCase()) || word;
+        span.textContent  = word;
+        frag.appendChild(span);
+        last = m.index + word.length;
+      }
+      if (last < text.length)
+        frag.appendChild(document.createTextNode(text.slice(last)));
+      textNode.parentNode.replaceChild(frag, textNode);
+      return;
+    }
   }
-  if (last < text.length)
-    frag.appendChild(document.createTextNode(text.slice(last)));
-  textNode.parentNode.replaceChild(frag, textNode);
+
+  // ── Passage 2 : texte tronqué «…» non reconnu par la regex → préfixe-mot ──
+  // Couvre "TerminalNomLong…" et "TermName (Sy…" ou "Sys.Station.ty…"
+  if (isTruncated && vocabFullNames.size) {
+    const prefix = text.slice(0, -1).trimEnd().toLowerCase();
+    if (prefix.length >= 3) {
+      for (const [lc, canonical] of vocabFullNames) {
+        // terme vocab commence par le préfixe (nom coupé avant la fin du terme)
+        // OU préfixe commence par le terme vocab suivi d'un séparateur
+        if (lc.startsWith(prefix) || _vocabWordPrefix(prefix, lc)) {
+          const type = vocabType(canonical);
+          const span = document.createElement('span');
+          span.className = `cw cw-${type} cw-truncated`;
+          span.dataset.word = canonical;
+          span.dataset.type = type;
+          span.title        = canonical;
+          span.textContent  = text;
+          textNode.parentNode.replaceChild(span, textNode);
+          return;
+        }
+      }
+    }
+  }
 }
 
 function annotateElement(el) {
-  if (!vocabRe) return;
+  if (!vocabRe && !vocabFullNames.size) return;
   // Collecter les nœuds texte d'abord (le remplacement invalide l'itérateur)
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   const nodes = [];
@@ -818,9 +1100,18 @@ function dispatch(msg) {
       break;
     case 'echo':        appendEcho(msg.text); startSpin(); break;
     case 'output':      stopSpin(); appendAnsi(msg.ansi); break;
-    case 'done':        stopSpin(); break;
+    case 'done':
+      stopSpin();
+      // Retour du focus vers la zone de saisie après chaque commande
+      if (!document.getElementById('scan-overlay').classList.contains('open'))
+        elInput.focus();
+      break;
     case 'vocab':       loadVocab(msg); break;
-    case 'scan_edit':   enqueueScanEditor(msg.data); break;
+    case 'scan_edit':       enqueueScanEditor(msg.data); break;
+    case 'scan_log_inline':     appendScanInline(msg); break;
+    case 'mission_scan_list':   showMissionScanList(msg); break;
+    case 'screenshot_processed': onScreenshotProcessed(msg); break;
+    case 'trade_pick':  showTradePick(msg); break;
     case 'select':      showSelectPanel(msg); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items); break;
@@ -904,16 +1195,20 @@ function appendEcho(text) {
   elOutput.scrollTop = elOutput.scrollHeight;
 }
 
+let _lastAnsiDivs = [];   // Lot de divs du dernier appendAnsi (pour trade pick inline)
+
 function appendAnsi(ansi) {
   const html  = ANSI.toHtml(ansi);
   const lines = html.split('\n');
   const frag  = document.createDocumentFragment();
+  _lastAnsiDivs = [];
   for (const line of lines) {
     const d = document.createElement('div');
     d.className = 'line';
     d.innerHTML = line || '\u00a0';
     annotateElement(d);
     frag.appendChild(d);
+    _lastAnsiDivs.push(d);
   }
   elOutput.appendChild(frag);
   elOutput.scrollTop = elOutput.scrollHeight;
@@ -1266,9 +1561,15 @@ document.addEventListener('keydown', e => {
     appendSystem('✓ Copié');
   }
   if (e.key==='F1') { e.preventDefault(); sendCmd('/help'); }
-  // Toute touche imprimable redirige vers l'input
-  if (!e.ctrlKey && !e.altKey && e.key.length===1 && document.activeElement!==elInput)
-    elInput.focus();
+  // Toute touche imprimable redirige vers l'input de commande,
+  // SAUF si le focus est déjà dans un champ de formulaire (scan inline, select, etc.)
+  if (!e.ctrlKey && !e.altKey && e.key.length === 1) {
+    const tag = (document.activeElement || {}).tagName || '';
+    if (document.activeElement !== elInput
+        && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
+      elInput.focus();
+    }
+  }
 });
 
 // ── Sélecteur générique ───────────────────────────────────────────────────────
@@ -1283,6 +1584,7 @@ function showSelectPanel(msg) {
   _selectFocus = _selectItems.length ? 0 : -1;
 
   document.getElementById('sl-title').textContent = msg.title || 'Sélectionner';
+  document.getElementById('sl-confirm-btn').textContent = msg.confirm_label || '✓ Valider';
   document.getElementById('sl-quick-bar').style.display = _selectMode === 'multi' ? 'flex' : 'none';
 
   const list = document.getElementById('select-list');
@@ -1293,7 +1595,7 @@ function showSelectPanel(msg) {
     div.dataset.idx = item.idx;
     if (_selectMode === 'multi') {
       div.innerHTML =
-        `<input type="checkbox" id="sl-cb-${i}">` +
+        `<input type="checkbox" id="sl-cb-${i}"${item.selected ? ' checked' : ''}>` +
         `<label class="sl-label" for="sl-cb-${i}">${esc(item.label)}</label>` +
         (item.meta ? `<span class="sl-meta">${esc(item.meta)}</span>` : '');
       div.addEventListener('click', e => {
@@ -1450,6 +1752,96 @@ function _buildStockSelect(i, stockStatus) {
   return `<select data-i="${i}" data-f="stock_status" class="se-select">${opts}</select>`;
 }
 
+// ── Formulaire scan log inline (validé, affiché dans l'output) ───────────────
+
+function appendScanInline(msg) {
+  const data = msg.data || {};
+  const isS  = data.mode === 'sell';
+  const modeHtml = isS
+    ? '<span class="si-mode-sell">VENTE</span>'
+    : '<span class="si-mode-buy">ACHAT</span>';
+
+  const div = document.createElement('div');
+  div.className = 'scan-inline';
+  div.dataset.terminal = data.terminal || '';
+  div.dataset.mode     = data.mode     || 'buy';
+
+  let rows = '';
+  (data.commodities || []).forEach((c, i) => {
+    rows +=
+      `<tr>` +
+      `<td>${_buildNameSelect(i, c.name || '')}</td>` +
+      `<td>${_buildStockSelect(i, c.stock_status)}</td>` +
+      `<td><input type="number" class="num se-inline" data-i="${i}" data-f="quantity"` +
+           ` value="${c.quantity != null ? c.quantity : ''}" min="0" placeholder="—"></td>` +
+      `<td><input type="number" class="num se-inline" data-i="${i}" data-f="price"` +
+           ` value="${c.price || ''}" min="0" placeholder="—"></td>` +
+      `<td><button class="si-row-btn" onclick="submitScanInlineRow(this,${i})">MàJ</button></td>` +
+      `</tr>`;
+  });
+
+  div.innerHTML =
+    `<div class="si-head">` +
+      `<span class="si-term">${esc(data.terminal || '—')}</span>${modeHtml}` +
+    `</div>` +
+    `<div class="si-warn">` +
+      `⚠ Seules les valeurs détectées par le logiciel sont récupérables. ` +
+      `Toute correction ici n'est pas tracée dans le log.` +
+    `</div>` +
+    `<table>` +
+      `<thead><tr>` +
+        `<th style="text-align:left">Commodité</th>` +
+        `<th>Stock</th><th>Qté</th><th>Prix</th><th></th>` +
+      `</tr></thead>` +
+      `<tbody>${rows}</tbody>` +
+    `</table>`;
+
+  elOutput.appendChild(div);
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+function submitScanInline(btn) {
+  if (btn.classList.contains('done')) return;
+  const div      = btn.closest('.scan-inline');
+  const terminal = div.dataset.terminal;
+  const mode     = div.dataset.mode;
+  const comms    = [];
+  div.querySelectorAll('tbody tr').forEach(tr => {
+    const qty = tr.querySelector('[data-f="quantity"]').value;
+    comms.push({
+      name:         tr.querySelector('[data-f="name"]').value,
+      price:        parseInt(tr.querySelector('[data-f="price"]').value)    || 0,
+      quantity:     qty !== '' ? parseInt(qty) : null,
+      stock_status: parseInt(tr.querySelector('[data-f="stock_status"]').value) || 0,
+    });
+  });
+  send({type: 'scan_confirm', data: {terminal, mode, commodities: comms}});
+  btn.textContent = '✓ Envoyé';
+  btn.classList.add('done');
+  btn.disabled = true;
+}
+
+function submitScanInlineRow(btn, idx) {
+  if (btn.classList.contains('done')) return;
+  const div      = btn.closest('.scan-inline');
+  const terminal = div.dataset.terminal;
+  const mode     = div.dataset.mode;
+  const comms    = [];
+  div.querySelectorAll('tbody tr').forEach(tr => {
+    const qty = tr.querySelector('[data-f="quantity"]').value;
+    comms.push({
+      name:         tr.querySelector('[data-f="name"]').value,
+      price:        parseInt(tr.querySelector('[data-f="price"]').value)    || 0,
+      quantity:     qty !== '' ? parseInt(qty) : null,
+      stock_status: parseInt(tr.querySelector('[data-f="stock_status"]').value) || 0,
+    });
+  });
+  send({type: 'scan_confirm', data: {terminal, mode, commodities: comms, single_idx: idx}});
+  btn.textContent = '✓';
+  btn.classList.add('done');
+  btn.disabled = true;
+}
+
 function enqueueScanEditor(data) {
   if (_scanData) {
     // Éditeur déjà ouvert → mettre en file d'attente
@@ -1513,11 +1905,11 @@ function showScanEditor(data) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${_buildNameSelect(i, c.name || '')}</td>
-      <td><input type="number" class="num se-inline" data-i="${i}" data-f="price"
-                 value="${c.price || ''}" min="0" placeholder="—"></td>
+      <td>${_buildStockSelect(i, c.stock_status)}</td>
       <td><input type="number" class="num se-inline" data-i="${i}" data-f="quantity"
                  value="${c.quantity != null ? c.quantity : ''}" min="0" placeholder="—"></td>
-      <td>${_buildStockSelect(i, c.stock_status)}</td>
+      <td><input type="number" class="num se-inline" data-i="${i}" data-f="price"
+                 value="${c.price || ''}" min="0" placeholder="—"></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1557,6 +1949,83 @@ function confirmScan() {
   });
   send({type: 'scan_confirm', data});
   closeScanEditor();
+}
+
+// ── Trade pick inline ─────────────────────────────────────────────────────────
+
+let _tradePickData = null;
+
+function showTradePick(msg) {
+  _tradePickData = msg;
+  const entries = msg.entries || [];
+  if (!entries.length) return;
+
+  // Parcourir les lignes du dernier output pour trouver les lignes «▶»
+  let eIdx = 0;
+  for (const d of _lastAnsiDivs) {
+    if (eIdx >= entries.length) break;
+    const t = d.textContent.trimStart();
+    if (!t.startsWith('\u25b6')) continue;   // ▶
+
+    const e = entries[eIdx++];
+    const btn = document.createElement('button');
+    btn.className = 'tp-btn';
+    btn.textContent = 'Choisir';
+    btn.onclick = () => chooseTrade(e.idx, btn);
+    d.appendChild(btn);
+  }
+}
+
+function closeTradePick() {
+  _tradePickData = null;
+}
+
+function chooseTrade(idx, btn) {
+  if (btn && btn.classList.contains('chosen')) return;
+  if (btn) { btn.textContent = '\u2713'; btn.classList.add('chosen'); btn.disabled = true; }
+  send({type: 'trade_chosen', idx});
+  startTimer();
+}
+
+// ── Timer chargement ─────────────────────────────────────────────────────────
+
+let _timerInterval = null;
+let _timerSecs     = 0;
+const _TIMER_MAX   = 300;   // 5 minutes
+
+function startTimer() {
+  if (_timerInterval) {
+    // Relancer depuis 0 si déjà en cours
+    clearInterval(_timerInterval);
+    _timerInterval = null;
+  }
+  _timerSecs = 0;
+  _renderTimer();
+  const el  = document.getElementById('sb-timer');
+  const sep = document.getElementById('sb-timer-sep');
+  el.classList.add('running');
+  sep.style.display = '';
+  _timerInterval = setInterval(() => {
+    _timerSecs++;
+    _renderTimer();
+    if (_timerSecs >= _TIMER_MAX) stopTimer();
+  }, 1000);
+}
+
+function stopTimer() {
+  if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+  const el  = document.getElementById('sb-timer');
+  const sep = document.getElementById('sb-timer-sep');
+  el.classList.remove('running');
+  sep.style.display = 'none';
+}
+
+function _renderTimer() {
+  const el = document.getElementById('sb-timer');
+  if (!el) return;
+  const m = Math.floor(_timerSecs / 60);
+  const s = _timerSecs % 60;
+  el.textContent = `\u23f1 ${m}:${String(s).padStart(2, '0')}`;
 }
 
 // Fermer scan-editor avec Échap (le sélecteur gère le sien dans son propre handler)
@@ -1631,6 +2100,154 @@ window.addEventListener('focus', () => { elInput.focus(); });
     _colsTimer = setTimeout(sendCols, 80);  // débounce
   }).observe(document.body);
 })();
+
+// ── Mission Scan Overlay ──────────────────────────────────────────────────────
+
+let _msSessions = [];   // [{session_id, items:[{file,title,reward,...}]}]
+
+function showMissionScanList(msg) {
+  const items   = msg.items || [];
+  const pending = msg.n_pending || 0;
+
+  // Grouper par session_id
+  const sessMap = {};
+  for (const it of items) {
+    const sid = it.session_id || '—';
+    if (!sessMap[sid]) sessMap[sid] = [];
+    sessMap[sid].push(it);
+  }
+  _msSessions = Object.entries(sessMap).map(([sid, its]) => ({ sid, items: its }));
+
+  const body = document.getElementById('ms-body');
+  body.innerHTML = '';
+
+  const pendNote = document.getElementById('ms-pending-note');
+  if (pending > 0) {
+    pendNote.textContent = `⏳ ${pending} screenshot(s) en cours d'analyse…`;
+    pendNote.style.display = '';
+  } else {
+    pendNote.style.display = 'none';
+  }
+
+  document.getElementById('ms-title').textContent =
+    `Missions détectées — ${msg.scope || ''} — ${items.length} capture(s)`;
+
+  if (!items.length) {
+    body.innerHTML = `<p style="color:var(--dim);margin:8px 0">Aucune mission dans cette fenêtre.</p>`;
+  } else {
+    for (const sess of _msSessions) {
+      const label = sess.sid.replace(/^(\d{4}-\d{2}-\d{2})_session(\d+)$/, '$1 · session $2');
+      const head = document.createElement('div');
+      head.className = 'ms-session-head';
+      head.textContent = label;
+      body.appendChild(head);
+
+      const tbl = document.createElement('table');
+      tbl.innerHTML = `<thead><tr>
+        <th class="ms-cb"><input type="checkbox" title="Tout sélectionner" onchange="msSelSession(this,'${sess.sid}')"></th>
+        <th>Heure</th><th>Catégorie</th><th>Titre</th>
+        <th>SCU</th><th>Récompense</th><th>Départ</th><th>→</th><th>Arrivée</th><th>Dist.</th>
+      </tr></thead>`;
+      const tbody = document.createElement('tbody');
+      for (const it of sess.items) {
+        const tr = document.createElement('tr');
+        tr.dataset.file    = it.file;
+        tr.dataset.session = sess.sid;
+        if (it.already_imported) tr.classList.add('ms-imported');
+        const scu    = it.total_scu  ? `${Math.round(it.total_scu)}□` : '—';
+        const reward = it.reward     ? `${it.reward.toLocaleString()} aUEC` : '—';
+        const src    = (it.sources    || []).slice(0,2).join(', ') || '—';
+        const dst    = (it.destinations || []).slice(0,2).join(', ') || '—';
+        const errMark = (it.errors && it.errors.length) ? ' <span class="ms-err" title="'+it.errors.join('\n')+'">⚠</span>' : '';
+        // Distance : total si une seule dest, sinon chaque segment
+        let distHtml = '—';
+        const dist = it.distances;
+        if (dist && dist.has_data) {
+          if (dist.segments.length === 1) {
+            const gm = dist.segments[0].gm;
+            distHtml = gm >= 1 ? `${gm.toFixed(1)} Gm` : `${Math.round(gm*1000)} Mm`;
+          } else {
+            distHtml = dist.segments.map(s => {
+              const gm = s.gm;
+              return gm >= 1 ? `${gm.toFixed(1)}` : `${Math.round(gm*1000)}M`;
+            }).join('+') + ' Gm';
+          }
+        }
+        const importedMark = it.already_imported ? ' <span title="Déjà importée" style="color:var(--dim)">✓</span>' : '';
+        tr.innerHTML = `
+          <td class="ms-cb"><input type="checkbox" ${it.already_imported ? '' : 'checked'} data-file="${it.file}"></td>
+          <td class="ms-hour">${it.hour || ''}</td>
+          <td class="ms-cat">${it.category_label || it.category || ''}</td>
+          <td class="ms-title">${it.title || it.file}${errMark}${importedMark}</td>
+          <td class="ms-scu">${scu}</td>
+          <td class="ms-reward">${reward}</td>
+          <td class="ms-src">${src}</td>
+          <td style="color:var(--dim)">→</td>
+          <td class="ms-dst">${dst}</td>
+          <td class="ms-dist">${distHtml}</td>`;
+        // Clic sur la ligne = toggle checkbox
+        tr.addEventListener('click', (e) => {
+          if (e.target.type === 'checkbox') return;
+          const cb = tr.querySelector('input[type=checkbox]');
+          if (cb) cb.checked = !cb.checked;
+        });
+        tbody.appendChild(tr);
+      }
+      tbl.appendChild(tbody);
+      body.appendChild(tbl);
+    }
+  }
+
+  document.getElementById('mission-scan-overlay').classList.add('open');
+}
+
+function msSel(state) {
+  document.querySelectorAll('#ms-body input[type=checkbox][data-file]')
+    .forEach(cb => cb.checked = state);
+  document.querySelectorAll('#ms-body thead input[type=checkbox]')
+    .forEach(cb => cb.checked = state);
+}
+
+function msSelSession(masterCb, sid) {
+  document.querySelectorAll(`#ms-body tr[data-session="${sid}"] input[type=checkbox]`)
+    .forEach(cb => cb.checked = masterCb.checked);
+}
+
+function closeMissionScan() {
+  document.getElementById('mission-scan-overlay').classList.remove('open');
+}
+
+function submitMissionScan(addToVoyage) {
+  const files = [];
+  document.querySelectorAll('#ms-body input[type=checkbox][data-file]:checked')
+    .forEach(cb => files.push(cb.dataset.file));
+  if (!files.length) { closeMissionScan(); return; }
+  closeMissionScan();
+  send({ type: 'mission_scan_confirm', data: { files, add_to_voyage: addToVoyage } });
+}
+
+// Badge "📷 N" dans la statusbar
+function onScreenshotProcessed(msg) {
+  const n   = (msg.n_missions || 0);
+  const el  = document.getElementById('sb-screencap');
+  const nEl = document.getElementById('sb-screencap-n');
+  if (n > 0) {
+    el.classList.remove('off'); el.classList.add('on');
+    nEl.textContent = n + ' mission' + (n > 1 ? 's' : '');
+  }
+}
+
+document.getElementById('sb-screencap').addEventListener('click', () => {
+  sendCmd('/mission scan');
+});
+
+// Fermer avec Échap
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const ov = document.getElementById('mission-scan-overlay');
+    if (ov.classList.contains('open')) { closeMissionScan(); e.stopPropagation(); }
+  }
+});
 </script>
 </body>
 </html>

@@ -3,6 +3,41 @@ import argparse
 import sys
 
 
+def _print_ocr_status() -> None:
+    """Affiche l'état du moteur OCR dans la console avant lancement."""
+    try:
+        from uexinfo.ocr.engine import ocr_status
+        s = ocr_status()
+    except Exception:
+        return
+
+    mode = s["mode"]
+    if mode == "sc-datarunner":
+        label = "\033[32mSC-Datarunner\033[0m"   # vert
+        detail = f"(tesseract bundlé + tessdata personnalisée)"
+    elif mode == "system":
+        label = "\033[33msystème\033[0m"           # jaune
+        detail = f"(tesseract PATH — qualité OCR réduite)"
+    else:
+        label = "\033[31mindisponible\033[0m"       # rouge
+        detail = "(OCR désactivé — installer pytesseract + tesseract)"
+
+    ver = f"  {s['version']}" if s.get("version") else ""
+    print(f"[OCR] {label}{ver}  {detail}", flush=True)
+
+    # Avertissements détaillés si mode dégradé
+    if mode == "unavailable":
+        if not s["pytesseract"]:
+            print("  ! pytesseract non installé : pip install pytesseract", flush=True)
+        if not s["sc_datarunner_exe"] and not s["version"]:
+            print("  ! tesseract introuvable (ni bundlé ni sur PATH)", flush=True)
+    elif mode == "system":
+        if not s["sc_datarunner_exe"]:
+            print(f"  ! SC-Datarunner exe absent : {s['tesseract_exe']}", flush=True)
+        if not s["sc_datarunner_data"]:
+            print(f"  ! tessdata SC absent : {s['tessdata_dir']}", flush=True)
+
+
 def _overlay_deps_available() -> bool:
     """Vérifie que les dépendances optionnelles de l'overlay sont installées."""
     try:
@@ -64,6 +99,8 @@ def main() -> None:
         help="Affiche ce message d'aide (alias de --help / -h)",
     )
     args = parser.parse_args()
+
+    _print_ocr_status()
 
     if args.tui:
         from uexinfo.app import UexInfoApp

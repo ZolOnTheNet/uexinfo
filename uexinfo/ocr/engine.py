@@ -33,6 +33,70 @@ def _find_exe() -> Path:
     return Path("tesseract")
 
 
+def ocr_status() -> dict:
+    """Retourne l'état de l'OCR pour affichage au démarrage.
+
+    Retourne :
+      {
+        "pytesseract": bool,       # pytesseract installé
+        "tesseract_exe": Path,     # exécutable tesseract utilisé
+        "tessdata_dir": Path,      # dossier tessdata utilisé
+        "sc_datarunner_exe": bool, # exe bundlé SC-Datarunner présent
+        "sc_datarunner_data": bool,# tessdata SC-Datarunner présents
+        "mode": str,               # "sc-datarunner" | "system" | "unavailable"
+        "version": str | None,     # version de tesseract
+      }
+    """
+    try:
+        import pytesseract as _pt
+        has_pytesseract = True
+    except ImportError:
+        return {
+            "pytesseract": False,
+            "tesseract_exe": Path("tesseract"),
+            "tessdata_dir": _DEFAULT_DATA,
+            "sc_datarunner_exe": _WIN_EXE.exists(),
+            "sc_datarunner_data": _DEFAULT_DATA.exists(),
+            "mode": "unavailable",
+            "version": None,
+        }
+
+    exe = _find_exe()
+    tessdata = _DEFAULT_DATA
+    sc_exe   = _WIN_EXE.exists()
+    sc_data  = _DEFAULT_DATA.exists() and any(_DEFAULT_DATA.glob("*.traineddata"))
+
+    # Version de tesseract
+    version = None
+    try:
+        import subprocess
+        r = subprocess.run(
+            [str(exe), "--version"],
+            capture_output=True, text=True, timeout=3,
+        )
+        first = (r.stdout or r.stderr or "").splitlines()[0]
+        version = first.strip()
+    except Exception:
+        pass
+
+    if sc_exe and sc_data:
+        mode = "sc-datarunner"
+    elif version:
+        mode = "system"
+    else:
+        mode = "unavailable"
+
+    return {
+        "pytesseract": True,
+        "tesseract_exe": exe,
+        "tessdata_dir": tessdata,
+        "sc_datarunner_exe": sc_exe,
+        "sc_datarunner_data": sc_data,
+        "mode": mode,
+        "version": version,
+    }
+
+
 def _img_size(image_path: Path) -> tuple[int, int]:
     """Retourne (width, height) sans charger toute l'image."""
     from PIL import Image
