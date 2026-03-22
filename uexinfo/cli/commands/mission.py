@@ -262,8 +262,9 @@ def _add_selected_missions(missions, indices: list[int], add_to_voyage: bool, ct
             print_warn(f"#{i+1} : données manquantes, ignoré")
             continue
         kwargs = mr.to_mission_kwargs()
+        kwargs["source_raw"] = source_raw_from_entry(e)
         from uexinfo.models.mission import Mission
-        m = Mission(id=0, source_raw=source_raw_from_entry(e), **kwargs)
+        m = Mission(id=0, **kwargs)
         mm.add(m)
         added += 1
         console.print(f"  [{C.SUCCESS}]✓[/{C.SUCCESS}] [{C.LABEL}]#{m.id}[/{C.LABEL}] {m.name}")

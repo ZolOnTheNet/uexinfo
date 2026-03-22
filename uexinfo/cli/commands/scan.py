@@ -375,6 +375,10 @@ def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult
                 f"(données post-correction).[/{C.DIM}]"
             )
 
+        # ── Centraliser dans ScreenshotDB (clés synthétiques "log_…") ────────
+        for r in results:
+            _upsert_to_db(r, None, ctx)
+
         return results
     except Exception as e:
         print_error(f"Erreur lecture log : {e}")
@@ -698,10 +702,9 @@ def _scan_image_file(ctx, image_path: Path):
 
     if isinstance(result, MissionResult):
         print_info("Type détecté : écran Contrats (mission)")
-        return result
 
     # ScanResult : affiner le nom du terminal + mémoriser le chemin image
-    if result:
+    if isinstance(result, ScanResult):
         result.image_path = str(image_path)
         if ctx.location_index:
             raw = result.terminal
@@ -709,7 +712,26 @@ def _scan_image_file(ctx, image_path: Path):
             if result.terminal != raw:
                 print_info(f"Terminal : {raw!r} → {result.terminal!r}")
 
+    # ── Centraliser dans ScreenshotDB ────────────────────────────────────────
+    if result is not None:
+        _upsert_to_db(result, image_path, ctx)
+
     return result
+
+
+def _upsert_to_db(result, image_path: "Path | None", ctx) -> None:
+    """Insère le résultat OCR dans la ScreenshotDB (créée si absente du contexte)."""
+    try:
+        from uexinfo.cache.screenshot_db import ScreenshotDB
+        db = getattr(ctx, "screenshot_db", None)
+        if db is None:
+            db = ScreenshotDB()
+            ctx.screenshot_db = db
+        gap = ctx.cfg.get("scan", {}).get("session_gap", 60)
+        db.upsert_from_result(result, image_path, gap_minutes=gap)
+        db.save()
+    except Exception:
+        pass  # La DB est optionnelle — ne jamais bloquer le scan
 
 
 def _display_mission(result) -> None:

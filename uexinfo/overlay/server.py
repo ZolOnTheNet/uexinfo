@@ -565,7 +565,8 @@ class OverlayServer:
                         if mr is None:
                             continue
                         kwargs = mr.to_mission_kwargs()
-                        m = Mission(id=0, source_raw=source_raw_from_entry(e), **kwargs)
+                        kwargs["source_raw"] = source_raw_from_entry(e)
+                        m = Mission(id=0, **kwargs)
                         mm.add(m)
                         added += 1
                         _fmt_mod.console.print(

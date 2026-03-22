@@ -176,6 +176,111 @@ class ScreenshotDB:
         """Insère ou met à jour une entrée (clé = filename)."""
         self._entries[entry.file] = entry
 
+    def upsert_from_result(
+        self,
+        result,
+        image_path: "Path | None" = None,
+        gap_minutes: int = 60,
+    ) -> ScreenshotEntry:
+        """Insère ou met à jour une entrée depuis un ScanResult ou MissionResult.
+
+        Peut être appelé depuis /scan (CLI ou overlay) sans passer par OcrWorker.
+        - ScanResult  → type "terminal_buy" | "terminal_sell"
+        - MissionResult → type "mission"
+        - image_path=None → clé synthétique "log_<terminal>_<ts>" (scans log)
+        """
+        from uexinfo.models.scan_result import ScanResult
+        from uexinfo.models.mission_result import MissionResult
+
+        now = time.time()
+
+        # ── Clé et mtime ─────────────────────────────────────────────────────
+        if image_path is not None:
+            fname = image_path.name
+            try:
+                mtime = image_path.stat().st_mtime
+            except OSError:
+                mtime = now
+            path_str = str(image_path.resolve())
+        else:
+            # Scan log : clé synthétique
+            ts_str = result.timestamp.strftime("%Y%m%d_%H%M%S")
+            if isinstance(result, ScanResult):
+                term = (result.terminal or "unknown").replace(" ", "_")
+                fname = f"log_{term}_{ts_str}.log"
+            else:
+                fname = f"log_mission_{ts_str}.log"
+            mtime = result.timestamp.timestamp()
+            path_str = ""
+
+        # ── Sérialisation ─────────────────────────────────────────────────────
+        if isinstance(result, ScanResult):
+            entry_type = f"terminal_{result.mode}"   # "terminal_buy" / "terminal_sell"
+            category   = entry_type
+            data: dict = {
+                "terminal":    result.terminal,
+                "mode":        result.mode,
+                "validated":   result.validated,
+                "source":      getattr(result, "source", "ocr"),
+                "commodities": [
+                    {
+                        "name":         c.name,
+                        "quantity":     c.quantity,
+                        "stock":        c.stock,
+                        "stock_status": c.stock_status,
+                        "price":        c.price,
+                        "in_demand":    c.in_demand,
+                    }
+                    for c in result.commodities
+                ],
+                "timestamp": result.timestamp.isoformat(),
+            }
+        elif isinstance(result, MissionResult):
+            entry_type = "mission"
+            category   = "unknown"   # détection fine nécessite le graphe
+            data = {
+                "title":         result.title,
+                "tab":           result.tab,
+                "reward":        result.reward,
+                "availability":  result.contract_availability,
+                "contracted_by": result.contracted_by,
+                "sources":       result.all_sources,
+                "destinations":  result.all_destinations,
+                "total_scu":     result.total_scu,
+                "objectives": [
+                    {
+                        "kind":          o.kind,
+                        "commodity":     o.commodity,
+                        "quantity_scu":  o.quantity_scu,
+                        "location":      o.location,
+                        "location_hint": o.location_hint,
+                        "raw":           o.raw,
+                    }
+                    for o in result.parsed_objectives
+                ],
+                "timestamp": result.timestamp.isoformat(),
+            }
+        else:
+            return None
+
+        session_id = self.compute_session_id(mtime, gap_minutes)
+
+        entry = ScreenshotEntry(
+            file         = fname,
+            path         = path_str,
+            file_mtime   = mtime,
+            processed_at = now,
+            type         = entry_type,
+            engine       = "tesseract",
+            session_id   = session_id,
+            category     = category,
+            data         = data,
+            raw          = {},
+            errors       = [],
+        )
+        self._entries[fname] = entry
+        return entry
+
     def mark_pending(self, path: Path) -> ScreenshotEntry:
         """Enregistre un screenshot 'en attente' si inconnu, retourne l'entrée."""
         if path.name not in self._entries:
