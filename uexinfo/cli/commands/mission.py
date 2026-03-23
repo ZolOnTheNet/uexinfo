@@ -343,7 +343,7 @@ def _cmd_list(ctx) -> None:
 
     for m in mm.missions:
         scu_str    = f"{m.total_scu:.0f}□" if m.total_scu else "—"
-        reward_str = f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
+        reward_str = f"{m.reward_uec // 1000}K aUEC" if m.reward_uec >= 1000 else f"{m.reward_uec} aUEC"
         tags       = " ".join(mm.synergies(m))
 
         # Date de scan
