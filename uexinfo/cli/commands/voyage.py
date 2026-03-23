@@ -11,7 +11,7 @@ from uexinfo.models.voyage import Voyage
 
 # Sous-commandes reconnues
 _SUBS = frozenset({
-    "on", "off", "new", "list", "name", "clear", "delete", "del",
+    "on", "off", "new", "calc", "list", "name", "clear", "delete", "del",
     "add", "remove", "copy", "accept", "later", "cancel",
     # alias français
     "activer", "désactiver", "nouveau", "liste",
@@ -61,13 +61,17 @@ def cmd_voyage(args: list[str], ctx) -> None:
         print_ok("Voyage désactivé — conservé pour reprise ultérieure.")
 
     elif sub in ("new", "nouveau"):
-        if rest and rest[0].lower().rstrip("é") in _AUTO_CRITERIA:
-            _cmd_new_auto(rest[0].lower(), rest[1:], ctx)
+        name = " ".join(rest) if rest else None
+        v = vm.new_voyage(name=name, departure=_player_loc(ctx))
+        print_ok(f"Nouveau voyage créé et activé : [{C.UEX}]{v.name}[/{C.UEX}]  "
+                 f"[{C.DIM}](#{v.id})[/{C.DIM}]")
+
+    elif sub == "calc":
+        if not rest:
+            console.print(f"  [{C.DIM}]Usage : /voyage calc court|benefice|roi [options][/{C.DIM}]")
+            console.print(f"  [{C.DIM}]Options : --boucle  --todest <l>  --to <l>  --exclude <l>  --station[/{C.DIM}]")
         else:
-            name = " ".join(rest) if rest else None
-            v = vm.new_voyage(name=name, departure=_player_loc(ctx))
-            print_ok(f"Nouveau voyage créé et activé : [{C.UEX}]{v.name}[/{C.UEX}]  "
-                     f"[{C.DIM}](#{v.id})[/{C.DIM}]")
+            _cmd_new_auto(rest[0].lower(), rest[1:], ctx)
 
     elif sub in ("name", "renommer"):
         target = voyage or vm.get_active()
@@ -1137,9 +1141,9 @@ def _show_help() -> None:
         ("on [n|nom]",      "Active un voyage existant ou en crée un nouveau"),
         ("off",             "Désactive le voyage courant (conservé)"),
         ("new [nom]",       "Crée un voyage vide + l'active"),
-        ("new court",       "Voyage auto : distance totale minimale"),
-        ("new benefice",    "Voyage auto : bénéfice maximal (aUEC)"),
-        ("new roi",         "Voyage auto : meilleur retour/investissement"),
+        ("calc court",      "Voyage calculé : distance totale minimale"),
+        ("calc benefice",   "Voyage calculé : bénéfice maximal (aUEC)"),
+        ("calc roi",        "Voyage calculé : meilleur retour/investissement"),
         ("  --boucle",      "  Option : inclure le retour au point de départ"),
         ("  --todest <l>",  "  Option : terminer à ce lieu"),
         ("  --to <l>",      "  Option : passer par ce lieu (missions prioritaires)"),
