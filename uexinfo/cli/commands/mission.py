@@ -175,7 +175,7 @@ def _display_mission_scan_cli(missions, pending, scope_label, ctx) -> None:
     tbl.add_column("Arrivée",    style=C.UEX,    max_width=20)
 
     for i, e in enumerate(missions, 1):
-        scu_str    = f"{e.total_scu:.0f}□" if e.total_scu else "—"
+        scu_str    = f"{e.total_scu:.0f}{C.SCU}" if e.total_scu else "—"
         reward_str = f"{e.reward:,}".replace(",", " ") if e.reward else "—"
         srcs = ", ".join(e.sources[:2]) or "—"
         dsts = ", ".join(e.destinations[:2]) or "—"
@@ -342,8 +342,8 @@ def _cmd_list(ctx) -> None:
     from datetime import datetime as _dt
 
     for m in mm.missions:
-        scu_str    = f"{m.total_scu:.0f}□" if m.total_scu else "—"
-        reward_str = f"{m.reward_uec // 1000}K aUEC" if m.reward_uec >= 1000 else f"{m.reward_uec} aUEC"
+        scu_str    = f"{m.total_scu:.0f}{C.SCU}" if m.total_scu else "—"
+        reward_str = f"{m.reward_uec // 1000}K{C.AUEC}" if m.reward_uec >= 1000 else f"{m.reward_uec}{C.AUEC}"
         tags       = " ".join(mm.synergies(m))
 
         # Date de scan
@@ -690,8 +690,8 @@ def _cmd_view(args: list[str], ctx) -> None:
 
     # ── En-tête mission ────────────────────────────────────────────────────
     section(f"Mission #{m.id} — {m.name}")
-    reward_str = f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
-    scu_str    = f"{m.total_scu:.0f} SCU" if m.total_scu else ""
+    reward_str = f"{m.reward_uec // 1000}K{C.AUEC}" if m.reward_uec >= 1000 else f"{m.reward_uec}{C.AUEC}"
+    scu_str    = f"{m.total_scu:.0f}{C.SCU}" if m.total_scu else ""
     console.print(f"  [{C.LABEL}]Récompense:[/{C.LABEL}] {reward_str}" +
                   (f"   [{C.LABEL}]Fret:[/{C.LABEL}] {scu_str}" if scu_str else ""))
 
