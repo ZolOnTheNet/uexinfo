@@ -120,6 +120,80 @@ class _WindowApi:
     on_save_geometry = None
 
 
+class _Win32HotkeyListener:
+    """Hotkey sans modificateur via RegisterHotKey Win32.
+
+    Contrairement à keyboard.Listener (WH_KEYBOARD_LL), RegisterHotKey
+    fonctionne même quand le processus au premier plan est plus privilégié
+    (ex : Star Citizen lancé en admin).
+    """
+
+    # Codes de touches virtuelles Windows (subset utile)
+    _VK: dict[str, int] = {
+        "f1": 0x70, "f2": 0x71, "f3": 0x72, "f4": 0x73,
+        "f5": 0x74, "f6": 0x75, "f7": 0x76, "f8": 0x77,
+        "f9": 0x78, "f10": 0x79, "f11": 0x7A, "f12": 0x7B,
+        "insert": 0x2D, "delete": 0x2E, "home": 0x24, "end": 0x23,
+        "page_up": 0x21, "page_down": 0x22,
+        "scroll_lock": 0x91, "pause": 0x13, "caps_lock": 0x14,
+        "num_lock": 0x90,
+    }
+    _HK_ID    = 0x1EEF   # identifiant arbitraire
+    _WM_HOTKEY = 0x0312
+    _WM_QUIT   = 0x0012
+
+    def __init__(self, key_name: str, callback) -> None:
+        self._key_name = key_name.lower().strip("<>")
+        self._callback = callback
+        self._thread: threading.Thread | None = None
+        self._tid: int = 0
+
+    def start(self) -> None:
+        vk = self._VK.get(self._key_name)
+        if vk is None:
+            print(f"[overlay] ⚠ Touche sans VK connu : {self._key_name!r} — hotkey désactivée")
+            return
+
+        user32   = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        callback = self._callback
+        hk_id    = self._HK_ID
+        wm_hk    = self._WM_HOTKEY
+        tid_box  = [0]
+
+        def _loop():
+            import ctypes.wintypes as _wt
+            tid_box[0] = kernel32.GetCurrentThreadId()
+            if not user32.RegisterHotKey(None, hk_id, 0, vk):
+                err = ctypes.get_last_error()
+                print(f"[overlay] ⚠ RegisterHotKey({self._key_name}) échoué (err={err})")
+                return
+            print(f"[overlay] RegisterHotKey({self._key_name!r}, vk=0x{vk:02X}) OK", flush=True)
+            msg = _wt.MSG()
+            while True:
+                ret = user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
+                if ret <= 0:
+                    break
+                if msg.message == wm_hk and msg.wParam == hk_id:
+                    callback()
+            user32.UnregisterHotKey(None, hk_id)
+
+        self._thread = threading.Thread(target=_loop, daemon=True, name="overlay-hotkey")
+        self._thread.start()
+        # Attendre que le thread ait enregistré son TID (max 1s)
+        t0 = time.monotonic()
+        while tid_box[0] == 0 and time.monotonic() - t0 < 1.0:
+            time.sleep(0.02)
+        self._tid = tid_box[0]
+
+    def stop(self) -> None:
+        if self._tid:
+            try:
+                ctypes.windll.user32.PostThreadMessageW(self._tid, self._WM_QUIT, 0, 0)
+            except Exception:
+                pass
+
+
 def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     """Point d'entrée du mode overlay (appelé par __main__.py --overlay)."""
 
@@ -216,24 +290,19 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     pynput_hk = _parse_hotkey(hotkey)
     print(f"[overlay] Hotkey : {hotkey}  ({pynput_hk})")
 
-    # GlobalHotKeys ne supporte pas les touches seules sans modificateur (F1-F12…)
-    # → on utilise keyboard.Listener pour détecter le on_press à la place
+    # Détecter si la hotkey nécessite un modificateur
+    # GlobalHotKeys (RegisterHotKey) fonctionne dans tous les contextes y compris
+    # quand une app admin (Star Citizen) est au premier plan.
+    # keyboard.Listener (WH_KEYBOARD_LL) NE fonctionne PAS dans ce cas.
+    # → Pour les touches seules (F3, F9…) on utilise RegisterHotKey directement.
     _hk_parts = [p for p in pynput_hk.split("+") if p]
     _has_modifier = any(p in ("<alt>", "<ctrl>", "<shift>", "<cmd>") for p in _hk_parts)
 
     if not _has_modifier and len(_hk_parts) == 1:
-        # Touche seule ex: <f3>, <f9> → Listener bas-niveau
-        from pynput.keyboard import Key as _Key, Listener as _KbListener
+        # Touche seule ex: <f3>, <f9> → RegisterHotKey Win32 (fonctionne même
+        # quand le processus au premier plan est plus privilégié)
         _key_name = _hk_parts[0].strip("<>").lower()
-        _target_key = getattr(_Key, _key_name, None)
-        if _target_key is None:
-            print(f"[overlay] ⚠ Touche inconnue : {_key_name!r} — hotkey désactivée")
-            listener = None
-        else:
-            def _on_press(key, _tk=_target_key):
-                if key == _tk:
-                    toggle()
-            listener = _KbListener(on_press=_on_press)
+        listener = _Win32HotkeyListener(_key_name, toggle)
     else:
         listener = keyboard.GlobalHotKeys({pynput_hk: toggle})
 
@@ -271,7 +340,8 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     def _shutdown():
         print("[overlay] _shutdown() — sauvegarde + os._exit(0)", flush=True)
         _save_geometry()   # ← EN PREMIER, pendant que la fenêtre existe encore
-        listener.stop()
+        if listener is not None:
+            listener.stop()
 
         if server.ctx and server.ctx.cache.transport_graph.has_unsaved_changes:
             try:
