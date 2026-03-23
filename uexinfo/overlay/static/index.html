@@ -456,7 +456,7 @@ html, body {
 #scan-img-el {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: fill;   /* étirer exactement au panneau pour aligner les lignes */
   transform-origin: 0 0;
   transition: transform 0.1s;
   pointer-events: none;
@@ -478,6 +478,18 @@ html, body {
 }
 #scan-img-zoom-bar button:hover { color: var(--text); background: rgba(255,255,255,0.06); }
 #scan-img-zoom-lbl { color: var(--dim); font-size: 0.8em; flex: 1; text-align: center; }
+
+/* Bande de surbrillance sur l'image — suit le survol des lignes du formulaire */
+#scan-img-highlight {
+  position: absolute; left: 0; right: 0;
+  background: rgba(0, 188, 212, 0.18);
+  border-top: 1px solid rgba(0, 188, 212, 0.45);
+  border-bottom: 1px solid rgba(0, 188, 212, 0.45);
+  pointer-events: none;
+  transition: top 0.06s ease, height 0.06s ease, opacity 0.1s;
+  opacity: 1;
+}
+#scan-img-highlight.hidden { opacity: 0; }
 
 /* Panneau formulaire */
 #scan-form-panel {
@@ -745,6 +757,7 @@ html, body {
       <div id="scan-img-panel" class="hidden">
         <div id="scan-img-wrap">
           <img id="scan-img-el" src="" alt="screenshot">
+          <div id="scan-img-highlight" class="hidden"></div>
           <div id="scan-img-hint">Scroll = zoom · Clic = zoom×2</div>
         </div>
         <div id="scan-img-zoom-bar">
@@ -1718,6 +1731,23 @@ function imgZoomReset() {
   _imgScale = 1.0;
   _applyImgZoom();
 }
+
+function _highlightImgRow(i, n) {
+  if (_imgScale !== 1.0) return;   // hors-alignement si zoom actif
+  const wrap = document.getElementById('scan-img-wrap');
+  const hl   = document.getElementById('scan-img-highlight');
+  if (!hl || !wrap) return;
+  const panelH = wrap.clientHeight;
+  const rowH   = panelH / n;
+  hl.style.top    = (i * rowH) + 'px';
+  hl.style.height = rowH + 'px';
+  hl.classList.remove('hidden');
+}
+
+function _hideImgHighlight() {
+  const hl = document.getElementById('scan-img-highlight');
+  if (hl) hl.classList.add('hidden');
+}
 function _applyImgZoom() {
   const el = document.getElementById('scan-img-el');
   if (el) el.style.transform = `scale(${_imgScale})`;
@@ -1918,6 +1948,7 @@ function showScanEditor(data) {
 
   const tbody = document.getElementById('se-rows');
   tbody.innerHTML = '';
+  const nRows = (data.commodities || []).length;
   (data.commodities || []).forEach((c, i) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1928,6 +1959,10 @@ function showScanEditor(data) {
       <td><input type="number" class="num se-inline" data-i="${i}" data-f="price"
                  value="${c.price || ''}" min="0" placeholder="—"></td>
     `;
+    if (data.image_b64) {
+      tr.addEventListener('mouseenter', () => _highlightImgRow(i, nRows));
+      tr.addEventListener('mouseleave', _hideImgHighlight);
+    }
     tbody.appendChild(tr);
   });
 

@@ -11,7 +11,7 @@ from uexinfo.models.voyage import Voyage
 
 # Sous-commandes reconnues
 _SUBS = frozenset({
-    "on", "off", "new", "list", "name", "clear",
+    "on", "off", "new", "list", "name", "clear", "delete", "del",
     "add", "remove", "copy", "accept", "later", "cancel",
     # alias français
     "activer", "désactiver", "nouveau", "liste",
@@ -61,10 +61,13 @@ def cmd_voyage(args: list[str], ctx) -> None:
         print_ok("Voyage désactivé — conservé pour reprise ultérieure.")
 
     elif sub in ("new", "nouveau"):
-        name = " ".join(rest) if rest else None
-        v = vm.new_voyage(name=name, departure=_player_loc(ctx))
-        print_ok(f"Nouveau voyage créé et activé : [{C.UEX}]{v.name}[/{C.UEX}]  "
-                 f"[{C.DIM}](#{v.id})[/{C.DIM}]")
+        if rest and rest[0].lower().rstrip("é") in _AUTO_CRITERIA:
+            _cmd_new_auto(rest[0].lower(), rest[1:], ctx)
+        else:
+            name = " ".join(rest) if rest else None
+            v = vm.new_voyage(name=name, departure=_player_loc(ctx))
+            print_ok(f"Nouveau voyage créé et activé : [{C.UEX}]{v.name}[/{C.UEX}]  "
+                     f"[{C.DIM}](#{v.id})[/{C.DIM}]")
 
     elif sub in ("name", "renommer"):
         target = voyage or vm.get_active()
@@ -98,6 +101,9 @@ def cmd_voyage(args: list[str], ctx) -> None:
         target.mission_ids.clear()
         vm.update(target)
         print_ok(f"{n} mission(s) retirée(s) du voyage [{C.UEX}]{target.name}[/{C.UEX}]")
+
+    elif sub in ("delete", "del", "supprimer"):
+        _cmd_delete(rest, ctx)
 
     elif sub in ("add", "ajouter"):
         target = voyage or vm.get_active()
@@ -414,6 +420,284 @@ def _cmd_remove(args: list[str], voyage: Voyage, ctx) -> None:
             print_warn(f"{m.name} n'est pas dans ce voyage")
 
 
+# ── Suppression de voyages ────────────────────────────────────────────────────
+
+def _cmd_delete(args: list[str], ctx) -> None:
+    vm = ctx.voyage_manager
+    if not vm.voyages:
+        print_warn("Aucun voyage enregistré")
+        return
+
+    # --all → tout supprimer après confirmation
+    if "--all" in args:
+        n = len(vm.voyages)
+        vm.voyages.clear()
+        vm.active_id = None
+        vm.save()
+        print_ok(f"{n} voyage(s) supprimé(s)")
+        return
+
+    # Références explicites passées en argument
+    if args:
+        deleted, not_found = [], []
+        for ref in args:
+            v = vm.get(ref)
+            if v:
+                vm.remove(str(v.id))
+                deleted.append(v.name)
+            else:
+                not_found.append(ref)
+        if deleted:
+            print_ok(f"Supprimé(s) : {', '.join(deleted)}")
+        if not_found:
+            print_warn(f"Introuvable(s) : {', '.join(not_found)}")
+        return
+
+    # Sans argument → sélecteur multi
+    items = [
+        SelectItem(
+            label    = f"#{v.id}  {v.name}",
+            value    = v,
+            meta     = (
+                f"{len(v.mission_ids)} mission(s)"
+                + (f" · départ {v.departure}" if v.departure else "")
+                + (" [actif]" if v.id == vm.active_id else "")
+            ),
+            selected = False,
+        )
+        for v in vm.voyages
+    ]
+    chosen = pick(ctx, items,
+                  title="Supprimer des voyages",
+                  mode="multi",
+                  confirm_label="✕ Supprimer")
+    if chosen is None:
+        print_warn("Annulé.")
+        return
+    if not chosen:
+        console.print(f"[{C.DIM}]Aucun voyage sélectionné.[/{C.DIM}]")
+        return
+    deleted = []
+    for it in chosen:
+        vm.remove(str(it.value.id))
+        deleted.append(it.value.name)
+    print_ok(f"{len(deleted)} voyage(s) supprimé(s) : {', '.join(deleted)}")
+
+
+# ── Création automatique de voyage ────────────────────────────────────────────
+
+# Critères reconnus (clé normalisée → libellé)
+_AUTO_CRITERIA: dict[str, str] = {
+    "court":    "Distance minimale",
+    "benefice": "Bénéfice maximal",
+    "bénéfice": "Bénéfice maximal",
+    "roi":      "Meilleur ROI (aUEC/Gm)",
+}
+
+# Mots-clés identifiant une station spatiale (heuristique)
+_STATION_KW = {
+    "station", "harbor", "port", "terminal", "refinery",
+    "gateway", "hub", "relay", "beacon", "platform",
+    "outpost", "warehouse", "depot",
+}
+
+
+def _loc_is_station(loc: str) -> bool:
+    l = loc.lower()
+    return any(kw in l for kw in _STATION_KW)
+
+
+def _parse_auto_opts(args: list[str]) -> dict:
+    """Extrait les options --xxx des arguments bruts."""
+    opts: dict = {
+        "boucle":   False,
+        "todest":   None,   # str
+        "to":       [],     # list[str]
+        "exclude":  [],     # list[str]
+        "station":  False,
+    }
+    i = 0
+    while i < len(args):
+        a = args[i].lower()
+        if a == "--boucle":
+            opts["boucle"] = True
+        elif a == "--station":
+            opts["station"] = True
+        elif a == "--todest" and i + 1 < len(args):
+            i += 1
+            opts["todest"] = args[i].replace("_", " ")
+        elif a == "--to" and i + 1 < len(args):
+            i += 1
+            opts["to"].append(args[i].replace("_", " "))
+        elif a == "--exclude" and i + 1 < len(args):
+            i += 1
+            # consommer tous les args non-flag suivants
+            while i < len(args) and not args[i].startswith("--"):
+                opts["exclude"].append(args[i].replace("_", " "))
+                i += 1
+            continue
+        i += 1
+    return opts
+
+
+def _mission_score(m, criterion: str, leg_dist: float | None) -> float:
+    """Score d'une mission selon le critère (plus grand = mieux)."""
+    d = leg_dist if leg_dist is not None else float("inf")
+    if criterion in ("court",):
+        return -d  # on veut les plus courtes → inverser
+    if criterion in ("benefice", "bénéfice"):
+        return float(m.reward_uec)
+    if criterion == "roi":
+        if d <= 0 or d == float("inf"):
+            return float(m.reward_uec)  # fallback si pas de distance
+        return m.reward_uec / d
+    return 0.0
+
+
+def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
+    """Crée un voyage optimisé selon le critère."""
+    mm = ctx.mission_manager
+    vm = ctx.voyage_manager
+    graph = ctx.cache.transport_graph
+
+    opts = _parse_auto_opts(raw_args)
+    crit_label = _AUTO_CRITERIA.get(criterion, criterion)
+
+    missions = list(mm.missions)
+    if not missions:
+        print_warn("Catalogue vide — /mission add pour créer des missions")
+        return
+
+    # ── Filtres ───────────────────────────────────────────────────────────────
+    if opts["station"]:
+        missions = [
+            m for m in missions
+            if all(_loc_is_station(l) for l in m.all_sources + m.all_destinations)
+        ]
+        if not missions:
+            print_warn("Aucune mission entre stations uniquement")
+            return
+
+    excl = [e.lower() for e in opts["exclude"]]
+    if excl:
+        def _touched(m) -> bool:
+            locs = [l.lower() for l in m.all_sources + m.all_destinations]
+            return any(any(e in loc for e in excl) for loc in locs)
+        missions = [m for m in missions if not _touched(m)]
+        if not missions:
+            print_warn("Aucune mission après exclusion des lieux")
+            return
+
+    # Filtre --to : garder les missions qui touchent l'un des lieux obligatoires
+    to_locs = [t.lower() for t in opts["to"]]
+    if to_locs:
+        def _touches_to(m) -> bool:
+            locs = [l.lower() for l in m.all_sources + m.all_destinations]
+            return any(any(t in loc for t in to_locs) for loc in locs)
+        must_have = [m for m in missions if _touches_to(m)]
+        others    = [m for m in missions if not _touches_to(m)]
+        missions  = must_have + others   # les missions obligatoires en premier
+        if not must_have:
+            print_warn(
+                f"Aucune mission ne passe par : {', '.join(opts['to'])}\n"
+                f"  [{C.DIM}]Le filtre --to est ignoré[/{C.DIM}]"
+            )
+
+    # ── Calcul des distances leg ───────────────────────────────────────────────
+    start_raw = _player_loc(ctx) or ""
+    all_locs: list[str] = []
+    if start_raw:
+        all_locs.append(start_raw)
+    for m in missions:
+        for loc in m.all_sources + m.all_destinations:
+            if loc and loc not in all_locs:
+                all_locs.append(loc)
+
+    resolved: dict[str, str | None] = {}
+    dist: dict = {}
+    if graph:
+        console.print(f"  [{C.DIM}]Calcul des distances…[/{C.DIM}]")
+        resolved = _resolve_locs(all_locs, graph)
+        node_list = list(dict.fromkeys(v for v in resolved.values() if v))
+        dist = _build_dist_matrix(graph, node_list)
+
+    def _leg_dist(m) -> float | None:
+        src_raw = m.all_sources[0] if m.all_sources else None
+        dst_raw = m.all_destinations[0] if m.all_destinations else None
+        if not src_raw or not dst_raw:
+            return None
+        sn = resolved.get(src_raw)
+        dn = resolved.get(dst_raw)
+        return dist.get((sn, dn))
+
+    # ── Classement ───────────────────────────────────────────────────────────
+    scored = sorted(
+        missions,
+        key=lambda m: _mission_score(m, criterion, _leg_dist(m)),
+        reverse=True,
+    )
+
+    # ── Sélecteur ────────────────────────────────────────────────────────────
+    def _score_label(m) -> str:
+        d = _leg_dist(m)
+        if criterion == "court":
+            return _fmt_dist(d)
+        if criterion in ("benefice", "bénéfice"):
+            return f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
+        if criterion == "roi":
+            if d and d > 0:
+                roi = m.reward_uec / d
+                return f"{roi:,.0f}".replace(",", " ") + " aUEC/Gm"
+            return f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
+        return ""
+
+    items = [
+        SelectItem(
+            label    = f"#{m.id}  {m.name}",
+            value    = m,
+            meta     = (
+                "→".join(filter(None, m.all_sources[:1] + m.all_destinations[:1])) or "—"
+                + f"  {_score_label(m)}"
+            ),
+            selected = True,   # tout pré-coché
+        )
+        for m in scored
+    ]
+    chosen = pick(ctx, items,
+                  title=f"Voyage auto — {crit_label}",
+                  mode="multi",
+                  confirm_label="✓ Créer le voyage")
+    if chosen is None:
+        print_warn("Annulé.")
+        return
+    if not chosen:
+        console.print(f"[{C.DIM}]Aucune mission sélectionnée.[/{C.DIM}]")
+        return
+
+    # ── Création du voyage ────────────────────────────────────────────────────
+    v = vm.new_voyage(
+        name      = f"auto-{criterion}",
+        departure = start_raw or None,
+    )
+    if opts["todest"]:
+        v.arrival = opts["todest"]
+    vm.add_missions(v, [it.value.id for it in chosen])
+    vm.update(v)
+
+    n = len(chosen)
+    total_rew = sum(it.value.reward_uec for it in chosen)
+    rew_s = f"{total_rew:,}".replace(",", " ")
+    print_ok(
+        f"Voyage [{C.UEX}]{v.name}[/{C.UEX}] créé : "
+        f"{n} mission(s) · {rew_s} aUEC"
+    )
+    if opts["boucle"]:
+        console.print(f"  [{C.DIM}]--boucle : retour au départ pris en compte dans /voyage accept[/{C.DIM}]")
+        v.loop = True
+        vm.update(v)
+    console.print(f"  [{C.DIM}]/voyage accept  pour analyser et optimiser la route[/{C.DIM}]")
+
+
 # ── Analyse TSP + distances ───────────────────────────────────────────────────
 
 def _fmt_dist(d: float | None) -> str:
@@ -649,6 +933,16 @@ def _run_analysis(voyage: Voyage, ctx) -> None:
         algo = "exhaustif"
     else:
         order, tour_dist = _tsp_nearest_neighbor(start_node, missions, resolved, dist)
+
+    # --boucle : ajouter le retour au départ
+    if voyage.loop and start_node and order:
+        last_m = missions[order[-1]]
+        last_raw = (last_m.all_destinations[0] if last_m.all_destinations
+                    else last_m.all_sources[0] if last_m.all_sources else None)
+        last_node = resolved.get(last_raw) if last_raw else None
+        return_d = dist.get((last_node, start_node))
+        if return_d is not None:
+            tour_dist += return_d
         algo = "heuristique"
 
     console.print(
@@ -840,15 +1134,24 @@ def _no_active() -> None:
 def _show_help() -> None:
     section("Aide — /voyage")
     lines = [
-        ("on",              "Active le dernier voyage ou en crée un nouveau"),
+        ("on [n|nom]",      "Active un voyage existant ou en crée un nouveau"),
         ("off",             "Désactive le voyage courant (conservé)"),
-        ("new [nom]",       "Crée un nouveau voyage + l'active"),
+        ("new [nom]",       "Crée un voyage vide + l'active"),
+        ("new court",       "Voyage auto : distance totale minimale"),
+        ("new benefice",    "Voyage auto : bénéfice maximal (aUEC)"),
+        ("new roi",         "Voyage auto : meilleur retour/investissement"),
+        ("  --boucle",      "  Option : inclure le retour au point de départ"),
+        ("  --todest <l>",  "  Option : terminer à ce lieu"),
+        ("  --to <l>",      "  Option : passer par ce lieu (missions prioritaires)"),
+        ("  --exclude <l>", "  Option : exclure les missions touchant ce lieu"),
+        ("  --station",     "  Option : stations spatiales uniquement"),
         ("<nom|n>",         "Active le voyage (ou /voyage <nom> list pour afficher)"),
         ("name <nom>",      "Renomme le voyage actif"),
         ("list [--trajets]","Missions du voyage actif, ou tous les voyages"),
         ("add [m1 m2...]",  "Ajoute des missions (catalogue) au voyage actif"),
         ("remove <m>",      "Retire une mission du voyage"),
-        ("clear",           "Vide les missions du voyage actif"),
+        ("clear",           "Vide les missions du voyage actif (conserve le voyage)"),
+        ("delete [n…|--all]","Supprime un ou plusieurs voyages (sélecteur si sans args)"),
         ("copy [n|nom]",    "Copie/fusionne vers un autre voyage"),
         ("accept",          "Valide + analyse, désactive le voyage"),
         ("later",           "Sauvegarde sans analyse, désactive"),

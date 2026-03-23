@@ -391,17 +391,22 @@ class OverlayServer:
         if not isinstance(result, ScanResult):
             return
 
-        # Encoder l'image source en base64 si disponible (scans OCR uniquement)
+        # Encoder le crop de la région commodités en base64 (scans OCR uniquement)
+        # Crop = (58%, 12%, 100%, 100%) — identique aux constantes de engine.py
         image_b64 = ""
         if result.image_path:
             try:
-                import base64
+                import base64, io as _bio
                 from pathlib import Path
+                from PIL import Image as _PILImage
                 img_path = Path(result.image_path)
                 if img_path.is_file() and img_path.stat().st_size < 5 * 1024 * 1024:
-                    suffix = img_path.suffix.lower().lstrip(".")
-                    mime   = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "bmp": "bmp"}.get(suffix, "jpeg")
-                    image_b64 = f"data:image/{mime};base64," + base64.b64encode(img_path.read_bytes()).decode()
+                    _img = _PILImage.open(img_path)
+                    _w, _h = _img.size
+                    _crop = _img.crop((int(_w * 0.58), int(_h * 0.12), _w, _h))
+                    _buf = _bio.BytesIO()
+                    _crop.save(_buf, format="JPEG", quality=80)
+                    image_b64 = "data:image/jpeg;base64," + base64.b64encode(_buf.getvalue()).decode()
             except Exception:
                 pass
 

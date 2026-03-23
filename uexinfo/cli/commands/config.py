@@ -31,6 +31,8 @@ def cmd_config(args: list[str], ctx) -> None:
         _player_config(rest, ctx)
     elif sub == "close":
         _overlay_close(rest, ctx)
+    elif sub == "hotkey":
+        _hotkey(rest, ctx)
     else:
         print_error(f"Sous-commande inconnue : {sub}  (/help config)")
 
@@ -585,6 +587,27 @@ def _overlay_close(args: list[str], ctx) -> None:
     else:
         print_ok("Fermeture : mode dblclick (✕ masque · double-clic ferme)")
     console.print(f"[{C.DIM}]Effectif au prochain lancement de l'overlay.[/{C.DIM}]")
+
+
+# ── Overlay hotkey ───────────────────────────────────────────────────────────
+
+def _hotkey(args: list[str], ctx) -> None:
+    current = ctx.cfg.get("overlay", {}).get("hotkey", "alt+shift+u")
+    if not args:
+        console.print(f"  [bold]overlay.hotkey :[/bold]  [{C.UEX}]{current}[/{C.UEX}]")
+        console.print(f"  [{C.DIM}]Usage : /config hotkey <combinaison>[/{C.DIM}]")
+        console.print(f"  [{C.DIM}]Exemples : alt+shift+u  ·  ctrl+shift+x  ·  alt+F9[/{C.DIM}]")
+        console.print(f"  [{C.DIM}]Modificateurs : alt, ctrl, shift — touches : a-z, F1-F12, …[/{C.DIM}]")
+        return
+    new_hk = args[0].lower().strip()
+    if not new_hk:
+        print_error("Combinaison vide")
+        return
+    ctx.cfg.setdefault("overlay", {})["hotkey"] = new_hk
+    settings.save(ctx.cfg)
+    print_ok(f"Hotkey enregistrée : [{C.UEX}]{new_hk}[/{C.UEX}]")
+    console.print(f"  [{C.DIM}]Effectif au prochain lancement de l'overlay.[/{C.DIM}]")
+    console.print(f"  [{C.DIM}]Ou : uexinfo --hotkey {new_hk}  pour forcer au lancement.[/{C.DIM}]")
 
 
 # ── Player config ─────────────────────────────────────────────────────────────

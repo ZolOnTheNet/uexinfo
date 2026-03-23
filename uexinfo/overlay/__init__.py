@@ -215,8 +215,30 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
 
     pynput_hk = _parse_hotkey(hotkey)
     print(f"[overlay] Hotkey : {hotkey}  ({pynput_hk})")
-    listener = keyboard.GlobalHotKeys({pynput_hk: toggle})
-    listener.start()
+
+    # GlobalHotKeys ne supporte pas les touches seules sans modificateur (F1-F12…)
+    # → on utilise keyboard.Listener pour détecter le on_press à la place
+    _hk_parts = [p for p in pynput_hk.split("+") if p]
+    _has_modifier = any(p in ("<alt>", "<ctrl>", "<shift>", "<cmd>") for p in _hk_parts)
+
+    if not _has_modifier and len(_hk_parts) == 1:
+        # Touche seule ex: <f3>, <f9> → Listener bas-niveau
+        from pynput.keyboard import Key as _Key, Listener as _KbListener
+        _key_name = _hk_parts[0].strip("<>").lower()
+        _target_key = getattr(_Key, _key_name, None)
+        if _target_key is None:
+            print(f"[overlay] ⚠ Touche inconnue : {_key_name!r} — hotkey désactivée")
+            listener = None
+        else:
+            def _on_press(key, _tk=_target_key):
+                if key == _tk:
+                    toggle()
+            listener = _KbListener(on_press=_on_press)
+    else:
+        listener = keyboard.GlobalHotKeys({pynput_hk: toggle})
+
+    if listener:
+        listener.start()
 
     # ── 4. Nettoyage à la fermeture ───────────────────────────────────────────
 
