@@ -12,7 +12,7 @@ from uexinfo.display.formatter import console, print_error, print_ok, print_warn
 from uexinfo.models.mission import Mission, MissionObjective
 
 _SUBS = frozenset({
-    "list", "add", "edit", "remove", "scan", "view",
+    "list", "add", "edit", "remove", "scan", "view", "+",
     # alias français
     "liste", "ajouter", "modifier", "supprimer", "voir",
 })
@@ -49,6 +49,9 @@ def cmd_mission(args: list[str], ctx) -> None:
 
     elif sub in ("view", "voir"):
         _cmd_view(args[1:], ctx)
+
+    elif sub == "+":
+        _cmd_add_to_voyage(args[1:], ctx)
 
     elif sub == "scan":
         _cmd_scan_db(args[1:], ctx)
@@ -382,7 +385,14 @@ def _cmd_list(ctx) -> None:
 
     console.print(tbl)
     player_hint = f" · depuis {_short_loc(player_loc)}" if player_loc else ""
-    console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s){player_hint} · /mission add <fichier> ou <nom> · /voyage pour planifier[/{C.DIM}]")
+    active_voyage = ctx.voyage_manager.get_active() if hasattr(ctx, "voyage_manager") else None
+    if active_voyage:
+        console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s){player_hint} · "
+                      f"[bold {C.LABEL}]+<id>[/bold {C.LABEL}] [{C.DIM}]ajoute au voyage «[/{C.DIM}] "
+                      f"[{C.LABEL}]{active_voyage.name}[/{C.LABEL}] [{C.DIM}]»[/{C.DIM}]")
+        console.print(f"[{C.DIM}]  ex: /mission + 42  ou  /voyage mission add 42[/{C.DIM}]")
+    else:
+        console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s){player_hint} · /mission add <fichier> ou <nom> · /voyage pour planifier[/{C.DIM}]")
 
 
 def _resolve_graph_node(name: str, graph) -> str | None:
@@ -397,16 +407,34 @@ def _resolve_graph_node(name: str, graph) -> str | None:
     return _resolve_node(short, graph)
 
 
+_SUFFIX_RE = re.compile(
+    r"\s+(Station|Harbor|Port|Hub|Base|Outpost|Settlement|Colony|City|Center|Centre)\b.*$",
+    re.IGNORECASE,
+)
+
+
 def _short_loc(name: str) -> str:
-    """Extrait le code court d'un lieu.
+    """Code court d'un lieu pour affichage compact.
 
     'MIC-L2 Long Forest Station' → 'MIC-L2'
-    'Everus Harbor'              → 'Everus Harbor'  (pas de code Lagrange)
+    'Faithful Dream Station'     → 'Faithful Dream'
+    'Everus Harbor'              → 'Everus Harbor'
     """
     m = re.match(r"^([A-Z]{2,4}-[A-Z]\d+)", name)
     if m:
         return m.group(1)
-    return name
+    cleaned = _SUFFIX_RE.sub("", name).strip()
+    words = cleaned.split()
+    return " ".join(words[:2]) if len(words) > 2 else cleaned
+
+
+def _fmt_dist(d_gm: float) -> str:
+    """Distance compacte : 65.2 Gm → '65G',  0.012 Gm → '12M',  ~0 → 'ici'."""
+    if d_gm < 0.0005:
+        return "ici"
+    if d_gm >= 1:
+        return f"{d_gm:.0f}G"
+    return f"{d_gm * 1000:.0f}M"
 
 
 def _player_dist(player_node: str, loc_name: str, graph, cache: dict) -> str | None:
@@ -420,8 +448,7 @@ def _player_dist(player_node: str, loc_name: str, graph, cache: dict) -> str | N
         try:
             r = graph.find_shortest_path(player_node, node)
             if r and r.total_distance is not None:
-                d = r.total_distance
-                result_str = f"{d:.1f}Gm" if d >= 1 else f"{d * 1000:.0f}Mm"
+                result_str = _fmt_dist(r.total_distance)
         except Exception:
             pass
     cache[key] = result_str
@@ -702,22 +729,23 @@ def _cmd_view(args: list[str], ctx) -> None:
         console.print(f"  [{C.DIM}]Aucun objectif de transport.[/{C.DIM}]")
         return
 
-    # ── Distance joueur → chaque source ───────────────────────────────────
-    if player_node and sources:
+    _dist_cache: dict = {}
+    from_label = _short_loc(player_loc) if player_loc else "?"
+
+    # ── Distance joueur → sources (ou destinations si pas de sources) ──────
+    locs_for_player = sources if sources else destinations
+    locs_label = "départs" if sources else "destinations"
+    if player_node and locs_for_player:
         console.print()
-        console.print(f"  [{C.LABEL}]Distance depuis {_short_loc(player_loc)} :[/{C.LABEL}]")
-        _dist_cache: dict = {}
-        for loc in sources:
+        console.print(f"  [{C.LABEL}]Distance depuis {from_label} vers {locs_label} :[/{C.LABEL}]")
+        for loc in locs_for_player:
             d = _player_dist(player_node, loc, graph, _dist_cache)
-            short = _short_loc(loc)
-            d_str = d if d else "?"
-            console.print(f"    → [{C.UEX}]{short}[/{C.UEX}]  {d_str}")
+            console.print(f"    → [{C.UEX}]{_short_loc(loc)}[/{C.UEX}]  {d or '?'}")
 
     # ── Table croisée sources × destinations ──────────────────────────────
     if sources and destinations:
         console.print()
 
-        # Calculer toutes les distances
         matrix: dict[tuple, tuple[float | None, str]] = {}
         for src in sources:
             src_node = _resolve_graph_node(src, graph)
@@ -729,13 +757,11 @@ def _cmd_view(args: list[str], ctx) -> None:
                         r = graph.find_shortest_path(src_node, dst_node)
                         if r and r.total_distance is not None:
                             raw_d = r.total_distance
-                            fmt_d = (f"{raw_d:.1f}Gm" if raw_d >= 1
-                                     else f"{raw_d * 1000:.0f}Mm")
+                            fmt_d = _fmt_dist(raw_d)
                     except Exception:
                         pass
                 matrix[(src, dst)] = (raw_d, fmt_d)
 
-        # Distance minimale pour coloration
         raw_vals = [v[0] for v in matrix.values() if v[0] is not None]
         min_d = min(raw_vals) if raw_vals else None
 
@@ -756,6 +782,52 @@ def _cmd_view(args: list[str], ctx) -> None:
         console.print(tbl)
 
 
+# ── Ajout rapide au voyage ────────────────────────────────────────────────────
+
+def _cmd_add_to_voyage(args: list[str], ctx) -> None:
+    """Ajoute une ou plusieurs missions au voyage actif."""
+    vm = ctx.voyage_manager
+    active = vm.get_active()
+    if not active:
+        print_warn("Aucun voyage actif — activez-en un avec /voyage on <id>")
+        return
+
+    mm = ctx.mission_manager
+    if not args:
+        print_error("Identifiant(s) de mission manquant(s)  ex: /mission + 42")
+        return
+
+    # Développer les intervalles
+    refs: list[str] = []
+    for a in args:
+        iv = re.match(r"^(\d+)-(\d+)$", a)
+        if iv:
+            lo, hi = int(iv.group(1)), int(iv.group(2))
+            if lo > hi:
+                lo, hi = hi, lo
+            refs.extend(str(i) for i in range(lo, hi + 1))
+        else:
+            refs.append(a)
+
+    added, not_found = 0, []
+    for ref in refs:
+        m = mm.get(ref)
+        if not m:
+            not_found.append(ref)
+            continue
+        if m.id not in active.mission_ids:
+            active.mission_ids.append(m.id)
+            added += 1
+        else:
+            console.print(f"  [{C.DIM}]#{m.id} déjà dans le voyage[/{C.DIM}]")
+
+    if added:
+        vm.update(active)
+        print_ok(f"{added} mission(s) ajoutée(s) au voyage « {active.name} »")
+    if not_found:
+        print_warn(f"Introuvable(s) : {', '.join(not_found)}")
+
+
 # ── Aide ─────────────────────────────────────────────────────────────────────
 
 def _show_help() -> None:
@@ -768,6 +840,7 @@ def _show_help() -> None:
         ("add <nom> ...",    "Saisie manuelle (voir ci-dessous)"),
         ("edit <id>",        "Modifie une mission existante"),
         ("remove <id|a-b>",  "Supprime une mission ou un intervalle (ex: 5-23)"),
+        ("+ <id>",           "Ajoute la mission au voyage actif"),
         ("scan",             "Liste les missions des screenshots récents (DB OCR)"),
         ("scan all",         "Toute la base de screenshots"),
         ("scan today",       "Captures d'aujourd'hui"),
