@@ -12,9 +12,9 @@ from uexinfo.display.formatter import console, print_error, print_ok, print_warn
 from uexinfo.models.mission import Mission, MissionObjective
 
 _SUBS = frozenset({
-    "list", "add", "edit", "remove", "scan",
+    "list", "add", "edit", "remove", "scan", "view",
     # alias français
-    "liste", "ajouter", "modifier", "supprimer",
+    "liste", "ajouter", "modifier", "supprimer", "voir",
 })
 
 _IMAGE_EXTS = frozenset({".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"})
@@ -46,6 +46,9 @@ def cmd_mission(args: list[str], ctx) -> None:
 
     elif sub in ("remove", "supprimer"):
         _cmd_remove(args[1:], ctx)
+
+    elif sub in ("view", "voir"):
+        _cmd_view(args[1:], ctx)
 
     elif sub == "scan":
         _cmd_scan_db(args[1:], ctx)
@@ -321,27 +324,27 @@ def _cmd_list(ctx) -> None:
     section("Catalogue de missions")
 
     tbl = Table(show_header=True, box=None, padding=(0, 1),
-                row_styles=["", f"on grey7"])
-    tbl.add_column("#",          style=C.DIM,    width=3, justify="right")
+                row_styles=["", "on grey7"])
+    tbl.add_column("#",          style=C.DIM,    width=3,  justify="right")
     tbl.add_column("Scan",       style=C.DIM,    width=11)
-    tbl.add_column("Nom",        style=C.LABEL,  max_width=38)
-    tbl.add_column("Départ",     style=C.UEX,    max_width=16)
-    tbl.add_column("→",          style=C.DIM,    width=1)
-    tbl.add_column("Arrivée",    style=C.UEX,    max_width=16)
-    tbl.add_column("Dist",       justify="right", width=7)
+    tbl.add_column("Nom",        style=C.LABEL,  max_width=34)
+    tbl.add_column("Départ",     style=C.UEX,    max_width=20)
+    tbl.add_column("Arrivée",    style=C.UEX,    max_width=20)
     tbl.add_column("SCU",        justify="right", width=5)
     tbl.add_column("Récompense", justify="right", width=12)
     tbl.add_column("Syn",        width=4)
 
     graph = ctx.cache.transport_graph
+    player = getattr(ctx, "player", None)
+    player_loc = player.location if player and player.location else None
+    player_node = _resolve_graph_node(player_loc, graph) if player_loc else None
+    _dist_cache: dict = {}
     from datetime import datetime as _dt
 
     for m in mm.missions:
-        srcs = ", ".join(m.all_sources[:2]) or "—"
-        dsts = ", ".join(m.all_destinations[:2]) or "—"
-        scu_str = f"{m.total_scu:.0f}□" if m.total_scu else "—"
+        scu_str    = f"{m.total_scu:.0f}□" if m.total_scu else "—"
         reward_str = f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
-        tags = " ".join(mm.synergies(m))
+        tags       = " ".join(mm.synergies(m))
 
         # Date de scan
         if m.scanned_at:
@@ -353,31 +356,33 @@ def _cmd_list(ctx) -> None:
         else:
             scan_str = "—"
 
-        # Distance via graphe — résolution fuzzy des noms de lieux
-        dist_str = "?"
-        if m.all_sources and m.all_destinations:
-            try:
-                src_node = _resolve_graph_node(m.all_sources[0], graph)
-                dst_node = _resolve_graph_node(m.all_destinations[0], graph)
-                if src_node and dst_node:
-                    result = graph.find_shortest_path(src_node, dst_node)
-                    if result is not None and result.total_distance is not None:
-                        d = result.total_distance
-                        dist_str = f"{d:.1f}Gm" if d >= 1 else f"{d*1000:.0f}Mm"
-            except Exception:
-                pass
+        srcs_parts = []
+        for loc in m.all_sources[:3]:
+            short = _short_loc(loc)
+            d = _player_dist(player_node, loc, graph, _dist_cache) if player_node else None
+            srcs_parts.append(f"{short} ({d})" if d else short)
+
+        dsts_parts = []
+        for loc in m.all_destinations[:3]:
+            short = _short_loc(loc)
+            d = _player_dist(player_node, loc, graph, _dist_cache) if player_node else None
+            dsts_parts.append(f"{short} ({d})" if d else short)
+
+        srcs_str = "\n".join(srcs_parts) if srcs_parts else "—"
+        dsts_str = "\n".join(dsts_parts) if dsts_parts else "—"
 
         has_delay = any(o.time_cost for o in m.objectives)
         name_display = m.name + (f" [{C.WARNING}]⏱[/{C.WARNING}]" if has_delay else "")
 
         tbl.add_row(
             str(m.id), scan_str,
-            name_display, srcs, "→", dsts,
-            dist_str, scu_str, reward_str, tags,
+            name_display, srcs_str, dsts_str,
+            scu_str, reward_str, tags,
         )
 
     console.print(tbl)
-    console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s) · /mission add <fichier> ou <nom> · /voyage pour planifier[/{C.DIM}]")
+    player_hint = f" · depuis {_short_loc(player_loc)}" if player_loc else ""
+    console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s){player_hint} · /mission add <fichier> ou <nom> · /voyage pour planifier[/{C.DIM}]")
 
 
 def _resolve_graph_node(name: str, graph) -> str | None:
@@ -390,6 +395,37 @@ def _resolve_graph_node(name: str, graph) -> str | None:
     # Extraire le code court : "MIC-L2 Long Forest Station" → "MIC-L2"
     short = re.split(r"\s+", name.strip())[0]
     return _resolve_node(short, graph)
+
+
+def _short_loc(name: str) -> str:
+    """Extrait le code court d'un lieu.
+
+    'MIC-L2 Long Forest Station' → 'MIC-L2'
+    'Everus Harbor'              → 'Everus Harbor'  (pas de code Lagrange)
+    """
+    m = re.match(r"^([A-Z]{2,4}-[A-Z]\d+)", name)
+    if m:
+        return m.group(1)
+    return name
+
+
+def _player_dist(player_node: str, loc_name: str, graph, cache: dict) -> str | None:
+    """Retourne la distance formatée player_node → loc_name (avec cache)."""
+    key = (player_node, loc_name)
+    if key in cache:
+        return cache[key]
+    node = _resolve_graph_node(loc_name, graph)
+    result_str = None
+    if node:
+        try:
+            r = graph.find_shortest_path(player_node, node)
+            if r and r.total_distance is not None:
+                d = r.total_distance
+                result_str = f"{d:.1f}Gm" if d >= 1 else f"{d * 1000:.0f}Mm"
+        except Exception:
+            pass
+    cache[key] = result_str
+    return result_str
 
 
 # ── Add depuis dernier scan ───────────────────────────────────────────────────
@@ -586,10 +622,138 @@ def _cmd_remove(args: list[str], ctx) -> None:
     if not args:
         print_error("Identifiant de mission manquant")
         return
-    if mm.remove(args[0]):
-        print_ok(f"Mission supprimée : {args[0]}")
+
+    # Développer les intervalles  ex: "5-23" → ["5","6",...,"23"]
+    refs: list[str] = []
+    for a in args:
+        iv = re.match(r"^(\d+)-(\d+)$", a)
+        if iv:
+            lo, hi = int(iv.group(1)), int(iv.group(2))
+            if lo > hi:
+                lo, hi = hi, lo
+            refs.extend(str(i) for i in range(lo, hi + 1))
+        else:
+            refs.append(a)
+
+    removed, not_found = 0, []
+    for ref in refs:
+        if mm.remove(ref):
+            removed += 1
+        else:
+            not_found.append(ref)
+
+    if removed:
+        print_ok(f"{removed} mission(s) supprimée(s)")
+    if not_found:
+        if len(refs) == 1:
+            print_error(f"Mission introuvable : {not_found[0]}")
+        else:
+            print_warn(f"Introuvable(s) : {', '.join(not_found)}")
+
+
+# ── View ─────────────────────────────────────────────────────────────────────
+
+def _cmd_view(args: list[str], ctx) -> None:
+    """Affiche le détail d'une mission + distances croisées sources × destinations."""
+    mm = ctx.mission_manager
+    if not mm.missions:
+        print_warn("Aucune mission dans le catalogue")
+        return
+
+    m = None
+    if args:
+        m = mm.get(args[0])
+        if not m:
+            print_error(f"Mission introuvable : {args[0]}")
+            return
     else:
-        print_error(f"Mission introuvable : {args[0]}")
+        # Picker
+        section("Choisir une mission")
+        for ms in mm.missions:
+            src = _short_loc(ms.all_sources[0]) if ms.all_sources else "?"
+            dst = _short_loc(ms.all_destinations[0]) if ms.all_destinations else "?"
+            console.print(f"  [{C.LABEL}]{ms.id:3}[/{C.LABEL}]  [{C.DIM}]{ms.name}[/{C.DIM}]  {src} → {dst}")
+        console.print(f"[{C.LABEL}]Numéro :[/{C.LABEL}] ", end="")
+        try:
+            raw = input().strip()
+        except (EOFError, KeyboardInterrupt):
+            return
+        m = mm.get(raw)
+        if not m:
+            print_error(f"Mission introuvable : {raw}")
+            return
+
+    graph = ctx.cache.transport_graph
+    player = getattr(ctx, "player", None)
+    player_loc = player.location if player and player.location else None
+    player_node = _resolve_graph_node(player_loc, graph) if player_loc else None
+
+    # ── En-tête mission ────────────────────────────────────────────────────
+    section(f"Mission #{m.id} — {m.name}")
+    reward_str = f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
+    scu_str    = f"{m.total_scu:.0f} SCU" if m.total_scu else ""
+    console.print(f"  [{C.LABEL}]Récompense:[/{C.LABEL}] {reward_str}" +
+                  (f"   [{C.LABEL}]Fret:[/{C.LABEL}] {scu_str}" if scu_str else ""))
+
+    sources      = m.all_sources      or []
+    destinations = m.all_destinations or []
+
+    if not sources and not destinations:
+        console.print(f"  [{C.DIM}]Aucun objectif de transport.[/{C.DIM}]")
+        return
+
+    # ── Distance joueur → chaque source ───────────────────────────────────
+    if player_node and sources:
+        console.print()
+        console.print(f"  [{C.LABEL}]Distance depuis {_short_loc(player_loc)} :[/{C.LABEL}]")
+        _dist_cache: dict = {}
+        for loc in sources:
+            d = _player_dist(player_node, loc, graph, _dist_cache)
+            short = _short_loc(loc)
+            d_str = d if d else "?"
+            console.print(f"    → [{C.UEX}]{short}[/{C.UEX}]  {d_str}")
+
+    # ── Table croisée sources × destinations ──────────────────────────────
+    if sources and destinations:
+        console.print()
+
+        # Calculer toutes les distances
+        matrix: dict[tuple, tuple[float | None, str]] = {}
+        for src in sources:
+            src_node = _resolve_graph_node(src, graph)
+            for dst in destinations:
+                dst_node = _resolve_graph_node(dst, graph)
+                raw_d, fmt_d = None, "?"
+                if src_node and dst_node:
+                    try:
+                        r = graph.find_shortest_path(src_node, dst_node)
+                        if r and r.total_distance is not None:
+                            raw_d = r.total_distance
+                            fmt_d = (f"{raw_d:.1f}Gm" if raw_d >= 1
+                                     else f"{raw_d * 1000:.0f}Mm")
+                    except Exception:
+                        pass
+                matrix[(src, dst)] = (raw_d, fmt_d)
+
+        # Distance minimale pour coloration
+        raw_vals = [v[0] for v in matrix.values() if v[0] is not None]
+        min_d = min(raw_vals) if raw_vals else None
+
+        tbl = Table(show_header=True, box=None, padding=(0, 1))
+        tbl.add_column("Départ \\ Arrivée", style=C.LABEL, min_width=12)
+        for dst in destinations:
+            tbl.add_column(_short_loc(dst), justify="right", min_width=8)
+
+        for src in sources:
+            row = [_short_loc(src)]
+            for dst in destinations:
+                raw_d, fmt_d = matrix[(src, dst)]
+                is_min = (raw_d is not None and min_d is not None
+                          and abs(raw_d - min_d) < 0.001)
+                row.append(f"[bold green]{fmt_d}[/bold green]" if is_min else fmt_d)
+            tbl.add_row(*row)
+
+        console.print(tbl)
 
 
 # ── Aide ─────────────────────────────────────────────────────────────────────
@@ -598,11 +762,12 @@ def _show_help() -> None:
     section("Aide — /mission")
     lines = [
         ("list",             "Liste le catalogue de missions"),
+        ("view [id]",        "Détail + distances croisées d'une mission"),
         ("add",              "Depuis le dernier scan (/scan d'abord)"),
         ("add <fichier>",    "Scanne directement un screenshot de contrat"),
         ("add <nom> ...",    "Saisie manuelle (voir ci-dessous)"),
         ("edit <id>",        "Modifie une mission existante"),
-        ("remove <id>",      "Supprime une mission du catalogue"),
+        ("remove <id|a-b>",  "Supprime une mission ou un intervalle (ex: 5-23)"),
         ("scan",             "Liste les missions des screenshots récents (DB OCR)"),
         ("scan all",         "Toute la base de screenshots"),
         ("scan today",       "Captures d'aujourd'hui"),
