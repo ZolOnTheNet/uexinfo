@@ -949,6 +949,35 @@ def _debug_select(ctx, mode: str) -> None:
         _run_debug_on(ctx, item.value)
 
 
+def _debug_batch(ctx, folder_str: str) -> None:
+    """Lance le debug OCR sur tous les fichiers image d'un dossier."""
+    if not folder_str:
+        print_error("Usage : /scan debug batch <dossier>")
+        return
+
+    folder = Path(folder_str)
+    if not folder.is_dir():
+        candidate = _screenshots_dir(ctx).parent / folder_str
+        if candidate.is_dir():
+            folder = candidate
+        else:
+            print_error(f"Dossier introuvable : {folder_str}")
+            return
+
+    images = sorted(
+        (p for p in folder.iterdir() if p.suffix.lower() in _IMAGE_SUFFIXES),
+        key=lambda p: p.stat().st_mtime,
+    )
+    if not images:
+        print_warn(f"Aucun fichier image dans : {folder}")
+        return
+
+    section(f"Debug batch — {len(images)} fichier(s) dans {folder.name}")
+    for i, img_path in enumerate(images, 1):
+        console.print(f"\n[bold][{i}/{len(images)}] {img_path.name}[/bold]")
+        _run_debug_on(ctx, img_path)
+
+
 @register("scan", "s")
 def cmd_scan(args: list[str], ctx) -> None:
     if not args:
@@ -1118,9 +1147,15 @@ def cmd_scan(args: list[str], ctx) -> None:
             _debug_select(ctx, mode="multi")
             return
 
+        # /scan debug batch <dossier>
+        if sub2 == "batch":
+            folder_str = " ".join(args[2:]).strip("\"'") if len(args) >= 3 else ""
+            _debug_batch(ctx, folder_str)
+            return
+
         # /scan debug <fichier>
         if len(args) < 2:
-            print_error("Usage : /scan debug <fichier|list|selected>")
+            print_error("Usage : /scan debug <fichier|list|selected|batch>")
             return
         raw = " ".join(args[1:]).strip("\"'")
         image_path = _resolve_image_path(raw, ctx)

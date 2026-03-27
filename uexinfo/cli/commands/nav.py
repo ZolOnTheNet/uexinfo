@@ -22,6 +22,8 @@ _SUBCOMMANDS = frozenset({
     "save", "sauvegarder", "enregistrer",
     "raz", "reset", "reinitialiser", "réinitialiser",
     "populate", "peupler", "remplir", "enrichir",
+    "dedup", "deduplicate", "fusionner",
+    "clean", "nettoyer", "purge",
 })
 
 
@@ -62,6 +64,10 @@ def cmd_nav(args: list[str], ctx) -> None:
         _reset_graph(ctx)
     elif sub in ("populate", "peupler", "remplir", "enrichir"):
         _populate_graph(real_args[1:], ctx)
+    elif sub in ("dedup", "deduplicate", "fusionner"):
+        _dedup_graph(ctx)
+    elif sub in ("clean", "nettoyer", "purge"):
+        _clean_graph(ctx)
     else:
         print_error(f"Sous-commande inconnue : {sub}  (/help nav)")
 
@@ -500,7 +506,7 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
     qt_sorted      = _sort_entries(qt_entries)
     surface_sorted = _sort_entries(surface_entries)
 
-    n_known_qt = sum(1 for _, d, _ in qt_sorted if d is not None)
+    n_known_qt = sum(1 for _, d, _ in qt_sorted if d is not None and d > 0.001)
     total_qt   = len(qt_sorted)
 
     if not qt_sorted and not surface_sorted:
@@ -562,7 +568,7 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
                 else:
                     nc = f"[{C.DIM}]{nm_trunc}[/{C.DIM}]"
 
-                if dist is not None:
+                if dist is not None and dist > 0.001:
                     dc = f"[{C.UEX}]{dist:.1f}[/{C.UEX}][{C.DIM}]Gm[/{C.DIM}]"
                 else:
                     dc = f"[{C.DIM}]-?-[/{C.DIM}]"
@@ -632,6 +638,12 @@ def _fetch_missing_distances(from_node: str, graph, ctx) -> None:
             dist = r.get("distance")
             if not dest or dist is None or dest in seen_dests:
                 continue
+            try:
+                dist_f = float(dist)
+            except (TypeError, ValueError):
+                continue
+            if dist_f <= 0:
+                continue
             seen_dests.add(dest)
 
             dest_node = _resolve_node_uex(dest, graph)
@@ -639,7 +651,7 @@ def _fetch_missing_distances(from_node: str, graph, ctx) -> None:
                 added = graph.add_or_update_route(
                     from_node=from_node,
                     to_node=dest_node,
-                    distance_gm=float(dist),
+                    distance_gm=dist_f,
                     edge_type=EdgeType.QUANTUM,
                     source="uex",
                 )
@@ -878,15 +890,21 @@ def _populate_graph(args: list[str], ctx) -> None:
             if not origin_raw or not dest_raw or dist is None:
                 continue
 
-            # Utiliser le nom du lieu, pas du terminal
-            origin = _terminal_to_location(origin_raw)
-            dest   = _terminal_to_location(dest_raw)
+            # Ignorer les distances nulles — l'API retourne 0 quand elle ne connaît pas
+            try:
+                dist_f = float(dist)
+            except (TypeError, ValueError):
+                continue
+            if dist_f <= 0:
+                continue
+
+            # Utiliser le nom du lieu, pas du terminal (canonicalisé)
+            origin = _canonicalize_location(_terminal_to_location(origin_raw), graph)
+            dest   = _canonicalize_location(_terminal_to_location(dest_raw), graph)
 
             # Ignorer les paires au même lieu (même station, terminaux différents)
             if origin.lower() == dest.lower():
                 continue
-
-            dist_f = max(float(dist), 0.001)
             pair = tuple(sorted([origin.lower(), dest.lower()]))
             already_known = pair in seen_pairs
             seen_pairs.add(pair)
@@ -895,11 +913,11 @@ def _populate_graph(args: list[str], ctx) -> None:
             sys_d = _term_sys.get(dest)   or _term_sys.get(dest_raw)   or (r.get("star_system_name_destination") or "").strip() or "Unknown"
 
             if origin not in graph.nodes:
-                graph.add_node(LocationNode(name=origin, type=NodeType.TERMINAL, system=sys_o,
+                graph.add_node(LocationNode(name=origin, type=_infer_node_type(origin), system=sys_o,
                                             metadata={"source": "uex_populate"}))
                 nodes_added += 1
             if dest not in graph.nodes:
-                graph.add_node(LocationNode(name=dest, type=NodeType.TERMINAL, system=sys_d,
+                graph.add_node(LocationNode(name=dest, type=_infer_node_type(dest), system=sys_d,
                                             metadata={"source": "uex_populate"}))
                 nodes_added += 1
 
@@ -916,12 +934,19 @@ def _populate_graph(args: list[str], ctx) -> None:
                 routes_updated += 1
 
     fixed = 0
+    typed = 0
     for node in graph.nodes.values():
         if node.system == "Unknown":
             sys_from_cache = _term_sys.get(node.name)
             if sys_from_cache and sys_from_cache != "Unknown":
                 node.system = sys_from_cache
                 fixed += 1
+        # Enrichir le type si encore générique
+        if node.type in (NodeType.TERMINAL,):
+            inferred = _infer_node_type(node.name)
+            if inferred != NodeType.STATION:
+                node.type = inferred
+                typed += 1
 
     console.print()
     print_ok(
@@ -933,6 +958,8 @@ def _populate_graph(args: list[str], ctx) -> None:
         console.print(f"  [{C.DIM}]{routes_updated} routes existantes confirmées (inchangées)[/{C.DIM}]")
     if fixed:
         console.print(f"  [{C.DIM}]{fixed} nœud(s) 'Unknown' corrigés depuis le cache[/{C.DIM}]")
+    if typed:
+        console.print(f"  [{C.DIM}]{typed} nœud(s) enrichi(s) avec le bon type (Lagrange, City, Moon...)[/{C.DIM}]")
     if errors:
         console.print(f"  [{C.WARNING}]{errors} commodité(s) ignorée(s) (erreur réseau)[/{C.WARNING}]")
     console.print()
@@ -942,7 +969,259 @@ def _populate_graph(args: list[str], ctx) -> None:
     )
 
 
+# ── Clean ──────────────────────────────────────────────────────────────────────
+
+def _clean_graph(ctx) -> None:
+    """Supprime les arêtes invalides (distance ≤ 0.001 Gm, source UEX) du graphe.
+
+    Ces arêtes proviennent de l'ancienne logique populate qui convertissait
+    les distances nulles de l'API en 0.001 Gm (valeur fictive). Après nettoyage,
+    ces destinations apparaissent en -?- et peuvent être re-fetchées via /nav --req.
+    """
+    graph = ctx.cache.transport_graph
+
+    before = len(graph.edges)
+    graph.edges = [
+        e for e in graph.edges
+        if not (e.source == "uex" and e.distance_gm <= 0.001)
+    ]
+    removed = before - len(graph.edges)
+
+    # Reconstruire l'adjacence
+    graph._adjacency.clear()
+    for edge in graph.edges:
+        graph._adjacency.setdefault(edge.from_node, []).append(edge)
+
+    if removed:
+        graph._unsaved_changes += removed
+        print_ok(f"{removed} arête(s) invalide(s) supprimée(s)  ·  {len(graph.edges)} arêtes restantes")
+        console.print(
+            f"[{C.DIM}]/nav save       pour conserver  ·  "
+            f"/nav populate   pour re-fetcher les distances[/{C.DIM}]"
+        )
+    else:
+        print_ok("Graphe déjà propre — aucune arête invalide détectée")
+
+
+# ── Dedup ──────────────────────────────────────────────────────────────────────
+
+def _dedup_graph(ctx) -> None:
+    """Fusionne les nœuds dupliqués dans le graphe de transport.
+
+    Détecte les paires (court, long) où le nom court est un préfixe strict
+    du nom long (ex. "HUR-L4" et "HUR-L4 Melodic Fields Station") ou
+    diffèrent uniquement par « & » vs « and ».
+
+    Dans chaque paire, le nœud avec plus d'arêtes est conservé (canonical).
+    Les arêtes de l'autre sont redirigées, le nœud redondant est supprimé.
+    Affiche un résumé et demande confirmation avant de modifier le graphe.
+    """
+    graph = ctx.cache.transport_graph
+    node_names = list(graph.nodes.keys())
+
+    # ── Détecter les paires dupliquées ────────────────────────────────────────
+    pairs: list[tuple[str, str]] = []   # (à_supprimer, canonique)
+    already_matched: set[str] = set()
+
+    for name_a in node_names:
+        if name_a in already_matched:
+            continue
+        la = name_a.lower()
+
+        # 1. Préfixe strict : "HUR-L4" est préfixe de "HUR-L4 Melodic Fields Station"
+        prefix = la + " "
+        for name_b in node_names:
+            if name_b == name_a or name_b in already_matched:
+                continue
+            if name_b.lower().startswith(prefix):
+                # A est le court, B est le long → conserver le long (B)
+                pairs.append((name_a, name_b))
+                already_matched.add(name_a)
+                already_matched.add(name_b)
+                break
+
+        if name_a in already_matched:
+            continue
+
+        # 2. Variantes & ↔ and
+        if " & " in la:
+            alt = name_a.replace(" & ", " and ")
+        elif " and " in la:
+            alt = name_a.replace(" and ", " & ")
+        else:
+            continue
+        for name_b in node_names:
+            if name_b != alt:
+                continue
+            # Garder celui avec plus d'arêtes
+            edges_a = len(graph._adjacency.get(name_a, []))
+            edges_b = len(graph._adjacency.get(name_b, []))
+            if edges_a >= edges_b:
+                pairs.append((name_b, name_a))
+            else:
+                pairs.append((name_a, name_b))
+            already_matched.add(name_a)
+            already_matched.add(name_b)
+            break
+
+    if not pairs:
+        print_ok("Aucun nœud dupliqué détecté")
+        return
+
+    section(f"Dedup — {len(pairs)} paire(s) détectée(s)")
+    for redundant, canonical in pairs:
+        edges_r = len(graph._adjacency.get(redundant, []))
+        edges_c = len(graph._adjacency.get(canonical, []))
+        console.print(
+            f"  [{C.WARNING}]{redundant}[/{C.WARNING}] [{C.DIM}]({edges_r} arêtes)[/{C.DIM}]"
+            f"  →  [{C.SUCCESS}]{canonical}[/{C.SUCCESS}] [{C.DIM}]({edges_c} arêtes)[/{C.DIM}]"
+        )
+
+    console.print(
+        f"\n[{C.DIM}]Les {len(pairs)} nœud(s) redondants vont être fusionnés.[/{C.DIM}]"
+    )
+
+    # ── Fusion ────────────────────────────────────────────────────────────────
+    total_redirected = 0
+    total_removed = 0
+
+    for redundant, canonical in pairs:
+        # S'assurer que le nœud canonique existe
+        if canonical not in graph.nodes:
+            continue
+
+        # Copier les métadonnées du redondant si le canonical est moins renseigné
+        node_r = graph.nodes.get(redundant)
+        node_c = graph.nodes[canonical]
+        if node_r:
+            if not node_c.aliases:
+                node_c.aliases = [redundant]
+            elif redundant not in node_c.aliases:
+                node_c.aliases.append(redundant)
+            # Hériter du système si inconnu
+            if node_c.system in ("Unknown", "") and node_r.system not in ("Unknown", ""):
+                node_c.system = node_r.system
+            # Enrichir le type si encore générique (TERMINAL/STATION)
+            _generic = {NodeType.TERMINAL, NodeType.STATION}
+            if node_c.type in _generic and node_r.type not in _generic:
+                node_c.type = node_r.type
+            elif node_c.type in _generic:
+                inferred = _infer_node_type(canonical)
+                if inferred != NodeType.STATION:
+                    node_c.type = inferred
+
+        # Rediriger les arêtes : remplacer redundant par canonical
+        redirected = 0
+        new_edges = []
+        for edge in graph.edges:
+            changed = False
+            fn, tn = edge.from_node, edge.to_node
+            if fn == redundant:
+                fn = canonical
+                changed = True
+            if tn == redundant:
+                tn = canonical
+                changed = True
+            if changed and fn == tn:
+                continue  # boucle sur soi-même → ignorer
+            if changed:
+                new_edges.append(RouteEdge(
+                    from_node=fn, to_node=tn,
+                    distance_gm=edge.distance_gm,
+                    edge_type=edge.edge_type,
+                    duration_sec=edge.duration_sec,
+                    updated_at=edge.updated_at,
+                    source=edge.source,
+                    notes=edge.notes,
+                ))
+                redirected += 1
+            else:
+                new_edges.append(edge)
+
+        graph.edges = new_edges
+
+        # Déduplicater les arêtes (même from→to, garder la plus fiable)
+        # Priorité : distance réelle > source manual > source uex > distance nulle/fake
+        source_priority = {"manual": 3, "uex": 2, "calculated": 1, "community": 1, "jump_point": 2}
+
+        def _edge_score(e: RouteEdge) -> tuple:
+            real = 1 if e.distance_gm > 0.001 else 0
+            prio = source_priority.get(e.source, 1)
+            return (real, prio, e.updated_at)
+
+        best_edge: dict[tuple[str, str], RouteEdge] = {}
+        for edge in graph.edges:
+            key = (edge.from_node, edge.to_node)
+            if key not in best_edge or _edge_score(edge) > _edge_score(best_edge[key]):
+                best_edge[key] = edge
+        graph.edges = list(best_edge.values())
+
+        # Reconstruire l'adjacence
+        graph._adjacency.clear()
+        for edge in graph.edges:
+            graph._adjacency.setdefault(edge.from_node, []).append(edge)
+
+        # Supprimer le nœud redondant
+        graph.nodes.pop(redundant, None)
+        graph._adjacency.pop(redundant, None)
+
+        total_redirected += redirected
+        total_removed += 1
+        graph._unsaved_changes += 1
+
+    print_ok(
+        f"{total_removed} nœud(s) fusionné(s)  ·  "
+        f"{total_redirected} arête(s) redirigée(s)  ·  "
+        f"{len(graph.nodes)} nœuds restants"
+    )
+    console.print(f"[{C.DIM}]/nav save  pour conserver les changements[/{C.DIM}]")
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _infer_node_type(name: str) -> NodeType:
+    """Infère le type d'un nœud depuis son nom (heuristique Stanton).
+
+    Basé sur les conventions de nommage UEX Corp :
+    - "ARC-L1 Wide Forest Station" → LAGRANGE
+    - "Lorville", "New Babbage", "Area 18", "Orison" → CITY
+    - "Hurston", "ArcCorp", "Crusader", "microTech" → PLANET
+    - Lunes connues (Arial, Daymar, Yela, Cellin...) → MOON
+    - Tout le reste → STATION
+    """
+    import re
+    nl = name.lower().strip()
+
+    # Points de Lagrange : pattern "XXX-L[1-5] ..."
+    if re.match(r'^[a-z]{2,4}-l[1-5]\b', nl):
+        return NodeType.LAGRANGE
+
+    # Villes principales
+    _CITIES = {"lorville", "new babbage", "area 18", "orison"}
+    if nl in _CITIES:
+        return NodeType.CITY
+
+    # Planètes de Stanton
+    _PLANETS = {"hurston", "arccorp", "crusader", "microtech"}
+    if nl in _PLANETS or nl == "arccorp":
+        return NodeType.PLANET
+
+    # Lunes connues
+    _MOONS = {
+        "arial", "aberdeen", "magda", "ita",          # Hurston
+        "calliope", "clio", "euterpe",                 # microTech
+        "lyria", "wala",                               # ArcCorp
+        "cellin", "daymar", "yela",                    # Crusader
+    }
+    if nl in _MOONS:
+        return NodeType.MOON
+
+    # Jump gates / portes de saut
+    if "gateway" in nl or "jump point" in nl:
+        return NodeType.JUMP_POINT
+
+    return NodeType.STATION
+
 
 def _terminal_to_location(terminal_name: str) -> str:
     """Extrait le nom du lieu depuis le nom complet d'un terminal UEX.
@@ -953,6 +1232,43 @@ def _terminal_to_location(terminal_name: str) -> str:
     "New Babbage"                               → "New Babbage"
     """
     return terminal_name.rsplit(" - ", 1)[-1].strip()
+
+
+def _canonicalize_location(name: str, graph) -> str:
+    """Retourne le nom canonique d'un lieu dans le graphe.
+
+    Si le nom existe tel quel dans le graphe → retourné sans modification.
+    Si un nœud existe avec ce nom comme préfixe strict (ex. "HUR-L4" →
+    "HUR-L4 Melodic Fields Station") → retourne le nom long existant.
+    Normalise aussi « & » ↔ « and » selon ce qui est dans le graphe.
+    Sans résultat → retourne le nom tel quel (nouveau nœud).
+    """
+    if name in graph.nodes:
+        return name
+
+    # Normalisation & ↔ and
+    if " & " in name:
+        alt = name.replace(" & ", " and ")
+    elif " and " in name:
+        alt = name.replace(" and ", " & ")
+    else:
+        alt = name
+    if alt != name and alt in graph.nodes:
+        return alt
+
+    # Préfixe strict : "HUR-L4" → "HUR-L4 Melodic Fields Station"
+    prefix = name.lower() + " "
+    candidates = [n for n in graph.nodes if n.lower().startswith(prefix)]
+    if len(candidates) == 1:
+        return candidates[0]
+
+    if alt != name:
+        prefix_alt = alt.lower() + " "
+        candidates_alt = [n for n in graph.nodes if n.lower().startswith(prefix_alt)]
+        if len(candidates_alt) == 1:
+            return candidates_alt[0]
+
+    return name
 
 
 def _expand_alias(query: str, ctx) -> str:
@@ -1044,8 +1360,8 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
     if not terminal:
         return None
 
-    # Nœud = nom du lieu, pas du terminal
-    node_name = _terminal_to_location(terminal.name)
+    # Nœud = nom du lieu, pas du terminal (canonicalisé)
+    node_name = _canonicalize_location(_terminal_to_location(terminal.name), graph)
     console.print(
         f"[{C.DIM}]↻ Lieu : [bold]{node_name}[/bold] (terminal : {terminal.name}) — distances...[/{C.DIM}]"
     )
@@ -1067,11 +1383,17 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
         for r in routes:
             dest_raw = r.get("destination_terminal_name", "")
             dist = r.get("distance")
-            dest = _terminal_to_location(dest_raw) if dest_raw else ""
-            if dest and dist is not None and dest not in seen_dest:
-                seen_dest[dest] = float(dist)
+            dest = _canonicalize_location(_terminal_to_location(dest_raw), graph) if dest_raw else ""
+            try:
+                dist_val = float(dist) if dist is not None else 0.0
+            except (TypeError, ValueError):
+                dist_val = 0.0
+            if dest and dist_val > 0 and dest not in seen_dest:
+                seen_dest[dest] = dist_val
 
         for dest_name, dist_gm in seen_dest.items():
+            if dist_gm <= 0:
+                continue
             dest_node = _resolve_node_uex(dest_name, graph)
             if dest_node and dest_node != node_name:
                 added = graph.add_or_update_route(
@@ -1102,9 +1424,9 @@ def _resolve_node_uex(uex_terminal_name: str, graph) -> str | None:
     """Résout un nom de terminal UEX vers un nœud du graphe.
 
     Extrait d'abord le nom du lieu (partie après le dernier " - "),
-    puis cherche ce lieu dans le graphe.
+    canonicalisé, puis cherche ce lieu dans le graphe.
     """
-    loc = _terminal_to_location(uex_terminal_name)
+    loc = _canonicalize_location(_terminal_to_location(uex_terminal_name), graph)
     return _resolve_node(loc, graph) or _resolve_node(uex_terminal_name, graph)
 
 

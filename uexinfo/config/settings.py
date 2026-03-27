@@ -61,6 +61,10 @@ DEFAULT: dict = {
         "opacity": 0.95,
         "close": "normal",  # "normal" = ✕ ferme | "dblclick" = ✕ masque, double-clic ferme
     },
+    "dev": {
+        "enabled":     False,   # Mode développeur — bypass des comportements de production
+        "skip_processed": True, # Si True : ignorer les fichiers déjà dans la DB lors d'un import
+    },
 }
 
 

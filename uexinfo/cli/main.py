@@ -11,6 +11,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from rich.console import Console
+from rich.markup import escape as _markup_escape
 
 import uexinfo.config.settings as settings
 from uexinfo import __version__
@@ -45,6 +46,7 @@ import uexinfo.cli.commands.calc     # noqa: F401
 import uexinfo.cli.commands.route    # noqa: F401
 import uexinfo.cli.commands.mission  # noqa: F401
 import uexinfo.cli.commands.voyage   # noqa: F401
+import uexinfo.cli.commands.dev      # noqa: F401
 
 console = Console()
 
@@ -238,6 +240,14 @@ def main() -> None:
         line = line.strip()
         if not line:
             continue
+
+        # ── Écho commande : fond plein-largeur pour repérer visuellement ──────
+        _cmd_display = f"  > {_markup_escape(line)}  "
+        _pad = max(0, console.width - len(f"  > {line}  "))
+        console.print(
+            f"[bold white on #1d3c6e]{_cmd_display}{' ' * _pad}[/bold white on #1d3c6e]"
+        )
+        # ──────────────────────────────────────────────────────────────────────
 
         _quit_parts = line.lower().lstrip("/").split()
         if _quit_parts and _quit_parts[0] in ("exit", "quit", "bye"):
