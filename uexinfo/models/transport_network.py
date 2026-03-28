@@ -208,6 +208,19 @@ class PathResult:
             return f"{sec}s"
 
 
+def _precision_score(value: float) -> int:
+    """Nombre de chiffres décimaux significatifs.
+
+    59.0  → 0  (arrondi entier, peu précis)
+    59.3  → 1
+    59.25 → 2
+    """
+    s = f"{value:.10g}"          # retire les zéros de queue : 59.30 → "59.3"
+    if "." in s:
+        return len(s.split(".")[1])
+    return 0
+
+
 class TransportGraph:
     """Graphe de transport de l'univers Star Citizen."""
 
@@ -219,12 +232,15 @@ class TransportGraph:
         self._unsaved_changes: int = 0
         # Métadonnées v3 préservées au chargement
         self._meta: dict = {}
+        # Cache hiérarchique node_id → [noms enfants] (invalidé à chaque add_node)
+        self._children_cache: dict | None = None
 
     def add_node(self, node: LocationNode) -> None:
         """Ajoute un nœud au graphe."""
         self.nodes[node.name] = node
         if node.name not in self._adjacency:
             self._adjacency[node.name] = []
+        self._children_cache = None   # Invalider le cache hiérarchique
 
     def add_edge(self, edge: RouteEdge, bidirectional: bool = True) -> None:
         """Ajoute une arête au graphe."""
@@ -319,11 +335,16 @@ class TransportGraph:
 
         if existing_forward:
             old_priority = source_priority.get(existing_forward.source, 1)
+            new_prec = _precision_score(distance_gm)
+            old_prec = _precision_score(existing_forward.distance_gm)
             # Mettre à jour si :
-            # - Même priorité mais données plus récentes
-            # - Priorité supérieure
+            # - Priorité supérieure (manual > uex > calculated)
+            # - Même priorité ET (données plus récentes OU plus précises)
             if new_priority > old_priority or (
-                new_priority == old_priority and timestamp > existing_forward.updated_at
+                new_priority == old_priority and (
+                    timestamp > existing_forward.updated_at
+                    or new_prec > old_prec
+                )
             ):
                 should_update = True
         else:
@@ -370,6 +391,123 @@ class TransportGraph:
     def has_unsaved_changes(self) -> bool:
         """Retourne True s'il y a des modifications non sauvegardées."""
         return self._unsaved_changes > 0
+
+    # ── Hiérarchie et propagation des distances ───────────────────────────────
+
+    @property
+    def _children_idx(self) -> dict[str, list[str]]:
+        """Index node_id → [noms des enfants directs], construit lazily."""
+        if self._children_cache is None:
+            idx: dict[str, list[str]] = {}
+            for name, node in self.nodes.items():
+                if node.parent_id:
+                    idx.setdefault(node.parent_id, []).append(name)
+            self._children_cache = idx
+        return self._children_cache
+
+    def _descendants_of(self, node_name: str) -> set[str]:
+        """Tous les descendants d'un nœud (BFS récursif via parent_id)."""
+        result: set[str] = set()
+        node = self.nodes.get(node_name)
+        if node is None or not node.node_id:
+            return result
+        idx = self._children_idx
+        queue = [node.node_id]
+        visited: set[str] = set()
+        while queue:
+            nid = queue.pop()
+            if nid in visited:
+                continue
+            visited.add(nid)
+            for child_name in idx.get(nid, []):
+                result.add(child_name)
+                c = self.nodes.get(child_name)
+                if c and c.node_id:
+                    queue.append(c.node_id)
+        return result
+
+    def _node_group(self, node_name: str) -> set[str]:
+        """Ensemble hiérarchique d'un nœud pour la propagation des distances.
+
+        Algorithme :
+          1. Remonter jusqu'au plus haut ancêtre qui n'est pas un système
+             (type_code == 0).  Exemple : New Babbage → MicroTech (planète).
+          2. Retourner cet ancêtre + TOUS ses descendants (récursif).
+
+        Résultat pour 'New Babbage' : {MicroTech, New Babbage, HDMS-Anderson,
+        Port Tressler, …} — tous ces nœuds sont à la même distance Gm des
+        autres planètes/stations du système.
+        """
+        node = self.nodes.get(node_name)
+        if node is None:
+            return {node_name}
+
+        # Trouver le plus haut ancêtre en dessous du niveau système
+        top_name = node_name
+        current_pid = node.parent_id
+        visited_ids: set[str] = {node.node_id} if node.node_id else set()
+        while current_pid and current_pid not in visited_ids:
+            visited_ids.add(current_pid)
+            parent = next((n for n in self.nodes.values() if n.node_id == current_pid), None)
+            if parent is None or parent.type_code == 0:   # système → stop
+                break
+            top_name = parent.name
+            current_pid = parent.parent_id
+
+        # Groupe = ancêtre racine + tous ses descendants
+        return {top_name} | self._descendants_of(top_name)
+
+    def propagate_distances(
+        self,
+        from_node: str,
+        to_node: str,
+        distance_gm: float,
+        source: str = "uex",
+        timestamp: float | None = None,
+    ) -> int:
+        """Ajoute/met à jour une route et propage aux nœuds hiérarchiquement liés.
+
+        La route directe reçoit la source fournie.
+        Les routes dérivées reçoivent source='calculated' (priorité basse) :
+        elles ne remplaceront jamais une mesure directe plus précise.
+
+        Exemple : propagate_distances('SM0-13', 'HUR-L1', 59.3)
+          → met à jour SM0-13↔HUR-L1 (uex)
+          → met à jour MicroTech↔HUR-L1, New Babbage↔HUR-L1,
+             Port Tressler↔HUR-L1, etc. (calculated)
+
+        Returns : nombre de routes modifiées.
+        """
+        if timestamp is None:
+            timestamp = time.time()
+
+        count = 0
+
+        # Route directe (source fournie)
+        if self.add_or_update_route(
+            from_node, to_node, distance_gm,
+            source=source, timestamp=timestamp
+        ):
+            count += 1
+
+        # Groupes hiérarchiques
+        from_group = self._node_group(from_node)
+        to_group   = self._node_group(to_node)
+
+        # Propager à toutes les combinaisons (sauf la directe déjà faite)
+        for fn in from_group:
+            for tn in to_group:
+                if fn == tn:
+                    continue
+                if (fn == from_node and tn == to_node) or (fn == to_node and tn == from_node):
+                    continue  # Déjà fait ci-dessus
+                if self.add_or_update_route(
+                    fn, tn, distance_gm,
+                    source="calculated", timestamp=timestamp
+                ):
+                    count += 1
+
+        return count
 
     def find_shortest_path(self, from_loc: str, to_loc: str,
                           max_jump_size: str = "L") -> PathResult | None:

@@ -1109,17 +1109,23 @@ function annotateNode(textNode) {
 
 function annotateElement(el) {
   if (!vocabRe && !vocabFullNames.size && !_locAbbrevRe) return;
-  // Passage 1 : annotation vocabulaire (peut remplacer des nœuds texte)
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-  const nodes = [];
-  while (walker.nextNode()) nodes.push(walker.currentNode);
-  nodes.forEach(annotateNode);
-  // Passage 2 : annotation noms de lieux abrégés (re-parcourt après passage 1)
+  // Passage 1 : noms de lieux abrégés EN PREMIER — prend la suite la plus longue
+  // et évite que le vocabulaire ne découpe "Green Glade" en "Green" + "Glade"
   if (_locAbbrevRe) {
-    const walker2 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    const nodes2 = [];
-    while (walker2.nextNode()) nodes2.push(walker2.currentNode);
-    nodes2.forEach(annotateLocNode);
+    const w1 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const n1 = [];
+    while (w1.nextNode()) n1.push(w1.currentNode);
+    n1.forEach(annotateLocNode);
+  }
+  // Passage 2 : vocabulaire — saute les nœuds déjà dans un .loc-abbr
+  if (vocabRe || vocabFullNames.size) {
+    const w2 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => n.parentElement?.closest('.loc-abbr')
+        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+    });
+    const n2 = [];
+    while (w2.nextNode()) n2.push(w2.currentNode);
+    n2.forEach(annotateNode);
   }
 }
 
