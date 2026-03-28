@@ -217,6 +217,10 @@ class OverlayServer:
             if len(self._history) > 200:
                 self._history.pop()
 
+        # Résoudre les abréviations *-suffixées (noms de lieux) dans la commande
+        from uexinfo.display.loc import resolve_cmd_line as _resolve_loc
+        line = _resolve_loc(line)
+
         # Écho
         await ws.send(json.dumps({"type": "echo", "text": line}))
 
@@ -246,6 +250,12 @@ class OverlayServer:
         # Envoyer les messages générés par la commande (ex: mission_scan_list)
         for extra_msg in _send_q:
             await ws.send(json.dumps(extra_msg))
+
+        # Envoyer les abréviations de lieux AVANT l'output (le JS les aura quand il annote)
+        from uexinfo.display.loc import flush_abbrevs as _flush_loc
+        _loc_map = _flush_loc()
+        if _loc_map:
+            await ws.send(json.dumps({"type": "loc_abbrevs", "map": _loc_map}))
 
         # Pour /scan log, le formulaire inline remplace l'output texte
         is_scan_log = line.strip().lstrip("/").lower().startswith("scan log")

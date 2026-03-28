@@ -407,25 +407,12 @@ def _resolve_graph_node(name: str, graph) -> str | None:
     return _resolve_node(short, graph)
 
 
-_SUFFIX_RE = re.compile(
-    r"\s+(Station|Harbor|Port|Hub|Base|Outpost|Settlement|Colony|City|Center|Centre)\b.*$",
-    re.IGNORECASE,
-)
+from uexinfo.display.loc import loc_display as _loc_display
 
 
-def _short_loc(name: str) -> str:
-    """Code court d'un lieu pour affichage compact.
-
-    'MIC-L2 Long Forest Station' → 'MIC-L2'
-    'Faithful Dream Station'     → 'Faithful Dream'
-    'Everus Harbor'              → 'Everus Harbor'
-    """
-    m = re.match(r"^([A-Z]{2,4}-[A-Z]\d+)", name)
-    if m:
-        return m.group(1)
-    cleaned = _SUFFIX_RE.sub("", name).strip()
-    words = cleaned.split()
-    return " ".join(words[:2]) if len(words) > 2 else cleaned
+def _short_loc(name: str, max_chars: int = 20) -> str:
+    """Code court d'un lieu — délègue à loc_display (alimente le registre overlay)."""
+    return _loc_display(name, max_chars=max_chars, short=True)
 
 
 def _fmt_dist(d_gm: float) -> str:

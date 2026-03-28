@@ -124,6 +124,14 @@ html, body {
 .cw-location  { color: #00bcd4; }
 .cw-ship      { color: #69f0ae; }
 .cw-voyage    { color: #ff9800; }
+/* Noms de lieux abrégés cliquables (→ nom complet dans l'input) */
+.loc-abbr {
+  cursor: pointer;
+  border-bottom: 1px dotted #56b6c2;
+  color: inherit;
+  transition: color 0.15s;
+}
+.loc-abbr:hover { color: #56b6c2; }
 
 /* ── Mission scan overlay ────────────────────────────────────────────────── */
 #mission-scan-overlay {
@@ -964,6 +972,43 @@ const vocab = {
 let vocabRe = null;
 const vocabFullNames = new Map();  // lowercase → nom complet canonique (pour tooltip hover)
 
+// ── Registre des noms de lieux abrégés ───────────────────────────────────
+let locAbbrevs = {};       // abbrev → nom complet
+let _locAbbrevRe = null;   // regex compilée (rebuilt à chaque update)
+
+function updateLocAbbrevs(map) {
+  Object.assign(locAbbrevs, map);
+  const keys = Object.keys(locAbbrevs).sort((a, b) => b.length - a.length);
+  if (!keys.length) { _locAbbrevRe = null; return; }
+  const escaped = keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  _locAbbrevRe = new RegExp('(?<![\\w])(' + escaped.join('|') + ')(?![\\w])', 'g');
+}
+
+function annotateLocNode(node) {
+  if (!_locAbbrevRe) return;
+  const text = node.textContent;
+  _locAbbrevRe.lastIndex = 0;
+  if (!_locAbbrevRe.test(text)) return;
+  _locAbbrevRe.lastIndex = 0;
+  const frag = document.createDocumentFragment();
+  let last = 0, m;
+  while ((m = _locAbbrevRe.exec(text)) !== null) {
+    const abbrev = m[1];
+    const full   = locAbbrevs[abbrev];
+    if (!full) continue;
+    if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const span = document.createElement('span');
+    span.className   = 'loc-abbr';
+    span.textContent = abbrev;
+    span.title       = full;
+    span.onclick = () => { elInput.value = full; elInput.focus(); };
+    frag.appendChild(span);
+    last = m.index + abbrev.length;
+  }
+  if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+  node.parentNode.replaceChild(frag, node);
+}
+
 function loadVocab(msg) {
   vocabFullNames.clear();
   vocab.commoditiesRaw = (msg.commodities || []).slice().sort();   // casse originale pour les <select>
@@ -1063,12 +1108,19 @@ function annotateNode(textNode) {
 }
 
 function annotateElement(el) {
-  if (!vocabRe && !vocabFullNames.size) return;
-  // Collecter les nœuds texte d'abord (le remplacement invalide l'itérateur)
+  if (!vocabRe && !vocabFullNames.size && !_locAbbrevRe) return;
+  // Passage 1 : annotation vocabulaire (peut remplacer des nœuds texte)
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   nodes.forEach(annotateNode);
+  // Passage 2 : annotation noms de lieux abrégés (re-parcourt après passage 1)
+  if (_locAbbrevRe) {
+    const walker2 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes2 = [];
+    while (walker2.nextNode()) nodes2.push(walker2.currentNode);
+    nodes2.forEach(annotateLocNode);
+  }
 }
 
 // ── Spinner d'exécution ───────────────────────────────────────────────────────
@@ -1143,6 +1195,7 @@ function dispatch(msg) {
     case 'mission_scan_list':   showMissionScanList(msg); break;
     case 'screenshot_processed': onScreenshotProcessed(msg); break;
     case 'ocr_queued':           onOcrQueued(msg); break;
+    case 'loc_abbrevs': updateLocAbbrevs(msg.map); break;
     case 'trade_pick':  showTradePick(msg); break;
     case 'select':      showSelectPanel(msg); break;
     case 'status':      updateStatus(msg); break;

@@ -173,9 +173,11 @@ def _list_edges(args: list[str], ctx) -> None:
     tbl.add_column("Distance", style=C.UEX, justify="right")
     tbl.add_column("Type", style=C.DIM)
 
+    from uexinfo.display.loc import loc_display as _ld
     for edge in sorted(unique_edges, key=lambda e: e.from_node):
         dist_str = f"{edge.distance_gm:.1f} Gm" if edge.distance_gm >= 1 else f"{edge.distance_gm * 1000:.0f} Mm"
-        tbl.add_row(edge.from_node[:20], "↔", edge.to_node[:20], dist_str, edge.edge_type.value)
+        tbl.add_row(_ld(edge.from_node, max_chars=35, short=False), "↔",
+                    _ld(edge.to_node, max_chars=35, short=False), dist_str, edge.edge_type.value)
 
     console.print(tbl)
     console.print(f"\n[{C.DIM}]{len(unique_edges)} routes[/{C.DIM}]")
