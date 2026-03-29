@@ -22,6 +22,7 @@ _SUBCOMMANDS = frozenset({
     "save", "sauvegarder", "enregistrer",
     "raz", "reset", "reinitialiser", "réinitialiser",
     "populate", "peupler", "remplir", "enrichir",
+    "consolidate", "consolider", "consolider-graphe",
     "dedup", "deduplicate", "fusionner",
     "clean", "nettoyer", "purge",
 })
@@ -64,6 +65,8 @@ def cmd_nav(args: list[str], ctx) -> None:
         _reset_graph(ctx)
     elif sub in ("populate", "peupler", "remplir", "enrichir"):
         _populate_graph(real_args[1:], ctx)
+    elif sub in ("consolidate", "consolider", "consolider-graphe"):
+        _consolidate_graph(ctx)
     elif sub in ("dedup", "deduplicate", "fusionner"):
         _dedup_graph(ctx)
     elif sub in ("clean", "nettoyer", "purge"):
@@ -650,14 +653,14 @@ def _fetch_missing_distances(from_node: str, graph, ctx) -> None:
 
             dest_node = _resolve_node_uex(dest, graph)
             if dest_node and dest_node != from_node:
-                added = graph.add_or_update_route(
+                n = graph.propagate_distances(
                     from_node=from_node,
                     to_node=dest_node,
                     distance_gm=dist_f,
                     edge_type=EdgeType.QUANTUM,
                     source="uex",
                 )
-                if added:
+                if n:
                     edges_added += 1
 
     if edges_added > 0:
@@ -872,6 +875,14 @@ def _populate_graph(args: list[str], ctx) -> None:
     total          = len(buyable)
 
     for i, commodity in enumerate(buyable, 1):
+        # Vérifier annulation (double-Échap overlay)
+        if getattr(ctx, "_cancel_flag", None) and ctx._cancel_flag.is_set():
+            console.print(
+                f"\n[bold yellow]⚠ Populate annulé à [{i}/{total}] — "
+                f"{routes_added} route(s) ajoutée(s)[/bold yellow]"
+            )
+            break
+
         cid   = commodity.get("id")
         cname = commodity.get("name", "?")
 
@@ -926,14 +937,14 @@ def _populate_graph(args: list[str], ctx) -> None:
             if already_known:
                 continue
 
-            added = graph.add_or_update_route(
+            # populate : add_or_update_route direct (pas propagate_distances)
+            # UEX retourne déjà toutes les paires connues — le produit cartésien
+            # de propagate_distances exploserais le coût (17M d'appels sur 88 commodités)
+            if graph.add_or_update_route(
                 from_node=origin, to_node=dest, distance_gm=dist_f,
                 edge_type=EdgeType.QUANTUM, source="uex",
-            )
-            if added:
+            ):
                 routes_added += 1
-            else:
-                routes_updated += 1
 
     fixed = 0
     typed = 0
@@ -965,10 +976,61 @@ def _populate_graph(args: list[str], ctx) -> None:
     if errors:
         console.print(f"  [{C.WARNING}]{errors} commodité(s) ignorée(s) (erreur réseau)[/{C.WARNING}]")
     console.print()
+    console.print(f"[{C.DIM}]Total nœuds dans le graphe : [bold]{len(graph.nodes)}[/bold][/{C.DIM}]")
+    console.print()
+
+    # Consolidation automatique
+    console.print(f"[{C.DIM}]Consolidation des distances manquantes…[/{C.DIM}]")
+    added_c, coloc = graph.consolidate(tolerance_gm=1.0, min_refs=2)
+    if added_c:
+        print_ok(f"{added_c} liaison(s) inférée(s) par co-localisation ({coloc} paires co-localisées)")
+    else:
+        console.print(f"  [{C.DIM}]Aucune distance inférable (données insuffisantes ou graphe déjà complet)[/{C.DIM}]")
+
+    # Sauvegarde automatique
+    try:
+        ctx.cache.save_transport_graph()
+        print_ok("Graphe sauvegardé.")
+    except Exception as e:
+        print_error(f"Erreur sauvegarde : {e}")
+
+
+# ── Consolidate ────────────────────────────────────────────────────────────────
+
+def _consolidate_graph(ctx) -> None:
+    """Consolide le graphe : infère les distances manquantes par co-localisation.
+
+    Deux nœuds A et B sont co-localisés si leurs distances à ≥2 nœuds de
+    référence communs sont identiques (±1 Gm). Les distances inférées reçoivent
+    source='consolidated' (priorité 0) — toute mesure directe UEX l'écrase.
+
+    Typiquement appelé après /nav populate pour compléter les données manquantes.
+    """
+    graph = ctx.cache.transport_graph
+    section("Consolidation du graphe")
+
+    n_nodes = len(graph.nodes)
+    n_edges = len(graph.edges)
     console.print(
-        f"[{C.DIM}]Total nœuds dans le graphe : [bold]{len(graph.nodes)}[/bold]  ·  "
-        f"Utilisez [{C.LABEL}]/nav save[/{C.LABEL}] pour sauvegarder[/{C.DIM}]"
+        f"  [{C.DIM}]{n_nodes} nœuds · {n_edges} liaisons avant consolidation[/{C.DIM}]"
     )
+    console.print(
+        f"  [{C.DIM}]Analyse de co-localisation (paires = {n_nodes*(n_nodes-1)//2})…[/{C.DIM}]"
+    )
+
+    added, coloc_pairs = graph.consolidate(tolerance_gm=1.0, min_refs=2)
+
+    console.print()
+    console.print(f"  [{C.LABEL}]{coloc_pairs} paire(s) co-localisée(s) détectée(s)[/{C.LABEL}]")
+    if added:
+        print_ok(f"{added} liaison(s) inférée(s) ajoutée(s) (source=consolidated)")
+        console.print(
+            f"  [{C.DIM}]Ces distances seront automatiquement remplacées "
+            f"par toute mesure directe UEX.[/{C.DIM}]"
+        )
+        console.print(f"[{C.DIM}]/nav save  pour conserver[/{C.DIM}]")
+    else:
+        console.print(f"  [{C.DIM}]Aucune liaison manquante à inférer.[/{C.DIM}]")
 
 
 # ── Clean ──────────────────────────────────────────────────────────────────────
@@ -1398,14 +1460,14 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
                 continue
             dest_node = _resolve_node_uex(dest_name, graph)
             if dest_node and dest_node != node_name:
-                added = graph.add_or_update_route(
+                n = graph.propagate_distances(
                     from_node=node_name,
                     to_node=dest_node,
                     distance_gm=dist_gm,
                     edge_type=EdgeType.QUANTUM,
                     source="uex",
                 )
-                if added:
+                if n:
                     edges_added += 1
 
     except UEXError as e:

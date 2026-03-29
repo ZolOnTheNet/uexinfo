@@ -371,17 +371,15 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
 
             # Enrichir le graphe de transport (opportuniste)
             if origin_terminal:
-                modified = ctx.cache.transport_graph.add_or_update_route(
+                n = ctx.cache.transport_graph.propagate_distances(
                     from_node=origin_terminal,
                     to_node=dest,
                     distance_gm=dist_gm,
                     edge_type=EdgeType.QUANTUM,
-                    duration_sec=0,
                     source="uex",
-                    notes="auto",
                     timestamp=time.time(),
                 )
-                if modified:
+                if n:
                     enriched_count += 1
 
                 # Corriger le système des nœuds auto-créés ("Unknown")
@@ -1591,21 +1589,25 @@ def _find_terminal(query: str, ctx, strong: bool = False) -> Terminal | None:
         if t.name.lower() == q or t.code.lower() == q:
             return t
 
-    # ── 3. Nom court exact → préfère Admin/TDD ───────────────────────────
-    matches = [t for t in ctx.cache.terminals if _loc(t.name).lower() == q]
+    # ── 3. Nom court ou espace-station exact → préfère Admin/TDD ─────────
+    matches = [t for t in ctx.cache.terminals
+               if _loc(t.name).lower() == q or t.space_station_name.lower() == q]
     if matches:
         return min(matches, key=_trading_priority)
 
-    # ── 4. Préfixe du nom court → préfère Admin/TDD ──────────────────────
-    matches = [t for t in ctx.cache.terminals if _loc(t.name).lower().startswith(q)]
+    # ── 4. Préfixe du nom court / espace-station → préfère Admin/TDD ─────
+    matches = [t for t in ctx.cache.terminals
+               if _loc(t.name).lower().startswith(q)
+               or t.space_station_name.lower().startswith(q)]
     if matches:
         return min(matches, key=_trading_priority)
 
     if strong:
         return None
 
-    # ── 5. Contient → préfère Admin/TDD ─────────────────────────────────
-    matches = [t for t in ctx.cache.terminals if q in t.name.lower()]
+    # ── 5. Contient (nom ou espace-station) → préfère Admin/TDD ──────────
+    matches = [t for t in ctx.cache.terminals
+               if q in t.name.lower() or q in t.space_station_name.lower()]
     if matches:
         return min(matches, key=_trading_priority)
 

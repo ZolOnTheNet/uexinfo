@@ -106,7 +106,10 @@ def _img_size(image_path: Path) -> tuple[int, int]:
 
 # ── Patterns mission ──────────────────────────────────────────────────────────
 
-_RE_REWARD      = re.compile(r"Reward\s+[¤øH$]?\s*([\d,\s]+)", re.IGNORECASE)
+# ≈ apparaît dans l'UI SC avant le montant ("Reward ≈ 51,250 aUEC").
+# Tesseract lit parfois ≈ comme un chiffre (6, 2…) → chiffre parasite en tête.
+# On autorise jusqu'à 8 chars non-chiffre entre "Reward" et le nombre.
+_RE_REWARD      = re.compile(r"Reward[^\d\n]{0,8}([\d][0-9,\s]*)", re.IGNORECASE)
 _RE_CONTRACTED  = re.compile(r"Contracted\s+By\s+(.+)", re.IGNORECASE)
 _RE_AVAIL       = re.compile(r"Contract\s+Availability\s+(.+)", re.IGNORECASE)
 _RE_MISSION_AMT = re.compile(r"(\d+)\s*[kK]$")   # "40k" dans la liste de missions
@@ -124,8 +127,13 @@ _RE_OBJ_DELIVER = re.compile(
 # Continuation "above <planet>" (fin ou continuation de ligne)
 _RE_OBJ_ABOVE   = re.compile(r"above\s+(.+?)\.?\s*$", re.IGNORECASE)
 # Format alternatif ACCEPTED : "at ArcCorp's L2 Lagrange point" → hint = "ArcCorp L2"
+# Groupe 1 optionnel : peut être vide si la ligne est coupée juste après "at"
 _RE_OBJ_AT_LAGRANGE = re.compile(
-    r"\s+at\s+(.+?)(?:'s\s+L\d\s+Lagrange\s+point)?\.?\s*$", re.IGNORECASE
+    r"\s+at(?:\s+(.+?))?(?:'s\s+L\d\s+Lagrange\s+point)?\.?\s*$", re.IGNORECASE
+)
+# Mots parasites en fin de localisation (OCR coupé / artefacts UI)
+_RE_LOC_TRAILING_JUNK = re.compile(
+    r"\s+(?:at|to|in|the|a|an|above|from|is|Station|at)\s*$", re.IGNORECASE
 )
 # Boutons UI à ignorer
 _RE_OBJ_UI      = re.compile(
@@ -241,6 +249,7 @@ class TesseractEngine:
         self.exe          = exe          or _find_exe()
         self.data_dir     = data_dir     or _DEFAULT_DATA
         self.tessdata_dir = tessdata_dir or _DEFAULT_DATA
+        self._timeout: int = 0  # 0 = pas de limite ; défini par OcrWorker
 
         try:
             import pytesseract
@@ -314,7 +323,8 @@ class TesseractEngine:
         known = self._load_words(self.data_dir / "terminals.user-words")
         for psm in (6, 7, 11):
             text = self._pt.image_to_string(
-                img, lang="eng_sc", config=f"--psm {psm} --oem 3"
+                img, lang="eng_sc", config=f"--psm {psm} --oem 3",
+                timeout=self._timeout,
             ).strip()
             lines = [l.strip() for l in text.splitlines() if l.strip()]
             if not lines:
@@ -365,6 +375,7 @@ class TesseractEngine:
             lang        = "eng_sc",
             config      = " ".join(parts),
             output_type = self._pt.Output.DICT,
+            timeout     = self._timeout,
         )
 
     # ── Construction des lignes depuis le TSV ─────────────────────────────────
@@ -441,7 +452,8 @@ class TesseractEngine:
         os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
         try:
             text = self._pt.image_to_string(
-                probe, lang="eng_sc", config="--psm 6 --oem 3"
+                probe, lang="eng_sc", config="--psm 6 --oem 3",
+                timeout=self._timeout,
             ).upper()
         except Exception:
             text = ""
@@ -451,9 +463,12 @@ class TesseractEngine:
             else:
                 os.environ["TESSDATA_PREFIX"] = env_bak
 
-        m_score = sum(1 for kw in _MISSION_KEYWORDS if kw in text)
+        _MISSION_STRONG = {"PRIMARY OBJECTIVES", "CONTRACT AVAILABILITY",
+                           "CONTRACTED BY", "MARK ALL READ"}
+        m_strong = sum(1 for kw in _MISSION_STRONG if kw in text)
+        m_score  = sum(1 for kw in _MISSION_KEYWORDS if kw in text)
         t_score  = sum(1 for kw in _TERMINAL_KEYWORDS if kw in text)
-        if m_score >= 2 and m_score > t_score:
+        if (m_strong >= 1 or m_score >= 2) and m_score > t_score:
             return "mission"
         if t_score > 0:
             return "terminal"
@@ -474,7 +489,8 @@ class TesseractEngine:
             os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
             try:
                 return self._pt.image_to_string(
-                    region, lang="eng_sc", config=f"--psm {psm} --oem 3"
+                    region, lang="eng_sc", config=f"--psm {psm} --oem 3",
+                    timeout=self._timeout,
                 ).strip()
             except Exception:
                 return ""
@@ -495,6 +511,8 @@ class TesseractEngine:
         # ── Titre (grand texte panneau droit) ─────────────────────────────────
         title_text = _ocr((int(w*.33), int(h*.12), int(w*.66), int(h*.23)), psm=6)
         title = " ".join(title_text.split())
+        # Retirer les préfixes parasites OCR (|, ,, ., © …) avant le premier alpha
+        title = re.sub(r'^[^A-Za-z]+', '', title).strip()
 
         # ── Infos (Reward / Availability / Contracted By) ─────────────────────
         info_text = _ocr((int(w*.64), int(h*.11), int(w*.93), int(h*.25)), psm=6)
@@ -533,10 +551,37 @@ class TesseractEngine:
         reward = 0
         m = _RE_REWARD.search(text)
         if m:
+            raw_g = m.group(1).strip()
             try:
-                reward = int(m.group(1).replace(",", "").replace(" ", ""))
+                # Cas "2 64,000" : ≈ lu comme un chiffre + espace avant le vrai nombre
+                parts = raw_g.split()
+                if len(parts) == 2 and len(parts[0]) == 1 and parts[0].isdigit():
+                    reward = int(parts[1].replace(",", ""))
+                else:
+                    reward = int(raw_g.replace(",", "").replace(" ", ""))
             except ValueError:
                 pass
+
+        # Fallback : Tesseract confond "R" → "3", "E" → l'étiquette "Reward" disparaît.
+        # On extrait alors le premier nombre ≥4 chiffres avant "Contract Availability".
+        if reward == 0:
+            before_avail = re.split(r"Contract\s+Avail", text, flags=re.IGNORECASE)[0]
+            candidates = re.findall(r"\b(\d[\d,]{3,})\b", before_avail)
+            for raw_n in reversed(candidates):   # dernier = le plus précis
+                try:
+                    v = int(raw_n.replace(",", ""))
+                    if 1_000 <= v <= 500_000:
+                        reward = v
+                        break
+                except ValueError:
+                    pass
+
+        # Sanity check : ≈ parfois lu sans espace (ex : 688,250 = 6 + 88250).
+        # Si la valeur semble aberrante (>250 000) on tente de retirer le 1er chiffre.
+        if reward > 250_000:
+            candidate = int(str(reward)[1:]) if len(str(reward)) > 4 else reward
+            if 1_000 <= candidate <= 250_000:
+                reward = candidate
 
         availability = ""
         m = _RE_AVAIL.search(text)
@@ -618,6 +663,12 @@ class TesseractEngine:
                     # Ligne coupée : "Baijini Point above" — "above" traîne en fin
                     elif re.search(r"\babove\s*$", location, re.IGNORECASE):
                         location = re.sub(r"\s*\babove\s*$", "", location, flags=re.IGNORECASE).strip()
+                    # Ligne coupée : "Baijini Point at" — "at" traîne en fin
+                    elif re.search(r"\bat\s*$", location, re.IGNORECASE):
+                        location = re.sub(r"\s*\bat\s*$", "", location, flags=re.IGNORECASE).strip()
+                # Nettoyage final : mots parasites en fin de localisation (artefacts OCR)
+                if location:
+                    location = _RE_LOC_TRAILING_JUNK.sub("", location).strip() or location
                 pending = ParsedObjective(
                     kind="deliver",
                     commodity=commodity,
@@ -635,6 +686,13 @@ class TesseractEngine:
                     pending.location_hint = m_above.group(1).strip()
                 elif line.lower().startswith("above "):
                     pending.location_hint = line[6:].strip()
+                elif line.lower().startswith("at "):
+                    # Ligne coupée : "at Baijini Point" sur la ligne suivante
+                    m_at = _RE_OBJ_AT_LAGRANGE.search(line)
+                    if m_at and m_at.group(1):
+                        pending.location_hint = m_at.group(1).strip()
+                    else:
+                        pending.location_hint = line[3:].strip()
                 elif pending.location is None:
                     # La localisation était coupée — cette ligne est la suite
                     pending.location = line
@@ -705,7 +763,8 @@ class TesseractEngine:
         os.environ["TESSDATA_PREFIX"] = str(self.tessdata_dir)
         try:
             text = self._pt.image_to_string(
-                blue_for_ocr, lang="eng_sc", config="--psm 11 --oem 3"
+                blue_for_ocr, lang="eng_sc", config="--psm 11 --oem 3",
+                timeout=self._timeout,
             )
         except Exception:
             text = ""

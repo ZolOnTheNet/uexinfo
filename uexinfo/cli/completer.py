@@ -25,11 +25,19 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("cargo",  "Configure les grilles cargo"),
     ],
     "config":               [
-        ("ship", "Gestion des vaisseaux"),
-        ("trade", "Paramètres de trading"),
-        ("cache", "Gestion du cache"),
-        ("scan", "Configuration OCR/scan"),
-        ("player", "Infos joueur"),
+        ("ship",                   "Gestion des vaisseaux"),
+        ("trade",                  "Paramètres de trading"),
+        ("cache",                  "Gestion du cache"),
+        ("scan",                   "Configuration OCR/scan"),
+        ("player",                 "Infos joueur"),
+        ("hotkey",                 "Hotkey overlay (alt+shift+u, ctrl+f3…)"),
+        ("close",                  "Mode fermeture overlay (normal/dblclick)"),
+        ("voyage.calc.nbsaut",     "Nb max de missions par voyage calc"),
+        ("voyage.calc.prop",       "Nb de propositions (1=critère, ≥2=dist+benef+roi)"),
+        ("voyage.calc.options",    "Options par défaut pour /voyage calc"),
+        ("voyage.calc.gap_max",    "Transit ⚠ au-delà de N Gm (défaut 3)"),
+        ("voyage.calc.favoris",    "Lieux à privilégier (liste)"),
+        ("voyage.calc.exclure",    "Lieux à exclure systématiquement (liste)"),
     ],
     "config ship":          [
         ("list",   "Liste vos vaisseaux"),
@@ -115,12 +123,13 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("batch",    "Debug OCR sur tous les fichiers d'un dossier"),
     ],
     "dev":                  [
-        ("on",           "Activer le mode développeur (persisté)"),
-        ("off",          "Désactiver le mode développeur"),
-        ("scan import",  "Importer tous les screenshots d'un dossier"),
-        ("scan clear",   "Vider la screenshot_db"),
-        ("db",           "Statistiques de la screenshot_db"),
-        ("db list",      "Lister les dernières entrées de la DB"),
+        ("on",            "Active le mode développeur"),
+        ("off",           "Désactive le mode développeur"),
+        ("scan import",   "Importer tous les screenshots d'un dossier"),
+        ("scan clear",    "Vider la screenshot_db"),
+        ("db",            "Statistiques de la screenshot_db"),
+        ("db list",       "Liste les dernières entrées DB"),
+        ("calc.missions", "Matrice missions : départ × destination × distance"),
     ],
     "dev scan":             [
         ("import", "Importer tous les screenshots d'un dossier dans la DB"),
@@ -226,6 +235,7 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("save",              "Sauvegarde le graphe"),
         ("raz",               "Réinitialise le graphe"),
         ("populate",          "Importe les distances depuis l'API UEX"),
+        ("consolidate",       "Infère les distances manquantes par co-localisation"),
     ],
     "refresh":              [
         ("all", "Rafraîchit tout"),
@@ -243,7 +253,9 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("add",     "Ajoute une mission manuellement"),
         ("edit",    "Modifie une mission existante"),
         ("remove",  "Supprime une mission du catalogue"),
+        ("clear",   "Efface toutes les missions (DB scan inchangée)"),
         ("scan",    "Scanne une capture d'écran (Phase 2)"),
+        ("view",    "Affiche le détail d'une mission"),
     ],
     "m":                    [],  # alias mission
     "voyage":               [
@@ -259,6 +271,12 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("accept",  "Valide + analyse, désactive le voyage"),
         ("later",   "Sauvegarde sans analyse, désactive"),
         ("cancel",  "Annule les modifications depuis la dernière sauvegarde"),
+        ("calc",    "Génère des propositions de voyage optimisées"),
+        ("calc dist",   "  └ Minimise la distance totale"),
+        ("calc benef",  "  └ Maximise la récompense"),
+        ("calc roi",    "  └ Maximise le ROI (aUEC/Gm)"),
+        ("calc all",    "  └ Toutes les propositions simultanément"),
+        ("+",       "Sauvegarde la proposition N du dernier calc (ex: + 1)"),
     ],
     "v":                    [],  # alias voyage
 }
@@ -481,14 +499,29 @@ class UEXCompleter(Completer):
                     pass
 
             elif self.ctx.location_index:
-                # Si current vide, chercher avec une query vide (tous les terminaux)
-                search_query = current if current else ""
+                # Pour les commandes terminal, le nom peut être multi-mots.
+                # Construire la query en joignant TOUS les mots après la commande,
+                # et remplacer TOUS ces mots (pas seulement le dernier).
+                # Normaliser aussi les underscores → espaces.
+                if ends_space:
+                    # Curseur après espace → compléter le prochain token
+                    terminal_parts: list[str] = []
+                    replace_raw = ""
+                else:
+                    # Agréger typed_args + current comme nom partiel du terminal
+                    # Ex : ["Everus"] + "Harbor" → "Everus Harbor"
+                    terminal_parts = [*typed_args, current]
+                    replace_raw = " ".join(terminal_parts)
+
+                search_query = replace_raw.replace("_", " ").strip()
+                replace_len  = len(replace_raw)
+
                 entries = list(self.ctx.location_index.search(search_query, limit=30, types={"terminal"}))
                 for entry in entries:
                     slug = entry.name.replace(" ", "_")
                     yield Completion(
                         slug,
-                        start_position=-len(current),
+                        start_position=-replace_len,
                         display=entry.name,
                         display_meta=entry.full_path,
                     )
@@ -784,10 +817,10 @@ class UEXCompleter(Completer):
                         display_meta=f"terminal · {getattr(t, 'location', '')}",
                     )
 
-        # ── 3. Terminaux fuzzy (LocationIndex) — limité à 4 ──────────────
+        # ── 3. Terminaux fuzzy (LocationIndex) ────────────────────────────
         if self.ctx.location_index:
             count = 0
-            for entry in self.ctx.location_index.search(text_norm, limit=12, types={"terminal"}):
+            for entry in self.ctx.location_index.search(text_norm, limit=30, types={"terminal"}):
                 slug = entry.name.replace(" ", "_")
                 if slug in seen_t:
                     continue
@@ -799,7 +832,7 @@ class UEXCompleter(Completer):
                     display_meta=f"terminal · {entry.full_path}",
                 )
                 count += 1
-                if count >= 4:
+                if count >= 15:
                     break
 
         # ── 4. Commodités sous-chaîne ──────────────────────────────────────

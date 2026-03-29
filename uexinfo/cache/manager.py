@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -303,12 +304,23 @@ class CacheManager:
             _console.print(f"[yellow]⚠  Erreur chargement graphe de transport : {e}[/yellow]")
 
     def save_transport_graph(self) -> None:
-        """Sauvegarde le graphe de transport dans le fichier source (versionné git)."""
+        """Sauvegarde le graphe de transport — écriture atomique via fichier temporaire.
+
+        On écrit d'abord dans <file>.tmp, puis os.replace() remplace atomiquement
+        le fichier cible. Si le process est tué pendant l'écriture, le .json original
+        reste intact ; seul le .tmp est perdu.
+        """
         graph_path = PACKAGE_DIR / "data" / "transport_network.json"
         graph_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = graph_path.with_suffix(".tmp")
         try:
-            with open(graph_path, "w", encoding="utf-8") as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(self.transport_graph.to_json(), f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, graph_path)   # atomique : le .json n'est remplacé qu'ici
             self.transport_graph.mark_saved()
         except Exception as e:
             _console.print(f"[red]✗  Erreur sauvegarde graphe de transport : {e}[/red]")
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except Exception:
+                pass

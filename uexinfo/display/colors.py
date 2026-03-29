@@ -10,7 +10,7 @@ SCTRADE = "orange1"
 # UI
 TITLE = "bold cyan"
 LABEL = "bright_white"
-DIM = "dim white"
+DIM = "dim"
 PROMPT = "bold cyan"
 
 # Statuts

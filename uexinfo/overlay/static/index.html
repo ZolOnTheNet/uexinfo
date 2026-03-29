@@ -233,6 +233,173 @@ html, body {
   margin-bottom: 4px;
 }
 .ms-sel-all:hover { color: var(--fg); }
+/* mission-edit overlay */
+#mission-edit-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.72);
+  z-index: 200; overflow-y: auto; padding: 16px; box-sizing: border-box;
+}
+#mission-edit-overlay.open { display: flex; flex-direction: column; }
+#me-box {
+  background: var(--bg, #1a1a2e);
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 6px; padding: 14px 16px;
+  max-width: 820px; width: 100%; margin: auto;
+  font-family: var(--font); font-size: 0.88em;
+}
+#me-box h3 { color: var(--accent); margin: 0 0 10px; font-size: 1em; font-weight: bold; }
+.me-mission {
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 5px;
+  padding: 10px 12px; margin-bottom: 10px;
+}
+.me-hdr { color: var(--accent); font-size: 0.82em; margin-bottom: 8px; font-weight: bold; }
+.me-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.me-row-inline { align-items: center; }
+.me-row label { min-width: 80px; color: var(--dim); font-size: 0.82em; padding-top: 4px; }
+.me-inp-name, .me-loc-inp {
+  flex: 1; background: rgba(0,0,0,0.35); color: var(--text);
+  border: 1px solid rgba(0,188,212,0.25); border-radius: 3px; padding: 3px 7px;
+  font-family: var(--font); font-size: 0.9em;
+}
+.me-inp-sm {
+  width: 90px; background: rgba(0,0,0,0.35); color: var(--text);
+  border: 1px solid rgba(0,188,212,0.25); border-radius: 3px; padding: 3px 7px;
+  font-family: var(--font); font-size: 0.9em;
+}
+.me-unit { color: var(--dim); font-size: 0.82em; margin-right: 12px; }
+.me-locs { flex: 1; }
+.me-loc-row { display: flex; gap: 4px; margin-bottom: 4px; align-items: center; }
+.me-del {
+  background: transparent; color: #ef5350;
+  border: 1px solid rgba(239,83,80,0.4); border-radius: 3px;
+  padding: 1px 7px; cursor: pointer; font-size: 0.9em; line-height: 1.4;
+}
+.me-del:hover { background: rgba(239,83,80,0.15); }
+.me-add {
+  background: transparent; color: var(--dim);
+  border: 1px dashed rgba(255,255,255,0.2); border-radius: 3px;
+  padding: 2px 10px; cursor: pointer; font-size: 0.8em; margin-top: 2px;
+}
+.me-add:hover { color: var(--text); border-color: rgba(255,255,255,0.4); }
+.me-key { color: var(--dim); font-size: 0.85em; font-weight: normal; }
+.me-imgbtn {
+  background: transparent; border: none; cursor: pointer;
+  font-size: 0.9em; opacity: 0.7; padding: 0 4px; vertical-align: middle;
+}
+.me-imgbtn:hover { opacity: 1; }
+/* mission-list-actions overlay */
+#mission-list-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.72);
+  z-index: 200; overflow-y: auto; padding: 16px; box-sizing: border-box;
+}
+#mission-list-overlay.open { display: flex; flex-direction: column; }
+#ml-box {
+  background: var(--bg, #1a1a2e);
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 6px; padding: 14px 16px;
+  max-width: 920px; width: 100%; margin: auto;
+  font-family: var(--font); font-size: 0.86em;
+}
+#ml-box h3 { color: var(--accent); margin: 0 0 10px; font-size: 1em; font-weight: bold; }
+#ml-box table { width: 100%; border-collapse: collapse; }
+#ml-box th {
+  color: var(--dim); font-weight: normal; font-size: 0.82em;
+  padding: 2px 6px; text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+#ml-box td { padding: 3px 6px; vertical-align: middle; }
+#ml-box tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+#ml-box tr:hover { background: rgba(0,188,212,0.06); }
+.ml-id     { color: var(--dim); text-align: right; width: 28px; }
+.ml-scan   { color: var(--dim); white-space: nowrap; width: 100px; font-size: 0.82em; }
+.ml-name   { font-weight: bold; max-width: 200px; }
+.ml-loc    { color: var(--accent); max-width: 130px; font-size: 0.85em; }
+.ml-dist   { color: var(--dim); text-align: right; width: 60px; font-size: 0.82em; }
+.ml-scu    { color: #69f0ae; text-align: right; width: 40px; }
+.ml-reward { color: #ffd600; text-align: right; width: 60px; }
+.ml-syn    { color: var(--dim); width: 36px; font-size: 0.82em; }
+.ml-acts   { white-space: nowrap; text-align: right; width: 130px; }
+.ml-btn {
+  background: transparent; border: 1px solid rgba(255,255,255,0.18);
+  color: var(--dim); border-radius: 3px; padding: 1px 7px;
+  cursor: pointer; font-family: var(--font); font-size: 0.82em; margin-left: 3px;
+}
+.ml-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.45); }
+.ml-btn-voy  { border-color: rgba(255,152,0,0.4); color: #ff9800; }
+.ml-btn-voy:hover { background: rgba(255,152,0,0.15); }
+.ml-btn-edit { border-color: rgba(0,188,212,0.35); color: var(--accent); }
+.ml-btn-edit:hover { background: rgba(0,188,212,0.12); }
+.ml-btn-del  { border-color: rgba(239,83,80,0.3); color: #ef5350; }
+.ml-btn-del:hover { background: rgba(239,83,80,0.12); }
+.ml-btn-del.ml-confirm { background: rgba(239,83,80,0.25); border-color: #ef5350; color: #fff; }
+/* voyage-calc-result — boutons inline par proposition */
+.vcr-block {
+  margin: 4px 0 8px;
+  border-left: 2px solid rgba(255,152,0,0.35);
+  padding-left: 8px;
+}
+.vcr-prop {
+  margin: 4px 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  font-size: 0.82em;
+}
+.vcr-label {
+  color: var(--dim); min-width: 60px; flex-shrink: 0; font-style: italic;
+}
+.vcr-sep {
+  color: rgba(255,255,255,0.12); margin: 0 2px;
+}
+.vcr-mbtn {
+  background: transparent; border: 1px solid rgba(0,188,212,0.3);
+  color: var(--accent); border-radius: 3px; padding: 0 6px;
+  cursor: pointer; font-family: var(--font); font-size: 0.82em;
+  line-height: 1.6;
+}
+.vcr-mbtn:hover { background: rgba(0,188,212,0.12); border-color: var(--accent); }
+.vcr-all-btn {
+  background: transparent; border: 1px solid rgba(255,152,0,0.45);
+  color: #ff9800; border-radius: 3px; padding: 1px 9px;
+  cursor: pointer; font-family: var(--font); font-size: 0.82em;
+  line-height: 1.6; font-weight: bold;
+}
+.vcr-all-btn:hover { background: rgba(255,152,0,0.15); }
+.vcr-new-btn {
+  background: transparent; border: 1px solid rgba(102,187,106,0.45);
+  color: #66bb6a; border-radius: 3px; padding: 1px 9px;
+  cursor: pointer; font-family: var(--font); font-size: 0.82em;
+  line-height: 1.6; font-weight: bold;
+}
+.vcr-new-btn:hover { background: rgba(102,187,106,0.12); }
+/* mission-actions-inline — table HTML en remplacement du tableau ANSI en overlay */
+.mai-block {
+  overflow-x: auto;
+  margin: 2px 0;
+}
+.mai-tbl {
+  border-collapse: collapse;
+  font-family: var(--font);
+  font-size: 0.84em;
+  white-space: nowrap;
+}
+.mai-tbl th {
+  color: var(--dim); font-weight: normal; font-size: 0.82em;
+  padding: 1px 8px 3px; text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.mai-tbl th.r, .mai-tbl td.r { text-align: right; }
+.mai-tbl td { padding: 1px 8px; vertical-align: middle; }
+.mai-tbl tr:nth-child(even) td { background: rgba(255,255,255,0.025); }
+.mai-tbl tr:hover td { background: rgba(0,188,212,0.06); }
+.mai-c-id   { color: var(--dim); }
+.mai-c-scan { color: var(--dim); font-size: 0.82em; }
+.mai-c-name { color: #e0e0e0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.mai-c-loc  { color: var(--accent); max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.mai-c-dist { color: var(--dim); }
+.mai-c-scu  { color: #69f0ae; }
+.mai-c-rew  { color: #ffd600; }
+.mai-c-syn  { color: var(--dim); font-size: 0.82em; }
+.mai-c-acts { white-space: nowrap; padding-left: 10px; }
 /* badge screenshot processed */
 #sb-screencap {
   font-size: 0.78em;
@@ -702,6 +869,13 @@ html, body {
 </div>
 <div id="output"></div>
 
+<div id="vc-progress" style="display:none;padding:2px 10px 1px;font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;border-top:1px solid rgba(0,188,212,0.08)">
+  <span id="vc-prog-bar"></span>
+  <span id="vc-prog-pct" style="color:var(--accent);margin-left:6px"></span>
+  <span id="vc-prog-label" style="margin-left:4px"></span>
+  <span id="vc-prog-counts" style="margin-left:6px;opacity:0.5"></span>
+</div>
+
 <div id="prompt-area">
   <div id="completion-list" style="display:none"></div>
   <div id="hint-line"></div>
@@ -709,6 +883,7 @@ html, body {
     <span id="prompt-sym">›</span>
     <input id="cmd-input" type="text" autocomplete="off" spellcheck="false"
            placeholder="commande ou /help…">
+    <span id="busy-indicator" style="display:none;color:#ffd600;padding-left:6px;font-size:11px" title="Commande en cours — Échap×2 pour annuler">⏳</span>
   </div>
 </div>
 
@@ -833,6 +1008,42 @@ html, body {
   </div>
 </div>
 
+<datalist id="me-loc-list"></datalist>
+
+<div id="mission-list-overlay">
+  <div id="ml-box">
+    <h3 id="ml-title">Catalogue de missions</h3>
+    <table>
+      <thead><tr>
+        <th class="ml-id">#</th>
+        <th class="ml-scan">Scan</th>
+        <th class="ml-name">Nom</th>
+        <th class="ml-loc">Départ</th>
+        <th class="ml-loc">Arrivée</th>
+        <th class="ml-dist">Dist</th>
+        <th class="ml-scu">SCU</th>
+        <th class="ml-reward">Récomp.</th>
+        <th class="ml-acts">Actions</th>
+      </tr></thead>
+      <tbody id="ml-body"></tbody>
+    </table>
+    <div class="ms-btn-row" style="margin-top:10px">
+      <button class="ms-btn ms-btn-cancel" onclick="closeMissionList()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div id="mission-edit-overlay">
+  <div id="me-box">
+    <h3 id="me-title">Éditer les missions</h3>
+    <div id="me-body"></div>
+    <div class="ms-btn-row">
+      <button class="ms-btn ms-btn-cancel" onclick="closeMissionEdit()">Annuler</button>
+      <button class="ms-btn" onclick="submitMissionEdit()">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
 <div id="select-overlay">
   <div id="select-box">
     <div class="sl-head">
@@ -952,6 +1163,7 @@ let histIdx = -1;
 let histSave = '';
 let completions = [];
 let compIdx = -1;
+let _tabTriggered = false;
 let scanSc = false, scanLog = false;
 let blinkState = false;
 let currentShips = [];
@@ -1001,7 +1213,7 @@ function annotateLocNode(node) {
     span.className   = 'loc-abbr';
     span.textContent = abbrev;
     span.title       = full;
-    span.onclick = () => { elInput.value = full; elInput.focus(); };
+    span.onclick = () => { navigator.clipboard.writeText(full).catch(() => {}); };
     frag.appendChild(span);
     last = m.index + abbrev.length;
   }
@@ -1132,6 +1344,7 @@ function annotateElement(el) {
 // ── Spinner d'exécution ───────────────────────────────────────────────────────
 const SPIN_CHARS = '⣾⣽⣻⢿⡿⣟⣯⣷';
 let _spinTimer = null;
+let _escTimer  = null;   // double-Esc cancel
 
 function startSpin() {
   if (_spinTimer) return;
@@ -1141,6 +1354,7 @@ function startSpin() {
   _spinTimer = setInterval(() => {
     el.textContent = SPIN_CHARS[i++ % SPIN_CHARS.length];
   }, 80);
+  document.getElementById('busy-indicator').style.display = '';
 }
 
 function stopSpin() {
@@ -1150,6 +1364,23 @@ function stopSpin() {
   const el = document.getElementById('prompt-sym');
   el.classList.remove('spin');
   el.textContent = '›';
+  document.getElementById('busy-indicator').style.display = 'none';
+  if (_escTimer) { clearTimeout(_escTimer); _escTimer = null; }
+}
+
+function updateProgress(msg) {
+  const pct = msg.pct || 0;
+  const filled = Math.round(pct / 5);
+  document.getElementById('vc-prog-bar').textContent = '█'.repeat(filled) + '░'.repeat(20 - filled);
+  document.getElementById('vc-prog-pct').textContent = pct + '%';
+  document.getElementById('vc-prog-label').textContent = msg.label || '';
+  document.getElementById('vc-prog-counts').textContent =
+    msg.done != null ? `(${msg.done.toLocaleString()}/${msg.total.toLocaleString()})` : '';
+  document.getElementById('vc-progress').style.display = 'block';
+}
+
+function hideProgress() {
+  document.getElementById('vc-progress').style.display = 'none';
 }
 
 function setAlpha(a) {
@@ -1188,17 +1419,24 @@ function dispatch(msg) {
       if (msg.close_mode !== undefined) applyCloseMode(msg.close_mode);
       break;
     case 'echo':        appendEcho(msg.text); startSpin(); break;
-    case 'output':      stopSpin(); appendAnsi(msg.ansi); break;
+    case 'output':      appendAnsi(msg.ansi); break;   // spinner continue jusqu'au 'done'
     case 'done':
       stopSpin();
+      hideProgress();
       // Retour du focus vers la zone de saisie après chaque commande
       if (!document.getElementById('scan-overlay').classList.contains('open'))
         elInput.focus();
       break;
+    case 'progress_update': updateProgress(msg); break;
+    case 'progress_done':   hideProgress(); break;
     case 'vocab':       loadVocab(msg); break;
     case 'scan_edit':       enqueueScanEditor(msg.data); break;
     case 'scan_log_inline':     appendScanInline(msg); break;
     case 'mission_scan_list':   showMissionScanList(msg); break;
+    case 'mission_edit':        showMissionEdit(msg); break;
+    case 'voyage_calc_result':    appendVoyageCalcButtons(msg); break;
+    case 'mission_list_actions':  showMissionListActions(msg); break;
+    case 'mission_actions_inline': appendMissionActions(msg); break;
     case 'screenshot_processed': onScreenshotProcessed(msg); break;
     case 'ocr_queued':           onOcrQueued(msg); break;
     case 'loc_abbrevs': updateLocAbbrevs(msg.map); break;
@@ -1443,7 +1681,7 @@ elInput.addEventListener('keydown', e => {
 
   if (e.key === 'Enter') {
     e.preventDefault();
-    if (compVisible && compIdx >= 0) { acceptComp(); return; }
+    closeComps();            // Entrée envoie toujours la saisie brute (Tab = compléter)
     sendCmd(elInput.value);
     return;
   }
@@ -1465,11 +1703,30 @@ elInput.addEventListener('keydown', e => {
     else if (histIdx===0) { histIdx=-1; elInput.value = histSave; }
     return;
   }
-  if (e.key === 'Escape') { closeComps(); return; }
+  if (e.key === 'Escape') {
+    const compVisible2 = elComp.style.display !== 'none';
+    if (compVisible2) { closeComps(); return; }
+    // Double-Esc pour annuler une commande en cours
+    if (_spinTimer) {
+      if (_escTimer !== null) {
+        clearTimeout(_escTimer);
+        _escTimer = null;
+        elInput.value = '';
+        closeComps();
+        send({type: 'cancel'});
+        appendSystem('⏳ Annulation…', 'var(--yellow)');
+      } else {
+        appendSystem('Échap×2 pour annuler', 'var(--dim)');
+        _escTimer = setTimeout(() => { _escTimer = null; }, 500);
+      }
+    }
+    return;
+  }
   if (e.key === 'Tab' || (e.ctrlKey && e.key === ' ')) {
     e.preventDefault();
-    if (compVisible && compIdx >= 0) acceptComp();
-    else send({type:'complete', text:elInput.value, cursor:elInput.selectionStart});
+    if (compVisible && compIdx >= 0) { acceptComp(); return; }
+    _tabTriggered = true;
+    send({type:'complete', text:elInput.value, cursor:elInput.selectionStart});
     return;
   }
   histIdx = -1;
@@ -1487,10 +1744,15 @@ elInput.addEventListener('input', () => {
 // ── Complétion ────────────────────────────────────────────────────────────────
 
 function showComps(items) {
+  const fromTab = _tabTriggered;
+  _tabTriggered = false;
   completions = items;
   compIdx = -1;
   elComp.innerHTML = '';
   if (!items.length) { closeComps(); return; }
+
+  // Tab + un seul résultat → complétion directe sans afficher la liste
+  if (fromTab && items.length === 1) { applyComp(items[0]); return; }
 
   items.forEach((item, i) => {
     const d = document.createElement('div');
@@ -1502,6 +1764,10 @@ function showComps(items) {
     elComp.appendChild(d);
   });
   elComp.style.display = 'block';
+
+  // Pré-sélectionner le premier item (visible mais non inséré dans l'input)
+  compIdx = 0;
+  elComp.querySelectorAll('.ci')[0]?.classList.add('sel');
 }
 
 function moveComp(d) {
@@ -1548,27 +1814,90 @@ function wordAt(e) {
   } catch { return null; }
 }
 
+// ── Résolution du mot cliquable ───────────────────────────────────────────────
+// Collecte le texte des spans contigus soulignés (reconstitue "Green Glade"
+// même si le parser ANSI l'a fragmenté en deux spans séparés).
+function _collectUnderlinedRun(startEl) {
+  const parent = startEl.parentElement;
+  if (!parent) return startEl.textContent;
+  const _isUL = el => {
+    if (!el || el.nodeType !== 1) return false;
+    const td = window.getComputedStyle(el).textDecoration || '';
+    return td.includes('underline');
+  };
+  const kids = Array.from(parent.children);
+  const idx = kids.indexOf(startEl);
+  if (idx < 0) return startEl.textContent;
+  let s = idx, e_ = idx;
+  while (s > 0 && _isUL(kids[s - 1])) s--;
+  while (e_ < kids.length - 1 && _isUL(kids[e_ + 1])) e_++;
+  return kids.slice(s, e_ + 1).map(c => c.textContent).join('').replace(/\s+/g, ' ').trim();
+}
+
+// Retourne { word, type } pour l'élément cliqué : .cw > soulignement ANSI > null.
+function getClickableWord(e) {
+  const cw = e.target.closest('.cw');
+  if (cw) return { word: cw.dataset.word, type: cw.dataset.type };
+  // Recherche un ancêtre souligné (ANSI underline sur un segment fragmenté)
+  let el = e.target;
+  while (el && el !== elOutput) {
+    if (el.nodeType === 1) {
+      const td = window.getComputedStyle(el).textDecoration || '';
+      if (td.includes('underline')) {
+        const text = _collectUnderlinedRun(el);
+        if (text && text.length >= 2 && !/^\d+$/.test(text))
+          return { word: text, type: null };
+      }
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
+
+elOutput.addEventListener('click', e => {
+  if (e.detail > 1) return;   // laisser dblclick gérer le double-clic
+  closeCtx();
+  const info = getClickableWord(e);
+  if (!info) return;
+  showCtx(info.word, e.clientX, e.clientY, info.type, '');
+});
 elOutput.addEventListener('dblclick', e => {
   closeCtx();
-  const cw = e.target.closest('.cw');
-  if (cw) {
-    if (cw.dataset.type === 'voyage') sendCmd(`/voyage ${cw.dataset.word} list`);
-    else sendCmd(`/info ${cw.dataset.word}`);
-    return;
-  }
-  const w = wordAt(e);
-  if (w) sendCmd(`/info ${w}`);
+  const info = getClickableWord(e);
+  if (!info) return;
+  if (info.type === 'voyage') sendCmd(`/voyage ${info.word} list`);
+  else sendCmd(`/info ${info.word}`);
 });
 elOutput.addEventListener('contextmenu', e => {
   e.preventDefault();
   const sel = window.getSelection()?.toString().trim() || '';
-  const cw = e.target.closest('.cw');
-  if (cw) { showCtx(cw.dataset.word, e.clientX, e.clientY, cw.dataset.type, sel); return; }
-  const w = wordAt(e);
-  if (w) showCtx(w, e.clientX, e.clientY, null, sel);
-  else if (sel) showCtx(null, e.clientX, e.clientY, null, sel);
+  const info = getClickableWord(e);
+  if (info) { showCtx(info.word, e.clientX, e.clientY, info.type, sel); return; }
+  if (sel) showCtx(null, e.clientX, e.clientY, null, sel);
   else closeCtx();
 });
+
+// ── Copie presse-papiers (robuste en WebView) ─────────────────────────────────
+function copyText(text, feedbackEl) {
+  const done = () => {
+    if (feedbackEl) { feedbackEl.textContent = '✓ Copié'; feedbackEl.style.color='#69f0ae'; }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => { _copyFallback(text); done(); });
+  } else {
+    _copyFallback(text); done();
+  }
+}
+function _copyFallback(text) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+  document.body.appendChild(el);
+  el.focus();
+  el.select();
+  try { document.execCommand('copy'); } catch(_) {}
+  document.body.removeChild(el);
+}
 
 // ── Menu contextuel ───────────────────────────────────────────────────────────
 
@@ -1581,7 +1910,7 @@ function showCtx(word, x, y, type, sel) {
                   : '';
 
   const copyAction = sel ? `
-    <div class="mi" onclick="navigator.clipboard.writeText(${JSON.stringify(sel)});closeCtx()">📋 Copier la sélection</div>
+    <div class="mi" id="ctx-copy-btn" onclick="copyText(${JSON.stringify(sel)},document.getElementById('ctx-copy-btn'))">📋 Copier la sélection</div>
     <div class="ms"></div>` : '';
 
   const wordSection = word ? (type === 'voyage' ? `
@@ -2342,6 +2671,395 @@ function submitMissionScan(addToVoyage) {
   if (!files.length) { closeMissionScan(); return; }
   closeMissionScan();
   send({ type: 'mission_scan_confirm', data: { files, add_to_voyage: addToVoyage } });
+}
+
+// ── Mission edit overlay ──────────────────────────────────────────────────────
+let _meMissions = [];
+let _meLocNames = [];
+
+function showMissionEdit(msg) {
+  _meMissions = (msg.missions || []).map(m => ({
+    id:              m.id,
+    name:            m.name || '',
+    reward:          m.reward || 0,
+    scu:             m.scu || 0,
+    sources:         [...(m.sources || [])],
+    destinations:    [...(m.destinations || [])],
+    screenshot_key:  m.screenshot_key  || null,
+    screenshot_path: m.screenshot_path || null,
+  }));
+  _meLocNames = msg.location_names || [];
+  // Reconstruire le datalist
+  const dl = document.getElementById('me-loc-list');
+  dl.innerHTML = _meLocNames.map(n => `<option value="${_meEsc(n)}">`).join('');
+
+  document.getElementById('me-title').textContent =
+    `Éditer les missions — ${_meMissions.length} mission(s)`;
+  _meRender();
+  document.getElementById('mission-edit-overlay').classList.add('open');
+}
+
+function _meEsc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _meRender() {
+  const body = document.getElementById('me-body');
+  body.innerHTML = '';
+  for (let i = 0; i < _meMissions.length; i++) {
+    const m = _meMissions[i];
+    const sec = document.createElement('div');
+    sec.className = 'me-mission';
+
+    const keyBadge = m.screenshot_key
+      ? ` <span class="me-key">(${m.screenshot_key})</span>` : '';
+    const imgLink = m.screenshot_path
+      ? ` <button class="me-imgbtn" title="Ouvrir le screenshot" onclick="meOpenFile(${i})">📷</button>` : '';
+
+    const srcRows = m.sources.map((s, j) => `
+      <div class="me-loc-row">
+        <input class="me-loc-inp" type="text" value="${_meEsc(s)}" list="me-loc-list"
+               oninput="_meMissions[${i}].sources[${j}]=this.value" placeholder="Lieu de départ">
+        <button class="me-del" onclick="meDelSrc(${i},${j})">×</button>
+      </div>`).join('');
+
+    const dstRows = m.destinations.map((d, j) => `
+      <div class="me-loc-row">
+        <input class="me-loc-inp" type="text" value="${_meEsc(d)}" list="me-loc-list"
+               oninput="_meMissions[${i}].destinations[${j}]=this.value" placeholder="Lieu d'arrivée">
+        <button class="me-del" onclick="meDelDst(${i},${j})">×</button>
+      </div>`).join('');
+
+    sec.innerHTML = `
+      <div class="me-hdr">#${m.id} — ${_meEsc(m.name)}${keyBadge}${imgLink}</div>
+      <div class="me-row">
+        <label>Nom</label>
+        <input type="text" class="me-inp-name" value="${_meEsc(m.name)}"
+               oninput="_meMissions[${i}].name=this.value">
+      </div>
+      <div class="me-row me-row-inline">
+        <label>Récompense</label>
+        <input type="number" class="me-inp-sm" value="${m.reward || ''}"
+               oninput="_meMissions[${i}].reward=+this.value">
+        <span class="me-unit">aUEC</span>
+        <label>SCU</label>
+        <input type="number" class="me-inp-sm" value="${m.scu || ''}"
+               oninput="_meMissions[${i}].scu=+this.value">
+      </div>
+      <div class="me-row">
+        <label>Départs</label>
+        <div class="me-locs">
+          ${srcRows}
+          <button class="me-add" onclick="meAddSrc(${i})">+ Départ</button>
+        </div>
+      </div>
+      <div class="me-row">
+        <label>Arrivées</label>
+        <div class="me-locs">
+          ${dstRows}
+          <button class="me-add" onclick="meAddDst(${i})">+ Arrivée</button>
+        </div>
+      </div>`;
+    body.appendChild(sec);
+  }
+}
+
+function meDelSrc(mi, ji) { _meMissions[mi].sources.splice(ji, 1); _meRender(); }
+function meDelDst(mi, ji) { _meMissions[mi].destinations.splice(ji, 1); _meRender(); }
+function meAddSrc(mi) { _meMissions[mi].sources.push(''); _meRender(); }
+function meAddDst(mi) { _meMissions[mi].destinations.push(''); _meRender(); }
+function meOpenFile(mi) {
+  const p = _meMissions[mi] && _meMissions[mi].screenshot_path;
+  console.log('[meOpenFile] mi='+mi+' path='+p);
+  if (p) send({ type: 'open_file', path: p });
+}
+
+function closeMissionEdit() {
+  document.getElementById('mission-edit-overlay').classList.remove('open');
+}
+
+function submitMissionEdit() {
+  // Lire les valeurs actuelles des inputs avant envoi
+  document.querySelectorAll('#me-body .me-inp-name').forEach((el, i) => {
+    if (i < _meMissions.length) _meMissions[i].name = el.value;
+  });
+  closeMissionEdit();
+  send({ type: 'mission_edit_confirm', data: { missions: _meMissions } });
+}
+
+// ── Mission list actions overlay ─────────────────────────────────────────────
+let _mlMissions = [];
+let _mlActiveVoyage = null;
+let _mlDelPending = null;  // id du bouton delete en attente de confirmation
+
+// ── Voyage calc result — boutons inline par proposition ──
+function appendVoyageCalcButtons(msg) {
+  const proposals    = msg.proposals     || [];
+  const activeVoyage = msg.active_voyage || null;
+
+  const block = document.createElement('div');
+  block.className = 'vcr-block';
+  block.id = 'vcr-block';
+
+  for (const p of proposals) {
+    const row = document.createElement('div');
+    row.className = 'vcr-prop';
+
+    const voyLabel = activeVoyage ? _meEsc(activeVoyage) : null;
+    const allTitle  = voyLabel ? `Ajouter toutes les missions au voyage : ${voyLabel}` : 'Ajouter toutes les missions au voyage actif';
+    const newTitle  = `Créer un nouveau voyage avec la proposition P${p.idx}`;
+
+    // SCU total de la proposition
+    const scuTxt  = p.scu_total ? ` · ${p.scu_total}${p.scu_unknown ? '+?' : ''}□` : '';
+    const loadTxt = p.load_min  ? ` · ≈${p.load_min}min charg.` : '';
+
+    let html = `<span class="vcr-label">P${p.idx}${scuTxt}${loadTxt}</span>`;
+
+    // Bouton par mission
+    for (const m of p.missions || []) {
+      const scuHint = m.scu ? ` ${m.scu}□` : '';
+      const tip = voyLabel
+        ? `Ajouter au voyage : ${voyLabel}${scuHint}`
+        : `Ajouter mission #${m.id} au voyage actif${scuHint}`;
+      html += `<button class="vcr-mbtn" title="${tip}" onclick="sendCmd('/mission + ${m.id}')">+&nbsp;#${m.id}</button>`;
+      if (m.screenshot_path) {
+        html += `<button class="me-imgbtn" title="Ouvrir screenshot #${m.id}" onclick="send({type:'open_file',path:${JSON.stringify(m.screenshot_path)}})">📷</button>`;
+      }
+    }
+
+    html += `<span class="vcr-sep">│</span>`;
+
+    // Bouton "Tous → voyage actif" (si voyage actif)
+    if (voyLabel) {
+      html += `<button class="vcr-all-btn" title="${allTitle}" onclick="sendCmd('/voyage + ${p.idx}')">Tous &gt; ${voyLabel}</button>`;
+    }
+
+    // Bouton "Tous → Nouv. Voyage"
+    html += `<button class="vcr-new-btn" title="${newTitle}" onclick="sendCmd('/voyage + n${p.idx}')">Nouv. Voyage</button>`;
+
+    row.innerHTML = html;
+    block.appendChild(row);
+  }
+
+  const existing = document.getElementById('vcr-block');
+  if (existing) existing.replaceWith(block);
+  else elOutput.appendChild(block);
+
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+// ── Mission actions inline (dans le flux de sortie) ──
+let _maiMissions = [];
+let _maiActiveVoyage = null;
+let _maiDelPending = null;
+
+function appendMissionActions(msg) {
+  _maiMissions = msg.missions || [];
+  _maiActiveVoyage = msg.active_voyage || null;
+  _maiDelPending = null;
+
+  const block = document.createElement('div');
+  block.className = 'mai-block';
+  block.id = 'mai-block';
+
+  const tbl   = document.createElement('table');
+  tbl.className = 'mai-tbl';
+
+  // En-tête
+  const hdr = document.createElement('tr');
+  hdr.innerHTML =
+    `<th class="r">#</th>` +
+    `<th>Scan</th>` +
+    `<th>Nom</th>` +
+    `<th>Départ</th>` +
+    `<th>Arrivée</th>` +
+    `<th class="r">Dist</th>` +
+    `<th class="r">SCU</th>` +
+    `<th class="r">Récomp.</th>` +
+    `<th>Syn</th>` +
+    `<th></th>`;
+  tbl.appendChild(hdr);
+
+  for (const m of _maiMissions) {
+    const tr = document.createElement('tr');
+    tr.id = `mai-row-${m.id}`;
+
+    const src = (m.sources      || []).join('\n') || '—';
+    const dst = (m.destinations || []).join('\n') || '—';
+    const srcTip = (m.sources || []).join(', ') || '—';
+    const dstTip = (m.destinations || []).join(', ') || '—';
+
+    const delId  = `mai-del-${m.id}`;
+    const voyBtn = _maiActiveVoyage
+      ? `<button class="ml-btn ml-btn-voy" onclick="maiAddVoyage(${m.id})" title="Ajouter au voyage : ${_meEsc(_maiActiveVoyage)}">+</button>` : '';
+    const editBtn = `<button class="ml-btn ml-btn-edit" onclick="maiEdit(${m.id})" title="Éditer">✎</button>`;
+    const delBtn  = `<button class="ml-btn ml-btn-del" id="${delId}" onclick="maiDel(${m.id})" title="Supprimer">🗑</button>`;
+    const imgBtn  = m.screenshot_path
+      ? `<button class="me-imgbtn" onclick="maiOpenFile(${m.id})" title="Ouvrir screenshot">📷</button>` : '';
+    const delay   = m.has_delay ? ' <span style="color:#ffd600">⏱</span>' : '';
+    const scanTxt = _meEsc(m.scan || '—') + (m.screenshot_path ? '&nbsp;' + imgBtn : '');
+
+    tr.innerHTML =
+      `<td class="mai-c-id r">${m.id}</td>` +
+      `<td class="mai-c-scan">${scanTxt}</td>` +
+      `<td class="mai-c-name" title="${_meEsc(m.name||'')}">${_meEsc(m.name||'—')}${delay}</td>` +
+      `<td class="mai-c-loc"  title="${_meEsc(srcTip)}">${_meEsc((m.sources||[])[0]||'—')}</td>` +
+      `<td class="mai-c-loc"  title="${_meEsc(dstTip)}">${_meEsc((m.destinations||[])[0]||'—')}</td>` +
+      `<td class="mai-c-dist r">${_meEsc(m.dist||'')}</td>` +
+      `<td class="mai-c-scu  r">${m.scu ? m.scu+'□' : ''}</td>` +
+      `<td class="mai-c-rew  r">${m.reward ? m.reward+'α' : ''}</td>` +
+      `<td class="mai-c-syn">${_meEsc(m.synergies||'')}</td>` +
+      `<td class="mai-c-acts">${voyBtn}${editBtn}${delBtn}</td>`;
+
+    tbl.appendChild(tr);
+  }
+
+  block.appendChild(tbl);
+
+  const existing = document.getElementById('mai-block');
+  if (existing) existing.replaceWith(block);
+  else elOutput.appendChild(block);
+
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+function maiAddVoyage(id) {
+  sendCmd(`/mission + ${id}`);
+  setTimeout(() => sendCmd('/mission list'), 400);
+}
+
+function maiEdit(id) {
+  sendCmd(`/mission edit ${id}`);
+}
+
+function maiDel(id) {
+  const btn = document.getElementById(`mai-del-${id}`);
+  if (!btn) return;
+  if (_maiDelPending === id) {
+    _maiDelPending = null;
+    sendCmd(`/mission remove ${id}`);
+    setTimeout(() => sendCmd('/mission list'), 400);
+  } else {
+    document.querySelectorAll('[id^="mai-del-"].ml-confirm').forEach(b => {
+      b.classList.remove('ml-confirm');
+      b.textContent = '🗑';
+    });
+    _maiDelPending = id;
+    btn.classList.add('ml-confirm');
+    btn.textContent = 'Confirmer?';
+    setTimeout(() => {
+      if (_maiDelPending === id) {
+        _maiDelPending = null;
+        btn.classList.remove('ml-confirm');
+        btn.textContent = '🗑';
+      }
+    }, 3000);
+  }
+}
+
+function maiOpenFile(id) {
+  const m = _maiMissions.find(x => x.id === id);
+  if (m && m.screenshot_path) send({ type: 'open_file', path: m.screenshot_path });
+}
+
+function showMissionListActions(msg) {
+  _mlMissions = msg.missions || [];
+  _mlActiveVoyage = msg.active_voyage || null;
+  _mlDelPending = null;
+  document.getElementById('ml-title').textContent =
+    `Catalogue de missions — ${_mlMissions.length} mission(s)` +
+    (_mlActiveVoyage ? ` · voyage « ${_mlActiveVoyage} »` : '');
+  _mlRender();
+  document.getElementById('mission-list-overlay').classList.add('open');
+}
+
+function _mlRender() {
+  const tbody = document.getElementById('ml-body');
+  tbody.innerHTML = '';
+  for (const m of _mlMissions) {
+    const tr = document.createElement('tr');
+    const src = (m.sources || []).join('\n') || '—';
+    const dst = (m.destinations || []).join('\n') || '—';
+    const nameHtml = _meEsc(m.name) + (m.has_delay ? ' <span style="color:#ffd600" title="Délai">⏱</span>' : '');
+    const scuHtml  = m.scu  ? `${m.scu}□` : '—';
+    const rewHtml  = m.reward ? `${m.reward}α` : '—';
+    const synHtml  = _meEsc(m.synergies || '');
+    const scanHtml = _meEsc(m.scan || '—') +
+      (m.screenshot_path
+        ? ` <button class="me-imgbtn" title="Ouvrir screenshot" onclick="mlOpenFile(${m.id})">📷</button>`
+        : '');
+
+    const voyBtn = _mlActiveVoyage
+      ? `<button class="ml-btn ml-btn-voy" onclick="mlAddVoyage(${m.id})" title="Ajouter au voyage">+⚓</button>` : '';
+    const editBtn = `<button class="ml-btn ml-btn-edit" onclick="mlEdit(${m.id})" title="Éditer">✎</button>`;
+    const delId   = `ml-del-${m.id}`;
+    const delBtn  = `<button class="ml-btn ml-btn-del" id="${delId}" onclick="mlDel(${m.id})" title="Supprimer">🗑</button>`;
+
+    tr.innerHTML = `
+      <td class="ml-id">${m.id}</td>
+      <td class="ml-scan">${scanHtml}</td>
+      <td class="ml-name">${nameHtml}</td>
+      <td class="ml-loc" style="white-space:pre">${_meEsc(src)}</td>
+      <td class="ml-loc" style="white-space:pre">${_meEsc(dst)}</td>
+      <td class="ml-dist">${_meEsc(m.dist || '—')}</td>
+      <td class="ml-scu">${scuHtml}</td>
+      <td class="ml-reward">${rewHtml}</td>
+      <td class="ml-acts">${voyBtn}${editBtn}${delBtn}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function mlAddVoyage(id) {
+  sendCmd(`/mission + ${id}`);
+  // Recharger la liste après ajout
+  setTimeout(() => sendCmd('/mission list'), 400);
+}
+
+function mlEdit(id) {
+  closeMissionList();
+  sendCmd(`/mission edit ${id}`);
+}
+
+function mlDel(id) {
+  const btn = document.getElementById(`ml-del-${id}`);
+  if (!btn) return;
+  if (_mlDelPending === id) {
+    // 2e clic → confirmer la suppression
+    _mlDelPending = null;
+    closeMissionList();
+    sendCmd(`/mission remove ${id}`);
+    setTimeout(() => sendCmd('/mission list'), 400);
+  } else {
+    // 1er clic → passer en mode confirmation (reset les autres)
+    document.querySelectorAll('.ml-btn-del.ml-confirm').forEach(b => {
+      b.classList.remove('ml-confirm');
+      b.textContent = '🗑';
+    });
+    _mlDelPending = id;
+    btn.classList.add('ml-confirm');
+    btn.textContent = 'Confirmer?';
+    // Auto-reset après 3s
+    setTimeout(() => {
+      if (_mlDelPending === id) {
+        _mlDelPending = null;
+        btn.classList.remove('ml-confirm');
+        btn.textContent = '🗑';
+      }
+    }, 3000);
+  }
+}
+
+function mlOpenFile(id) {
+  const m = _mlMissions.find(x => x.id === id);
+  if (m && m.screenshot_path) {
+    console.log('[mlOpenFile] path=' + m.screenshot_path);
+    send({ type: 'open_file', path: m.screenshot_path });
+  }
+}
+
+function closeMissionList() {
+  _mlDelPending = null;
+  document.getElementById('mission-list-overlay').classList.remove('open');
 }
 
 // Badge "📷 N" dans la statusbar — spinner OCR

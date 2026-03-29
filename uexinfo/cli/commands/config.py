@@ -31,8 +31,10 @@ def cmd_config(args: list[str], ctx) -> None:
         _player_config(rest, ctx)
     elif sub == "close":
         _overlay_close(rest, ctx)
-    elif sub == "hotkey":
+    elif sub in ("hotkey", "overlay.hotkey"):
         _hotkey(rest, ctx)
+    elif "." in sub:
+        _set_dotkey(sub, rest, ctx)
     else:
         print_error(f"Sous-commande inconnue : {sub}  (/help config)")
 
@@ -589,23 +591,173 @@ def _overlay_close(args: list[str], ctx) -> None:
     console.print(f"[{C.DIM}]Effectif au prochain lancement de l'overlay.[/{C.DIM}]")
 
 
+# ── Clés pointées génériques  (ex: voyage.calc.nbsaut) ───────────────────────
+
+# Clés acceptées avec leur type attendu et description
+_DOT_KEYS: dict[str, tuple[type, str]] = {
+    "voyage.calc.nbsaut":  (int,   "Nb max de missions par proposition"),
+    "voyage.calc.prop":    (int,   "Nb de propositions (1=critère seul, ≥2=dist+benef+roi)"),
+    "voyage.calc.options": (str,   'Options par défaut (ex: "--boucle --station")'),
+    "voyage.calc.gap_max": (float, "Transit ⚠ au-delà de N Gm (défaut 3.0)"),
+    "voyage.calc.favoris": (list,  "Lieux à privilégier — valeurs séparées par des espaces"),
+    "voyage.calc.exclure": (list,  "Lieux à exclure — valeurs séparées par des espaces"),
+}
+
+
+def _set_dotkey(key: str, args: list[str], ctx) -> None:
+    """Lecture/écriture d'une clé de config en notation pointée."""
+    if key not in _DOT_KEYS:
+        print_error(f"Clé inconnue : {key}")
+        console.print(f"  [{C.DIM}]Clés disponibles : {', '.join(_DOT_KEYS)}[/{C.DIM}]")
+        return
+
+    expected_type, desc = _DOT_KEYS[key]
+    parts = key.split(".")
+
+    # Lecture de la valeur actuelle (navigation dans le dict imbriqué)
+    node = ctx.cfg
+    for p in parts[:-1]:
+        node = node.setdefault(p, {})
+    current = node.get(parts[-1])
+
+    if not args:
+        # Affichage seul
+        console.print(f"  [bold]{key} :[/bold]  [{C.UEX}]{current!r}[/{C.UEX}]")
+        console.print(f"  [{C.DIM}]{desc}[/{C.DIM}]")
+        return
+
+    # Écriture
+    raw = " ".join(args)
+    try:
+        if expected_type is list:
+            # Chaque argument = un élément de la liste
+            value = [a.replace("_", " ") for a in args]
+        elif expected_type is int:
+            value = int(raw)
+        elif expected_type is float:
+            value = float(raw.replace(",", "."))
+        else:
+            value = raw
+    except ValueError:
+        print_error(f"Valeur invalide pour {key} (attendu {expected_type.__name__}) : {raw!r}")
+        return
+
+    node[parts[-1]] = value
+    settings.save(ctx.cfg)
+    print_ok(f"{key} = {value!r}")
+
+
 # ── Overlay hotkey ───────────────────────────────────────────────────────────
+
+# Modificateurs reconnus (format config → format pynput)
+_HK_MODIFIERS = {"alt", "alt_l", "alt_r", "shift", "shift_l", "shift_r",
+                 "ctrl", "ctrl_l", "ctrl_r", "control", "win", "super", "cmd"}
+
+# Touches spéciales courantes
+_HK_SPECIAL = {
+    "f1","f2","f3","f4","f5","f6","f7","f8","f9","f10","f11","f12",
+    "esc","escape","tab","enter","return","space","backspace","delete",
+    "home","end","pageup","pagedown","insert","pause","printscreen",
+    "up","down","left","right","numlock","capslock","scrolllock",
+}
+
+
+def _validate_hotkey(raw: str) -> tuple[bool, str, str]:
+    """Valide et parse une hotkey.
+
+    Retourne (ok, pynput_str, message_erreur).
+    pynput_str est vide si validation impossible.
+    """
+    from uexinfo.overlay import _parse_hotkey
+
+    if not raw.strip():
+        return False, "", "Combinaison vide"
+
+    normalized = raw.lower().strip()
+    parts = [p.strip() for p in normalized.split("+") if p.strip()]
+    if not parts:
+        return False, "", "Aucune touche détectée"
+
+    mods    = [p for p in parts if p in _HK_MODIFIERS]
+    regkeys = [p for p in parts if p not in _HK_MODIFIERS]
+
+    warnings: list[str] = []
+
+    if not mods:
+        warnings.append("⚠ Aucun modificateur (alt/ctrl/shift) — risque de conflit clavier")
+    if not regkeys:
+        return False, "", "Aucune touche principale (ex: u, f3, esc…)"
+    if len(regkeys) > 1:
+        warnings.append(f"⚠ Plusieurs touches principales : {regkeys} — seule la première sera utilisée")
+
+    # Conversion au format pynput
+    pynput_str = _parse_hotkey(normalized)
+
+    # Test pynput si disponible
+    try:
+        from pynput.keyboard import HotKey
+        HotKey.parse(pynput_str)          # lève ValueError si invalide
+    except ImportError:
+        warnings.append("(pynput non disponible — test non effectué)")
+    except Exception as e:
+        return False, pynput_str, f"Format invalide pour pynput : {e}"
+
+    msg = "\n".join(warnings) if warnings else ""
+    return True, pynput_str, msg
+
 
 def _hotkey(args: list[str], ctx) -> None:
     current = ctx.cfg.get("overlay", {}).get("hotkey", "alt+shift+u")
+
     if not args:
-        console.print(f"  [bold]overlay.hotkey :[/bold]  [{C.UEX}]{current}[/{C.UEX}]")
-        console.print(f"  [{C.DIM}]Usage : /config hotkey <combinaison>[/{C.DIM}]")
-        console.print(f"  [{C.DIM}]Exemples : alt+shift+u  ·  ctrl+shift+x  ·  alt+F9[/{C.DIM}]")
-        console.print(f"  [{C.DIM}]Modificateurs : alt, ctrl, shift — touches : a-z, F1-F12, …[/{C.DIM}]")
+        from uexinfo.overlay import _parse_hotkey
+        console.print(f"  [bold]overlay.hotkey :[/bold]  [{C.UEX}]{current}[/{C.UEX}]"
+                      f"  [{C.DIM}]→ pynput : {_parse_hotkey(current)}[/{C.DIM}]")
+        console.print(
+            f"\n  [{C.LABEL}]Format :[/{C.LABEL}]\n"
+            f"    [{C.DIM}]Séparateur : [bold]+[/bold]   Modificateurs : [bold]alt  ctrl  shift[/bold][/{C.DIM}]\n"
+            f"    [{C.DIM}]Lettres   : [bold]a-z[/bold]  (minuscule)[/{C.DIM}]\n"
+            f"    [{C.DIM}]Fonctions : [bold]f1-f12[/bold] (pas de chevrons, ex: [bold]alt+f3[/bold])[/{C.DIM}]\n"
+            f"    [{C.DIM}]Spéciales : [bold]esc  tab  space  home  end  pageup  pagedown[/bold][/{C.DIM}]\n"
+            f"\n  [{C.LABEL}]Exemples valides :[/{C.LABEL}]\n"
+            f"    [{C.DIM}]alt+shift+u      ctrl+shift+x      alt+f3      ctrl+f9[/{C.DIM}]\n"
+            f"\n  [{C.LABEL}]Exemples invalides :[/{C.LABEL}]\n"
+            f"    [{C.DIM}]<F3>     (ne pas mettre de chevrons — tapez : [bold]f3[/bold])[/{C.DIM}]\n"
+            f"    [{C.DIM}]F3       (sera interprété [bold]f3[/bold] — mais sans modificateur : risque de conflit)[/{C.DIM}]\n"
+            f"    [{C.DIM}]Alt+F3   (majuscules acceptées mais converties en minuscule)[/{C.DIM}]\n"
+            f"\n  [{C.DIM}]Usage : /config hotkey <combinaison>[/{C.DIM}]"
+        )
         return
-    new_hk = args[0].lower().strip()
+
+    new_hk = args[0].strip()
+    # Nettoyer les chevrons si l'utilisateur les a tapés (ex: <F3> → f3)
+    import re as _re
+    new_hk = _re.sub(r"<([^>]+)>", r"\1", new_hk).lower()
+
     if not new_hk:
         print_error("Combinaison vide")
         return
+
+    ok, pynput_str, msg = _validate_hotkey(new_hk)
+
+    if not ok:
+        print_error(f"Hotkey invalide : {msg}")
+        console.print(
+            f"  [{C.DIM}]Exemples : alt+shift+u  ·  ctrl+f3  ·  alt+f9[/{C.DIM}]\n"
+            f"  [{C.DIM}]/config hotkey  pour voir les formats acceptés[/{C.DIM}]"
+        )
+        return
+
+    # Avertissements non bloquants
+    if msg:
+        for line in msg.splitlines():
+            console.print(f"  [{C.WARNING}]{line}[/{C.WARNING}]")
+
     ctx.cfg.setdefault("overlay", {})["hotkey"] = new_hk
     settings.save(ctx.cfg)
     print_ok(f"Hotkey enregistrée : [{C.UEX}]{new_hk}[/{C.UEX}]")
+    if pynput_str:
+        console.print(f"  [{C.DIM}]Format pynput : [bold]{pynput_str}[/bold][/{C.DIM}]")
     console.print(f"  [{C.DIM}]Effectif au prochain lancement de l'overlay.[/{C.DIM}]")
     console.print(f"  [{C.DIM}]Ou : uexinfo --hotkey {new_hk}  pour forcer au lancement.[/{C.DIM}]")
 

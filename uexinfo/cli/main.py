@@ -13,6 +13,8 @@ from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.markup import escape as _markup_escape
 
+import threading
+
 import uexinfo.config.settings as settings
 from uexinfo import __version__
 from uexinfo.cache.manager import CacheManager
@@ -74,6 +76,7 @@ class AppContext:
     log_last_mtime: float = 0.0          # mtime du log lors du dernier check auto
     screenshots_last_seen_ts: float = 0.0  # wall-clock du dernier check screenshots
     select_fn: object = None             # callable | None — injecté par overlay server
+    _cancel_flag: threading.Event = field(default_factory=threading.Event)
 
 
 def _banner() -> None:

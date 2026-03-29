@@ -213,14 +213,41 @@ class OcrWorker:
         worker.stop()
     """
 
+    # Timeout Tesseract (secondes) — évite de bloquer le worker sur une image difficile
+    _OCR_TIMEOUT = 60
+
     def __init__(self, db: ScreenshotDB, ctx=None) -> None:
         self._db:    ScreenshotDB = db
         self._ctx    = ctx
-        self._queue: queue.Queue[Path | None] = queue.Queue()
+        self._queue:   queue.Queue[Path | None] = queue.Queue()
+        self._in_queue: set[str] = set()          # noms de fichiers actuellement en queue
         self._callbacks: list[Callable[[ScreenshotEntry], None]] = []
         self._gap_minutes: int = 60   # mis à jour depuis config
         self._thread = threading.Thread(target=self._run, daemon=True, name="ocr-worker")
         self._thread.start()
+
+        # Re-soumettre les entrées "pending" restantes d'une session précédente
+        for entry in db.pending_entries():
+            p = Path(entry.path) if entry.path else None
+            if p and p.exists() and entry.file not in self._in_queue:
+                self._in_queue.add(entry.file)
+                self._queue.put(p)
+
+        # Re-soumettre les entrées à problème d'une session précédente :
+        # 1. "unknown" avec erreurs OCR (timeout / crash)
+        # 2. missions avec reward=0 (régression de parsing maintenant corrigée)
+        for entry in db.all():
+            needs_retry = (
+                (entry.type == "unknown" and entry.errors)
+                or (entry.type == "mission" and entry.data.get("reward", 0) == 0)
+            )
+            if needs_retry and entry.path:
+                p = Path(entry.path)
+                if p.exists() and entry.file not in self._in_queue:
+                    entry.type = "pending"
+                    db.upsert(entry)
+                    self._in_queue.add(entry.file)
+                    self._queue.put(p)
 
     def on_processed(self, cb: Callable[[ScreenshotEntry], None]) -> None:
         self._callbacks.append(cb)
@@ -229,10 +256,18 @@ class OcrWorker:
         self._gap_minutes = minutes
 
     def submit(self, path: Path) -> bool:
-        """Soumet un screenshot à traiter. Retourne False si déjà traité."""
+        """Soumet un screenshot à traiter.
+
+        Retourne False si déjà traité OU déjà en queue.
+        Les entrées "pending" (worker planté session précédente) sont acceptées
+        seulement si elles ne sont pas déjà dans la queue courante.
+        """
         if self._db.is_processed(path.name):
             return False
+        if path.name in self._in_queue:
+            return False   # déjà en attente — pas de double soumission
         self._db.mark_pending(path)
+        self._in_queue.add(path.name)
         self._queue.put(path)
         return True
 
@@ -278,7 +313,14 @@ class OcrWorker:
                     err_entry.processed_at = time.time()
                     self._db.upsert(err_entry)
                     self._db.save()
+                    # Notifier les callbacks même en cas d'erreur (arrêt du spinner UI)
+                    for cb in self._callbacks:
+                        try:
+                            cb(err_entry)
+                        except Exception:
+                            pass
             finally:
+                self._in_queue.discard(path.name)
                 self._queue.task_done()
 
     def _process(self, path: Path) -> ScreenshotEntry:
@@ -286,6 +328,7 @@ class OcrWorker:
         from uexinfo.ocr.engine import TesseractEngine
 
         engine = TesseractEngine()
+        engine._timeout = self._OCR_TIMEOUT
 
         # 1. Détection du type d'écran
         screen_type = engine.detect_screen_type(path)

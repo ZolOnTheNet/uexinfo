@@ -6,6 +6,31 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 
+# ── Constantes de vitesse quantique ──────────────────────────────────────────
+# Mesurée sur les routes UEX (SC 4.x, 2026-03) : 0.2341 ± 0.001 Gm/s
+# Représente un vaisseau "standard" — ajustable par vaisseau dans /config
+QD_SPEED_GM_PER_S: float = 0.2341   # Gm/s → ETA_sec = dist / QD_SPEED_GM_PER_S
+
+
+def eta_from_distance(distance_gm: float,
+                      qd_speed: float = QD_SPEED_GM_PER_S) -> float:
+    """Retourne l'ETA en secondes pour un saut quantique (distance en Gm)."""
+    if distance_gm <= 0 or qd_speed <= 0:
+        return 0.0
+    return distance_gm / qd_speed
+
+
+def fmt_eta(distance_gm: float, qd_speed: float = QD_SPEED_GM_PER_S) -> str:
+    """Formate l'ETA d'un saut QT en chaîne lisible ('2m 17s', '< 1m', '—')."""
+    secs = eta_from_distance(distance_gm, qd_speed)
+    if secs <= 0:
+        return "—"
+    if secs < 60:
+        return "< 1m"
+    m = int(secs // 60)
+    s = int(secs % 60)
+    return f"{m}m {s:02d}s" if s else f"{m}m"
+
 
 class NodeType(Enum):
     """Type de nœud dans le graphe."""
@@ -234,6 +259,8 @@ class TransportGraph:
         self._meta: dict = {}
         # Cache hiérarchique node_id → [noms enfants] (invalidé à chaque add_node)
         self._children_cache: dict | None = None
+        # Cache résultats Dijkstra (from, to, max_jump_size) → PathResult | None
+        self._path_cache: dict[tuple, "PathResult | None"] = {}
 
     def add_node(self, node: LocationNode) -> None:
         """Ajoute un nœud au graphe."""
@@ -241,11 +268,13 @@ class TransportGraph:
         if node.name not in self._adjacency:
             self._adjacency[node.name] = []
         self._children_cache = None   # Invalider le cache hiérarchique
+        self._path_cache.clear()      # Invalider le cache Dijkstra
 
     def add_edge(self, edge: RouteEdge, bidirectional: bool = True) -> None:
         """Ajoute une arête au graphe."""
         self.edges.append(edge)
         self._adjacency.setdefault(edge.from_node, []).append(edge)
+        self._path_cache.clear()  # Invalider le cache Dijkstra
 
         if bidirectional:
             # Ajoute l'arête inverse
@@ -329,8 +358,9 @@ class TransportGraph:
         # Décider si on met à jour
         should_update = False
 
-        # Priorité : manual > uex > calculated
-        source_priority = {"manual": 3, "uex": 2, "calculated": 1, "community": 1}
+        # Priorité : manual > uex > calculated > consolidated (inféré)
+        source_priority = {"manual": 3, "uex": 2, "calculated": 1, "community": 1,
+                           "consolidated": 0}
         new_priority = source_priority.get(source, 1)
 
         if existing_forward:
@@ -464,6 +494,7 @@ class TransportGraph:
         distance_gm: float,
         source: str = "uex",
         timestamp: float | None = None,
+        edge_type: "EdgeType | None" = None,
     ) -> int:
         """Ajoute/met à jour une route et propage aux nœuds hiérarchiquement liés.
 
@@ -483,16 +514,21 @@ class TransportGraph:
 
         count = 0
 
+        kw: dict = {"source": source, "timestamp": timestamp}
+        if edge_type is not None:
+            kw["edge_type"] = edge_type
+
         # Route directe (source fournie)
-        if self.add_or_update_route(
-            from_node, to_node, distance_gm,
-            source=source, timestamp=timestamp
-        ):
+        if self.add_or_update_route(from_node, to_node, distance_gm, **kw):
             count += 1
 
         # Groupes hiérarchiques
         from_group = self._node_group(from_node)
         to_group   = self._node_group(to_node)
+
+        kw_calc: dict = {"source": "calculated", "timestamp": timestamp}
+        if edge_type is not None:
+            kw_calc["edge_type"] = edge_type
 
         # Propager à toutes les combinaisons (sauf la directe déjà faite)
         for fn in from_group:
@@ -501,33 +537,185 @@ class TransportGraph:
                     continue
                 if (fn == from_node and tn == to_node) or (fn == to_node and tn == from_node):
                     continue  # Déjà fait ci-dessus
-                if self.add_or_update_route(
-                    fn, tn, distance_gm,
-                    source="calculated", timestamp=timestamp
-                ):
+                if self.add_or_update_route(fn, tn, distance_gm, **kw_calc):
                     count += 1
 
         return count
 
+    def consolidate(self,
+                    tolerance_gm: float = 1.0,
+                    min_refs: int = 2,
+                    timestamp: float | None = None) -> tuple[int, int]:
+        """Consolide le graphe : infère les distances manquantes par co-localisation.
+
+        Deux nœuds A et B sont considérés co-localisés si :
+          dist(A, R) ≈ dist(B, R)  (±tolerance_gm) pour au moins `min_refs`
+          nœuds de référence R communs AVEC des mesures directes (non consolidated).
+
+        Pour chaque paire co-localisée (A, B) :
+          - Si B n'a pas de mesure vers C mais A l'a → ajoute B↔C avec
+            source='consolidated' (priorité 0 : tout mesure directe l'écrase).
+
+        Les L-points (HUR-L1 ≠ HUR-L4) sont naturellement séparés : leurs
+        distances aux mêmes références diffèrent → pas de faux groupement.
+
+        Returns (routes_ajoutées, paires_co-localisées).
+        """
+        if timestamp is None:
+            timestamp = time.time()
+
+        # ── 1. Construire la carte des distances directes (hors consolidated) ──
+        # dist_direct[A][B] = distance_gm (mesure non inférée)
+        dist_direct: dict[str, dict[str, float]] = {}
+        for node_name, adj_edges in self._adjacency.items():
+            for edge in adj_edges:
+                if edge.source != "consolidated":
+                    dist_direct.setdefault(node_name, {})[edge.to_node] = edge.distance_gm
+
+        node_names = list(self.nodes.keys())
+        n = len(node_names)
+
+        # ── 2. Trouver les paires co-localisées ───────────────────────────────
+        coloc_pairs: list[tuple[str, str]] = []
+        for i in range(n):
+            a = node_names[i]
+            refs_a = dist_direct.get(a, {})
+            for j in range(i + 1, n):
+                b = node_names[j]
+                refs_b = dist_direct.get(b, {})
+                # Voisins communs avec mesure directe dans les deux sens
+                common = set(refs_a.keys()) & set(refs_b.keys())
+                if len(common) < min_refs:
+                    continue
+                matching = sum(
+                    1 for r in common
+                    if abs(refs_a[r] - refs_b[r]) <= tolerance_gm
+                )
+                if matching >= min_refs:
+                    coloc_pairs.append((a, b))
+
+        # ── 3. Union-Find sur les paires co-localisées ────────────────────────
+        parent = {n: n for n in node_names}
+
+        def find(x: str) -> str:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(x: str, y: str) -> None:
+            px, py = find(x), find(y)
+            if px != py:
+                parent[px] = py
+
+        for a, b in coloc_pairs:
+            union(a, b)
+
+        # ── 4. Groupes → membres ──────────────────────────────────────────────
+        from collections import defaultdict as _dd
+        groups: dict[str, list[str]] = _dd(list)
+        for name in node_names:
+            groups[find(name)].append(name)
+
+        # Ne garder que les groupes de taille ≥ 2
+        coloc_groups = {rep: members for rep, members in groups.items() if len(members) >= 2}
+
+        # ── 5. Pour chaque paire de groupes : meilleure distance connue ───────
+        _PRIO = {"manual": 4, "player": 3, "uex": 2, "calculated": 1,
+                 "community": 1, "consolidated": 0}
+        # group_pair → (distance, source, ts)
+        group_dist: dict[tuple[str, str], tuple[float, str, float]] = {}
+
+        for node_name, adj_edges in self._adjacency.items():
+            ga = find(node_name)
+            for edge in adj_edges:
+                gb = find(edge.to_node)
+                if ga == gb:
+                    continue
+                key = (min(ga, gb), max(ga, gb))
+                new_p = _PRIO.get(edge.source, 1)
+                cur = group_dist.get(key)
+                if cur is None:
+                    group_dist[key] = (edge.distance_gm, edge.source, edge.updated_at)
+                else:
+                    cur_p = _PRIO.get(cur[1], 1)
+                    if new_p > cur_p or (new_p == cur_p and edge.updated_at > cur[2]):
+                        group_dist[key] = (edge.distance_gm, edge.source, edge.updated_at)
+
+        # ── 6. Propager aux paires intra-groupe manquantes ────────────────────
+        added = 0
+        for (ga, gb), (dist, _src, _ts) in group_dist.items():
+            members_a = groups[ga]   # inclut groupes de taille 1
+            members_b = groups[gb]
+            for na in members_a:
+                for nb in members_b:
+                    if na == nb:
+                        continue
+                    # Ne pas écraser une mesure directe (non consolidated)
+                    existing = None
+                    for e in self._adjacency.get(na, []):
+                        if e.to_node == nb:
+                            existing = e
+                            break
+                    if existing and existing.source != "consolidated":
+                        continue
+                    if self.add_or_update_route(
+                        na, nb, dist,
+                        edge_type=EdgeType.QUANTUM,
+                        source="consolidated",
+                        timestamp=timestamp,
+                    ):
+                        added += 1
+
+        return added, len(coloc_pairs)
+
     def find_shortest_path(self, from_loc: str, to_loc: str,
                           max_jump_size: str = "L") -> PathResult | None:
-        """Trouve le plus court chemin avec Dijkstra."""
+        """Trouve le plus court chemin avec Dijkstra (résultat mis en cache)."""
+        cache_key = (from_loc, to_loc, max_jump_size)
+        if cache_key in self._path_cache:
+            return self._path_cache[cache_key]
+
+        result = self._dijkstra(from_loc, to_loc, max_jump_size)
+        self._path_cache[cache_key] = result
+        return result
+
+    def _dijkstra(self, from_loc: str, to_loc: str,
+                  max_jump_size: str = "L") -> PathResult | None:
+        """Dijkstra interne — utiliser find_shortest_path (avec cache)."""
         if from_loc not in self.nodes or to_loc not in self.nodes:
             return None
 
-        # Dijkstra : (distance, nœud, chemin, segments)
-        heap = [(0.0, from_loc, [from_loc], [])]
-        visited = set()
+        # Utilise un dict parent pour éviter de copier path/segments à chaque étape.
+        # heap : (distance, compteur_tie_break, nœud)
+        counter = 0
+        heap: list[tuple[float, int, str]] = [(0.0, counter, from_loc)]
+        best_dist: dict[str, float] = {from_loc: 0.0}
+        # parent[node] = (parent_node, edge_dict)
+        parent: dict[str, tuple[str, dict] | None] = {from_loc: None}
+        visited: set[str] = set()
 
         while heap:
-            dist, current, path, segments = heapq.heappop(heap)
+            dist, _, current = heapq.heappop(heap)
 
             if current in visited:
                 continue
             visited.add(current)
 
             if current == to_loc:
-                # Calcul de la durée totale et jump points
+                # Reconstruire le chemin depuis les parents
+                path: list[str] = []
+                segments: list[dict] = []
+                node = to_loc
+                while parent[node] is not None:
+                    prev_node, edge_dict = parent[node]  # type: ignore[misc]
+                    path.append(node)
+                    segments.append(edge_dict)
+                    node = prev_node
+                path.append(from_loc)
+                path.reverse()
+                segments.reverse()
+
                 total_duration = sum(s["duration_sec"] for s in segments)
                 jump_points = [
                     s["notes"] for s in segments
@@ -541,7 +729,6 @@ class TransportGraph:
                     jump_points=jump_points,
                 )
 
-            # Explorer les voisins
             for edge in self._adjacency.get(current, []):
                 if edge.to_node in visited:
                     continue
@@ -554,16 +741,20 @@ class TransportGraph:
                         continue
 
                 new_dist = dist + edge.distance_gm
-                new_path = path + [edge.to_node]
-                new_segments = segments + [{
+                if edge.to_node in best_dist and new_dist >= best_dist[edge.to_node]:
+                    continue
+
+                best_dist[edge.to_node] = new_dist
+                parent[edge.to_node] = (current, {
                     "from": edge.from_node,
                     "to": edge.to_node,
                     "distance_gm": edge.distance_gm,
                     "type": edge.edge_type.value,
                     "duration_sec": edge.duration_sec,
                     "notes": edge.notes,
-                }]
-                heapq.heappush(heap, (new_dist, edge.to_node, new_path, new_segments))
+                })
+                counter += 1
+                heapq.heappush(heap, (new_dist, counter, edge.to_node))
 
         return None  # Pas de chemin trouvé
 

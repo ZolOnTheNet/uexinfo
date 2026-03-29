@@ -65,6 +65,16 @@ DEFAULT: dict = {
         "enabled":     False,   # Mode développeur — bypass des comportements de production
         "skip_processed": True, # Si True : ignorer les fichiers déjà dans la DB lors d'un import
     },
+    "voyage": {
+        "calc": {
+            "nbsaut":  5,    # Nb max de missions dans une proposition (--max)
+            "prop":    1,    # Nb de propositions : 1=critère seul, ≥2=dist+benef+roi
+            "options": "",   # Options par défaut (ex: "--boucle --station")
+            "favoris": [],   # Lieux à privilégier (liste de noms)
+            "exclure": [],   # Lieux à exclure systématiquement
+            "gap_max": 3.0,  # Transit max entre missions avant ⚠ (Gm)
+        }
+    },
 }
 
 

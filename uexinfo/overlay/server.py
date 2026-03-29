@@ -134,6 +134,10 @@ class OverlayServer:
 
     async def handler(self, websocket) -> None:
         self._clients.add(websocket)
+        _current_cmd: asyncio.Task | None = None
+        _recv_task:   asyncio.Task | None = None
+        _queued_cmd:  dict | None = None   # 1 commande en attente si occupé
+
         try:
             # Envoyer le statut initial + bannière
             from uexinfo import __version__
@@ -149,17 +153,84 @@ class OverlayServer:
             await self._send_status(websocket)
             await self._send_vocab(websocket)
 
-            async for raw in websocket:
+            # Boucle principale : asyncio.wait permet de traiter "cancel"
+            # pendant qu'une commande longue est en cours dans un thread.
+            _recv_task = asyncio.create_task(websocket.recv())
+
+            while True:
+                waiters: set[asyncio.Task] = {_recv_task}
+                if _current_cmd and not _current_cmd.done():
+                    waiters.add(_current_cmd)
+
+                done, _ = await asyncio.wait(waiters, return_when=asyncio.FIRST_COMPLETED)
+
+                # Commande terminée naturellement → exécuter la commande en attente si présente
+                if _current_cmd in done:
+                    _current_cmd = None
+                    if _queued_cmd is not None:
+                        _msg_to_run, _queued_cmd = _queued_cmd, None
+                        self.ctx._cancel_flag.clear()
+                        _current_cmd = asyncio.create_task(self._dispatch(websocket, _msg_to_run))
+
+                # Pas de nouveau message — attendre la prochaine itération
+                if _recv_task not in done:
+                    continue
+
+                # Nouveau message WebSocket
+                try:
+                    raw = _recv_task.result()
+                except Exception:
+                    break   # connexion fermée
+                _recv_task = asyncio.create_task(websocket.recv())
+
                 try:
                     msg = json.loads(raw)
                 except json.JSONDecodeError:
                     continue
-                await self._dispatch(websocket, msg)
+
+                t = msg.get("type")
+
+                # ── Annulation (double-Esc) ────────────────────────────────
+                if t == "cancel":
+                    _queued_cmd = None   # vider la file d'attente aussi
+                    if _current_cmd and not _current_cmd.done():
+                        self.ctx._cancel_flag.set()
+                        _current_cmd.cancel()
+                        try:
+                            await asyncio.wait_for(
+                                asyncio.shield(_current_cmd), timeout=2.0
+                            )
+                        except (asyncio.CancelledError, asyncio.TimeoutError):
+                            pass
+                        _current_cmd = None
+                        import io as _io2
+                        _cbuf = _io2.StringIO()
+                        from rich.console import Console as _RC
+                        _rc = _RC(file=_cbuf, force_terminal=True, markup=True,
+                                  highlight=False, width=100)
+                        _rc.print("\n[bold yellow]⚠ Commande annulée (Échap×2)[/bold yellow]")
+                        await websocket.send(json.dumps({
+                            "type": "output",
+                            "ansi": _cbuf.getvalue(),
+                        }))
+                        await websocket.send(json.dumps({"type": "done"}))
+                    self.ctx._cancel_flag.clear()
+
+                # ── Nouvelle commande ──────────────────────────────────────
+                elif _current_cmd is None or _current_cmd.done():
+                    self.ctx._cancel_flag.clear()
+                    _current_cmd = asyncio.create_task(self._dispatch(websocket, msg))
+                elif msg.get("type") == "cmd":
+                    # Commande en cours : mettre en file d'attente (remplace la précédente)
+                    _queued_cmd = msg
 
         except websockets.exceptions.ConnectionClosed:
-            pass
+            if _current_cmd:
+                _current_cmd.cancel()
         finally:
             self._clients.discard(websocket)
+            if _recv_task and not _recv_task.done():
+                _recv_task.cancel()
 
     async def _dispatch(self, ws, msg: dict) -> None:
         t = msg.get("type")
@@ -186,6 +257,31 @@ class OverlayServer:
             await self._handle_trade_chosen(msg.get("idx"))
         elif t == "mission_scan_confirm":
             await self._handle_mission_scan_confirm(ws, msg.get("data", {}))
+        elif t == "mission_edit_confirm":
+            await self._handle_mission_edit_confirm(ws, msg.get("data", {}))
+        elif t == "mission_list_reload":
+            # Recharger la liste après suppression/modification
+            output, _ = await asyncio.get_event_loop().run_in_executor(
+                None, self._exec_sync, "/mission list"
+            )
+            await ws.send(json.dumps({"type": "done"}))
+            await self._send_status(ws)
+        elif t == "open_file":
+            path = msg.get("path", "")
+            if path:
+                import os, subprocess, sys
+                from pathlib import Path as _Path
+                try:
+                    abs_path = str(_Path(path).resolve())
+                    print(f"[overlay] open_file: {abs_path}", flush=True)
+                    if sys.platform == "win32":
+                        os.startfile(abs_path)
+                    elif sys.platform == "darwin":
+                        subprocess.Popen(["open", abs_path])
+                    else:
+                        subprocess.Popen(["xdg-open", abs_path])
+                except Exception as e:
+                    print(f"[overlay] open_file error: {e}", flush=True)
         elif t == "history":
             await ws.send(json.dumps({"type": "history", "items": self._history}))
 
@@ -238,18 +334,56 @@ class OverlayServer:
         _send_q: list[dict] = []
         self.ctx._overlay_send_fn = _send_q.append
 
-        # Exécution dans un thread (bloquant)
+        # Exécution dans un thread (bloquant) + streaming de progression
         loop = asyncio.get_event_loop()
-        output, needs_status = await loop.run_in_executor(
-            None, self._exec_sync, line
-        )
+
+        # Injecter _overlay_progress_fn : mise à jour de progression en place (thread-safe)
+        def _sync_progress(pct: int, label: str, done: int, total: int) -> None:
+            asyncio.run_coroutine_threadsafe(
+                ws.send(json.dumps({
+                    "type": "progress_update",
+                    "pct": pct, "label": label,
+                    "done": done, "total": total,
+                })),
+                loop,
+            )
+        self.ctx._overlay_progress_fn = _sync_progress
+        _streamed_len = 0
+        _exec_done    = asyncio.Event()
+
+        async def _stream_progress() -> None:
+            """Envoie le contenu de _buf au fur et à mesure (toutes les 400 ms)."""
+            nonlocal _streamed_len
+            while not _exec_done.is_set():
+                await asyncio.sleep(0.4)
+                try:
+                    chunk = _buf.getvalue()[_streamed_len:]
+                except Exception:
+                    break
+                if chunk:
+                    _streamed_len += len(chunk)
+                    await ws.send(json.dumps({"type": "output", "ansi": chunk}))
+
+        _progress_task = asyncio.create_task(_stream_progress())
+        try:
+            output, needs_status = await loop.run_in_executor(
+                None, self._exec_sync, line
+            )
+        except asyncio.CancelledError:
+            _exec_done.set()
+            _progress_task.cancel()
+            raise
+        finally:
+            _exec_done.set()
+
+        _progress_task.cancel()
+        # Envoyer uniquement la partie non encore streamée
+        output_delta = output[_streamed_len:]
 
         self.ctx.select_fn = None
         self.ctx._overlay_send_fn = None
-
-        # Envoyer les messages générés par la commande (ex: mission_scan_list)
-        for extra_msg in _send_q:
-            await ws.send(json.dumps(extra_msg))
+        self.ctx._overlay_progress_fn = None
+        await ws.send(json.dumps({"type": "progress_done"}))
 
         # Envoyer les abréviations de lieux AVANT l'output (le JS les aura quand il annote)
         from uexinfo.display.loc import flush_abbrevs as _flush_loc
@@ -257,10 +391,23 @@ class OverlayServer:
         if _loc_map:
             await ws.send(json.dumps({"type": "loc_abbrevs", "map": _loc_map}))
 
+        # Messages "pré-output" : formulaires qui remplacent l'output (scan_log_inline)
+        # Messages "post-output" : boutons/actions inline qui suivent le tableau (tout le reste)
+        pre_types  = {"scan_log_inline"}
+        pre_msgs   = [m for m in _send_q if m.get("type") in pre_types]
+        post_msgs  = [m for m in _send_q if m.get("type") not in pre_types]
+
+        for msg in pre_msgs:
+            await ws.send(json.dumps(msg))
+
         # Pour /scan log, le formulaire inline remplace l'output texte
         is_scan_log = line.strip().lstrip("/").lower().startswith("scan log")
-        if output and not is_scan_log:
-            await ws.send(json.dumps({"type": "output", "ansi": output}))
+        if output_delta and not is_scan_log:
+            await ws.send(json.dumps({"type": "output", "ansi": output_delta}))
+
+        # Messages post-output : boutons d'action inline (mission_actions_inline, voyage_calc_result…)
+        for msg in post_msgs:
+            await ws.send(json.dumps(msg))
 
         if needs_status:
             await self._send_status(ws)
@@ -283,24 +430,25 @@ class OverlayServer:
             await self._send_vocab(ws)
 
     def _exec_sync(self, line: str) -> tuple[str, bool]:
-        """Exécute la commande de façon bloquante, retourne (output_ansi, needs_status)."""
-        with self._lock:
-            _buf.truncate(0)
-            _buf.seek(0)
+        """Exécute la commande de façon bloquante, retourne (output_ansi, needs_status).
 
-            needs_status = False
-            try:
-                first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
+        _buf est écrit sans verrou pendant l'exec pour permettre le streaming.
+        La sérialisation des commandes est assurée au niveau du handler asyncio.
+        """
+        _buf.truncate(0)
+        _buf.seek(0)
 
-                result = run_command(line, self.ctx)
-                needs_status = bool(result & _STATUS_CMDS) if result else False
+        needs_status = False
+        try:
+            result = run_command(line, self.ctx)
+            needs_status = bool(result & _STATUS_CMDS) if result else False
+        except Exception as exc:
+            from rich.markup import escape as _esc
+            _fmt_mod.console.print(f"[red]✗ Erreur : {_esc(str(exc))}[/red]")
 
-            except Exception as exc:
-                _fmt_mod.console.print(f"[red]✗ Erreur : {exc}[/red]")
-
-            output = _buf.getvalue()
-            _buf.truncate(0)
-            _buf.seek(0)
+        output = _buf.getvalue()
+        _buf.truncate(0)
+        _buf.seek(0)
 
         return output.replace("\r\n", "\n").replace("\r", "\n").rstrip(), needs_status
 
@@ -531,6 +679,72 @@ class OverlayServer:
                 print(f"[overlay] Mission créée : {mission.name}", flush=True)
         except Exception as e:
             print(f"[overlay] trade_chosen error: {e}", flush=True)
+
+    # ── Mission edit confirm ───────────────────────────────────────────────────
+
+    async def _handle_mission_edit_confirm(self, ws, data: dict) -> None:
+        """Applique les modifications de missions envoyées par le formulaire overlay."""
+        from uexinfo.models.mission import MissionObjective
+        mm = self.ctx.mission_manager
+        updated: list[int] = []
+
+        for mdata in data.get("missions", []):
+            mid = mdata.get("id")
+            m = mm.get(str(mid))
+            if not m:
+                continue
+
+            name = (mdata.get("name") or "").strip()
+            if name:
+                m.name = name
+
+            try:
+                r = int(str(mdata.get("reward") or "").replace(",", "").replace(" ", "") or "0")
+                if r > 0:
+                    m.reward_uec = r
+            except (ValueError, TypeError):
+                pass
+
+            total_scu: float | None = None
+            try:
+                scu_raw = str(mdata.get("scu") or "").replace(",", ".").strip()
+                if scu_raw:
+                    total_scu = float(scu_raw)
+            except (ValueError, TypeError):
+                pass
+
+            srcs = [s.strip() for s in mdata.get("sources", []) if s.strip()]
+            dsts = [d.strip() for d in mdata.get("destinations", []) if d.strip()]
+
+            if srcs or dsts:
+                existing_commodity = next(
+                    (o.commodity for o in m.objectives if o.commodity), None
+                )
+                n = max(len(srcs), len(dsts), 1)
+                objs: list[MissionObjective] = []
+                for k in range(n):
+                    src = srcs[k] if k < len(srcs) else None
+                    dst = dsts[k] if k < len(dsts) else None
+                    qty = total_scu if k == 0 else None
+                    objs.append(MissionObjective(
+                        commodity=existing_commodity, source=src,
+                        destination=dst, quantity_scu=qty,
+                    ))
+                m.objectives = objs
+            elif total_scu is not None and m.objectives:
+                m.objectives[0].quantity_scu = total_scu
+
+            mm.update(m)
+            updated.append(mid)
+
+        if updated:
+            ids_str = ", ".join(f"#{i}" for i in updated)
+            await ws.send(json.dumps({
+                "type": "output",
+                "ansi": f"\x1b[32m✓ {len(updated)} mission(s) modifiée(s) : {ids_str}\x1b[0m\n",
+            }))
+        await ws.send(json.dumps({"type": "done"}))
+        await self._send_status(ws)
 
     # ── Mission scan — sélection overlay ─────────────────────────────────────
 

@@ -8,11 +8,13 @@ from rich.table import Table
 
 from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
+from uexinfo.display.adaptive import ColSpec, adaptive_table
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
 from uexinfo.models.mission import Mission, MissionObjective
 
 _SUBS = frozenset({
     "list", "add", "edit", "remove", "scan", "view", "+",
+    "clear", "vider", "effacer",
     # alias français
     "liste", "ajouter", "modifier", "supprimer", "voir",
 })
@@ -53,8 +55,28 @@ def cmd_mission(args: list[str], ctx) -> None:
     elif sub == "+":
         _cmd_add_to_voyage(args[1:], ctx)
 
+    elif sub in ("clear", "vider", "effacer"):
+        _cmd_clear(ctx)
+
     elif sub == "scan":
         _cmd_scan_db(args[1:], ctx)
+
+
+# ── Clear catalogue ───────────────────────────────────────────────────────────
+
+def _cmd_clear(ctx) -> None:
+    """Efface toutes les missions du catalogue (sans toucher à la DB screenshots)."""
+    mm = ctx.mission_manager
+    n = len(mm.missions)
+    if n == 0:
+        print_warn("Le catalogue est déjà vide.")
+        return
+    n_removed = mm.clear()
+    print_ok(f"{n_removed} mission(s) effacée(s) du catalogue.")
+    console.print(
+        f"[{C.DIM}]La base de captures (scan) est inchangée — "
+        f"/mission scan pour réimporter.[/{C.DIM}]"
+    )
 
 
 # ── Scan depuis la DB screenshots ─────────────────────────────────────────────
@@ -326,16 +348,19 @@ def _cmd_list(ctx) -> None:
 
     section("Catalogue de missions")
 
-    tbl = Table(show_header=True, box=None, padding=(0, 1),
-                row_styles=["", "on grey7"])
-    tbl.add_column("#",          style=C.DIM,    width=3,  justify="right")
-    tbl.add_column("Scan",       style=C.DIM,    width=11)
-    tbl.add_column("Nom",        style=C.LABEL,  max_width=34)
-    tbl.add_column("Départ",     style=C.UEX,    max_width=20)
-    tbl.add_column("Arrivée",    style=C.UEX,    max_width=20)
-    tbl.add_column("SCU",        justify="right", width=5)
-    tbl.add_column("Récompense", justify="right", width=12)
-    tbl.add_column("Syn",        width=4)
+    # Colonnes fixes : # 3, Scan 16, Dist 6, SCU 5, Récompense 12, Syn 4 = 46
+    # Colonnes flexibles : Nom / Départ / Arrivée — poids égaux (1/1/1)
+    tbl = adaptive_table([
+        ColSpec("#",          width=3,  justify="right", style=C.DIM),
+        ColSpec("Scan",       width=16,                  style=C.DIM),
+        ColSpec("Nom",        flex=1,   min_flex=12,     style=C.LABEL),
+        ColSpec("Départ",     flex=1,   min_flex=10,     style=C.UEX),
+        ColSpec("Arrivée",    flex=1,   min_flex=10,     style=C.UEX),
+        ColSpec("Dist",       width=6,  justify="right"),
+        ColSpec("SCU",        width=5,  justify="right"),
+        ColSpec("Récompense", width=12, justify="right"),
+        ColSpec("Syn",        width=4),
+    ], row_styles=["", "on grey7"])
 
     graph = ctx.cache.transport_graph
     player = getattr(ctx, "player", None)
@@ -349,7 +374,7 @@ def _cmd_list(ctx) -> None:
         reward_str = f"{m.reward_uec // 1000}K{C.AUEC}" if m.reward_uec >= 1000 else f"{m.reward_uec}{C.AUEC}"
         tags       = " ".join(mm.synergies(m))
 
-        # Date de scan
+        # Date de scan + clé screenshot (ex: "8FE" depuis "ocr:ScreenShot-...-8FE.jpg")
         if m.scanned_at:
             scan_str = _dt.fromtimestamp(m.scanned_at).strftime("%d/%m %H:%M")
         elif m.source_raw == "manual":
@@ -358,6 +383,10 @@ def _cmd_list(ctx) -> None:
             scan_str = "trade"
         else:
             scan_str = "—"
+        if m.source_raw and m.source_raw.startswith("ocr:"):
+            _km = re.search(r'-([0-9A-Fa-f]{3,4})\.jpg$', m.source_raw)
+            if _km:
+                scan_str += f" {_km.group(1)}"
 
         srcs_parts = []
         for loc in m.all_sources[:3]:
@@ -374,25 +403,131 @@ def _cmd_list(ctx) -> None:
         srcs_str = "\n".join(srcs_parts) if srcs_parts else "—"
         dsts_str = "\n".join(dsts_parts) if dsts_parts else "—"
 
+        # Distance src→dst de la mission
+        dist_str = "?"
+        for src_loc in m.all_sources[:1]:
+            for dst_loc in m.all_destinations[:1]:
+                sn = _resolve_graph_node(src_loc, graph)
+                dn = _resolve_graph_node(dst_loc, graph)
+                if sn and dn:
+                    try:
+                        r = graph.find_shortest_path(sn, dn)
+                        if r and r.total_distance is not None:
+                            dist_str = _fmt_dist(r.total_distance)
+                    except Exception:
+                        pass
+
         has_delay = any(o.time_cost for o in m.objectives)
         name_display = m.name + (f" [{C.WARNING}]⏱[/{C.WARNING}]" if has_delay else "")
 
         tbl.add_row(
             str(m.id), scan_str,
             name_display, srcs_str, dsts_str,
-            scu_str, reward_str, tags,
+            dist_str, scu_str, reward_str, tags,
         )
 
-    console.print(tbl)
     player_hint = f" · depuis {_short_loc(player_loc)}" if player_loc else ""
     active_voyage = ctx.voyage_manager.get_active() if hasattr(ctx, "voyage_manager") else None
-    if active_voyage:
-        console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s){player_hint} · "
-                      f"[bold {C.LABEL}]+<id>[/bold {C.LABEL}] [{C.DIM}]ajoute au voyage «[/{C.DIM}] "
-                      f"[{C.LABEL}]{active_voyage.name}[/{C.LABEL}] [{C.DIM}]»[/{C.DIM}]")
-        console.print(f"[{C.DIM}]  ex: /mission + 42  ou  /voyage mission add 42[/{C.DIM}]")
+
+    overlay_fn = getattr(ctx, "_overlay_send_fn", None)
+    if overlay_fn is not None:
+        _send_mission_list_actions(overlay_fn, mm, ctx, active_voyage)
     else:
-        console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s){player_hint} · /mission add <fichier> ou <nom> · /voyage pour planifier[/{C.DIM}]")
+        console.print(tbl)
+        if active_voyage:
+            console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s){player_hint} · "
+                          f"[bold {C.LABEL}]+<id>[/bold {C.LABEL}] [{C.DIM}]ajoute au voyage «[/{C.DIM}] "
+                          f"[{C.LABEL}]{active_voyage.name}[/{C.LABEL}] [{C.DIM}]»[/{C.DIM}]")
+            console.print(f"[{C.DIM}]  ex: /mission + 42  ou  /voyage mission add 42[/{C.DIM}]")
+        else:
+            console.print(f"\n[{C.DIM}]{len(mm.missions)} mission(s){player_hint} · /mission add <fichier> ou <nom> · /voyage pour planifier[/{C.DIM}]")
+
+
+
+def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
+    """Envoie le catalogue de missions à l'overlay pour affichage avec boutons d'action inline."""
+    from datetime import datetime as _dt
+
+    graph = ctx.cache.transport_graph
+    player = getattr(ctx, "player", None)
+    player_loc = player.location if player and player.location else None
+    player_node = _resolve_graph_node(player_loc, graph) if player_loc else None
+    _dist_cache: dict = {}
+
+    # Résoudre les chemins absolus pour les screenshots
+    try:
+        from uexinfo.cache.screenshot_db import ScreenshotDB as _SDB
+        _sdb = getattr(ctx, "screenshot_db", None) or _SDB()
+    except Exception:
+        _sdb = None
+
+    items = []
+    for m in mm.missions:
+        scu_str    = f"{m.total_scu:.0f}" if m.total_scu else ""
+        reward_str = f"{m.reward_uec // 1000}K" if m.reward_uec and m.reward_uec >= 1000 else str(m.reward_uec or 0)
+        tags       = " ".join(mm.synergies(m))
+
+        if m.scanned_at:
+            scan_str = _dt.fromtimestamp(m.scanned_at).strftime("%d/%m %H:%M")
+        elif m.source_raw == "manual":
+            scan_str = "manuel"
+        elif m.source_raw == "trade":
+            scan_str = "trade"
+        else:
+            scan_str = "—"
+
+        screenshot_key  = None
+        screenshot_path = None
+        if m.source_raw and m.source_raw.startswith("ocr:"):
+            filename = m.source_raw[4:]
+            km = re.search(r'-([0-9A-Fa-f]{3,4})\.jpg$', filename, re.IGNORECASE)
+            if km:
+                screenshot_key = km.group(1)
+                scan_str += f" {screenshot_key}"
+            if _sdb:
+                try:
+                    entry = _sdb.get(filename)
+                    if entry and entry.path:
+                        screenshot_path = entry.path
+                except Exception:
+                    pass
+
+        srcs = list(m.all_sources[:3])
+        dsts = list(m.all_destinations[:3])
+
+        dist_str = ""
+        for src_loc in m.all_sources[:1]:
+            for dst_loc in m.all_destinations[:1]:
+                sn = _resolve_graph_node(src_loc, graph)
+                dn = _resolve_graph_node(dst_loc, graph)
+                if sn and dn:
+                    try:
+                        r = graph.find_shortest_path(sn, dn)
+                        if r and r.total_distance is not None:
+                            dist_str = _fmt_dist(r.total_distance)
+                    except Exception:
+                        pass
+
+        items.append({
+            "id":              m.id,
+            "name":            m.name or "",
+            "scan":            scan_str,
+            "scu":             scu_str,
+            "reward":          reward_str,
+            "sources":         srcs,
+            "destinations":    dsts,
+            "dist":            dist_str,
+            "synergies":       tags,
+            "has_delay":       any(o.time_cost for o in m.objectives),
+            "screenshot_key":  screenshot_key,
+            "screenshot_path": screenshot_path,
+        })
+
+    send_fn({
+        "type":          "mission_actions_inline",
+        "missions":      items,
+        "active_voyage": active_voyage.name if active_voyage else None,
+    })
 
 
 def _resolve_graph_node(name: str, graph) -> str | None:
@@ -576,57 +711,99 @@ def _cmd_add(args: list[str], ctx) -> None:
 # ── Edit ──────────────────────────────────────────────────────────────────────
 
 def _cmd_edit(args: list[str], ctx) -> None:
+    from uexinfo.cli.commands.mission_editor import MissionEditor
+
     mm = ctx.mission_manager
+    all_missions = mm.missions
+    if not all_missions:
+        print_error("Aucune mission enregistrée")
+        return
+
+    # Parse args: no args → all, range "1-5", or list of IDs
     if not args:
-        print_error("Identifiant de mission manquant")
+        missions = all_missions
+    else:
+        refs: list[str] = []
+        for a in args:
+            iv = re.match(r"^(\d+)-(\d+)$", a)
+            if iv:
+                refs += [str(x) for x in range(int(iv.group(1)), int(iv.group(2)) + 1)]
+            else:
+                refs.append(a)
+        missions = []
+        for ref in refs:
+            m = mm.get(ref)
+            if m:
+                missions.append(m)
+            else:
+                print_warn(f"Mission introuvable : {ref}")
+        if not missions:
+            return
+
+    # Build location names from graph + LocationIndex
+    loc_names: list[str] = []
+    try:
+        graph = ctx.cache.load_transport_graph()
+        loc_names += list(graph.keys())
+    except Exception:
+        pass
+    if ctx.location_index:
+        for e in ctx.location_index._entries:
+            n = e.name.strip()
+            if n and n not in loc_names:
+                loc_names.append(n)
+
+    # Mode overlay : envoyer les données via WebSocket, pas de TUI terminal
+    overlay_fn = getattr(ctx, "_overlay_send_fn", None)
+    if overlay_fn is not None:
+        # Résoudre les chemins absolus via ScreenshotDB
+        try:
+            from uexinfo.cache.screenshot_db import ScreenshotDB as _SDB
+            _sdb = getattr(ctx, "screenshot_db", None) or _SDB()
+        except Exception:
+            _sdb = None
+
+        def _mission_dict(m):
+            d = {
+                "id":           m.id,
+                "name":         m.name or "",
+                "reward":       m.reward_uec or 0,
+                "scu":          m.total_scu or 0,
+                "sources":      list(m.all_sources),
+                "destinations": list(m.all_destinations),
+                "screenshot_key":  None,
+                "screenshot_path": None,
+            }
+            src = m.source_raw or ""
+            if src.startswith("ocr:"):
+                filename = src[4:]
+                km = re.search(r"-([0-9A-Fa-f]{3,4})\.jpg", filename, re.IGNORECASE)
+                if km:
+                    d["screenshot_key"] = km.group(1)
+                # Résoudre le chemin absolu
+                if _sdb:
+                    try:
+                        entry = _sdb.get(filename)
+                        if entry and entry.path:
+                            d["screenshot_path"] = entry.path
+                    except Exception:
+                        pass
+            return d
+
+        overlay_fn({
+            "type":           "mission_edit",
+            "missions":       [_mission_dict(m) for m in missions],
+            "location_names": loc_names,
+        })
         return
 
-    m = mm.get(args[0])
-    if not m:
-        print_error(f"Mission introuvable : {args[0]}")
-        return
+    editor = MissionEditor(missions, loc_names)
+    saved_ids = editor.run(mm)
 
-    rest = args[1:]
-    new_objs: list[MissionObjective] = []
-    current: dict = {}
-
-    for arg in rest:
-        low = arg.lower()
-        if low.startswith("reward:"):
-            try:
-                m.reward_uec = int(arg[7:].replace(",", "").replace(" ", "").replace("k", "000"))
-            except ValueError:
-                print_warn(f"Récompense invalide : {arg[7:]}")
-        elif low.startswith("name:"):
-            m.name = arg[5:]
-        elif low.startswith("obj:"):
-            if current:
-                new_objs.append(MissionObjective(**current))
-            current = {"commodity": arg[4:] or None}
-        elif low.startswith("from:"):
-            current["source"] = arg[5:] or None
-        elif low.startswith("to:"):
-            current["destination"] = arg[3:] or None
-        elif low.startswith("scu:"):
-            try:
-                current["quantity_scu"] = float(arg[4:])
-            except ValueError:
-                pass
-        elif low in ("tdd", "shop"):
-            current["time_cost"] = low
-        elif low.startswith("delay:"):
-            current["time_cost"] = arg[6:]
-        elif low.startswith("note:"):
-            current["notes"] = arg[5:]
-
-    if current:
-        new_objs.append(MissionObjective(**current))
-
-    if new_objs:
-        m.objectives.extend(new_objs)
-
-    mm.update(m)
-    print_ok(f"Mission #{m.id} modifiée : {m.name}")
+    if saved_ids:
+        print_ok(f"{len(saved_ids)} mission(s) sauvegardée(s) : {', '.join(f'#{i}' for i in saved_ids)}")
+    else:
+        console.print("[dim]Aucune modification sauvegardée[/dim]")
 
 
 # ── Remove ────────────────────────────────────────────────────────────────────

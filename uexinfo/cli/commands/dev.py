@@ -58,6 +58,7 @@ def cmd_dev(args: list[str], ctx) -> None:
     /dev scan clear                 Vider la screenshot_db
     /dev db                         Statistiques et contenu de la screenshot_db
     /dev db list [n]                Lister les n dernières entrées (défaut 20)
+    /dev calc.missions              Matrice missions : départ × destination × distance
     """
     if not args:
         _status(ctx)
@@ -101,8 +102,12 @@ def cmd_dev(args: list[str], ctx) -> None:
             _db_stats(ctx)
         return
 
+    if sub in ("calc.missions", "calc-missions"):
+        _cmd_calc_missions(args[1:], ctx)
+        return
+
     print_error(
-        f"Sous-commande inconnue : {sub}  —  /dev [on|off|scan|db]"
+        f"Sous-commande inconnue : {sub}  —  /dev [on|off|scan|db|calc.missions]"
     )
 
 
@@ -122,7 +127,8 @@ def _status(ctx) -> None:
         f"/dev scan import <dossier>   importer screenshots historiques\n"
         f"/dev scan import <dossier> all   réimporter même les déjà traités\n"
         f"/dev scan clear              vider la DB\n"
-        f"/dev db                      statistiques de la DB"
+        f"/dev db                      statistiques de la DB\n"
+        f"/dev calc.missions           matrice missions : départ × destination × distance"
         f"[/{C.DIM}]"
     )
 
@@ -329,3 +335,147 @@ def _db_list(ctx, n: int = 20) -> None:
             f"  [{C.DIM}]{e.file:<35}[/{C.DIM}]"
             + (f"  {title}" if title else "")
         )
+
+
+# ── calc.missions ──────────────────────────────────────────────────────────────
+
+def _cmd_calc_missions(args: list[str], ctx) -> None:
+    """Matrice missions — tableau croisé départ × destination × distance.
+
+    Affiche pour chaque paire (départ, destination) :
+      - la distance QT (Gm) depuis le graphe de transport
+      - les missions correspondantes (#id, récompense K aUEC)
+    """
+    from rich.table import Table
+    from uexinfo.cli.commands.voyage import (
+        _resolve_locs, _build_dist_matrix, _fmt_dist,
+    )
+
+    mm = ctx.mission_manager
+    if not mm.missions:
+        print_warn("Catalogue vide — /mission add pour créer des missions")
+        return
+
+    graph = ctx.cache.transport_graph
+
+    # ── Collecter les lieux ────────────────────────────────────────────────────
+    srcs_ordered: list[str] = []
+    dsts_ordered: list[str] = []
+    for m in mm.missions:
+        for s in m.all_sources:
+            if s and s not in srcs_ordered:
+                srcs_ordered.append(s)
+        for d in m.all_destinations:
+            if d and d not in dsts_ordered:
+                dsts_ordered.append(d)
+
+    if not srcs_ordered or not dsts_ordered:
+        print_warn("Missions sans lieux source/destination")
+        return
+
+    # ── Résolution des nœuds dans le graphe ───────────────────────────────────
+    all_locs = list(dict.fromkeys(srcs_ordered + dsts_ordered))
+    console.print(f"[{C.DIM}]Résolution {len(all_locs)} lieux…[/{C.DIM}]")
+    resolved = _resolve_locs(all_locs, graph) if graph else {}
+
+    unresolved = [l for l in all_locs if not resolved.get(l)]
+    if unresolved:
+        console.print(
+            f"[{C.WARNING}]{len(unresolved)} lieu(x) hors graphe : "
+            f"{', '.join(unresolved[:6])}{'…' if len(unresolved) > 6 else ''}[/{C.WARNING}]"
+        )
+
+    node_list = list(dict.fromkeys(v for v in resolved.values() if v))
+    console.print(
+        f"[{C.DIM}]Calcul matrice {len(srcs_ordered)}×{len(dsts_ordered)} "
+        f"({len(node_list)} nœuds)…[/{C.DIM}]"
+    )
+    dist_matrix = _build_dist_matrix(graph, node_list) if graph else {}
+
+    # ── Index missions par (src, dst) ─────────────────────────────────────────
+    cell_missions: dict[tuple[str, str], list] = {}
+    for m in mm.missions:
+        for s in m.all_sources:
+            for d in m.all_destinations:
+                cell_missions.setdefault((s, d), []).append(m)
+
+    # ── Codes courts pour les colonnes ────────────────────────────────────────
+    def _col_short(name: str, n: int = 9) -> str:
+        parts = name.split()
+        # Essayer le code type "HUR-L1", "CFD", "ARC-L1"
+        if len(parts) == 1:
+            return name[:n]
+        caps = "".join(p[0] for p in parts if p and p[0].isupper())
+        if 2 <= len(caps) <= n:
+            return caps
+        # Fallback : premiers mots
+        return " ".join(parts[:2])[:n]
+
+    dst_shorts = [_col_short(d) for d in dsts_ordered]
+
+    # ── Affichage ──────────────────────────────────────────────────────────────
+    section(
+        f"Matrice missions — {len(srcs_ordered)} départ(s) × {len(dsts_ordered)} destination(s)"
+    )
+
+    tbl = Table(show_header=True, box=None, padding=(0, 1), row_styles=["", "on grey7"])
+    tbl.add_column("Départ \\ Arrivée", style=C.LABEL, max_width=20)
+    for ds in dst_shorts:
+        tbl.add_column(ds, justify="left", min_width=max(8, len(ds) + 1))
+
+    for src in srcs_ordered:
+        sn = resolved.get(src)
+        cells: list[str] = []
+        for dst in dsts_ordered:
+            dn = resolved.get(dst)
+            # Distance
+            d_val = dist_matrix.get((sn, dn)) if sn and dn else None
+            dist_s = _fmt_dist(d_val) if d_val is not None else f"[{C.DIM}]?[/{C.DIM}]"
+
+            # Missions
+            miss_here = cell_missions.get((src, dst), [])
+            miss_parts: list[str] = []
+            for m in miss_here[:4]:
+                k = m.reward_uec // 1000
+                miss_parts.append(f"#{m.id}({k}K)")
+            miss_s = " ".join(miss_parts)
+
+            if miss_here:
+                cell_text = f"[bold]{dist_s}[/bold]\n[{C.UEX}]{miss_s}[/{C.UEX}]"
+            else:
+                cell_text = f"[{C.DIM}]{dist_s}[/{C.DIM}]"
+
+            cells.append(cell_text)
+
+        tbl.add_row(_col_short(src, 18), *cells)
+
+    console.print(tbl)
+
+    # ── Résumé des manques ────────────────────────────────────────────────────
+    no_dist: list[str] = []
+    for m in mm.missions:
+        for s in m.all_sources:
+            for d in m.all_destinations:
+                sn = resolved.get(s)
+                dn = resolved.get(d)
+                if not sn:
+                    no_dist.append(f"#{m.id} source '{s}' non résolue")
+                elif not dn:
+                    no_dist.append(f"#{m.id} dest '{d}' non résolue")
+                elif dist_matrix.get((sn, dn)) is None:
+                    no_dist.append(f"#{m.id}: {s} → {d} (distance inconnue)")
+
+    if no_dist:
+        console.print(f"\n[{C.WARNING}]Distances manquantes — {len(no_dist)} paires :[/{C.WARNING}]")
+        for nd in no_dist[:8]:
+            console.print(f"  [{C.DIM}]{nd}[/{C.DIM}]")
+        if len(no_dist) > 8:
+            console.print(f"  [{C.DIM}]… et {len(no_dist) - 8} autres[/{C.DIM}]")
+        console.print(
+            f"  [{C.DIM}]Conseil : /nav populate pour enrichir le graphe[/{C.DIM}]"
+        )
+
+    console.print(
+        f"\n[{C.DIM}]{len(mm.missions)} mission(s) · "
+        f"{len(srcs_ordered)} départ(s) · {len(dsts_ordered)} destination(s)[/{C.DIM}]"
+    )

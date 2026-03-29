@@ -269,23 +269,37 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     api.set_window(window)
 
     # ── 3. Hotkey global toggle show/hide ────────────────────────────────────
-    # PyWebView crée la fenêtre visible → visible=True reflète l'état réel
-    visible = True
-    _lock   = threading.Lock()
+    _lock = threading.Lock()
+
+    def _win32_visible() -> bool:
+        """Interroge Win32 IsWindowVisible — source de vérité, sans flag local."""
+        try:
+            hwnd = ctypes.windll.user32.FindWindowW(None, "UEXInfo")
+            if hwnd:
+                return bool(ctypes.windll.user32.IsWindowVisible(hwnd))
+        except Exception:
+            pass
+        return True  # fallback prudent : on suppose visible
 
     def toggle():
-        nonlocal visible
         with _lock:
-            if visible:
-                window.hide()
+            if _win32_visible():
+                try:
+                    window.hide()
+                except Exception:
+                    pass
             else:
-                window.show()
+                try:
+                    window.show()
+                except Exception:
+                    pass
                 _force_focus()
                 threading.Timer(
                     0.12,
-                    lambda: window.evaluate_js("document.getElementById('cmd-input').focus()")
+                    lambda: window.evaluate_js(
+                        "document.getElementById('cmd-input').focus()"
+                    ),
                 ).start()
-            visible = not visible
 
     pynput_hk = _parse_hotkey(hotkey)
     print(f"[overlay] Hotkey : {hotkey}  ({pynput_hk})")
@@ -363,23 +377,19 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     _close_last_t = [0.0]   # timestamp du dernier clic sur ✕ (mode dblclick)
 
     def on_closing():
-        nonlocal visible
         if close_mode == "dblclick":
             now = time.monotonic()
             if now - _close_last_t[0] < 0.5:
-                # Double-clic → fermeture réelle
                 print("[overlay] on_closing() dblclick confirmé → _shutdown", flush=True)
                 threading.Thread(target=_shutdown, daemon=False).start()
             else:
-                # Premier clic → masquer au lieu de fermer
+                # Premier clic : masquer. toggle() lira IsWindowVisible → pas de flag.
                 print("[overlay] on_closing() dblclick 1er clic → hide", flush=True)
                 _close_last_t[0] = now
-                with _lock:
-                    try:
-                        window.hide()
-                    except Exception:
-                        pass
-                    visible = False
+                try:
+                    window.hide()
+                except Exception:
+                    pass
             return False   # annule TOUJOURS la fermeture native en mode dblclick
         else:
             print("[overlay] on_closing() → _shutdown", flush=True)
