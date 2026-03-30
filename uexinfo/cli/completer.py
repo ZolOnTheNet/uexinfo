@@ -276,7 +276,13 @@ _SUBS_WITH_HELP: dict[str, list[tuple[str, str]]] = {
         ("calc benef",  "  └ Maximise la récompense"),
         ("calc roi",    "  └ Maximise le ROI (aUEC/Gm)"),
         ("calc all",    "  └ Toutes les propositions simultanément"),
-        ("+",       "Sauvegarde la proposition N du dernier calc (ex: + 1)"),
+        ("+",           "Sauvegarde la proposition N du dernier calc (ex: + 1)"),
+        ("tb",          "Tableau de bord : missions groupées par destination"),
+        ("tableauBord", "  └ Alias de tb"),
+        ("dashboard",   "  └ Alias de tb"),
+        ("tb list",     "  └ Liste les étapes ou missions d'une étape (-N)"),
+        ("tb compact",  "  └ Supprime les étapes vides et renumérote"),
+        ("tb graph",    "  └ Vue arbre des étapes et destinations"),
     ],
     "v":                    [],  # alias voyage
 }

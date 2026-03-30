@@ -22,6 +22,8 @@ _SUBS = frozenset({
     "on", "off", "new", "calc", "list", "name", "clear", "delete", "del",
     "add", "remove", "copy", "accept", "later", "cancel",
     "+",   # sauvegarder une proposition du dernier calc
+    # tableau de bord
+    "tb", "tableaubord", "dashboard", "db",
     # alias français
     "activer", "désactiver", "nouveau", "liste",
     "renommer", "effacer", "ajouter", "retirer", "supprimer",
@@ -165,6 +167,13 @@ def cmd_voyage(args: list[str], ctx) -> None:
 
     elif sub == "+":
         _cmd_save_proposal(rest, ctx)
+
+    elif sub in ("tb", "tableaubord", "dashboard", "db"):
+        target = voyage or vm.get_active()
+        if not target:
+            _no_active()
+            return
+        _cmd_dashboard(rest, target, ctx)
 
     else:
         _show_help()
@@ -2041,9 +2050,427 @@ def _show_help() -> None:
         ("accept",          "Valide + analyse, désactive le voyage"),
         ("later",           "Sauvegarde sans analyse, désactive"),
         ("cancel",          "Annule les modifications (retour à la dernière sauvegarde)"),
+        ("tb [départ] [-N]","Tableau de bord : missions groupées par destination (étape N)"),
+        ("tb list [-N]",    "Liste les étapes ou les missions d'une étape"),
+        ("tb compact",      "Supprime les étapes vides et renumérote"),
+        ("tb graph",        "Vue arbre des étapes et destinations"),
     ]
     for cmd, desc in lines:
         console.print(f"  [bold {C.LABEL}]/voyage {cmd:<22}[/bold {C.LABEL}]  [{C.DIM}]{desc}[/{C.DIM}]")
     console.print()
     console.print(f"  [{C.DIM}]Adressage : /voyage 2 list   -n2 list   -n toto list[/{C.DIM}]")
     console.print(f"  [{C.DIM}]Alias : /v  ·  Double-clic = afficher  ·  Clic droit = Activer/Analyser…[/{C.DIM}]")
+
+
+# ── Tableau de bord (/voyage tb) ──────────────────────────────────────────────
+
+def _infer_step_departure(voyage: "Voyage", step_number: int, ctx) -> str | None:
+    """Infère le lieu de départ d'une étape."""
+    mm = ctx.mission_manager
+    vm = ctx.voyage_manager
+    return vm.get_step_departure(voyage, step_number, mm)
+
+
+def _mission_distance(m, ctx) -> float | None:
+    """Calcule la distance source → destination d'une mission (Gm)."""
+    graph = ctx.cache.transport_graph
+    if not graph or not m.all_sources or not m.all_destinations:
+        return None
+    try:
+        result = graph.find_shortest_path(m.all_sources[0], m.all_destinations[0])
+        if result is not None and result.total_distance is not None:
+            return result.total_distance
+    except Exception:
+        pass
+    return None
+
+
+def _cmd_dashboard(args: list[str], voyage: "Voyage", ctx) -> None:
+    """Dispatch des sous-commandes du tableau de bord."""
+    sub = args[0].lower() if args else ""
+
+    if sub == "compact":
+        _dashboard_compact(voyage, ctx)
+        return
+
+    if sub == "graph":
+        rest_args = args[1:]
+        show_scu   = "--scu"   in rest_args
+        show_benef = "--benef" in rest_args
+        _dashboard_graph(voyage, ctx, show_scu=show_scu, show_benef=show_benef)
+        return
+
+    if sub == "list":
+        rest_args = args[1:]
+        step_num = _parse_step_number(rest_args)
+        _dashboard_list(voyage, step_num, ctx)
+        return
+
+    # Affichage principal
+    step_num = _parse_step_number(args)
+    departure_override = _parse_departure(args)
+
+    if step_num is None:
+        step_num = 1  # par défaut : étape 1
+
+    _dashboard_main(voyage, step_num, departure_override, ctx)
+
+
+def _parse_step_number(args: list[str]) -> int | None:
+    """Extrait un numéro d'étape depuis les args (-N, -step N, N entier seul)."""
+    for i, a in enumerate(args):
+        # -2 ou -3
+        if a.startswith("-") and len(a) > 1 and a[1:].isdigit():
+            return int(a[1:])
+        # -step 2
+        if a.lower() in ("-step", "--step") and i + 1 < len(args):
+            try:
+                return int(args[i + 1])
+            except ValueError:
+                pass
+        # Nombre seul
+        if a.isdigit():
+            return int(a)
+    return None
+
+
+def _parse_departure(args: list[str]) -> str | None:
+    """Extrait un lieu de départ explicite des args (token non numérique, non-flag)."""
+    SKIP = {"list", "compact", "graph", "--dist", "--scu", "--benef"}
+    for a in args:
+        if a in SKIP:
+            continue
+        if a.startswith("-"):
+            continue
+        if a.isdigit():
+            continue
+        return a.replace("_", " ")
+    return None
+
+
+def _fmt_dist_short(d: float | None) -> str:
+    """Formate une distance de façon compacte."""
+    if d is None:
+        return "?"
+    if d >= 1.0:
+        return f"{d:.1f}Gm"
+    return f"{d * 1000:.0f}Mm"
+
+
+def _dashboard_main(voyage: "Voyage", step_num: int, departure_override: str | None, ctx) -> None:
+    """Affichage principal : missions groupées par destination pour une étape."""
+    from collections import defaultdict
+
+    mm = ctx.mission_manager
+    vm = ctx.voyage_manager
+    in_overlay = getattr(ctx, "_overlay_send_fn", None) is not None
+
+    # Déterminer le lieu de départ
+    departure = departure_override or _infer_step_departure(voyage, step_num, ctx)
+    if not departure:
+        print_warn(
+            "Aucun point de départ évident, veuillez le préciser : "
+            "/voyage tb <lieu> -N"
+        )
+        return
+
+    # S'assurer que l'étape existe
+    step = voyage.get_or_create_step(step_num, departure)
+
+    section(f"Tableau de bord — départ : {departure}  (Étape {step_num})")
+
+    # Chercher les missions qui partent de ce lieu
+    all_missions = mm.missions
+    if not all_missions:
+        print_warn("Catalogue vide — /mission add pour créer des missions")
+        return
+
+    dep_lower = departure.lower()
+    matching = [
+        m for m in all_missions
+        if any(dep_lower in src.lower() or src.lower() in dep_lower
+               for src in m.all_sources)
+    ]
+
+    if not matching:
+        console.print(
+            f"[{C.DIM}]Aucune mission depuis [{C.UEX}]{departure}[/{C.UEX}]"
+            f"[{C.DIM}] dans le catalogue.[/{C.DIM}]"
+        )
+        console.print(f"[{C.DIM}]/mission scan  pour importer des missions depuis les screenshots[/{C.DIM}]")
+        return
+
+    # Grouper par destination, trier par récompense décroissante
+    by_dest: dict[str, list] = defaultdict(list)
+    for m in matching:
+        for dst in (m.all_destinations or ["(destination inconnue)"]):
+            by_dest[dst].append(m)
+
+    for dsts in by_dest.values():
+        dsts.sort(key=lambda m: m.reward_uec, reverse=True)
+
+    # Trier les destinations par récompense totale décroissante
+    dest_order = sorted(by_dest.keys(),
+                        key=lambda d: sum(m.reward_uec for m in by_dest[d]),
+                        reverse=True)
+
+    # Pré-calculer les distances
+    dist_cache: dict[str, float | None] = {}
+    for m in matching:
+        dist_cache[m.id] = _mission_distance(m, ctx)
+
+    # Affichage console
+    step_ids_in_voyage = step.mission_ids
+
+    for dst in dest_order:
+        missions_dst = by_dest[dst]
+        dst_dist = None
+        for m in missions_dst:
+            if dist_cache.get(m.id) is not None:
+                dst_dist = dist_cache[m.id]
+                break
+
+        dist_label = f"  [{C.DIM}]({_fmt_dist_short(dst_dist)})[/{C.DIM}]" if dst_dist else ""
+        console.print(f"\n[bold {C.UEX}]── Destination : {dst}{dist_label}[/bold {C.UEX}]")
+
+        tbl = Table(show_header=True, box=None, padding=(0, 1))
+        tbl.add_column("[+]",      width=3)
+        tbl.add_column("#",        style=C.DIM,    width=4,  justify="right")
+        tbl.add_column("Nom",      style=C.LABEL,  min_width=20)
+        tbl.add_column(C.SCU,      style=C.UEX,    width=5,  justify="right")
+        tbl.add_column("Récomp.",  width=11,       justify="right")
+        tbl.add_column("ROI/Gm",   width=10,       justify="right")
+        tbl.add_column("Dist",     width=8,        justify="right")
+
+        for m in missions_dst:
+            in_step = m.id in step_ids_in_voyage
+            add_btn = "[bold green]✓[/bold green]" if in_step else f"[{C.DIM}][+][/{C.DIM}]"
+            scu_s  = f"{m.total_scu:.0f}" if m.total_scu else "—"
+            rew_s  = f"{m.reward_uec:,}α".replace(",", " ") if m.reward_uec else "—"
+            d = dist_cache.get(m.id)
+            dist_s = _fmt_dist_short(d)
+            roi_s  = f"{m.reward_uec / d:,.0f}".replace(",", " ") if d and m.reward_uec else "—"
+            tbl.add_row(add_btn, str(m.id), m.name, scu_s, rew_s, roi_s, dist_s)
+
+        console.print(tbl)
+
+    console.print(
+        f"\n[{C.DIM}]/voyage add <id>  pour ajouter une mission (étape {step_num}) · "
+        f"/voyage tb list  pour les étapes · "
+        f"/voyage tb graph  pour la vue arbre[/{C.DIM}]"
+    )
+
+    # Overlay JSON
+    if in_overlay:
+        send_fn = ctx._overlay_send_fn
+        groups = []
+        for dst in dest_order:
+            missions_dst = by_dest[dst]
+            dst_dist = None
+            for m in missions_dst:
+                if dist_cache.get(m.id) is not None:
+                    dst_dist = dist_cache[m.id]
+                    break
+            groups.append({
+                "destination":  dst,
+                "distance_gm":  round(dst_dist, 2) if dst_dist else None,
+                "missions": [
+                    {
+                        "id":       m.id,
+                        "name":     m.name or "",
+                        "scu":      m.total_scu or 0,
+                        "reward":   m.reward_uec,
+                        "roi":      round(m.reward_uec / dist_cache[m.id], 0)
+                                    if dist_cache.get(m.id) and m.reward_uec else 0,
+                        "in_step":  m.id in step_ids_in_voyage,
+                        "screenshot_path": _get_screenshot_path(m, ctx),
+                    }
+                    for m in missions_dst
+                ],
+            })
+        send_fn({
+            "type":        "voyage_dashboard",
+            "voyage_name": voyage.name,
+            "departure":   departure,
+            "step_number": step_num,
+            "groups":      groups,
+        })
+
+
+def _get_screenshot_path(m, ctx) -> str | None:
+    """Retourne le chemin du screenshot source d'une mission, si disponible."""
+    if not m.source_raw or not m.source_raw.startswith("ocr:"):
+        return None
+    try:
+        sdb = getattr(ctx, "screenshot_db", None)
+        if sdb is None:
+            from uexinfo.cache.screenshot_db import ScreenshotDB
+            sdb = ScreenshotDB()
+            ctx.screenshot_db = sdb
+        filename = m.source_raw[4:]
+        entry = sdb.get(filename)
+        return entry.path if entry and entry.path else None
+    except Exception:
+        return None
+
+
+def _dashboard_list(voyage: "Voyage", step_num: int | None, ctx) -> None:
+    """Liste toutes les étapes ou les missions d'une étape spécifique."""
+    mm = ctx.mission_manager
+    vm = ctx.voyage_manager
+
+    if not voyage.steps:
+        print_warn("Aucune étape dans ce voyage — /voyage tb pour en créer")
+        return
+
+    if step_num is None:
+        # Résumé de toutes les étapes
+        section(f"Étapes — {voyage.name}")
+        tbl = Table(show_header=True, box=None, padding=(0, 1))
+        tbl.add_column("Ét.",      style=C.DIM,    width=3,  justify="right")
+        tbl.add_column("Départ",   style=C.UEX,    min_width=14)
+        tbl.add_column("Miss.",    width=6,        justify="right")
+        tbl.add_column(C.SCU,      style=C.UEX,    width=6,  justify="right")
+        tbl.add_column("Récomp.",  width=12,       justify="right")
+
+        total_miss = total_scu = total_rew = 0
+        for step in sorted(voyage.steps, key=lambda s: s.number):
+            missions = [mm.get(str(mid)) for mid in step.mission_ids]
+            missions = [m for m in missions if m]
+            n = len(missions)
+            scu = sum(m.total_scu for m in missions)
+            rew = sum(m.reward_uec for m in missions)
+            dep = step.departure or vm.get_step_departure(voyage, step.number, mm) or "?"
+            rew_s = f"{rew:,}α".replace(",", " ") if rew else "—"
+            scu_s = f"{scu:.0f}" if scu else "—"
+            tbl.add_row(str(step.number), dep, str(n), scu_s, rew_s)
+            total_miss += n
+            total_scu += scu
+            total_rew += rew
+
+        console.print(tbl)
+        rew_tot = f"{total_rew:,}α".replace(",", " ")
+        console.print(
+            f"\n[{C.DIM}]{total_miss} mission(s) · "
+            f"[bold]{total_scu:.0f}[/bold] SCU · "
+            f"[bold]{rew_tot}[/bold][/{C.DIM}]"
+        )
+        console.print(
+            f"[{C.DIM}]/voyage tb list -N  pour voir les missions d'une étape[/{C.DIM}]"
+        )
+        return
+
+    # Missions d'une étape spécifique
+    step = voyage.get_step(step_num)
+    if step is None:
+        print_warn(f"Étape {step_num} introuvable dans ce voyage")
+        return
+
+    dep = step.departure or vm.get_step_departure(voyage, step_num, mm) or "?"
+    section(f"Étape {step_num} — Départ : {dep}")
+
+    if not step.mission_ids:
+        print_warn("Aucune mission dans cette étape")
+        console.print(
+            f"[{C.DIM}]/voyage tb  pour voir les missions disponibles depuis {dep}[/{C.DIM}]"
+        )
+        return
+
+    max_step = max(s.number for s in voyage.steps)
+
+    for mid in step.mission_ids:
+        m = mm.get(str(mid))
+        if not m:
+            console.print(f"  [{C.WARNING}]#{mid} introuvable[/{C.WARNING}]")
+            continue
+
+        srcs = ", ".join(m.all_sources[:2]) or "?"
+        dsts = ", ".join(m.all_destinations[:2]) or "?"
+        scu_s = f"{m.total_scu:.0f}□" if m.total_scu else "?"
+        rew_s = f"{m.reward_uec:,}α".replace(",", " ") if m.reward_uec else "?"
+
+        # Boutons étapes
+        step_btns = []
+        for sn in range(1, max_step + 2):
+            if sn == step_num:
+                step_btns.append(f"[bold][Ét.{sn}●][/bold]")
+            else:
+                step_btns.append(f"[{C.DIM}][Ét.{sn}][/{C.DIM}]")
+        steps_str = " ".join(step_btns)
+
+        # Screenshot link
+        sc_path = _get_screenshot_path(m, ctx)
+        sc_btn = f"[{C.UEX}][📷][/{C.UEX}]" if sc_path else f"[{C.DIM}][📷][/{C.DIM}]"
+
+        console.print(
+            f"  [bold][✎][/bold] [{C.ERROR}][✕][/{C.ERROR}] {sc_btn}  "
+            f"[bold]#{mid}[/bold]  [{C.LABEL}]{m.name}[/{C.LABEL}]  "
+            f"[{C.UEX}]{scu_s}[/{C.UEX}]  [bold]{rew_s}[/bold]"
+        )
+        console.print(f"       {srcs} → {dsts}  {steps_str}")
+
+
+def _dashboard_compact(voyage: "Voyage", ctx) -> None:
+    """Supprime les étapes vides."""
+    vm = ctx.voyage_manager
+    n = vm.compact_steps(voyage)
+    if n:
+        print_ok(f"{n} étape(s) vide(s) supprimée(s) — {len(voyage.steps)} étape(s) restante(s)")
+    else:
+        console.print(f"[{C.DIM}]Aucune étape vide à supprimer.[/{C.DIM}]")
+
+
+def _dashboard_graph(voyage: "Voyage", ctx, show_scu: bool = False, show_benef: bool = False) -> None:
+    """Affichage en arbre des étapes et destinations."""
+    from rich.tree import Tree
+
+    mm = ctx.mission_manager
+    vm = ctx.voyage_manager
+
+    if not voyage.steps:
+        print_warn("Aucune étape à afficher")
+        return
+
+    tree = Tree(f"[bold {C.UEX}]Voyage : {voyage.name}[/bold {C.UEX}]")
+
+    for step in sorted(voyage.steps, key=lambda s: s.number):
+        dep = step.departure or vm.get_step_departure(voyage, step.number, mm) or "?"
+        step_node = tree.add(f"[{C.LABEL}]Ét.{step.number} : {dep}[/{C.LABEL}]")
+
+        if not step.mission_ids:
+            step_node.add(f"[{C.DIM}](vide)[/{C.DIM}]")
+            continue
+
+        # Grouper les missions de cette étape par destination
+        from collections import defaultdict
+        by_dst: dict[str, list] = defaultdict(list)
+        for mid in step.mission_ids:
+            m = mm.get(str(mid))
+            if m:
+                for dst in (m.all_destinations or ["?"]):
+                    by_dst[dst].append(m)
+
+        for dst, missions in sorted(by_dst.items()):
+            # Calcul valeur du trait
+            d = _mission_distance(missions[0], ctx) if missions else None
+            scu_total = sum(m.total_scu for m in missions)
+            rew_total = sum(m.reward_uec for m in missions)
+
+            if show_scu:
+                trait_val = f"[{C.UEX}]{scu_total:.0f}□[/{C.UEX}]"
+            elif show_benef:
+                rew_s = f"{rew_total:,}α".replace(",", " ")
+                trait_val = f"[{C.PROFIT}]{rew_s}[/{C.PROFIT}]"
+            else:
+                trait_val = f"[{C.DIM}]{_fmt_dist_short(d)}[/{C.DIM}]"
+
+            dst_node = step_node.add(f"──[{trait_val}]── [{C.UEX}]{dst}[/{C.UEX}]")
+
+            for m in sorted(missions, key=lambda m: m.reward_uec, reverse=True):
+                rew_s = f"{m.reward_uec:,}α".replace(",", " ")
+                dst_node.add(
+                    f"[{C.DIM}]#{m.id}[/{C.DIM}] [{C.LABEL}]{m.name}[/{C.LABEL}]"
+                    f"  [{C.DIM}]({rew_s})[/{C.DIM}]"
+                )
+
+    console.print(tree)
