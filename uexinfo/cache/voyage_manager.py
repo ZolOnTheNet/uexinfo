@@ -49,7 +49,10 @@ class VoyageManager:
             return
         try:
             data = json.loads(DATA_FILE.read_text(encoding="utf-8"))
-            self.voyages    = [Voyage.from_dict(v) for v in data.get("voyages", [])]
+            raw_voyages = [Voyage.from_dict(v) for v in data.get("voyages", [])]
+            # Déduplication : garder le premier voyage par ID (protection fichier corrompu)
+            seen_ids: set[int] = set()
+            self.voyages = [v for v in raw_voyages if v.id not in seen_ids and not seen_ids.add(v.id)]
             self.active_id  = data.get("active_id")
             self._next_id   = data.get("next_id", 1)
             self._session_id = data.get("session_id", 1)

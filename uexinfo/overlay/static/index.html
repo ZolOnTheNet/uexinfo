@@ -2917,8 +2917,8 @@ function appendMissionActions(msg) {
   block.appendChild(tbl);
 
   const existing = document.getElementById('mai-block');
-  if (existing) existing.replaceWith(block);
-  else elOutput.appendChild(block);
+  if (existing) existing.remove();
+  elOutput.appendChild(block);
 
   elOutput.scrollTop = elOutput.scrollHeight;
 }
