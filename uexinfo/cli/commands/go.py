@@ -13,8 +13,31 @@ def _save_player(ctx) -> None:
     settings.save(ctx.cfg)
 
 
+def _show_help() -> None:
+    from uexinfo.display.formatter import section
+    from uexinfo.display import colors as C
+    from uexinfo.display.formatter import console
+    section("Aide — /go")
+    console.print(
+        f"[bold]Usage :[/bold]\n"
+        f"  [bold {C.UEX}]/go[/bold {C.UEX}]              Afficher position et destination\n"
+        f"  [bold {C.UEX}]/go <lieu>[/bold {C.UEX}]        Définir la position courante\n"
+        f"  [bold {C.UEX}]/go from <lieu>[/bold {C.UEX}]   Définir le point de départ\n"
+        f"  [bold {C.UEX}]/go to <lieu>[/bold {C.UEX}]     Définir la destination\n"
+        f"  [bold {C.UEX}]/go clear[/bold {C.UEX}]         Réinitialiser position et destination\n"
+        f"  [bold {C.UEX}]@<lieu>[/bold {C.UEX}]           Raccourci pour définir la position\n"
+        f"  [bold {C.UEX}]/arriver[/bold {C.UEX}]          Destination → position courante\n"
+        f"  [bold {C.UEX}]/dest <lieu>[/bold {C.UEX}]      Raccourci pour définir la destination\n\n"
+        f"[{C.DIM}]<lieu> = nom de terminal, station, ville, planète ou système[/{C.DIM}]"
+    )
+
+
 @register("go", "g", "lieu")
 def cmd_go(args: list[str], ctx) -> None:
+    """Définit la position courante ou destination."""
+    if args and args[0] in ("help", "?", "--help"):
+        _show_help()
+        return
     if not args:
         _show(ctx.player)
         return

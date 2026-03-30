@@ -309,8 +309,34 @@ def _explore_geo(sys_name: str, parts: list[str], ctx) -> None:
 
 # ── Commande principale ────────────────────────────────────────────────────────
 
+def _show_help() -> None:
+    from uexinfo.display.formatter import section
+    from uexinfo.display import colors as C
+    section("Aide — /explore")
+    console.print(
+        f"[bold]Usage :[/bold]\n"
+        f"  [bold {C.UEX}]/explore[/bold {C.UEX}]                         Liste des systèmes + ship + commodity\n"
+        f"  [bold {C.UEX}]/explore <système>[/bold {C.UEX}]                Corps du système (planètes, orbites)\n"
+        f"  [bold {C.UEX}]/explore <sys>.<planète>[/bold {C.UEX}]          Lieux de la planète\n"
+        f"  [bold {C.UEX}]/explore <sys>.<planète>.<lieu>[/bold {C.UEX}]   Terminaux du lieu\n"
+        f"  [bold {C.UEX}]/explore ship[/bold {C.UEX}]                     Fabricants de vaisseaux\n"
+        f"  [bold {C.UEX}]/explore ship.<fabricant>[/bold {C.UEX}]         Vaisseaux du fabricant\n"
+        f"  [bold {C.UEX}]/explore commodity[/bold {C.UEX}]                Catégories de commodités\n"
+        f"  [bold {C.UEX}]/explore commodity.<catégorie>[/bold {C.UEX}]    Commodités de la catégorie\n\n"
+        f"[{C.DIM}]Exemples :\n"
+        f"  /explore stanton.hurston.lorville\n"
+        f"  /explore pyro.bloom\n"
+        f"  /explore ship.anvil\n"
+        f"  /explore commodity.metal[/{C.DIM}]"
+    )
+
+
 @register("explore", "x", "exp")
 def cmd_explore(args: list[str], ctx) -> None:
+    """Navigation hiérarchique : systèmes, vaisseaux, commodités."""
+    if args and args[0] in ("help", "?", "--help"):
+        _show_help()
+        return
     path = args[0] if args else ""
     # Normaliser les underscores en espaces dans chaque segment
     parts = [p.strip().replace("_", " ") for p in path.split(".") if p.strip()] if path else []

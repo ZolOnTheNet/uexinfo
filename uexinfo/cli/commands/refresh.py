@@ -12,8 +12,27 @@ from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_error, print_info, print_ok
 
 
+def _show_help() -> None:
+    from uexinfo.display.formatter import section
+    from uexinfo.display import colors as C
+    section("Aide — /refresh")
+    console.print(
+        f"[bold]Usage :[/bold]\n"
+        f"  [bold {C.UEX}]/refresh[/bold {C.UEX}]           Rafraîchir toutes les données (all)\n"
+        f"  [bold {C.UEX}]/refresh all[/bold {C.UEX}]        Forcer le refresh complet\n"
+        f"  [bold {C.UEX}]/refresh static[/bold {C.UEX}]     Données statiques uniquement\n"
+        f"  [bold {C.UEX}]/refresh prices[/bold {C.UEX}]     Cache prix uniquement\n"
+        f"  [bold {C.UEX}]/refresh status[/bold {C.UEX}]     État du cache (âge, nombre d'entrées)\n\n"
+        f"[{C.DIM}]Le cache est stocké dans ~/.uexinfo/[/{C.DIM}]"
+    )
+
+
 @register("refresh", "r", "rf")
 def cmd_refresh(args: list[str], ctx) -> None:
+    """Rafraîchit le cache (prix, données statiques)."""
+    if args and args[0] in ("help", "?", "--help"):
+        _show_help()
+        return
     sub = args[0].lower() if args else "all"
 
     if sub == "status":

@@ -10,9 +10,31 @@ _VALID = ("system", "planet", "station", "terminal", "city", "outpost")
 _KEY = {t: t + "s" for t in _VALID}  # planet -> planets
 
 
+def _show_help() -> None:
+    from uexinfo.display.formatter import section
+    from uexinfo.display import colors as C
+    section("Aide — /select")
+    console.print(
+        f"[bold]Usage :[/bold]\n"
+        f"  [bold {C.UEX}]/select[/bold {C.UEX}]                         Afficher les filtres actifs\n"
+        f"  [bold {C.UEX}]/select add <type> <nom>[/bold {C.UEX}]         Ajouter un filtre\n"
+        f"  [bold {C.UEX}]/select remove <type> <nom>[/bold {C.UEX}]      Retirer un filtre\n"
+        f"  [bold {C.UEX}]/select clear [type][/bold {C.UEX}]             Supprimer les filtres (tous ou par type)\n"
+        f"  [bold {C.UEX}]/select <type> <nom>[/bold {C.UEX}]             Raccourci ajout de filtre\n\n"
+        f"[bold]Types valides :[/bold]\n"
+        f"  [{C.UEX}]system[/{C.UEX}] | [{C.UEX}]planet[/{C.UEX}] | [{C.UEX}]station[/{C.UEX}] | [{C.UEX}]terminal[/{C.UEX}] | [{C.UEX}]city[/{C.UEX}] | [{C.UEX}]outpost[/{C.UEX}]\n\n"
+        f"[{C.DIM}]Exemple : /select add system Stanton[/{C.DIM}]"
+    )
+
+
 @register("select", "sel")
 def cmd_select(args: list[str], ctx) -> None:
+    """Filtres actifs (système, planète, station, terminal…)."""
     filters = ctx.cfg.setdefault("filters", {})
+
+    if args and args[0] in ("help", "?", "--help"):
+        _show_help()
+        return
 
     if not args:
         _show(filters)

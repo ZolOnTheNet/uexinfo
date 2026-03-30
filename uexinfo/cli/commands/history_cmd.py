@@ -7,8 +7,25 @@ from uexinfo.display.formatter import console, print_warn, section
 from uexinfo.display import colors as C
 
 
+def _show_help() -> None:
+    from uexinfo.display.formatter import section
+    from uexinfo.display import colors as C
+    section("Aide — /history")
+    console.print(
+        f"[bold]Usage :[/bold]\n"
+        f"  [bold {C.UEX}]/history [n][/bold {C.UEX}]      Afficher les n dernières commandes (défaut 50)\n"
+        f"  [bold {C.UEX}]/history stats[/bold {C.UEX}]     Statistiques de l'historique\n"
+        f"  [bold {C.UEX}]/history clear[/bold {C.UEX}]     Effacer l'historique\n\n"
+        f"[{C.DIM}]Exemple : /history 20  — affiche les 20 dernières commandes[/{C.DIM}]"
+    )
+
+
 @register("history", "hist")
 def cmd_history(args: list[str], ctx) -> None:
+    """Historique des commandes REPL."""
+    if args and args[0] in ("help", "?", "--help"):
+        _show_help()
+        return
     sub = args[0].lower() if args else "list"
 
     if sub == "stats":

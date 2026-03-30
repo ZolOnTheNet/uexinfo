@@ -13,6 +13,14 @@ def cmd_debug(args: list[str], ctx) -> None:
     /debug          Afficher le niveau actuel
     /debug <0-5>    Définir le niveau (0 = off, 5 = max)
     """
+    if args and args[0] in ("help", "?", "--help"):
+        console.print(
+            f"[bold]Contrôle du niveau de trace[/bold]\n\n"
+            f"  [bold {C.UEX}]/debug[/bold {C.UEX}]          Afficher le niveau actuel\n"
+            f"  [bold {C.UEX}]/debug <0-5>[/bold {C.UEX}]    Définir le niveau (0 = off, 5 = max)\n\n"
+            f"[{C.DIM}]Niveaux : 0=off  1=principal  2=complémentaire  3=commandes  4=interne  5=max[/{C.DIM}]"
+        )
+        return
     if not args:
         level = getattr(ctx, "debug_level", 0)
         if level == 0:

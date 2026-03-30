@@ -63,6 +63,22 @@ def _prepare(expr: str) -> str:
 
 @register("=", "calc", "calculette", "calcul")
 def cmd_calc(args: list[str], ctx) -> None:
+    """Calculatrice arithmétique — ex: = 16x6  = (12+8)*5"""
+    if args and args[0] in ("help", "?", "--help"):
+        console.print(
+            f"[bold]Calculatrice arithmétique[/bold]\n\n"
+            f"[bold]Opérateurs supportés :[/bold]\n"
+            f"  [{C.UEX}]+[/{C.UEX}]   Addition          [{C.DIM}]ex: = 12 + 8[/{C.DIM}]\n"
+            f"  [{C.UEX}]-[/{C.UEX}]   Soustraction      [{C.DIM}]ex: = 100 - 37[/{C.DIM}]\n"
+            f"  [{C.UEX}]*[/{C.UEX}]   Multiplication    [{C.DIM}]ex: = 6 * 7[/{C.DIM}]\n"
+            f"  [{C.UEX}]x[/{C.UEX}]   Multiplication    [{C.DIM}]ex: = 16x6[/{C.DIM}]\n"
+            f"  [{C.UEX}]/[/{C.UEX}]   Division          [{C.DIM}]ex: = 100 / 3[/{C.DIM}]\n"
+            f"  [{C.UEX}]//[/{C.UEX}]  Division entière  [{C.DIM}]ex: = 100 // 3[/{C.DIM}]\n"
+            f"  [{C.UEX}]%[/{C.UEX}]   Modulo            [{C.DIM}]ex: = 1234 % 7[/{C.DIM}]\n"
+            f"  [{C.UEX}]()[/{C.UEX}]  Parenthèses       [{C.DIM}]ex: = (12+8)*5[/{C.DIM}]\n\n"
+            f"[{C.DIM}]La virgule décimale française est supportée : = 16,5 * 3[/{C.DIM}]"
+        )
+        return
     if not args:
         console.print(
             f"[{C.LABEL}]/=[/{C.LABEL}]  [{C.DIM}]Calculatrice — ex: [bold]= 16x6[/bold]  "

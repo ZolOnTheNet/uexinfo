@@ -60,6 +60,19 @@ def cmd_dev(args: list[str], ctx) -> None:
     /dev db list [n]                Lister les n dernières entrées (défaut 20)
     /dev calc.missions              Matrice missions : départ × destination × distance
     """
+    if args and args[0] in ("help", "?", "--help"):
+        console.print(
+            f"[bold]Mode développeur[/bold]\n\n"
+            f"  [bold {C.UEX}]/dev[/bold {C.UEX}]                            Statut du mode dev et de la DB\n"
+            f"  [bold {C.UEX}]/dev on|off[/bold {C.UEX}]                     Activer/désactiver (persisté)\n"
+            f"  [bold {C.UEX}]/dev scan import <dossier>[/bold {C.UEX}]      Importer tous les screenshots d'un dossier\n"
+            f"  [bold {C.UEX}]/dev scan import <dossier> all[/bold {C.UEX}]  Réimporter même les déjà traités\n"
+            f"  [bold {C.UEX}]/dev scan clear[/bold {C.UEX}]                 Vider la screenshot_db\n"
+            f"  [bold {C.UEX}]/dev db[/bold {C.UEX}]                         Statistiques de la screenshot_db\n"
+            f"  [bold {C.UEX}]/dev db list [n][/bold {C.UEX}]                Lister les n dernières entrées\n"
+            f"  [bold {C.UEX}]/dev calc.missions[/bold {C.UEX}]              Matrice missions : départ × destination × distance"
+        )
+        return
     if not args:
         _status(ctx)
         return

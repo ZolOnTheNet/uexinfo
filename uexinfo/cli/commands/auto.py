@@ -22,9 +22,28 @@ def _on_off(val: str) -> bool | None:
     return None
 
 
+def _show_help() -> None:
+    from uexinfo.display.formatter import section
+    from uexinfo.display import colors as C
+    section("Aide — /auto")
+    console.print(
+        f"[bold]Usage :[/bold]\n"
+        f"  [bold {C.UEX}]/auto[/bold {C.UEX}]                      Afficher l'état des automatisations\n"
+        f"  [bold {C.UEX}]/auto log on|off[/bold {C.UEX}]            Lecture automatique du log SC-Datarunner\n"
+        f"  [bold {C.UEX}]/auto signal.scan on|off[/bold {C.UEX}]    Signalement des nouveaux scans/screenshots\n"
+        f"  [bold {C.UEX}]/auto log.accept on|off[/bold {C.UEX}]     Validation automatique des valeurs du log\n\n"
+        f"[{C.DIM}]Options : {', '.join(_OPTIONS)}[/{C.DIM}]"
+    )
+
+
 @register("auto")
 def cmd_auto(args: list[str], ctx) -> None:
+    """Automatisations : lecture log, signalement scans."""
     auto_cfg = ctx.cfg.setdefault("auto", {})
+
+    if args and args[0] in ("help", "?", "--help"):
+        _show_help()
+        return
 
     # /auto  →  afficher l'état
     if not args:

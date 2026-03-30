@@ -290,6 +290,34 @@ _DETAILS = {
         "Alias : /calc  /calculette  /calcul\n"
         "Le / est optionnel — '= 16x6' fonctionne sans /."
     ),
+    "history": (
+        "/history [n]             Afficher les n dernières commandes (défaut 50)\n"
+        "/history stats           Statistiques (total, uniques, taille fichier)\n"
+        "/history clear           Effacer l'historique\n\n"
+        "Alias : /hist\n"
+        "Exemple : /history 20  — affiche les 20 dernières commandes"
+    ),
+    "debug": (
+        "/debug                   Afficher le niveau de trace actuel\n"
+        "/debug <0-5>             Définir le niveau (0 = off, 5 = traces maximales)\n\n"
+        "Niveaux :\n"
+        "  0   Désactivé\n"
+        "  1   Traces principales (normalize, parse, dispatch)\n"
+        "  2   + informations complémentaires\n"
+        "  3   + liste des commandes connues\n"
+        "  4   + détails internes\n"
+        "  5   Traces maximales"
+    ),
+    "dev": (
+        "/dev                            Statut du mode dev et de la DB\n"
+        "/dev on|off                     Activer/désactiver le mode dev (persisté)\n"
+        "/dev scan import <dossier>      Importer tous les screenshots d'un dossier\n"
+        "/dev scan import <dossier> all  Réimporter même les fichiers déjà traités\n"
+        "/dev scan clear                 Vider la screenshot_db\n"
+        "/dev db                         Statistiques et contenu de la screenshot_db\n"
+        "/dev db list [n]                Lister les n dernières entrées (défaut 20)\n"
+        "/dev calc.missions              Matrice missions : départ × destination × distance"
+    ),
     "route": (
         "/route                           Routes depuis position courante\n"
         "/route from <terminal>           Routes depuis un terminal\n"
