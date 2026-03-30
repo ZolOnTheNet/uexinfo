@@ -103,6 +103,8 @@ def main() -> None:
     _print_ocr_status()
 
     if args.tui:
+        import warnings
+        warnings.warn("Mode TUI (Textual) déprécié — préférez --overlay", DeprecationWarning, stacklevel=1)
         from uexinfo.app import UexInfoApp
         UexInfoApp().run()
     elif args.cli:

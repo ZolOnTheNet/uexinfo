@@ -1,6 +1,13 @@
 """App Textual — interface terminal interactive uexinfo."""
 from __future__ import annotations
 
+# ── DEPRECATED ────────────────────────────────────────────────────────────────
+# Ce module TUI (Textual) est en cours de dépréciation.
+# L'interface principale est l'overlay WebSocket (overlay/server.py).
+# Ne plus ajouter de nouvelles fonctionnalités ici.
+# À terme : supprimer app.py, widgets/, screens/ et l'entry point uexinfo-tui.
+# ─────────────────────────────────────────────────────────────────────────────
+
 # ── ÉTAPE 1 : remplacer le console Rich par un console qui écrit dans un
 #    StringIO avec force_terminal=True → les codes ANSI sont émis normalement.
 #    Doit se faire AVANT d'importer les modules de commandes (qui font
