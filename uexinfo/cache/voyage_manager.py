@@ -7,7 +7,7 @@ from pathlib import Path
 
 import appdirs
 
-from uexinfo.models.voyage import Voyage
+from uexinfo.models.voyage import Voyage, VoyageStep
 
 DATA_FILE = Path(appdirs.user_data_dir("uexinfo")) / "voyages.json"
 
@@ -171,6 +171,89 @@ class VoyageManager:
             self.update(voyage)
             return True
         return False
+
+    # ── Gestion des étapes ─────────────────────────────────────────────────────
+
+    def add_mission_to_step(self, voyage: Voyage, mission_id: int, step_number: int,
+                            departure: str | None = None) -> bool:
+        """Ajoute une mission à l'étape N (la crée si nécessaire). Retourne True si ajouté."""
+        step = voyage.get_or_create_step(step_number, departure)
+        if mission_id not in step.mission_ids:
+            step.mission_ids.append(mission_id)
+            # Sync mission_ids plat pour compatibilité
+            self._sync_flat_ids(voyage)
+            self.update(voyage)
+            return True
+        return False
+
+    def move_mission(self, voyage: Voyage, mission_id: int,
+                     from_step: int, to_step: int,
+                     departure: str | None = None) -> bool:
+        """Déplace une mission d'une étape à une autre. Retourne True si réussi."""
+        src = voyage.get_step(from_step)
+        if src is None or mission_id not in src.mission_ids:
+            return False
+        src.mission_ids.remove(mission_id)
+        dst = voyage.get_or_create_step(to_step, departure)
+        if mission_id not in dst.mission_ids:
+            dst.mission_ids.append(mission_id)
+        self._sync_flat_ids(voyage)
+        self.update(voyage)
+        return True
+
+    def remove_step(self, voyage: Voyage, step_number: int) -> bool:
+        """Supprime une étape (et ses missions du voyage). Retourne True si supprimée."""
+        step = voyage.get_step(step_number)
+        if step is None:
+            return False
+        voyage.steps.remove(step)
+        self._sync_flat_ids(voyage)
+        self.update(voyage)
+        return True
+
+    def compact_steps(self, voyage: Voyage) -> int:
+        """Supprime les étapes vides et renumérote. Retourne le nb d'étapes supprimées."""
+        empty = [s for s in voyage.steps if not s.mission_ids]
+        for s in empty:
+            voyage.steps.remove(s)
+        # Renumérote
+        for i, s in enumerate(voyage.steps, 1):
+            s.number = i
+        self._sync_flat_ids(voyage)
+        self.update(voyage)
+        return len(empty)
+
+    def _sync_flat_ids(self, voyage: Voyage) -> None:
+        """Synchronise mission_ids plat depuis les étapes."""
+        voyage.mission_ids = voyage.all_mission_ids
+
+    def get_step_departure(self, voyage: Voyage, step_number: int, mm) -> str | None:
+        """Inférence du lieu de départ d'une étape.
+
+        Ordre de priorité :
+        1. Lieu de départ explicite de l'étape
+        2. Destination majoritaire de l'étape précédente
+        3. Point de départ global du voyage
+        4. None (le caller affichera un avertissement)
+        """
+        step = voyage.get_step(step_number)
+        if step and step.departure:
+            return step.departure
+
+        if step_number > 1:
+            prev = voyage.get_step(step_number - 1)
+            if prev and prev.mission_ids:
+                # Destination la plus fréquente de l'étape précédente
+                from collections import Counter
+                dsts: list[str] = []
+                for mid in prev.mission_ids:
+                    m = mm.get(str(mid))
+                    if m:
+                        dsts.extend(m.all_destinations)
+                if dsts:
+                    return Counter(dsts).most_common(1)[0][0]
+
+        return voyage.departure
 
     # ── Copie (fusion) ────────────────────────────────────────────────────────
 
