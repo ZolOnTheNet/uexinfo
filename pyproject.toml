@@ -5,13 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "uexinfo"
 version = "0.1.0"
-description = "CLI interactif Star Citizen — UEX Corp 2.0 API + sc-trade.tools"
+description = "Overlay Star Citizen — UEX Corp 2.0 API"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 dependencies = [
     "requests>=2.31",
-    "prompt_toolkit>=3.0",
     "rich>=13.0",
     "beautifulsoup4>=4.12",
     "tomli-w>=1.0",
@@ -19,7 +18,6 @@ dependencies = [
     "Pillow>=10.0",
     "pytesseract>=0.3",
     "rapidfuzz>=3.0",
-    "textual>=0.80.0",
 ]
 
 [project.optional-dependencies]
@@ -27,9 +25,7 @@ playwright = ["playwright>=1.40"]
 overlay = ["pywebview>=5.0", "pynput>=1.7", "websockets>=12.0"]
 
 [project.scripts]
-uexinfo     = "uexinfo.__main__:main"   # Entrée unifiée : REPL par défaut, --tui pour le TUI
-uexinfo-cli = "uexinfo.cli.main:main"   # CLI REPL direct (rétro-compat, pas d'argparse)
-uexinfo-tui = "uexinfo.app:main"        # TUI direct (raccourcis, scripts)
+uexinfo = "uexinfo.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

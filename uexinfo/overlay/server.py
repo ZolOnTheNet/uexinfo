@@ -52,7 +52,7 @@ import uexinfo.cli.commands.mission      # noqa: F401
 import uexinfo.cli.commands.voyage       # noqa: F401
 
 from uexinfo.cli.runner import run_command
-from uexinfo.cli.main import AppContext
+from uexinfo.cli.context import AppContext
 from uexinfo.cache.manager import CacheManager
 from uexinfo.cache.mission_manager import MissionManager
 from uexinfo.cache.voyage_manager import VoyageManager
@@ -877,22 +877,17 @@ class OverlayServer:
         await ws.send(json.dumps({"type": "completions", "items": items}))
 
     def _complete_sync(self, text: str, cursor: int) -> list[dict]:
-        """Utilise UEXCompleter pour générer les complétions."""
+        """Génère les complétions statiques depuis le registre des commandes."""
         try:
-            from uexinfo.cli.completer import UEXCompleter
-            from prompt_toolkit.document import Document
-            completer = UEXCompleter(self.ctx)
+            from uexinfo.cli.commands import get_names
             cur = cursor if cursor >= 0 else len(text)
-            doc = Document(text, cursor_position=cur)
-            completions = list(completer.get_completions(doc, None))
+            prefix = text[:cur].lstrip("/")
+            names = get_names()
             items = []
-            for c in completions[:30]:
-                # start_position est négatif : nb de chars à remplacer avant le curseur
-                prefix = text[:cur + c.start_position]
-                value  = prefix + c.text
-                hint   = c.display_meta_text or ""
-                items.append({"value": value, "hint": hint})
-            return items
+            for name in names:
+                if name.startswith(prefix):
+                    items.append({"value": "/" + name, "hint": ""})
+            return items[:30]
         except Exception as e:
             print(f"[overlay] complete error: {e}", flush=True)
             return []

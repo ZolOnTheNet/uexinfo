@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
-    from uexinfo.cli.main import AppContext
+    from uexinfo.cli.context import AppContext
 
 _registry: dict[str, Callable] = {}
 

@@ -711,8 +711,6 @@ def _cmd_add(args: list[str], ctx) -> None:
 # ── Edit ──────────────────────────────────────────────────────────────────────
 
 def _cmd_edit(args: list[str], ctx) -> None:
-    from uexinfo.cli.commands.mission_editor import MissionEditor
-
     mm = ctx.mission_manager
     all_missions = mm.missions
     if not all_missions:
@@ -797,13 +795,7 @@ def _cmd_edit(args: list[str], ctx) -> None:
         })
         return
 
-    editor = MissionEditor(missions, loc_names)
-    saved_ids = editor.run(mm)
-
-    if saved_ids:
-        print_ok(f"{len(saved_ids)} mission(s) sauvegardée(s) : {', '.join(f'#{i}' for i in saved_ids)}")
-    else:
-        console.print("[dim]Aucune modification sauvegardée[/dim]")
+    print_warn("Édition des missions uniquement disponible depuis l'overlay.")
 
 
 # ── Remove ────────────────────────────────────────────────────────────────────
