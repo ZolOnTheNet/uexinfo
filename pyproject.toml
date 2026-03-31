@@ -18,11 +18,13 @@ dependencies = [
     "Pillow>=10.0",
     "pytesseract>=0.3",
     "rapidfuzz>=3.0",
+    "pywebview>=5.0",
+    "pynput>=1.7",
+    "websockets>=12.0",
 ]
 
 [project.optional-dependencies]
 playwright = ["playwright>=1.40"]
-overlay = ["pywebview>=5.0", "pynput>=1.7", "websockets>=12.0"]
 
 [project.scripts]
 uexinfo = "uexinfo.__main__:main"

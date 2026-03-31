@@ -50,6 +50,8 @@ import uexinfo.cli.commands.auto         # noqa: F401
 import uexinfo.cli.commands.undo         # noqa: F401
 import uexinfo.cli.commands.mission      # noqa: F401
 import uexinfo.cli.commands.voyage       # noqa: F401
+import uexinfo.cli.commands.calc         # noqa: F401
+import uexinfo.cli.commands.sync         # noqa: F401
 
 from uexinfo.cli.runner import run_command
 from uexinfo.cli.context import AppContext
@@ -873,24 +875,208 @@ class OverlayServer:
 
     async def _handle_complete(self, ws, text: str, cursor: int) -> None:
         loop = asyncio.get_event_loop()
-        items = await loop.run_in_executor(None, self._complete_sync, text, cursor)
-        await ws.send(json.dumps({"type": "completions", "items": items}))
+        result = await loop.run_in_executor(None, self._complete_sync, text, cursor)
+        await ws.send(json.dumps({"type": "completions",
+                                   "common_prefix": result.get("common_prefix", ""),
+                                   "items": result.get("items", [])}))
 
-    def _complete_sync(self, text: str, cursor: int) -> list[dict]:
-        """Génère les complétions statiques depuis le registre des commandes."""
+    def _complete_sync(self, text: str, cursor: int) -> dict:
+        """Complétion contextuelle riche.
+
+        Retourne {"common_prefix": str, "items": [{"value", "hint", "insert"}, ...]}.
+        - value  : texte affiché dans la liste (lisible)
+        - hint   : description courte (type, fabricant, etc.)
+        - insert : texte à insérer à la place du mot courant
+        """
         try:
-            from uexinfo.cli.commands import get_names
-            cur = cursor if cursor >= 0 else len(text)
-            prefix = text[:cur].lstrip("/")
-            names = get_names()
-            items = []
-            for name in names:
-                if name.startswith(prefix):
-                    items.append({"value": "/" + name, "hint": ""})
-            return items[:30]
+            return self._complete_impl(text, cursor)
         except Exception as e:
             print(f"[overlay] complete error: {e}", flush=True)
+            return {"common_prefix": "", "items": []}
+
+    # ── Helpers complétion ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _common_prefix(strings: list[str]) -> str:
+        """Calcule le préfixe commun d'une liste de chaînes (insensible à la casse)."""
+        if not strings:
+            return ""
+        ref = strings[0].lower()
+        length = len(ref)
+        for s in strings[1:]:
+            s_lo = s.lower()
+            length = min(length, len(s_lo))
+            for i in range(length):
+                if ref[i] != s_lo[i]:
+                    length = i
+                    break
+        return strings[0][:length]
+
+    @staticmethod
+    def _mk(value: str, hint: str = "", insert: str = "") -> dict:
+        return {"value": value, "hint": hint, "insert": insert or value}
+
+    def _complete_impl(self, text: str, cursor: int) -> dict:
+        from uexinfo.cli.completer_data import SUBS, NEXT_TYPE, CMD_HINTS
+        from uexinfo.cli.commands import get_names
+
+        cur    = cursor if cursor >= 0 else len(text)
+        before = text[:cur]
+
+        # ── Extraire le mot courant et le préfixe de ligne ────────────────
+        if before.endswith(" "):
+            current_word = ""
+            line_prefix  = before
+        else:
+            parts        = before.rsplit(" ", 1)
+            current_word = parts[-1] if parts else ""
+            line_prefix  = (parts[0] + " ") if len(parts) > 1 else ""
+
+        q = current_word.lower().lstrip("/")
+
+        # ── Déterminer la commande racine et la profondeur ─────────────────
+        tokens = before.strip().split()
+        cmd    = tokens[0].lstrip("/").lower() if tokens else ""
+        depth  = len(tokens) - (0 if before.endswith(" ") else 1)
+        # sous-commande déjà tapée (depth≥1)
+        sub1   = tokens[1].lower() if len(tokens) > 1 else ""
+
+        # ── Candidats selon le contexte ───────────────────────────────────
+        candidates: list[dict] = []
+
+        # — Cas 1 : ligne vide ou saisie d'une commande (commence par /) ——
+        if not tokens or (len(tokens) == 1 and not before.endswith(" ")):
+            # Commandes enregistrées
+            for name in sorted(get_names()):
+                hint = CMD_HINTS.get(name, "")
+                candidates.append(self._mk(f"/{name}", hint, f"/{name}"))
+            # Lieux, commodités, vaisseaux (saisie libre sans /)
+            if current_word and not current_word.startswith("/"):
+                candidates += self._dyn_any(current_word)
+
+        # — Cas 2 : après une commande connue ——————————————————————————————
+        elif depth == 1 and before.endswith(" "):
+            # Sous-commandes statiques
+            ctx_key = cmd
+            for sub, hint in SUBS.get(ctx_key, []):
+                candidates.append(self._mk(sub, hint, sub))
+            # Éléments dynamiques selon NEXT_TYPE
+            ntype = NEXT_TYPE.get(ctx_key)
+            if ntype:
+                candidates += self._dyn_typed(ntype, "")
+
+        # — Cas 3 : tapé le début de la sous-commande ——————————————————————
+        elif depth == 1 and not before.endswith(" "):
+            ctx_key = cmd
+            for sub, hint in SUBS.get(ctx_key, []):
+                candidates.append(self._mk(sub, hint, sub))
+            ntype = NEXT_TYPE.get(ctx_key)
+            if ntype:
+                candidates += self._dyn_typed(ntype, "")
+
+        # — Cas 4 : profondeur 2+ ——————————————————————————————————————————
+        else:
+            # Chercher sous-commandes de niveau 2 (ex: "voyage calc")
+            ctx_key2 = f"{cmd} {sub1}"
+            subs2    = SUBS.get(ctx_key2, [])
+            if before.endswith(" "):
+                for sub, hint in subs2:
+                    candidates.append(self._mk(sub, hint, sub))
+                ntype2 = NEXT_TYPE.get(ctx_key2) or NEXT_TYPE.get(cmd)
+                if ntype2:
+                    candidates += self._dyn_typed(ntype2, "")
+            else:
+                for sub, hint in subs2:
+                    candidates.append(self._mk(sub, hint, sub))
+                ntype2 = NEXT_TYPE.get(ctx_key2) or NEXT_TYPE.get(cmd)
+                if ntype2:
+                    candidates += self._dyn_typed(ntype2, "")
+
+        # ── Filtrage et tri : préfixe d'abord, sous-chaîne ensuite ────────
+        if q:
+            prefix_m  = [c for c in candidates
+                         if c["insert"].lower().startswith(q)]
+            contain_m = [c for c in candidates
+                         if q in c["insert"].lower()
+                         and not c["insert"].lower().startswith(q)]
+            filtered = prefix_m + contain_m
+        else:
+            filtered = candidates
+
+        # Dédupliquer sur insert
+        seen: set[str] = set()
+        deduped: list[dict] = []
+        for c in filtered:
+            key = c["insert"].lower()
+            if key not in seen:
+                seen.add(key)
+                deduped.append(c)
+
+        items = deduped[:40]
+
+        # ── Préfixe commun des inserts ────────────────────────────────────
+        cp = self._common_prefix([c["insert"] for c in items]) if items else ""
+
+        return {"common_prefix": cp, "items": items}
+
+    def _dyn_any(self, q: str) -> list[dict]:
+        """Retourne terminaux + commodités + vaisseaux du joueur pour la saisie libre."""
+        results: list[dict] = []
+        results += self._dyn_typed("any", q)
+        return results
+
+    def _dyn_typed(self, ntype: str, q: str) -> list[dict]:
+        """Retourne des suggestions dynamiques selon le type attendu."""
+        if not self.ctx:
             return []
+        results: list[dict] = []
+
+        do_loc  = ntype in ("location", "terminal", "any")
+        do_com  = ntype in ("commodity", "any")
+        do_veh  = ntype in ("vehicle", "any")
+        do_ship = ntype == "any"  # vaisseaux joueur en priorité dans "any"
+
+        # — Vaisseaux du joueur (priorité dans "any") ——————————————————————
+        if do_ship:
+            player = getattr(self.ctx, "player", None)
+            if player:
+                for s in (getattr(player, "ships", None) or []):
+                    name = getattr(s, "name", "") or ""
+                    if not name:
+                        continue
+                    insert = name.replace(" ", "_")
+                    results.append(self._mk(name, "vaisseau joueur", insert))
+
+        # — Terminaux / lieux ——————————————————————————————————————————————
+        if do_loc and self.ctx.cache:
+            count = 0
+            for t in (self.ctx.cache.terminals or []):
+                insert = (t.name or "").replace(" ", "_")
+                system = getattr(t, "star_system_name", "") or ""
+                results.append(self._mk(t.name or insert,
+                                         f"terminal · {system}", insert))
+                count += 1
+                if count >= 80:
+                    break
+
+        # — Commodités ——————————————————————————————————————————————————————
+        if do_com and self.ctx.cache:
+            for c in (self.ctx.cache.commodities or []):
+                insert = (c.name or "").replace(" ", "_")
+                kind   = getattr(c, "kind", "") or "commodité"
+                results.append(self._mk(c.name or insert, kind, insert))
+
+        # — Tous les vaisseaux (si type "vehicle") ——————————————————————————
+        if do_veh and not do_ship and self.ctx.cache:
+            for v in (self.ctx.cache.vehicles or []):
+                name = getattr(v, "name_full", "") or getattr(v, "name", "") or ""
+                if not name:
+                    continue
+                mfr    = getattr(v, "company_name", "") or ""
+                insert = name.replace(" ", "_")
+                results.append(self._mk(name, f"vaisseau · {mfr}", insert))
+
+        return results
 
     # ── Screenshot DB / OCR ───────────────────────────────────────────────────
 

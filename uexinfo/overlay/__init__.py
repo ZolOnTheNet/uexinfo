@@ -195,7 +195,7 @@ class _Win32HotkeyListener:
 
 
 def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
-    """Point d'entrée du mode overlay (appelé par __main__.py --overlay)."""
+    """Point d'entrée de l'overlay (appelé par __main__.py)."""
 
     # ── Vérifier les dépendances optionnelles ────────────────────────────────
     try:
@@ -205,7 +205,7 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
         missing = str(e).split("'")[1] if "'" in str(e) else str(e)
         print(f"[overlay] Dépendance manquante : {missing}")
         print("  pip install pywebview pynput")
-        print("  ou : pip install -e \".[overlay]\"")
+        print("  ou : pip install -e .")
         sys.exit(1)
 
     try:

@@ -1443,7 +1443,7 @@ function dispatch(msg) {
     case 'trade_pick':  showTradePick(msg); break;
     case 'select':      showSelectPanel(msg); break;
     case 'status':      updateStatus(msg); break;
-    case 'completions': showComps(msg.items); break;
+    case 'completions': showComps(msg.items, msg.common_prefix || ''); break;
     case 'hint':        elHint.textContent = msg.text; break;
     case 'history':     history = msg.items || []; break;
     case 'quit':
@@ -1703,6 +1703,12 @@ elInput.addEventListener('keydown', e => {
     else if (histIdx===0) { histIdx=-1; elInput.value = histSave; }
     return;
   }
+  if (e.ctrlKey && e.key === 'Escape') {
+    e.preventDefault();
+    _tabTriggered = true;
+    send({type:'complete', text: elInput.value || '', cursor: elInput.selectionStart});
+    return;
+  }
   if (e.key === 'Escape') {
     const compVisible2 = elComp.style.display !== 'none';
     if (compVisible2) { closeComps(); return; }
@@ -1743,13 +1749,29 @@ elInput.addEventListener('input', () => {
 
 // ── Complétion ────────────────────────────────────────────────────────────────
 
-function showComps(items) {
+function showComps(items, commonPrefix) {
   const fromTab = _tabTriggered;
   _tabTriggered = false;
   completions = items;
   compIdx = -1;
   elComp.innerHTML = '';
   if (!items.length) { closeComps(); return; }
+
+  // Appliquer le préfixe commun si Tab et qu'il étend le mot courant
+  if (fromTab && commonPrefix) {
+    const pos       = elInput.selectionStart;
+    const valBefore = elInput.value.slice(0, pos);
+    const valAfter  = elInput.value.slice(pos);
+    const wordStart = valBefore.lastIndexOf(' ') + 1;
+    const curWord   = valBefore.slice(wordStart);
+    if (commonPrefix.toLowerCase().startsWith(curWord.toLowerCase())
+        && commonPrefix.length > curWord.length) {
+      const linePrefix = valBefore.slice(0, wordStart);
+      elInput.value = linePrefix + commonPrefix + valAfter;
+      const newPos = linePrefix.length + commonPrefix.length;
+      elInput.setSelectionRange(newPos, newPos);
+    }
+  }
 
   // Tab + un seul résultat → complétion directe sans afficher la liste
   if (fromTab && items.length === 1) { applyComp(items[0]); return; }
@@ -1760,7 +1782,7 @@ function showComps(items) {
     d.innerHTML =
       `<span class="cv">${esc(item.value||'')}</span>` +
       (item.hint ? `<span class="ch">${esc(item.hint)}</span>` : '');
-    d.addEventListener('mousedown', ev => { ev.preventDefault(); applyComp(item); });
+    d.addEventListener('mousedown', ev => { ev.preventDefault(); applyComp(item); closeComps(); });
     elComp.appendChild(d);
   });
   elComp.style.display = 'block';
@@ -1784,9 +1806,16 @@ function acceptComp() {
 }
 
 function applyComp(item) {
-  elInput.value = item.value || '';
+  const pos       = elInput.selectionStart;
+  const valBefore = elInput.value.slice(0, pos);
+  const valAfter  = elInput.value.slice(pos);
+  const wordStart = valBefore.lastIndexOf(' ') + 1;
+  const linePrefix = valBefore.slice(0, wordStart);
+  const insert    = item.insert || item.value || '';
+  elInput.value   = linePrefix + insert + valAfter;
+  const newPos    = linePrefix.length + insert.length;
   elInput.focus();
-  elInput.setSelectionRange(elInput.value.length, elInput.value.length);
+  elInput.setSelectionRange(newPos, newPos);
   closeComps();
 }
 

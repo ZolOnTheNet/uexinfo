@@ -73,8 +73,8 @@ def main() -> None:
         import websockets  # noqa: F401
     except ImportError:
         print(
-            "[uexinfo] Dépendances overlay manquantes.\n"
-            "  Installer : pip install -e \".[overlay]\"",
+            "[uexinfo] Dépendances manquantes.\n"
+            "  Installer : pip install -e .",
             file=sys.stderr,
         )
         sys.exit(1)
