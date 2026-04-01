@@ -1,0 +1,38 @@
+Cache chargé depuis le disque.
+
+Terminal trouvé : Admin - Terra Gateway (Stanton) (ID: 251)
+
+Marché — Stanton.Terra Gateway (Stanton).admin
+  ↑ fret  ·  ⟳ auto-load  ·  ⛽ carburant  ·  ⚓ amarrage  ·  United Empire of 
+Earth
+  👁 hors radar  ·  ⚔ zone combat
+  Magasins     Armor  ·  Cargo Center Supplies  ·  Casaba Outlet  ·  Live Fire 
+Weapons  ·  Pharmacy  ·  Platinum Bay  ·  Raffinerie  ·  Ship Weapons  ·  
+Traveler Rentals  ·  Vantage Rentals
+  Restaurants  Burrito Bar  ·  Ellroy's  ·  Hot Dogs  ·  Juice Bar  ·  Noodle 
+Bar  ·  Pizza
+  Services     Admin  ·  Platinum Bay  ·  Raffinerie
+
+UEX Corp · données communauté · non confirmées  ·  ★ données joueur
+⚠  Vaisseau actif non défini ou cargo = 0 □
+   Utilisez /ship set <nom> pour définir votre vaisseau
+
+▼ Vendre ici
+ Marchandise (SCU)             Vente 
+ Aluminum (3304)           4 600  1h 
+ Astatine (924)            3 700  1h 
+ Carbon (—)                  430  1h 
+ Chlorine (7708)           1 900  1h 
+ Construction Mat… (602)  14 000  1h 
+ Copper (2835-7707)        4 700  1h 
+ Corundum (—)              4 100  1h 
+ Degnous Root (—)         63 000  1h 
+ Fluorine (—)              1 400  1h 
+ Iron (4582-6949)          3 900  1h 
+ Luminalia Gift (—)         5 M.  2j 
+ Silicon (1226-1379)       2 700  1h 
+ Stims (1177-1375)         5 000  1h 
+ Tungsten (—)             11 000  1h 
+ Year Envelope (—)          2 M.  2j 
+
+24 marchandises  ·  màj 01 Apr 2026 22:04

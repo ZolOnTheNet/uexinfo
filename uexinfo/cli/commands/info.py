@@ -964,9 +964,10 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
         console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
 
     if rows:
-        buy_rows  = sorted([r for r in rows if r.get("price_buy")],
+        # Filtrer les commodités avec price_buy à 0 ou price_sell à 0
+        buy_rows  = sorted([r for r in rows if r.get("price_buy") and r.get("price_buy") > 0],
                            key=lambda r: r.get("commodity_name") or "")
-        sell_rows = sorted([r for r in rows if r.get("price_sell")],
+        sell_rows = sorted([r for r in rows if r.get("price_sell") and r.get("price_sell") > 0],
                            key=lambda r: r.get("commodity_name") or "")
 
         if not buy_rows and not sell_rows:
