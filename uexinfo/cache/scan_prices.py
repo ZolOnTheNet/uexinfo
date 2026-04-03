@@ -65,6 +65,8 @@ class ScanPriceStore:
                 if sc.price:
                     entry["price_sell"] = sc.price
                 entry["status_sell"] = sc.stock_status
+                if sc.quantity is not None:
+                    entry["scu_sell_max"] = sc.quantity
             else:
                 if sc.price:
                     entry["price_buy"] = sc.price
@@ -84,6 +86,49 @@ class ScanPriceStore:
         entries = data.get(terminal_name_lower, {})
         cutoff = time.time() - (_MAX_AGE_DAYS * 86400)
         return [e for e in entries.values() if e.get("timestamp", 0) >= cutoff]
+
+    # ── Modification ─────────────────────────────────────────────────────────
+
+    def update_entry(self, terminal_key: str, cid_key: str, **fields) -> bool:
+        """Met à jour des champs d'une entrée. Retourne True si trouvé."""
+        data = self._load()
+        term = data.get(terminal_key, {})
+        if cid_key not in term:
+            return False
+        term[cid_key].update({k: v for k, v in fields.items() if v is not None})
+        data[terminal_key] = term
+        self._write(data)
+        return True
+
+    def delete_entry(self, terminal_key: str, cid_key: str) -> bool:
+        """Supprime une entrée. Retourne True si elle existait."""
+        data = self._load()
+        term = data.get(terminal_key, {})
+        if cid_key not in term:
+            return False
+        del term[cid_key]
+        if term:
+            data[terminal_key] = term
+        else:
+            del data[terminal_key]
+        self._write(data)
+        return True
+
+    def delete_field(self, terminal_key: str, cid_key: str, *field_names) -> bool:
+        """Supprime des champs d'une entrée (ex: price_buy). Retourne True si trouvé."""
+        data = self._load()
+        term = data.get(terminal_key, {})
+        if cid_key not in term:
+            return False
+        for f in field_names:
+            term[cid_key].pop(f, None)
+        data[terminal_key] = term
+        self._write(data)
+        return True
+
+    def list_terminal(self, terminal_key: str) -> dict[str, dict]:
+        """Retourne {cid_key: entry} pour un terminal."""
+        return self._load().get(terminal_key, {})
 
     # ── Fusion ────────────────────────────────────────────────────────────────
 
@@ -130,6 +175,8 @@ class ScanPriceStore:
                     merged["_player_sell"] = True
                 if scan_r.get("scu_buy") is not None:
                     merged["scu_buy"] = scan_r["scu_buy"]
+                if scan_r.get("scu_sell_max") is not None:
+                    merged["scu_sell_max"] = scan_r["scu_sell_max"]
                 merged["_scan_ts"]   = scan_r.get("timestamp", 0)
                 merged["_validated"] = scan_r.get("validated", False)
                 result.append(merged)
@@ -152,6 +199,7 @@ class ScanPriceStore:
                 "status_buy":     r.get("status_buy", 0),
                 "status_sell":    r.get("status_sell", 0),
                 "scu_buy":        r.get("scu_buy"),
+                "scu_sell_max":   r.get("scu_sell_max"),
                 "_player_buy":    bool(r.get("price_buy")),
                 "_player_sell":   bool(r.get("price_sell")),
                 "_scan_ts":       r.get("timestamp", 0),

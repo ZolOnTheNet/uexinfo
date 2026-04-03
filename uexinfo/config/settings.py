@@ -60,6 +60,7 @@ DEFAULT: dict = {
         "height": 900,
         "opacity": 0.95,
         "close": "normal",  # "normal" = ✕ ferme | "dblclick" = ✕ masque, double-clic ferme
+        "clock": True,      # Afficher l'horloge en fond de fenêtre
     },
     "dev": {
         "enabled":     False,   # Mode développeur — bypass des comportements de production

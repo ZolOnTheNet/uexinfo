@@ -31,6 +31,8 @@ def cmd_config(args: list[str], ctx) -> None:
         _player_config(rest, ctx)
     elif sub == "close":
         _overlay_close(rest, ctx)
+    elif sub == "clock":
+        _clock(rest, ctx)
     elif sub in ("hotkey", "overlay.hotkey"):
         _hotkey(rest, ctx)
     elif "." in sub:
@@ -74,6 +76,8 @@ def _show(cfg: dict, ctx=None) -> None:
     console.print(f"  [bold]overlay.close :[/bold]    {close_label}")
     console.print(f"  [bold]overlay.hotkey :[/bold]   {ov.get('hotkey', 'alt+shift+u')}")
     console.print(f"  [bold]overlay.opacity :[/bold]  {ov.get('opacity', 0.95)}")
+    clock_val = ov.get("clock", True)
+    console.print(f"  [bold]overlay.clock :[/bold]    {'on' if clock_val else 'off'}")
 
     # ── Trade / cache / scan ───────────────────────────────────────────────
     console.print(f"  [bold]Profit min/{C.SCU} :[/bold] {trade.get('min_profit_per_scu', 0)} {C.AUEC}")
@@ -589,6 +593,24 @@ def _overlay_close(args: list[str], ctx) -> None:
     else:
         print_ok("Fermeture : mode dblclick (✕ masque · double-clic ferme)")
     console.print(f"[{C.DIM}]Effectif au prochain lancement de l'overlay.[/{C.DIM}]")
+
+
+def _clock(args: list[str], ctx) -> None:
+    if not args or args[0].lower() not in ("on", "off"):
+        current = ctx.cfg.get("overlay", {}).get("clock", True)
+        print_error("Usage : /config clock on|off")
+        console.print(f"  [{C.DIM}]Valeur actuelle : {'on' if current else 'off'}[/{C.DIM}]")
+        return
+    enabled = args[0].lower() == "on"
+    ctx.cfg.setdefault("overlay", {})["clock"] = enabled
+    settings.save(ctx.cfg)
+    if enabled:
+        print_ok("Horloge de fond : activée")
+    else:
+        print_ok("Horloge de fond : désactivée")
+    send_fn = getattr(ctx, "_overlay_send_fn", None)
+    if send_fn:
+        send_fn({"type": "set_clock", "value": enabled})
 
 
 # ── Clés pointées génériques  (ex: voyage.calc.nbsaut) ───────────────────────

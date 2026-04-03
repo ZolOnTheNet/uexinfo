@@ -72,6 +72,46 @@ def _abbrev_name(name: str, maxlen: int = _NAME_MAX) -> str:
     return name[:maxlen - 1] + "…"
 
 
+def _abbrev_terminal(name: str, maxlen: int) -> str:
+    """Raccourcit un nom de terminal pour tenir dans maxlen caractères.
+
+    Stratégies par ordre :
+      1. Nom complet
+      2. Mots intermédiaires → initiale. (ex: 'Shubin Mining Facility SCD-1' → 'Shubin M. F. SCD-1')
+      3. Tous les mots sauf le dernier → initiale.
+      4. Troncature avec …
+    """
+    if len(name) <= maxlen:
+        return name
+    parts = name.split()
+    n = len(parts)
+    if n <= 1:
+        return name[:maxlen - 1] + "…"
+    # Essai 1 : abréger les mots intermédiaires (index 1 à n-2)
+    if n >= 3:
+        candidate = " ".join(
+            [parts[0]] + [p[0] + "." for p in parts[1:-1]] + [parts[-1]]
+        )
+        if len(candidate) <= maxlen:
+            return candidate
+    # Essai 2 : abréger tout sauf le dernier mot
+    candidate = " ".join([p[0] + "." for p in parts[:-1]] + [parts[-1]])
+    if len(candidate) <= maxlen:
+        return candidate
+    # Essai 3 : troncature
+    return name[:maxlen - 1] + "…"
+
+
+def _term_name_maxlen() -> int:
+    """Calcule la largeur max du nom de terminal selon la largeur de la console.
+
+    Utilise ~1/3 de la largeur disponible (les colonnes fixes en occupent ~2/3).
+    Minimum 16 pour rester lisible.
+    """
+    w = getattr(console, "width", None) or 80
+    return max(16, w // 3)
+
+
 _STATUS_LABEL = {1: "Out", 2: "T.Bas", 3: "Bas", 4: "Moy", 5: "Haut", 7: "Max"}
 
 # Achat : Max = blanc (abondant) → Out = rouge (épuisé)
@@ -659,7 +699,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         scu_max    = int(r.get("scu_buy_max") or scu_min)
         price_buy  = float(r.get("price_buy") or 0)
         status_buy = int(r.get("status_buy") or 0)
-        date_buy   = _fmt_date(r.get("date_modified"))
+        _ts_buy    = r.get("_scan_ts") if r.get("_player_buy") else r.get("date_modified")
+        date_buy   = _fmt_date(_ts_buy)
 
         stock_multiplier = {1: 0, 2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
         stock_percent    = stock_multiplier.get(status_buy, 0.5)
@@ -670,16 +711,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         best_buyers = _find_best_buyers(id_comm, origin_terminal.id, ctx, player_dest, sys_filter=sys_filter)
 
         if not best_buyers:
-            entries.append((0.0, {
-                "name": name, "scu_range": _notable_scu(_scu(scu_min, scu_max)),
-                "price_buy": price_buy, "date": date_buy,
-                "dest": "?", "dest_tag": C.DIM,
-                "qty": qty_buy, "total_buy": total_buy,
-                "total_sell": 0.0, "profit": 0.0,
-                "distance": "", "unsold": 0,
-                "dest_name_raw": "",
-                "_player": r.get("_player_buy", False),
-            }))
+            # Pas d'acheteur connu → non affiché dans la table (pas d'opportunité de trade)
             continue
 
         buyer       = best_buyers[0]
@@ -721,11 +753,16 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             "_player": r.get("_player_buy", False),
         }))
 
-    # ── Trier : destination prioritaire, puis profit décroissant ─────────
-    entries.sort(key=lambda e: (
-        0 if (player_dest and e[1].get("dest_name_raw", "").lower() == player_dest) else 1,
-        -e[0],
-    ))
+    # ── Trier : destination prioritaire, puis ROI décroissant ───────────
+    def _roi_key(e):
+        d = e[1]
+        pb = d.get("price_buy") or 0
+        ps = d.get("price_sell") or 0
+        roi = (ps - pb) / pb if pb else -1e9
+        prio = 0 if (player_dest and d.get("dest_name_raw", "").lower() == player_dest) else 1
+        return (prio, -roi)
+
+    entries.sort(key=_roi_key)
 
     # ── Afficher en table alignée ─────────────────────────────────────────
     has_player = any(d.get("_player") for _, d in entries)
@@ -736,6 +773,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     tbl.add_column("Âge",            style=C.DIM,    justify="right", no_wrap=True)
     tbl.add_column("→ Dest",         no_wrap=True,   min_width=20, max_width=32)
     tbl.add_column(f"→Prix/{C.SCU}", justify="right", no_wrap=True)
+    tbl.add_column("ROI",            justify="right", no_wrap=True)
     tbl.add_column("Dist",           style=C.DIM,    justify="right", no_wrap=True)
     tbl.add_column(C.SCU,            style=C.DIM,    justify="right", no_wrap=True)
     tbl.add_column("Coût",           style=C.DIM,    justify="right", no_wrap=True)
@@ -747,6 +785,16 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         p_color = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
         p_sign  = "+" if profit > 0 else ""
         player  = d.get("_player", False)
+
+        pb = d.get("price_buy") or 0
+        ps = d.get("price_sell") or 0
+        if pb and ps:
+            roi_val = (ps - pb) / pb * 100
+            r_color = C.PROFIT if roi_val > 5 else (C.LOSS if roi_val < 0 else C.NEUTRAL)
+            r_sign  = "+" if roi_val >= 0 else ""
+            roi_cell = f"[{r_color}]{r_sign}{roi_val:.0f}%[/{r_color}]"
+        else:
+            roi_cell = f"[{C.DIM}]—[/{C.DIM}]"
 
         name_raw = _abbrev_name(d["name"], 16)
         if d["scu_range"]:
@@ -766,7 +814,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
 
         scu_cell = str(d["qty"])
         if d["unsold"]:
-            scu_cell = f"{d['qty_sell']}/{d['qty']}"
+            scu_cell = f"[{C.WARNING}]{d['qty_sell']}/{d['qty']}[/{C.WARNING}]"
 
         tbl.add_row(
             name_cell,
@@ -774,6 +822,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             d["date"],
             dest_str,
             sell_cell,
+            roi_cell,
             d["distance"],
             scu_cell,
             _price_short(d["total_buy"]),
@@ -989,7 +1038,8 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                     console.print(f"[{C.DIM}]★ = données joueur (confirmées)[/{C.DIM}]")
                 entries = []
                 for r in sell_rows:
-                    d = _fmt_date(r.get("date_modified"))
+                    ts = r.get("_scan_ts") if r.get("_player_sell") else r.get("date_modified")
+                    d = _fmt_date(ts)
                     price_val = _price_short(r.get("price_sell"))
                     player_sell = r.get("_player_sell", False)
                     if player_sell:
@@ -1104,12 +1154,16 @@ def _dist_label(term_name: str, terminal_sys: str, player_sys: str,
     return terminal_sys or f"[{C.DIM}]—[/{C.DIM}]"
 
 
-def _term_sys_cell(r: dict, maxlen: int = 22,
+def _term_sys_cell(r: dict, maxlen: int | None = None,
                    player_loc: str = "", player_dest: str = "") -> str:
     """'TermCourt  (Sys)' — nom court + système en dim.
     Souligne le nom si le joueur est sur ce terminal.
     Ajoute ⭐ si c'est la destination définie.
+    maxlen=None → calculé depuis la largeur de la console.
     """
+    if maxlen is None:
+        maxlen = _term_name_maxlen()
+
     term    = _loc(r.get("terminal_name") or "?")
     sys     = r.get("star_system_name") or ""
     term_lo = term.lower()
@@ -1117,8 +1171,7 @@ def _term_sys_cell(r: dict, maxlen: int = 22,
     is_here = bool(player_loc and (term_lo in player_loc or player_loc in term_lo))
     is_dest = bool(player_dest and (term_lo in player_dest or player_dest in term_lo))
 
-    if len(term) > maxlen:
-        term = term[:maxlen - 1] + "…"
+    term = _abbrev_terminal(term, maxlen)
 
     term_part = f"[bold underline]{term}[/bold underline]" if is_here else term
     suffix    = f" [{C.PROFIT}]⭐[/{C.PROFIT}]" if is_dest else ""
@@ -1319,7 +1372,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
         tbl.add_column("Terminal (Sys)",  no_wrap=True, min_width=24)
         tbl.add_column(f"Vente/{C.SCU}",   style=C.PROFIT, justify="right", no_wrap=True)
-        tbl.add_column("Saturation",      no_wrap=True)
+        tbl.add_column("Niveau/Max",      no_wrap=True)
         tbl.add_column("T.Cargo",         style=C.DIM,    justify="right", no_wrap=True)
         tbl.add_column("Dist",            no_wrap=True)
         tbl.add_column("ROI",             justify="right", no_wrap=True)
@@ -1330,6 +1383,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             scu_sell_min = int(r.get("scu_sell") or 0)
             scu_sell_max = int(r.get("scu_sell_max") or scu_sell_min)
             scu_stock    = int(r.get("scu_sell_stock") or 0)
+            player_sell_max = r.get("scu_sell_max") if r.get("_player_sell") else None
             status       = int(r.get("status_sell") or 0)
             sys          = r.get("star_system_name") or ""
             term_name    = r.get("terminal_name") or ""
@@ -1355,8 +1409,10 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
-                _bar_sell(status, scu_stock),
-                container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]"),
+                _bar_sell(status, scu_sell_max),
+                (f"{_price_short(player_sell_max)} {C.SCU}"
+                 if player_sell_max
+                 else container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]")),
                 _dist_label(term_name, sys, player_sys, dist_map),
                 roi_str,
                 revenue_cell,

@@ -424,8 +424,7 @@ def check_log_auto(ctx) -> list[ScanResult]:
 
     if auto_cfg.get("log_accept", True):
         for r in results:
-            ctx.last_scan = r
-            ctx.scan_history.append(r)
+            _store_result(ctx, r)   # persiste dans scan_prices.json + scan_history
 
     return results if auto_cfg.get("signal_scan", True) else []
 
@@ -634,8 +633,12 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
         price = r.get(price_key)
         cname = (r.get("commodity_name") or "").lower()
         if price and cname:
-            qty = int(r.get("scu_buy") or r.get("scu_sell") or 0)
-            status = int(r.get("status_buy") or r.get("status_sell") or 0)
+            if is_sell:
+                qty    = int(r.get("scu_sell_max") or r.get("scu_sell") or 0)
+                status = int(r.get("status_sell") or 0)
+            else:
+                qty    = int(r.get("scu_buy_max") or r.get("scu_buy") or 0)
+                status = int(r.get("status_buy") or 0)
             price_map[cname] = (int(price), qty, status)
 
     if not price_map:
@@ -808,6 +811,320 @@ def _display_mission(result) -> None:
         console.print(t)
 
     console.print("")
+
+
+def _resolve_terminal_keys(raw: str, ctx) -> list[str]:
+    """Retourne toutes les clés store possibles pour un terminal (loc_key + full_key).
+
+    Le store peut avoir été alimenté sous le nom court (_loc) OU le nom complet
+    (tel que loggé par SC-Datarunner). On retourne les deux pour garantir une
+    couverture complète lors des suppressions/mises à jour.
+    """
+    from uexinfo.cli.commands.info import _loc
+    q = raw.strip().replace("_", " ").lower()
+    keys: list[str] = []
+    for t in (ctx.cache.terminals if ctx.cache else []):
+        loc_key  = _loc(t.name).lower()
+        full_key = t.name.lower()
+        if q in (loc_key, full_key):
+            for k in (loc_key, full_key):
+                if k not in keys:
+                    keys.append(k)
+            return keys
+    # Pas trouvé dans le cache → retourner le nom tel quel
+    return [q]
+
+
+def _scan_resync(args: list[str], ctx) -> None:
+    """/scan resync <terminal> — réconcilie les données scan avec l'API UEX.
+
+    Pour chaque commodité dans le store scan du terminal :
+    - Si l'API dit price_buy=0 mais le scan a price_buy → supprime price_buy (donnée invalide)
+    - Si l'API dit price_sell=0 mais le scan a price_sell → supprime price_sell
+    - Si plus aucun prix → supprime l'entrée entièrement
+    """
+    if not args:
+        print_error("Usage : /scan resync <terminal>")
+        return
+
+    from uexinfo.cache.scan_prices import ScanPriceStore
+    from uexinfo.api.uex_client import UEXClient, UEXError
+    import time
+
+    term_raw  = " ".join(args).replace("_", " ").strip()
+    term_keys = _resolve_terminal_keys(term_raw, ctx)
+
+    store = ScanPriceStore()
+    # Fusionner les entrées de toutes les clés
+    all_entries: dict[str, tuple[str, dict]] = {}  # cid_key → (term_key, entry)
+    for tk in term_keys:
+        for ck, e in store.list_terminal(tk).items():
+            if ck not in all_entries:
+                all_entries[ck] = (tk, e)
+
+    term_key = term_keys[0]
+    if not all_entries:
+        print_warn(f"Aucune donnée scan pour «{term_key}».")
+        return
+
+    console.print(f"[{C.DIM}]Chargement des prix UEX pour {term_key}…[/{C.DIM}]")
+    try:
+        client = UEXClient()
+        rows = client.get_prices(terminal_name=term_key)
+    except UEXError as e:
+        print_error(f"Erreur API UEX : {e}")
+        return
+
+    # Index UEX par commodity_id et par nom
+    uex_by_id:   dict[int, dict] = {}
+    uex_by_name: dict[str, dict] = {}
+    for r in rows:
+        cid = int(r.get("id_commodity") or 0)
+        if cid:
+            uex_by_id[cid] = r
+        cname = (r.get("commodity_name") or "").lower()
+        if cname:
+            uex_by_name[cname] = r
+
+    removed = 0
+    updated = 0
+    now = time.time()
+
+    for cid_key, (stored_tk, entry) in list(all_entries.items()):
+        cid   = entry.get("commodity_id") or 0
+        cname = (entry.get("commodity_name") or "").lower()
+        uex_r = uex_by_id.get(cid) or uex_by_name.get(cname)
+
+        fields_to_del = []
+
+        if entry.get("price_buy"):
+            if uex_r is None or not uex_r.get("price_buy"):
+                fields_to_del.extend(["price_buy", "status_buy", "scu_buy"])
+
+        if entry.get("price_sell"):
+            if uex_r is None or not uex_r.get("price_sell"):
+                fields_to_del.extend(["price_sell", "status_sell", "scu_sell_max"])
+
+        if not fields_to_del:
+            continue
+
+        remaining_buy  = entry.get("price_buy")  if "price_buy"  not in fields_to_del else None
+        remaining_sell = entry.get("price_sell") if "price_sell" not in fields_to_del else None
+        display_name   = entry.get("commodity_name") or cid_key
+
+        if remaining_buy or remaining_sell:
+            store.delete_field(stored_tk, cid_key, *fields_to_del)
+            console.print(
+                f"  [{C.WARNING}]⚠[/{C.WARNING}]  [{C.NEUTRAL}]{display_name}[/{C.NEUTRAL}]"
+                f"  [{C.DIM}]champs supprimés : {', '.join(f for f in fields_to_del if not f.startswith('s'))}[/{C.DIM}]"
+            )
+            updated += 1
+        else:
+            store.delete_entry(stored_tk, cid_key)
+            console.print(
+                f"  [{C.LOSS}]✗[/{C.LOSS}]  [{C.NEUTRAL}]{display_name}[/{C.NEUTRAL}]"
+                f"  [{C.DIM}]supprimé (contradiction API)[/{C.DIM}]"
+            )
+            removed += 1
+
+    if removed == 0 and updated == 0:
+        print_ok(f"Données scan pour «{term_key}» cohérentes avec l'API UEX — rien à corriger.")
+    else:
+        print_ok(
+            f"Resync {term_key} : {removed} supprimé(s), {updated} mis à jour"
+            f" sur {len(all_entries)} entrée(s)."
+        )
+
+
+def _scan_edit(args: list[str], ctx) -> None:
+    """/scan edit <terminal> [del <commodity>] | [<commodity> [prix=N] [qte=N] [stock=N]]
+
+    Sans commodity → liste les entrées du terminal.
+    Avec commodity seul → affiche l'entrée.
+    Avec prix/qte/stock → modifie les valeurs.
+    del <commodity> → supprime l'entrée.
+    """
+    if not args:
+        print_error("Usage : /scan edit <terminal> [del|<commodity> [prix=N] [qte=N] [stock=N]]")
+        return
+
+    from uexinfo.cache.scan_prices import ScanPriceStore
+    import time
+
+    store = ScanPriceStore()
+    comm_args_start = 1
+
+    # Résoudre le terminal sur toutes ses clés possibles (loc + full)
+    for n in range(1, min(4, len(args) + 1)):
+        candidate_keys = _resolve_terminal_keys(" ".join(args[:n]), ctx)
+        # Fusionner les entrées de toutes les clés
+        merged: dict[str, tuple[str, dict]] = {}  # cid_key → (stored_tk, entry)
+        for tk in candidate_keys:
+            for ck, e in store.list_terminal(tk).items():
+                if ck not in merged:
+                    merged[ck] = (tk, e)
+        if merged or n == len(args):
+            comm_args_start = n
+            break
+    else:
+        candidate_keys = _resolve_terminal_keys(args[0], ctx)
+        merged = {}
+        comm_args_start = 1
+
+    term_key  = candidate_keys[0]
+    # Vue plate des entrées pour la recherche par nom
+    entries   = {ck: e for ck, (_, e) in merged.items()}
+    rest      = args[comm_args_start:]
+
+    # /scan edit <terminal>  → lister
+    if not rest:
+        if not entries:
+            print_warn(f"Aucune donnée scan pour «{term_key}».")
+            return
+        all_keys_str = " / ".join(k for k in candidate_keys if store.list_terminal(k))
+        console.print(f"\n[bold {C.UEX}]{all_keys_str}[/bold {C.UEX}]  [{C.DIM}]{len(entries)} entrée(s)[/{C.DIM}]")
+        for cid_key, e in sorted(entries.items(), key=lambda x: x[1].get("commodity_name", x[0])):
+            pb   = e.get("price_buy")  or 0
+            ps   = e.get("price_sell") or 0
+            ts   = e.get("timestamp", 0)
+            age  = _fmt_age(ts) if ts else "?"
+            name = e.get("commodity_name") or cid_key
+            buy_str  = f"  A:[{C.UEX}]{pb:,}[/{C.UEX}]" if pb else ""
+            sell_str = f"  V:[{C.PROFIT}]{ps:,}[/{C.PROFIT}]" if ps else ""
+            console.print(f"  [{C.NEUTRAL}]{name:<28}[/{C.NEUTRAL}]{buy_str}{sell_str}  [{C.DIM}]{age}[/{C.DIM}]  [{C.DIM}]{cid_key}[/{C.DIM}]")
+        return
+
+    # /scan edit <terminal> del <commodity>
+    if rest[0].lower() == "del":
+        if len(rest) < 2:
+            print_error("Usage : /scan edit <terminal> del <commodity>")
+            return
+        comm_q = " ".join(rest[1:]).replace("_", " ").lower()
+        target_key = _find_scan_entry_key(entries, comm_q)
+        if not target_key:
+            print_error(f"Commodité «{comm_q}» introuvable dans les données de «{term_key}».")
+            return
+        stored_tk = merged[target_key][0]
+        store.delete_entry(stored_tk, target_key)
+        name = entries[target_key].get("commodity_name") or target_key
+        print_ok(f"Supprimé : {name} @ {stored_tk}")
+        return
+
+    # /scan edit <terminal> <commodity> [prix=N] [qte=N] [stock=N]
+    # Séparer le nom de commodité des paramètres key=val
+    comm_words = []
+    kv_args    = []
+    for a in rest:
+        if "=" in a:
+            kv_args.append(a)
+        else:
+            comm_words.append(a)
+
+    comm_q = " ".join(comm_words).replace("_", " ").lower()
+    target_key = _find_scan_entry_key(entries, comm_q) if comm_q else None
+
+    if not comm_q and not kv_args:
+        print_error("Usage : /scan edit <terminal> <commodity> [prix=N] [qte=N] [stock=N]")
+        return
+
+    if comm_q and not target_key:
+        print_error(f"Commodité «{comm_q}» introuvable dans les données de «{term_key}».")
+        _scan_edit([" ".join(args[:comm_args_start])], ctx)   # relister
+        return
+
+    if not kv_args:
+        # Afficher l'entrée
+        e = entries[target_key]
+        name = e.get("commodity_name") or target_key
+        console.print(f"\n[bold {C.NEUTRAL}]{name}[/bold {C.NEUTRAL}]  [{C.DIM}]@ {term_key}[/{C.DIM}]")
+        for k, v in sorted(e.items()):
+            if k == "timestamp":
+                console.print(f"  {k:<20} {_fmt_age(v)} ({v})")
+            else:
+                console.print(f"  {k:<20} {v}")
+        return
+
+    # Modifier les champs
+    updates: dict = {}
+    for kv in kv_args:
+        key, _, val = kv.partition("=")
+        key = key.lower().strip()
+        val = val.strip()
+        if key in ("prix", "price_buy"):
+            try:
+                updates["price_buy"] = int(val)
+            except ValueError:
+                print_error(f"prix invalide : {val}") ; return
+        elif key in ("prix_vente", "sell", "price_sell"):
+            try:
+                updates["price_sell"] = int(val)
+            except ValueError:
+                print_error(f"prix_vente invalide : {val}") ; return
+        elif key in ("qte", "qty", "quantity", "scu"):
+            try:
+                v = int(val)
+                # Stocker dans scu_buy ou scu_sell_max selon ce qui existe
+                e_cur = entries.get(target_key, {})
+                if e_cur.get("price_buy"):
+                    updates["scu_buy"] = v
+                else:
+                    updates["scu_sell_max"] = v
+            except ValueError:
+                print_error(f"qte invalide : {val}") ; return
+        elif key in ("stock", "status", "status_buy"):
+            try:
+                updates["status_buy"] = int(val)
+            except ValueError:
+                print_error(f"stock invalide : {val}") ; return
+        elif key in ("stock_vente", "status_sell"):
+            try:
+                updates["status_sell"] = int(val)
+            except ValueError:
+                print_error(f"stock_vente invalide : {val}") ; return
+        else:
+            print_warn(f"Paramètre inconnu ignoré : {key}  (connus : prix, prix_vente, qte, stock, stock_vente)")
+
+    if not updates:
+        return
+
+    updates["timestamp"] = time.time()
+    stored_tk = merged[target_key][0]
+    ok = store.update_entry(stored_tk, target_key, **updates)
+    if ok:
+        name = entries[target_key].get("commodity_name") or target_key
+        chg = "  ".join(f"{k}={v}" for k, v in updates.items() if k != "timestamp")
+        print_ok(f"Modifié : {name} @ {stored_tk}  →  {chg}")
+    else:
+        print_error("Échec de la mise à jour.")
+
+
+def _find_scan_entry_key(entries: dict, query: str) -> str | None:
+    """Trouve la clé d'une entrée dans le store par nom ou id (fuzzy)."""
+    if not query:
+        return None
+    # Correspondance exacte par nom
+    for k, e in entries.items():
+        if (e.get("commodity_name") or "").lower() == query:
+            return k
+    # Correspondance partielle
+    for k, e in entries.items():
+        if query in (e.get("commodity_name") or "").lower():
+            return k
+    # Correspondance exacte par clé
+    if query in entries:
+        return query
+    return None
+
+
+def _fmt_age(ts: float) -> str:
+    """Formate un timestamp Unix en âge lisible."""
+    import time as _time
+    delta = _time.time() - ts
+    if delta < 3600:
+        return f"{int(delta // 60)}min"
+    if delta < 86400:
+        return f"{int(delta // 3600)}h"
+    return f"{int(delta // 86400)}j"
 
 
 def _store_result(ctx, result) -> None:
@@ -1165,4 +1482,14 @@ def cmd_scan(args: list[str], ctx) -> None:
         _run_debug_on(ctx, image_path)
         return
 
-    print_error(f"Sous-commande inconnue : {sub}  —  /scan [list|ecran|screenshot|log|status|history|debug]")
+    # /scan resync <terminal>
+    if sub == "resync":
+        _scan_resync(args[1:], ctx)
+        return
+
+    # /scan edit <terminal> [del <commodity>] | [<commodity> [prix=N] [qte=N] [stock=N]]
+    if sub == "edit":
+        _scan_edit(args[1:], ctx)
+        return
+
+    print_error(f"Sous-commande inconnue : {sub}  —  /scan [list|ecran|screenshot|log|status|history|debug|resync|edit]")

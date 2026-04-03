@@ -146,11 +146,13 @@ class OverlayServer:
             ov_cfg     = self.ctx.cfg.get("overlay", {})
             opacity    = ov_cfg.get("opacity", 0.76)
             close_mode = ov_cfg.get("close", "normal")
+            clock      = ov_cfg.get("clock", True)
             await websocket.send(json.dumps({
                 "type":       "banner",
                 "text":       f"UEXInfo v{__version__} — /help pour l'aide",
                 "opacity":    opacity,
                 "close_mode": close_mode,
+                "clock":      clock,
             }))
             await self._send_status(websocket)
             await self._send_vocab(websocket)
@@ -596,8 +598,7 @@ class OverlayServer:
         await ws.send(json.dumps({"type": msg_type, "data": data}))
 
     async def _handle_scan_confirm(self, ws, data: dict) -> None:
-        """Met à jour le ScanResult correspondant avec les valeurs éditées,
-        puis re-exécute /scan log pour afficher le résultat mis à jour."""
+        """Met à jour le ScanResult correspondant avec les valeurs éditées et persiste."""
         try:
             # Pour les scans inline (log), trouver le bon résultat par terminal+mode
             terminal_key = (data.get("terminal") or "").strip().lower()
@@ -633,18 +634,9 @@ class OverlayServer:
         except Exception:
             return
 
-        # Re-exécuter /scan log — même comportement qu'une commande manuelle
+        # Confirmer la sauvegarde sans re-parser le log (évite doublon + saut de formulaire)
         try:
-            prev_len = len(getattr(self.ctx, "scan_history", []))
-            loop = asyncio.get_event_loop()
-            output, _ = await loop.run_in_executor(None, self._exec_sync, "/scan log")
-            # output texte supprimé : le formulaire inline remplace l'affichage
             await ws.send(json.dumps({"type": "done"}))
-            # Envoyer l'éditeur pour les nouveaux scans détectés
-            new_scans = getattr(self.ctx, "scan_history", [])[prev_len:]
-            for r in new_scans:
-                await self._send_scan_edit(ws, r)
-            # Mettre à jour les flags (scan_log consommé → scan_sc peut réapparaître)
             await self._send_status(ws)
         except Exception:
             pass

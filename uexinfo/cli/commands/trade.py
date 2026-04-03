@@ -376,12 +376,18 @@ def _print_trade_entry(d: dict) -> None:
     )
 
     rest = f" [{C.DIM}]· {d['remainder']} restant[/{C.DIM}]" if d["remainder"] else ""
+    roi_str = ""
+    roi = d.get("roi")
+    if roi is not None:
+        r_sign = "+" if roi >= 0 else ""
+        r_color = C.PROFIT if roi > 5 else (C.LOSS if roi < 0 else C.NEUTRAL)
+        roi_str = f"  ROI:[{r_color}]{r_sign}{roi:.0f}%[/{r_color}]"
     part2 = (
         f"[{C.DIM}]{d['packing']}[/{C.DIM}]{rest}"
         f"  A_Tot: [{C.UEX}]{_price_short(d['total_buy'])}[/{C.UEX}]"
         f"  V_Tot:[{C.PROFIT}]{_price_short(d['total_sell'])}[/{C.PROFIT}]"
         f"  Gain:[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]"
-        + ppg
+        + roi_str + ppg
     )
 
     w = getattr(console, "width", 120) or 120
@@ -577,6 +583,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
             packing    = _pack(qty, sizes_list) if sizes_list else f"[ {qty}×1{C.SCU} ]"
             remainder  = _pack_remainder(qty, sizes_list) if sizes_list else 0
 
+        roi = (price_sell - price_buy) / price_buy * 100 if price_buy else None
         entries.append({
             "name": name, "price_buy": price_buy, "price_sell": price_sell,
             "date": date_buy,
@@ -587,7 +594,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
             "orig_sizes": _fmt_szs(orig_raw, orig_term_fb),
             "packing": packing, "remainder": remainder,
             "total_buy": total_buy, "total_sell": total_sell,
-            "profit": profit, "dest_dist": dest_dist, "dist_str": dist_str,
+            "profit": profit, "roi": roi, "dest_dist": dest_dist, "dist_str": dist_str,
         })
 
     if not entries:
@@ -597,7 +604,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
         )
         return
 
-    entries.sort(key=lambda d: -d["profit"])
+    entries.sort(key=lambda d: -(d["roi"] if d["roi"] is not None else -1e9))
 
     section(f"Trade — {_loc(origin.name)} → {_loc(dest.name)}")
     dist_note = f"  ·  distance : {dist_str}" if dist_str else ""

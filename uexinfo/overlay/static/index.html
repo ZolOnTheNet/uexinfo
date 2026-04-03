@@ -859,9 +859,28 @@ html, body {
 #ctx-menu .mi:hover { background: rgba(0,188,212,0.14); }
 #ctx-menu .ms    { border-top: 1px solid rgba(255,255,255,0.07); margin: 3px 0; }
 #ctx-menu .mw    { color: var(--accent); font-size: 0.85em; padding: 2px 14px 4px; opacity: 0.7; }
+
+/* ── Horloge de fond ───────────────────────────────────────────────────── */
+#bg-clock {
+  position: fixed;
+  bottom: 46px;   /* au-dessus de la status-bar */
+  right: 12px;
+  font-size: 96px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -2px;
+  color: var(--accent);
+  opacity: 0.08;
+  pointer-events: none;
+  user-select: none;
+  line-height: 1;
+  z-index: 0;
+  text-shadow: 0 0 40px var(--accent);
+}
 </style>
 </head>
 <body>
+
+<div id="bg-clock">00:00:00</div>
 
 <div id="titlebar">
   <span class="tb-title">UEXInfo</span>
@@ -888,11 +907,11 @@ html, body {
 </div>
 
 <div id="status-bar">
-  <span id="sb-pos"   class="sb sb-pos click shrink" title="Cliquer pour changer la position">POS: —</span>
+  <span id="sb-pos"   class="sb sb-pos click shrink" title="Clic : changer la position · Double-clic : afficher le terminal">POS: —</span>
   <span id="sb-arrow" class="sb sb-sep click"        title="Aller à la destination (◄)"> · </span>
   <span id="sb-swap"    class="sb sb-sep click"      title="Inverser origine et destination"> </span>
   <span id="sb-go-here" class="sb sb-sep click"      title="Fixer la destination au lieu actuel (►)"> </span>
-  <span id="sb-dest"  class="sb click shrink"        title="Cliquer pour changer la destination">DEST: —</span>
+  <span id="sb-dest"  class="sb click shrink"        title="Clic : changer la destination · Double-clic : afficher le terminal">DEST: —</span>
   <span class="sb-sep"> │ </span>
   <span id="sb-ship"  class="sb sb-ship click"  title="Changer de vaisseau">V: —</span>
   <span class="sb-sep"> │ </span>
@@ -972,9 +991,9 @@ html, body {
           <table>
             <thead><tr>
               <th>Commodité</th>
-              <th style="width:86px">Prix aUEC</th>
-              <th style="width:64px">Qté SCU</th>
               <th style="width:90px">Niveau stock</th>
+              <th style="width:64px">Qté SCU</th>
+              <th style="width:86px">Prix aUEC</th>
             </tr></thead>
             <tbody id="se-rows"></tbody>
           </table>
@@ -1417,6 +1436,10 @@ function dispatch(msg) {
       appendSystem(msg.text);
       if (msg.opacity !== undefined) setAlpha(msg.opacity);
       if (msg.close_mode !== undefined) applyCloseMode(msg.close_mode);
+      if (msg.clock !== undefined) applyClockMode(msg.clock);
+      break;
+    case 'set_clock':
+      applyClockMode(msg.value);
       break;
     case 'echo':        appendEcho(msg.text); startSpin(); break;
     case 'output':      appendAnsi(msg.ansi); break;   // spinner continue jusqu'au 'done'
@@ -1458,6 +1481,11 @@ function send(obj) {
 }
 
 // ── Fermeture overlay ──────────────────────────────────────────────────────────
+
+function applyClockMode(enabled) {
+  const el = document.getElementById('bg-clock');
+  if (el) el.style.display = enabled ? '' : 'none';
+}
 
 let _closeMode = 'normal';
 let _closeTimer = null;
@@ -1625,11 +1653,16 @@ document.getElementById('sb-pos').addEventListener('click', () => {
 });
 document.getElementById('sb-pos').addEventListener('dblclick', (e) => {
   e.stopPropagation();
-  sendCmd('/info @local');
+  if (currentPos) sendCmd('/info ' + currentPos.replace(/ /g, '_'));
 });
-document.getElementById('sb-dest').addEventListener('click', () => {
+document.getElementById('sb-dest').addEventListener('click', (e) => {
+  if (e.detail > 1) return;  // laisser dblclick gérer
   elInput.value = '/dest '; elInput.focus();
   send({type:'complete', text:'/dest ', cursor:6});
+});
+document.getElementById('sb-dest').addEventListener('dblclick', (e) => {
+  e.stopPropagation();
+  if (currentDest) sendCmd('/info ' + currentDest.replace(/ /g, '_'));
 });
 document.getElementById('sb-arrow').addEventListener('click', () => {
   if (currentDest) sendCmd(`/go ${currentDest}`);
@@ -3123,6 +3156,20 @@ function onScreenshotProcessed(msg) {
 document.getElementById('sb-screencap').addEventListener('click', () => {
   sendCmd('/mission scan');
 });
+
+// Horloge de fond
+(function() {
+  const el = document.getElementById('bg-clock');
+  function tick() {
+    const now = new Date();
+    const hh  = String(now.getHours()).padStart(2, '0');
+    const mm  = String(now.getMinutes()).padStart(2, '0');
+    const ss  = String(now.getSeconds()).padStart(2, '0');
+    el.textContent = `${hh}:${mm}:${ss}`;
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
 
 // Fermer avec Échap
 document.addEventListener('keydown', (e) => {

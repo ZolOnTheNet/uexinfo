@@ -117,9 +117,11 @@ _DETAILS = {
         "/config scan hour <n>                 Fenêtre /mission scan en heures (défaut : 2)\n"
         "/config scan session_gap <min>        Gap entre sessions en minutes (défaut : 60)\n"
         "/config close normal|dblclick         Comportement du bouton ✕ de l'overlay\n"
+        "/config clock on|off                  Horloge en fond de l'overlay (défaut : on)\n"
         "/config player                        Afficher la config joueur\n\n"
         "/help config close   → détail du comportement de fermeture\n"
-        "/help config scan    → détail des options scan OCR"
+        "/help config scan    → détail des options scan OCR\n"
+        "/help config clock   → détail de l'horloge de fond"
     ),
     "config scan": (
         "Options de scan OCR et détection automatique de screenshots.\n\n"
@@ -150,6 +152,21 @@ _DETAILS = {
         "    2. Prendre des screenshots (F12) de chaque mission disponible\n"
         "    3. Le badge 📷 s'allume dans l'overlay → cliquer\n"
         "    4. Sélectionner les missions → Ajouter au catalogue ou au voyage"
+    ),
+    "config clock": (
+        "/config clock on|off\n\n"
+        "  Affiche ou masque l'horloge temps réel en fond de la fenêtre overlay.\n\n"
+        "  L'horloge affiche l'heure locale (HH:MM:SS) en grands caractères cyan,\n"
+        "  très transparents, en bas à droite de la fenêtre.\n"
+        "  Elle n'intercepte pas les clics et n'interfère pas avec le contenu.\n\n"
+        "  on    (défaut) — horloge visible\n"
+        "  off            — horloge masquée\n\n"
+        "  Le changement est immédiat (pas besoin de relancer l'overlay).\n"
+        "  Le réglage est sauvegardé dans ~/.uexinfo/config.toml.\n\n"
+        "  Exemples :\n"
+        "    /config clock off   Masquer l'horloge\n"
+        "    /config clock on    Réafficher l'horloge\n"
+        "    /config             Voir l'état actuel (ligne overlay.clock)"
     ),
     "config close": (
         "/config close normal|dblclick\n\n"

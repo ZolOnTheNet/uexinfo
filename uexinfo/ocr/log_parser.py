@@ -296,4 +296,14 @@ def _group_scans(
         # Le scan en attente est emis mais le terminal reste "courant"
         # pour le prochain parse_new (qui pourra recevoir la soumission API)
 
+    # Dédupliquer les commodités dans chaque ScanResult :
+    # SC-Datarunner peut logger la même commodité plusieurs fois dans un scan.
+    # On garde la dernière occurrence (prix/stock les plus récents).
+    for r in results:
+        seen: dict[str, int] = {}  # clé → dernier index
+        for i, c in enumerate(r.commodities):
+            key = str(c.commodity_id) if c.commodity_id else c.name.lower()
+            seen[key] = i
+        r.commodities = [r.commodities[i] for i in sorted(seen.values())]
+
     return results, current_terminal, current_type
