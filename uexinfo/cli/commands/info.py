@@ -1811,11 +1811,15 @@ def _show_commodity_list(args: list[str], ctx) -> None:
 
     /info list [-p] [filtre]
     """
-    by_price = False
+    # -p ou -p- = prix décroissant, -p+ = prix croissant
+    sort_mode = "alpha"  # alpha | price_asc | price_desc
     filter_parts: list[str] = []
     for a in args:
-        if a.lower() in ("-p", "--price"):
-            by_price = True
+        al = a.lower()
+        if al in ("-p", "-p-", "--price"):
+            sort_mode = "price_desc"
+        elif al == "-p+":
+            sort_mode = "price_asc"
         else:
             filter_parts.append(a)
     q = " ".join(filter_parts).replace("_", " ").lower().strip()
@@ -1825,11 +1829,13 @@ def _show_commodity_list(args: list[str], ctx) -> None:
         items = [c for c in items if q in c.name.lower()]
 
     if not items:
-        print_warn(f"Aucune commodité trouvée pour « {q}»" if q else "Aucune commodité en base")
+        print_warn(f"Aucune commodité trouvée pour « {q} »" if q else "Aucune commodité en base")
         return
 
-    if by_price:
+    if sort_mode == "price_desc":
         items.sort(key=lambda c: -(c.price_buy or c.price_sell or 0))
+    elif sort_mode == "price_asc":
+        items.sort(key=lambda c: (c.price_buy or c.price_sell or 0))
     else:
         items.sort(key=lambda c: c.name.lower())
 
