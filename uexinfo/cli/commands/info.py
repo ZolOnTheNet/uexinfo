@@ -1811,15 +1811,21 @@ def _show_commodity_list(args: list[str], ctx) -> None:
 
     /info list [-p] [filtre]
     """
-    # -p ou -p- = prix décroissant, -p+ = prix croissant
-    sort_mode = "alpha"  # alpha | price_asc | price_desc
+    # Flags de tri : -b gagne sur -p si les deux sont présents
+    sort_mode = "alpha"  # alpha | price_asc | price_desc | benef_asc | benef_desc
     filter_parts: list[str] = []
     for a in args:
         al = a.lower()
-        if al in ("-p", "-p-", "--price"):
-            sort_mode = "price_desc"
+        if al in ("-b", "-b-"):
+            sort_mode = "benef_desc"
+        elif al == "-b+":
+            sort_mode = "benef_asc"
+        elif al in ("-p", "-p-", "--price"):
+            if not sort_mode.startswith("benef"):
+                sort_mode = "price_desc"
         elif al == "-p+":
-            sort_mode = "price_asc"
+            if not sort_mode.startswith("benef"):
+                sort_mode = "price_asc"
         else:
             filter_parts.append(a)
     q = " ".join(filter_parts).replace("_", " ").lower().strip()
@@ -1832,10 +1838,17 @@ def _show_commodity_list(args: list[str], ctx) -> None:
         print_warn(f"Aucune commodité trouvée pour « {q} »" if q else "Aucune commodité en base")
         return
 
+    def _benef(c):
+        return (c.price_sell or 0) - (c.price_buy or 0)
+
     if sort_mode == "price_desc":
         items.sort(key=lambda c: -(c.price_buy or c.price_sell or 0))
     elif sort_mode == "price_asc":
         items.sort(key=lambda c: (c.price_buy or c.price_sell or 0))
+    elif sort_mode == "benef_desc":
+        items.sort(key=lambda c: -_benef(c))
+    elif sort_mode == "benef_asc":
+        items.sort(key=lambda c: _benef(c))
     else:
         items.sort(key=lambda c: c.name.lower())
 
@@ -1845,9 +1858,18 @@ def _show_commodity_list(args: list[str], ctx) -> None:
     tbl.add_column("Type", style=C.DIM)
     tbl.add_column("Achat", justify="right")
     tbl.add_column("Vente", justify="right")
+    tbl.add_column("Bénéf.", justify="right")
     tbl.add_column("Flags", style=C.DIM)
 
     for c in items:
+        benef = _benef(c)
+        if benef > 0:
+            benef_str = f"[{C.PROFIT}]+{_price_fmt(benef)}[/{C.PROFIT}]"
+        elif benef < 0:
+            benef_str = f"[{C.LOSS}]{_price_fmt(benef)}[/{C.LOSS}]"
+        else:
+            benef_str = f"[{C.DIM}]—[/{C.DIM}]"
+
         flags: list[str] = []
         if c.is_illegal:
             flags.append(f"[{C.LOSS}]illégal[/{C.LOSS}]")
@@ -1861,6 +1883,7 @@ def _show_commodity_list(args: list[str], ctx) -> None:
             c.kind or "—",
             _price_fmt(c.price_buy),
             _price_fmt(c.price_sell),
+            benef_str,
             " ".join(flags) if flags else "—",
         )
 
