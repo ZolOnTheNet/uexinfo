@@ -382,12 +382,19 @@ def _print_trade_entry(d: dict) -> None:
         r_sign = "+" if roi >= 0 else ""
         r_color = C.PROFIT if roi > 5 else (C.LOSS if roi < 0 else C.NEUTRAL)
         roi_str = f"  ROI:[{r_color}]{r_sign}{roi:.0f}%[/{r_color}]"
+    risk = d.get("risk", 0)
+    if risk <= 15:
+        risk_str = f"  [{C.PROFIT}]⚠{risk}%[/{C.PROFIT}]"
+    elif risk <= 45:
+        risk_str = f"  [{C.WARNING}]⚠{risk}%[/{C.WARNING}]"
+    else:
+        risk_str = f"  [{C.LOSS}]⚠{risk}%[/{C.LOSS}]"
     part2 = (
         f"[{C.DIM}]{d['packing']}[/{C.DIM}]{rest}"
         f"  A_Tot: [{C.UEX}]{_price_short(d['total_buy'])}[/{C.UEX}]"
         f"  V_Tot:[{C.PROFIT}]{_price_short(d['total_sell'])}[/{C.PROFIT}]"
         f"  Gain:[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]"
-        + roi_str + ppg
+        + roi_str + risk_str + ppg
     )
 
     w = getattr(console, "width", 120) or 120
@@ -546,8 +553,16 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
         qty_unsold = qty - qty_sell
 
         total_buy  = qty * price_buy
-        total_sell = qty_sell * price_sell
+        total_sell = qty * price_sell      # optimiste (tout vendu)
         profit     = total_sell - total_buy
+
+        # Risque = saturation destination (70%) + ancienneté données (30%)
+        import time as _time
+        sat_risk  = qty_unsold / qty if qty > 0 else 0
+        dest_ts   = dest_row.get("date_modified") or 0
+        age_hours = (_time.time() - dest_ts) / 3600 if dest_ts else 24
+        age_risk  = min(1.0, age_hours / 12)
+        risk_pct  = int((sat_risk * 0.7 + age_risk * 0.3) * 100)
 
         container_map = _fetch_container_sizes(id_comm, ctx)
         orig_raw  = container_map.get(orig_lo) or container_map.get(orig_loc_lo) or "—"
@@ -594,7 +609,8 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
             "orig_sizes": _fmt_szs(orig_raw, orig_term_fb),
             "packing": packing, "remainder": remainder,
             "total_buy": total_buy, "total_sell": total_sell,
-            "profit": profit, "roi": roi, "dest_dist": dest_dist, "dist_str": dist_str,
+            "profit": profit, "roi": roi, "risk": risk_pct,
+            "dest_dist": dest_dist, "dist_str": dist_str,
         })
 
     if not entries:

@@ -46,7 +46,8 @@ class ScanPriceStore:
             data[term_key] = {}
 
         is_sell = result.mode == "sell"
-        now = time.time()
+        # Utiliser le timestamp du scan (log/OCR) et non l'heure courante
+        scan_ts = result.timestamp.timestamp() if hasattr(result.timestamp, 'timestamp') else time.time()
 
         for sc in result.commodities:
             # Prix 0 non validé → on ne surcharge pas les données existantes
@@ -58,7 +59,7 @@ class ScanPriceStore:
 
             entry["commodity_name"] = sc.name
             entry["commodity_id"] = sc.commodity_id
-            entry["timestamp"] = now
+            entry["timestamp"] = scan_ts
             entry["validated"] = result.validated
 
             if is_sell:

@@ -724,10 +724,17 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         inv_percent     = inv_multiplier.get(status_sell, 0.5)
         qty_sell_lim    = int(qty_buy * inv_percent)
         qty_unsold      = qty_buy - qty_sell_lim
-        # Profit basé sur les SCU effectivement vendables (pas sur tout le cargo)
-        total_sell_real = qty_sell_lim * price_sell
-        total_sell_full = qty_buy * price_sell      # référence si tout vendable
-        profit_full     = total_sell_real - total_buy
+        # Profit optimiste (tout le cargo vendu) + indicateur de risque
+        total_sell_opt  = qty_buy * price_sell
+        profit_opt      = total_sell_opt - total_buy
+
+        # Risque = saturation destination (70%) + ancienneté des données (30%)
+        import time as _time
+        sat_risk  = qty_unsold / qty_buy if qty_buy > 0 else 0
+        dest_ts   = buyer.get("date_modified") or 0
+        age_hours = (_time.time() - dest_ts) / 3600 if dest_ts else 24
+        age_risk  = min(1.0, age_hours / 12)   # 100% risk après 12h sans màj
+        risk_pct  = int((sat_risk * 0.7 + age_risk * 0.3) * 100)
 
         dest_display = _dot_name(
             dest_name, dest_system, origin_system,
@@ -740,15 +747,16 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
 
         distance_str = _dist_label(dest_name, dest_system, player_sys, dist_map)
 
-        entries.append((profit_full, {
+        entries.append((profit_opt, {
             "name": name, "scu_range": _notable_scu(_scu(scu_min, scu_max)),
             "price_buy": price_buy, "date": date_buy,
             "dest": dest_display, "dest_tag": dest_tag,
             "price_sell": price_sell,
             "qty": qty_buy, "qty_sell": qty_sell_lim,
             "total_buy": total_buy,
-            "total_sell": total_sell_real, "profit": profit_full,
-            "distance": distance_str, "unsold": qty_unsold,
+            "total_sell": total_sell_opt, "profit": profit_opt,
+            "risk": risk_pct, "unsold": qty_unsold,
+            "distance": distance_str,
             "dest_name_raw": dest_name,
             "_player": r.get("_player_buy", False),
         }))
@@ -779,6 +787,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     tbl.add_column("Coût",           style=C.DIM,    justify="right", no_wrap=True)
     tbl.add_column("Vente",          justify="right", no_wrap=True)
     tbl.add_column("Profit",         justify="right", no_wrap=True)
+    tbl.add_column("Risque",         justify="right", no_wrap=True)
 
     for _, d in entries:
         profit  = d["profit"]
@@ -795,6 +804,15 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             roi_cell = f"[{r_color}]{r_sign}{roi_val:.0f}%[/{r_color}]"
         else:
             roi_cell = f"[{C.DIM}]—[/{C.DIM}]"
+
+        # Risque : vert <20%, orange 20-50%, rouge >50%
+        risk = d.get("risk", 0)
+        if risk <= 15:
+            risk_cell = f"[{C.PROFIT}]{risk}%[/{C.PROFIT}]"
+        elif risk <= 45:
+            risk_cell = f"[{C.WARNING}]{risk}%[/{C.WARNING}]"
+        else:
+            risk_cell = f"[{C.LOSS}]{risk}%[/{C.LOSS}]"
 
         name_raw = _abbrev_name(d["name"], 16)
         if d["scu_range"]:
@@ -828,6 +846,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             _price_short(d["total_buy"]),
             _price_short(d["total_sell"]),
             f"[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]",
+            risk_cell,
         )
     if has_player:
         console.print(f"[{C.DIM}]★ = données joueur (confirmées)[/{C.DIM}]")
@@ -1289,11 +1308,14 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     # Prix de référence pour ROI
     ref_buy = (buy_rows[0]["price_buy"] if buy_rows else float(c.price_buy or 0))
 
-    # ── Distances via routes API ────────────────────────────────────────────
+    # ── Distances via routes API + graphe de transport ─────────────────────
     dist_map: dict[str, float] = {}
     player_term = _player_terminal(ctx)
     if player_term and player_term.id:
         dist_map = _fetch_route_distances(player_term.id, ctx)
+    # Fallback : graphe de transport local (même si l'API a retourné des données)
+    if player_term:
+        _add_graph_distances(dist_map, player_term, ctx)
 
     # Clés de comparaison pour le soulignement et l'étoile destination
     player_loc_key  = _loc(player_term.name).lower() if player_term else ""
