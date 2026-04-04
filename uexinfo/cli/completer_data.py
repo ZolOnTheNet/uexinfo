@@ -166,6 +166,10 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("terminal",  "Infos sur un terminal"),
         ("commodity", "Infos sur une commodité"),
         ("ship",      "Infos sur un vaisseau"),
+        ("list",      "Liste des commodités"),
+    ],
+    "info list": [
+        ("-p",  "Trier par prix décroissant"),
     ],
     "info ship":  [],  # dynamique : vaisseaux
     "explore":    [],  # dynamique : ship / commodity / système

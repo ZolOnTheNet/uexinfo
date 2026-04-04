@@ -1806,6 +1806,62 @@ def _find_vehicle(query: str, ctx) -> Vehicle | None:
     return None
 
 
+def _show_commodity_list(args: list[str], ctx) -> None:
+    """Liste les commodités du jeu, triées alpha ou par prix.
+
+    /info list [-p] [filtre]
+    """
+    by_price = False
+    filter_parts: list[str] = []
+    for a in args:
+        if a.lower() in ("-p", "--price"):
+            by_price = True
+        else:
+            filter_parts.append(a)
+    q = " ".join(filter_parts).replace("_", " ").lower().strip()
+
+    items = [c for c in ctx.cache.commodities if c.is_available]
+    if q:
+        items = [c for c in items if q in c.name.lower()]
+
+    if not items:
+        print_warn(f"Aucune commodité trouvée pour « {q}»" if q else "Aucune commodité en base")
+        return
+
+    if by_price:
+        items.sort(key=lambda c: -(c.price_buy or c.price_sell or 0))
+    else:
+        items.sort(key=lambda c: c.name.lower())
+
+    tbl = Table(box=None, pad_edge=False, show_header=True, padding=(0, 1))
+    tbl.add_column("Commodité", style=C.LABEL)
+    tbl.add_column("Code", style=C.DIM)
+    tbl.add_column("Type", style=C.DIM)
+    tbl.add_column("Achat", justify="right")
+    tbl.add_column("Vente", justify="right")
+    tbl.add_column("Flags", style=C.DIM)
+
+    for c in items:
+        flags: list[str] = []
+        if c.is_illegal:
+            flags.append(f"[{C.LOSS}]illégal[/{C.LOSS}]")
+        if c.is_extractable:
+            flags.append("minable")
+        if c.is_refinable:
+            flags.append("raffinable")
+        tbl.add_row(
+            c.name,
+            c.code or "—",
+            c.kind or "—",
+            _price_fmt(c.price_buy),
+            _price_fmt(c.price_sell),
+            " ".join(flags) if flags else "—",
+        )
+
+    section(f"Commodités ({len(items)})" + (f" · filtre « {q} »" if q else ""))
+    console.print(tbl)
+
+
 def _show_terminal_by_name(query: str, ctx, sys_filter=None) -> bool:
     """Requête directe pour les terminaux absents du cache (ex: système Pyro).
     Construit un Terminal virtuel depuis les données de prix et l'affiche.
@@ -1861,6 +1917,10 @@ def cmd_info(args: list[str], ctx) -> None:
 
     _SUBS = {"terminal", "commodity", "ship"}
     first = args[0].lower()
+
+    if first == "list":
+        _show_commodity_list(args[1:], ctx)
+        return
 
     if first in _SUBS:
         query = " ".join(args[1:])
