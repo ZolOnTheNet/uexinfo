@@ -331,14 +331,15 @@ def _add_graph_distances(dist_map: dict[str, float], origin_t_obj, ctx) -> None:
     """Complète dist_map avec les distances Dijkstra du graphe de transport local.
 
     Ne remplace pas les entrées déjà présentes (priorité UEX API).
+    Utilise le dictionnaire d'alias pour résoudre les noms de nœuds.
     """
     if not origin_t_obj:
         return
-    graph = ctx.cache.transport_graph
-    origin_node = _site_graph_node(origin_t_obj, ctx)
-    origin_node_name = origin_node.name if origin_node else origin_t_obj.name
+    alias_map = _get_site_alias_map(ctx)
+    origin_node_name = alias_map.get(_site_key(origin_t_obj).lower())
     if not origin_node_name:
         return
+    graph = ctx.cache.transport_graph
     graph_dists = graph.find_all_distances(origin_node_name)
     if not graph_dists:
         return
@@ -347,9 +348,9 @@ def _add_graph_distances(dist_map: dict[str, float], origin_t_obj, ctx) -> None:
         loc_lo = _loc(t.name).lower()
         if t_lo in dist_map or loc_lo in dist_map:
             continue
-        d = graph_dists.get(t.name)
-        if d is None:
-            d = graph_dists.get(_site_key(t))
+        # Résoudre le terminal destination vers son nœud graphe via l'alias
+        dest_node = alias_map.get(_site_key(t).lower())
+        d = graph_dists.get(dest_node) if dest_node else None
         if d is not None and d > 0:
             dist_map[t_lo] = d
             if loc_lo != t_lo:
@@ -879,19 +880,60 @@ def _svc_name(t: Terminal) -> str:
     return (t.displayname or t.nickname or _loc(t.name)).strip()
 
 
-def _site_graph_node(t: Terminal, ctx):
-    """Retourne le LocationNode correspondant au site du terminal, ou None."""
-    key = _site_key(t)
+def _get_site_alias_map(ctx) -> dict[str, str]:
+    """Dictionnaire d'alias : site_key_lower → nom du nœud dans le graphe.
+
+    Construit une seule fois et mis en cache sur ctx.
+    Stratégie : pour chaque site unique, essaye les noms candidats
+    (exact, premier mot, deux premiers mots) contre les nœuds du graphe.
+    """
+    if hasattr(ctx, "_site_alias_map"):
+        return ctx._site_alias_map
+
     graph = ctx.cache.transport_graph
-    node = graph.find_node_by_alias(key)
-    if node:
-        return node
-    # Fallback : cherche par space_station_name ou city_name
-    for candidate in (t.space_station_name, t.city_name):
-        if candidate:
-            node = graph.find_node_by_alias(candidate)
+    alias_map: dict[str, str] = {}
+    seen: set[str] = set()
+
+    for t in ctx.cache.terminals:
+        site = _site_key(t).lower()
+        if site in seen:
+            continue
+        seen.add(site)
+
+        # Candidats ordonnés par priorité
+        candidates: list[str] = []
+        for field in (_site_key(t), t.city_name, _loc(t.name), t.space_station_name, t.orbit_name, t.name):
+            if field:
+                candidates.append(field)
+                # Premier mot (ex: "ARC-L3" de "ARC-L3 Modern Express Station")
+                first = field.split()[0]
+                if first != field and len(first) >= 3:
+                    candidates.append(first)
+                # Deux premiers mots (ex: "Everus Harbor")
+                words = field.split()
+                if len(words) >= 2:
+                    candidates.append(" ".join(words[:2]))
+
+        for c in candidates:
+            node = graph.find_node_by_alias(c)
             if node:
-                return node
+                alias_map[site] = node.name
+                break
+
+    ctx._site_alias_map = alias_map
+    return alias_map
+
+
+def _site_graph_node(t: Terminal, ctx):
+    """Retourne le LocationNode correspondant au site du terminal, ou None.
+
+    Utilise le dictionnaire d'alias (construit une fois) pour résoudre
+    le nom court du nœud dans le graphe de transport.
+    """
+    alias_map = _get_site_alias_map(ctx)
+    node_name = alias_map.get(_site_key(t).lower())
+    if node_name:
+        return ctx.cache.transport_graph.nodes.get(node_name)
     return None
 
 
@@ -1156,9 +1198,7 @@ def _dist_label(term_name: str, terminal_sys: str, player_sys: str,
                 dist_map: dict | None = None) -> str:
     """Distance : Gm si routes dispo, sinon 'local' / nom système."""
     if dist_map and term_name:
-        name_lo  = term_name.lower()
-        short_lo = _loc(term_name).lower()
-        d = dist_map.get(name_lo) if name_lo in dist_map else dist_map.get(short_lo)
+        d = dist_map.get(term_name.lower()) or dist_map.get(_loc(term_name).lower())
         if d is not None:
             if d < 5:
                 return f"[{C.PROFIT}]{d:.1f} Gm[/{C.PROFIT}]"
