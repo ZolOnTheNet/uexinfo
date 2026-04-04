@@ -309,14 +309,22 @@ def _terminal_prices(t: Terminal, ctx) -> list[dict]:
             rows = _fetch_prices(f"ts_{slug}", {"terminal_name": slug}, ctx)
 
     # Fusionner avec les données scan persistées du joueur
+    # Le scan store peut utiliser différentes clés selon la source :
+    #   - loc_key : "arc-l3" (nom court)
+    #   - full_key : "admin - arc-l3" (nom UEX complet)
+    #   - station_key : "arc-l3 modern express station" (nom SC-Datarunner)
     from uexinfo.cache.scan_prices import ScanPriceStore
     store = ScanPriceStore()
-    loc_key = _loc(t.name).lower()
-    rows = store.merge_into(rows, loc_key)
-    # Essai également avec le nom complet si différent
-    full_key = t.name.lower()
-    if full_key != loc_key:
-        rows = store.merge_into(rows, full_key)
+    tried: set[str] = set()
+    for key in (
+        _loc(t.name).lower(),
+        t.name.lower(),
+        (t.space_station_name or "").lower().strip(),
+        (t.city_name or "").lower().strip(),
+    ):
+        if key and key not in tried:
+            rows = store.merge_into(rows, key)
+            tried.add(key)
 
     return rows
 
