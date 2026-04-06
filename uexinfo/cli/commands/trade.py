@@ -8,7 +8,9 @@ from uexinfo.cli.commands.info import (
     _BUY_STATUS_COLOR,
     _SELL_STATUS_COLOR,
     _abbrev_name,
+    _comm_code,
     _commodity_prices,
+    _ensure_comm_codes,
     _dist_label,
     _fetch_container_sizes,
     _fetch_route_distances,
@@ -45,6 +47,9 @@ def cmd_trade(args: list[str], ctx) -> None:
     sub = args[0].lower()
     if sub in _FROMS or sub in _TOS:
         _trade_bilan_override(args, ctx)
+        return
+    if sub == "sctrade":
+        _trade_sctrade(args[1:], ctx)
         return
     if sub not in _SUBS:
         _trade_buy(args, ctx)
@@ -359,7 +364,8 @@ def _print_trade_entry(d: dict) -> None:
     dist_part = f"  {d['dist_str']}" if d.get("dist_str") else ""
 
     player     = d.get("_player", False)
-    name_pfx   = f"★ {_abbrev_name(d['name'], 20)}" if player else _abbrev_name(d['name'], 22)
+    cc = d.get("code", "")
+    name_pfx   = f"★ {_abbrev_name(d['name'], 20, code=cc)}" if player else _abbrev_name(d['name'], 22, code=cc)
     buy_color  = f"bold {C.UEX}" if player else C.UEX
     sell_color = f"bold {C.PROFIT}" if player else C.PROFIT
 
@@ -527,6 +533,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
     orig_term_fb = _term_fallback(origin.max_container_size)
     dest_term_fb = _term_fallback(dest.max_container_size)
 
+    _ensure_comm_codes(ctx)
     entries = []
     for r in buy_rows:
         name    = r.get("commodity_name", "?")
@@ -600,7 +607,8 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
 
         roi = (price_sell - price_buy) / price_buy * 100 if price_buy else None
         entries.append({
-            "name": name, "price_buy": price_buy, "price_sell": price_sell,
+            "name": name, "code": _comm_code(name, id_comm),
+            "price_buy": price_buy, "price_sell": price_sell,
             "date": date_buy,
             "status_buy": status_buy, "status_sell": status_sell,
             "qty": qty, "qty_sell": qty_sell, "qty_unsold": qty_unsold,
@@ -657,3 +665,189 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
             for i, d in enumerate(entries)
         ],
     }
+
+
+# ── /trade sctrade ─────────────────────────────────────────────────────────────
+
+def _trade_sctrade(args: list[str], ctx) -> None:
+    """/trade sctrade [--from <loc>] [--ship <ship>] [--budget <N>] [--stops <N>]
+
+    Utilise sc-trade.tools pour trouver les meilleures routes.
+    Token requis pour le calcul de routes : /config sctrade token <token>
+    Sans token : affiche les données communauté disponibles.
+    """
+    from uexinfo.api.sctrade_client import SCTradeClient, SCTradeError, SCTradeAuthError
+    from uexinfo.display.formatter import section
+    from rich.table import Table
+
+    sct_cfg = ctx.cfg.get("sctrade", {})
+    if not sct_cfg.get("enabled", True):
+        print_warn("sc-trade.tools désactivé — /config sctrade on")
+        return
+
+    token = sct_cfg.get("token", "")
+    client = SCTradeClient(token=token)
+
+    # Paramètres depuis args ou player
+    origin    = ""
+    ship_name = ""
+    budget    = 0
+    max_stops = 3
+
+    i = 0
+    while i < len(args):
+        a = args[i].lower()
+        if a in ("--from", "-f") and i + 1 < len(args):
+            origin = args[i + 1]; i += 2
+        elif a in ("--ship", "-s") and i + 1 < len(args):
+            ship_name = args[i + 1]; i += 2
+        elif a in ("--budget", "-b") and i + 1 < len(args):
+            budget = int(args[i + 1].replace(" ", "").replace("k", "000").replace("K", "000")); i += 2
+        elif a in ("--stops", "-n") and i + 1 < len(args):
+            max_stops = int(args[i + 1]); i += 2
+        else:
+            i += 1
+
+    if not origin:
+        origin = (ctx.player.location or "").strip()
+    if not ship_name:
+        ship_name = getattr(ctx.player, "active_ship", "") or ctx.cfg.get("player", {}).get("active_ship", "")
+    if not budget:
+        # Estimation grossière : 1000 aUEC/SCU × cargo
+        cargo = _player_cargo(ctx)
+        budget = max(10_000, cargo * 1_000)
+
+    # Cargo du vaisseau
+    cargo_scu = _player_cargo(ctx) or 32
+
+    section(f"Routes sc-trade.tools  [{C.DIM}]{ship_name or '?'}  {budget:,} aUEC  {cargo_scu} SCU[/{C.DIM}]")
+
+    if client.has_token:
+        # Route via API serveur (token Patreon)
+        try:
+            routes = client.trades(
+                ship=ship_name or "Freelancer",
+                investment=budget,
+                max_cargo_scu=cargo_scu,
+                max_stops=max_stops,
+                origin=origin,
+            )
+        except SCTradeAuthError as e:
+            print_error(str(e))
+            return
+        except SCTradeError as e:
+            print_error(str(e))
+            return
+        _display_sctrade_routes(routes)
+    else:
+        # Calcul local depuis les listings publics
+        console.print(f"[{C.DIM}]Chargement des données communauté sc-trade.tools…[/{C.DIM}]")
+        try:
+            listings = client.crowdsource_listings(max_pages=6)
+        except SCTradeError as e:
+            print_error(str(e))
+            return
+        routes = _compute_routes_from_listings(
+            listings, budget=budget, cargo_scu=cargo_scu, origin=origin
+        )
+        _display_sctrade_routes(routes)
+        console.print(
+            f"[{C.DIM}]Calcul local · {len(listings)} enregistrements · "
+            f"Token Patreon = routes optimisées côté serveur[/{C.DIM}]"
+        )
+
+
+def _display_sctrade_routes(routes: list[dict]) -> None:
+    """Affiche un tableau de routes sc-trade.tools (format token ou local)."""
+    from rich.table import Table
+    if not routes:
+        console.print(f"[{C.DIM}]Aucune route trouvée.[/{C.DIM}]")
+        return
+    t = Table(show_header=True, header_style=f"bold {C.SCTRADE}", box=None, pad_edge=False)
+    t.add_column("#",         style="dim",      width=3)
+    t.add_column("Achat",     style=C.SCTRADE,  min_width=30)
+    t.add_column("Commodité", style="white",     min_width=14)
+    t.add_column("Prix/□",    justify="right",  min_width=7)
+    t.add_column("→ Vente",   style=C.SCTRADE,  min_width=30)
+    t.add_column("→Prix/□",   justify="right",  min_width=7)
+    t.add_column("Profit",    justify="right",  style=C.PROFIT, min_width=9)
+    t.add_column("ROI",       justify="right",  min_width=5)
+    for n, r in enumerate(routes[:15], 1):
+        p_buy  = float(r.get("price_buy")  or r.get("p_buy",  0))
+        p_sell = float(r.get("price_sell") or r.get("p_sell", 0))
+        profit = int(r.get("profit", (p_sell - p_buy) * r.get("qty", 1)))
+        roi    = f"+{int((p_sell - p_buy) / p_buy * 100)}%" if p_buy else "—"
+        ps     = f"+{profit:,}".replace(",", " ") if profit >= 0 else f"{profit:,}".replace(",", " ")
+        t.add_row(
+            str(n),
+            r.get("origin_loc", r.get("origin", {}).get("location", "?")),
+            r.get("commodity", r.get("origin", {}).get("itemName", "?")),
+            f"{int(p_buy):,}".replace(",", " "),
+            r.get("dest_loc",   r.get("destination", {}).get("location", "?")),
+            f"{int(p_sell):,}".replace(",", " "),
+            ps, roi,
+        )
+    console.print(t)
+    console.print(f"[{C.DIM}]{len(routes)} route(s) · sc-trade.tools[/{C.DIM}]\n")
+
+
+def _compute_routes_from_listings(
+    listings: list[dict],
+    *,
+    budget: int,
+    cargo_scu: int,
+    origin: str = "",
+) -> list[dict]:
+    """Calcul local de routes depuis les listings crowdsource sc-trade.tools.
+
+    Stratégie simple : pour chaque commodité, trouver le meilleur achat
+    et la meilleure vente, calculer le profit potentiel.
+    """
+    from collections import defaultdict
+
+    # Index : commodity → {location → {buy/sell: price}}
+    prices: dict[str, dict[str, dict]] = defaultdict(lambda: defaultdict(dict))
+    for r in listings:
+        comm = r.get("commodity", "").lower().strip()
+        loc  = r.get("location", "").strip()
+        p    = int(r.get("price") or 0)
+        tx   = r.get("transaction", "")
+        if not comm or not loc or p <= 0:
+            continue
+        if tx == "SELLS":   # terminal vend → joueur achète
+            existing = prices[comm][loc].get("buy", 0)
+            if p < existing or not existing:
+                prices[comm][loc]["buy"] = p
+        elif tx == "BUYS":  # terminal achète → joueur vend
+            existing = prices[comm][loc].get("sell", 0)
+            if p > existing:
+                prices[comm][loc]["sell"] = p
+
+    routes = []
+    for comm, locs in prices.items():
+        # Meilleur achat (prix le plus bas)
+        buy_opts  = [(loc, d["buy"])  for loc, d in locs.items() if "buy"  in d]
+        sell_opts = [(loc, d["sell"]) for loc, d in locs.items() if "sell" in d]
+        if not buy_opts or not sell_opts:
+            continue
+        buy_loc,  p_buy  = min(buy_opts,  key=lambda x: x[1])
+        sell_loc, p_sell = max(sell_opts, key=lambda x: x[1])
+        if p_sell <= p_buy:
+            continue
+        margin = (p_sell - p_buy) / p_buy
+        if margin < 0.05:   # ROI < 5% → ignorer
+            continue
+        qty    = min(cargo_scu, budget // max(p_buy, 1))
+        profit = int((p_sell - p_buy) * qty)
+        routes.append({
+            "commodity":  comm.title(),
+            "origin_loc": buy_loc,
+            "dest_loc":   sell_loc,
+            "p_buy":      p_buy,
+            "p_sell":     p_sell,
+            "profit":     profit,
+            "qty":        qty,
+        })
+
+    routes.sort(key=lambda r: r["profit"], reverse=True)
+    return routes

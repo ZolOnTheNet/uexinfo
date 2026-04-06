@@ -117,6 +117,14 @@ class OverlayServer:
         self.ctx = AppContext(cfg=cfg, cache=cache)
         self.ctx.location_index = LocationIndex(cache)
         self.ctx.player = Player.from_config(cfg.get("player", {}))
+        # Migration clés terminaux → str(id) dans scan_prices.json
+        try:
+            from uexinfo.cache.scan_prices import ScanPriceStore
+            n = ScanPriceStore().migrate_keys(self.ctx)
+            if n:
+                print(f"[overlay] scan_prices: {n} clé(s) terminal migrée(s) → ID", flush=True)
+        except Exception as _e:
+            print(f"[overlay] scan_prices migration: {_e}", flush=True)
         self.ctx.mission_manager = MissionManager()
         retention = self.ctx.cfg.get("voyages", {}).get("retention", 24)
         self.ctx.voyage_manager = VoyageManager(retention=retention)
@@ -251,6 +259,8 @@ class OverlayServer:
             _fmt_mod.console._width = cols
         elif t == "scan_confirm":
             await self._handle_scan_confirm(ws, msg.get("data", {}))
+        elif t == "scan_existing_save":
+            await self._handle_scan_existing_save(ws, msg.get("data", {}))
         elif t == "select_confirm":
             self._select_indices = msg.get("indices", [])
             self._select_event.set()
@@ -259,6 +269,8 @@ class OverlayServer:
             self._select_event.set()
         elif t == "trade_chosen":
             await self._handle_trade_chosen(msg.get("idx"))
+        elif t == "terminal_buy_chosen":
+            await self._handle_terminal_buy_chosen(ws, msg.get("data", {}))
         elif t == "mission_scan_confirm":
             await self._handle_mission_scan_confirm(ws, msg.get("data", {}))
         elif t == "mission_edit_confirm":
@@ -326,8 +338,9 @@ class OverlayServer:
 
         # Capturer la longueur de l'historique AVANT exec pour détecter les nouveaux scans
         prev_history_len = len(getattr(self.ctx, "scan_history", []))
-        # Capturer l'id de last_trade_entries pour détecter une mise à jour
+        # Capturer l'id de last_trade_entries / last_terminal_buy_entries pour détecter une mise à jour
         prev_trade_id = id(getattr(self.ctx, "last_trade_entries", None))
+        prev_tbuy_id  = id(getattr(self.ctx, "last_terminal_buy_entries", None))
 
         # Injecter select_fn pour ce websocket (permet aux commandes d'ouvrir
         # le sélecteur overlay au lieu du TUI terminal)
@@ -427,6 +440,17 @@ class OverlayServer:
         new_trade = getattr(self.ctx, "last_trade_entries", None)
         if new_trade is not None and id(new_trade) != prev_trade_id:
             await ws.send(json.dumps({"type": "trade_pick", **new_trade}))
+
+        # Envoyer terminal_buy_pick si les entrées d'achat terminal ont changé
+        new_tbuy = getattr(self.ctx, "last_terminal_buy_entries", None)
+        if new_tbuy is not None and id(new_tbuy) != prev_tbuy_id:
+            await ws.send(json.dumps({"type": "terminal_buy_pick", **new_tbuy}))
+
+        # Envoyer les messages overlay mis en file par les commandes
+        pending = getattr(self.ctx, "_overlay_msgs", [])
+        for msg in pending:
+            await ws.send(json.dumps(msg))
+        self.ctx._overlay_msgs = []
 
         # Après un refresh, le cache change → re-envoyer le vocabulaire
         first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
@@ -572,6 +596,34 @@ class OverlayServer:
             except Exception:
                 pass
 
+        # Récupérer les prix UEX de référence pour détection d'anomalies
+        uex_ref = {}  # commodity_name.lower() → {"price_buy": N, "price_sell": N}
+        try:
+            cache = getattr(self.ctx, "cache", None)
+            if cache:
+                for comm in (cache.commodities or []):
+                    uex_ref[comm.name.lower()] = {
+                        "price_buy": comm.price_buy or 0,
+                        "price_sell": comm.price_sell or 0,
+                    }
+        except Exception:
+            pass
+
+        is_sell = result.mode == "sell"
+        ref_field = "price_sell" if is_sell else "price_buy"
+
+        # Filtrer les commodités OCR noise : nom inconnu UEX + prix nul
+        known_names = set(uex_ref.keys())
+        def _keep(c):
+            name_lc = c.name.lower().strip()
+            if not name_lc:
+                return False
+            in_uex = name_lc in known_names or c.commodity_id > 0
+            # Garder si : nom reconnu UEX, OU prix non nul (joueur a un prix même si nom OCR imparfait)
+            return in_uex or c.price > 0
+
+        commodities_filtered = [c for c in result.commodities if _keep(c)]
+
         data = {
             "terminal":    result.terminal,
             "mode":        result.mode,
@@ -585,21 +637,19 @@ class OverlayServer:
                     "price":        c.price,
                     "quantity":     c.quantity,
                     "stock_status": c.stock_status,
+                    "uex_price":    uex_ref.get(c.name.lower(), {}).get(ref_field, 0),
                 }
-                for c in result.commodities
+                for c in commodities_filtered
             ],
         }
         # Scans log validés → formulaire inline dans l'output (pas de panel plein-écran)
-        msg_type = (
-            "scan_log_inline"
-            if result.source == "log" and result.validated
-            else "scan_edit"
-        )
+        msg_type = "scan_log_inline"  # toujours inline, plus de popup modal
         await ws.send(json.dumps({"type": msg_type, "data": data}))
 
     async def _handle_scan_confirm(self, ws, data: dict) -> None:
         """Met à jour le ScanResult correspondant avec les valeurs éditées et persiste."""
         try:
+            from uexinfo.models.scan_result import ScannedCommodity
             # Pour les scans inline (log), trouver le bon résultat par terminal+mode
             terminal_key = (data.get("terminal") or "").strip().lower()
             mode_key     = data.get("mode") or ""
@@ -616,21 +666,86 @@ class OverlayServer:
                 return
             result.terminal = data.get("terminal", result.terminal)
             result.mode     = data.get("mode",     result.mode)
+
+            incoming = data.get("commodities", [])
             single_idx = data.get("single_idx")   # None = tout, int = une seule ligne
-            for i, cd in enumerate(data.get("commodities", [])):
-                if i >= len(result.commodities):
-                    break
-                if single_idx is not None and i != single_idx:
-                    continue
-                c = result.commodities[i]
-                c.name         = cd.get("name", c.name)
-                c.price        = int(cd.get("price") or 0)
-                qty = cd.get("quantity")
-                c.quantity     = int(qty) if qty not in (None, "") else None
-                c.stock_status = int(cd.get("stock_status") or 0)
+
+            if single_idx is not None:
+                # MàJ d'une seule ligne par nom (l'index côté JS peut avoir changé)
+                cd = incoming[single_idx] if single_idx < len(incoming) else None
+                if cd:
+                    name_q = (cd.get("name") or "").lower()
+                    # Chercher par nom dans le résultat existant
+                    target = next((c for c in result.commodities if c.name.lower() == name_q), None)
+                    if target:
+                        target.name         = cd.get("name", target.name)
+                        target.price        = int(cd.get("price") or 0)
+                        qty = cd.get("quantity")
+                        target.quantity     = int(qty) if qty not in (None, "") else None
+                        target.stock_status = int(cd.get("stock_status") or 0)
+                    else:
+                        # Nouvelle commodité ajoutée par l'utilisateur
+                        result.commodities.append(self._make_scanned_commodity(cd))
+            else:
+                # Valider tout : reconstruire la liste complète depuis les données reçues
+                # Conserver les commodity_id des entrées existantes (match par nom)
+                old_by_name = {c.name.lower(): c for c in result.commodities}
+                new_comms = []
+                for cd in incoming:
+                    name = cd.get("name") or ""
+                    if not name:
+                        continue
+                    old = old_by_name.get(name.lower())
+                    sc = ScannedCommodity(
+                        name=name,
+                        commodity_id=old.commodity_id if old else 0,
+                        price=int(cd.get("price") or 0),
+                        quantity=int(cd["quantity"]) if cd.get("quantity") not in (None, "") else None,
+                        stock_status=int(cd.get("stock_status") or 0),
+                    )
+                    new_comms.append(sc)
+                result.commodities = new_comms
+
+            # Résoudre les commodity_ids manquants via le cache UEX
+            comm_name_to_id: dict[str, int] = {
+                c.name.lower(): c.id
+                for c in (getattr(self.ctx.cache, "commodities", None) or [])
+                if c.id
+            }
+            for sc in result.commodities:
+                if not sc.commodity_id:
+                    found = comm_name_to_id.get(sc.name.lower().strip())
+                    if found:
+                        sc.commodity_id = found
+
             # Persister
             from uexinfo.cache.scan_prices import ScanPriceStore
-            ScanPriceStore().save_result(result)
+            store = ScanPriceStore()
+            # Migrer les anciennes clés name:xxx vers id-based si l'id est maintenant connu
+            data = store._load()
+            term_key = result.terminal.lower().strip()
+            if term_key in data:
+                term = data[term_key]
+                to_migrate = [(k, v) for k, v in list(term.items()) if k.startswith("name:")]
+                changed = False
+                for old_key, entry in to_migrate:
+                    cname = old_key[5:]  # strip "name:"
+                    new_id = comm_name_to_id.get(cname)
+                    if new_id:
+                        new_key = str(new_id)
+                        # Fusionner : garder la plus récente
+                        existing = term.get(new_key)
+                        if not existing or entry.get("timestamp", 0) >= existing.get("timestamp", 0):
+                            entry["commodity_id"] = new_id
+                            term[new_key] = entry
+                        del term[old_key]
+                        changed = True
+                if changed:
+                    data[term_key] = term
+                    store._write(data)
+            from uexinfo.cli.commands.scan import _terminal_store_key
+            term_key_canonical = _terminal_store_key(result.terminal, self.ctx)
+            store.save_result(result, terminal_key=term_key_canonical)
         except Exception:
             return
 
@@ -673,6 +788,112 @@ class OverlayServer:
                 print(f"[overlay] Mission créée : {mission.name}", flush=True)
         except Exception as e:
             print(f"[overlay] trade_chosen error: {e}", flush=True)
+
+    async def _handle_scan_existing_save(self, ws, data: dict) -> None:
+        """Sauvegarde les modifications d'un formulaire scan_edit_existing."""
+        try:
+            from uexinfo.cache.scan_prices import ScanPriceStore
+            store = ScanPriceStore()
+            term_key = data.get("terminal") or ""
+            rows = data.get("commodities") or []
+            if not term_key:
+                return
+
+            # Construire le nouveau contenu du terminal
+            raw = store._load()
+            term_data: dict = {}
+            for row in rows:
+                cid_key  = row.get("cid_key") or ""
+                name     = row.get("name") or ""
+                mode     = row.get("mode") or "buy"
+                price    = int(row.get("price") or 0)
+                stock    = int(row.get("stock_status") or 0)
+                qty      = row.get("quantity")
+                # Récupérer l'entrée existante (même cid_key) ou en créer une
+                stored_tk = row.get("stored_tk") or term_key
+                existing  = (raw.get(stored_tk) or {}).get(cid_key, {}) if stored_tk in raw else {}
+                entry     = dict(existing)
+                entry["commodity_name"] = name
+                # Résoudre commodity_id depuis le cache
+                comm_name_to_id = {
+                    c.name.lower(): c.id
+                    for c in (getattr(self.ctx.cache, "commodities", None) or [])
+                    if c.id
+                }
+                cid = existing.get("commodity_id") or comm_name_to_id.get(name.lower(), 0)
+                entry["commodity_id"] = cid
+                import time as _t
+                entry["timestamp"] = _t.time()
+                entry["validated"] = True
+                if mode == "buy":
+                    entry["price_buy"]   = price
+                    entry["status_buy"]  = stock
+                    if qty is not None:
+                        entry["scu_buy"] = int(qty)
+                    # Retirer l'ancien côté sell si ce n'est pas dans les données
+                else:
+                    entry["price_sell"]    = price
+                    entry["status_sell"]   = stock
+                    if qty is not None:
+                        entry["scu_sell_max"] = int(qty)
+
+                final_key = str(cid) if cid else (cid_key or f"name:{name.lower()}")
+                term_data[final_key] = entry
+
+            # Remplacer TOUTES les entrées du terminal (toutes les clés candidates)
+            for tk in list(raw.keys()):
+                if tk == term_key or tk.replace(" ", "_") == term_key or term_key.replace("_", " ") == tk:
+                    del raw[tk]
+            raw[term_key] = term_data
+            store._write(raw)
+
+            # Invalider le cache prix pour ce terminal
+            for k in list(getattr(self.ctx, "_price_cache", {}).keys()):
+                if "tn_" in k or k.startswith("t"):
+                    pass  # laisser — les données terminal viennent de l'API
+
+            await ws.send(json.dumps({"type": "done"}))
+            await self._send_status(ws)
+        except Exception as e:
+            print(f"[overlay] scan_existing_save error: {e}", flush=True)
+
+    async def _handle_terminal_buy_chosen(self, ws, data: dict) -> None:
+        """Crée une mission à partir d'une ligne Acheter sur place (terminal view)."""
+        try:
+            entries_data = getattr(self.ctx, "last_terminal_buy_entries", None)
+            if not entries_data:
+                return
+            idx = data.get("idx", -1)
+            qty = data.get("qty")
+            entry = next((e for e in entries_data["entries"] if e["idx"] == idx), None)
+            if not entry:
+                return
+
+            scu = int(qty) if qty else entry["qty"]
+            profit = int((entry["price_sell"] - entry["price_buy"]) * scu)
+
+            from uexinfo.models.mission import Mission, MissionObjective
+            obj = MissionObjective(
+                commodity=entry["name"],
+                source=entries_data["origin"],
+                destination=entry["dest"],
+                quantity_scu=float(scu),
+            )
+            name = f'{entry["name"]} {entries_data["origin"]}→{entry["dest"]}'
+            mission = Mission(
+                id=0,
+                name=name[:45],
+                reward_uec=profit,
+                objectives=[obj],
+                source_raw="trade",
+            )
+            mm = getattr(self.ctx, "mission_manager", None)
+            if mm:
+                mm.add(mission)
+                print(f"[overlay] Mission créée : {mission.name} ({scu} SCU, profit {profit})", flush=True)
+                await self._send_status(ws)
+        except Exception as e:
+            print(f"[overlay] terminal_buy_chosen error: {e}", flush=True)
 
     # ── Mission edit confirm ───────────────────────────────────────────────────
 

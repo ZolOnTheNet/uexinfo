@@ -62,6 +62,16 @@ DEFAULT: dict = {
         "close": "normal",  # "normal" = ✕ ferme | "dblclick" = ✕ masque, double-clic ferme
         "clock": True,      # Afficher l'horloge en fond de fenêtre
     },
+    "display": {
+        "magasins":    True,   # Afficher la liste des magasins dans la vue terminal
+        "restaurants": True,   # Afficher la liste des restaurants dans la vue terminal
+        "services":    True,   # Afficher la liste des services dans la vue terminal
+    },
+    "sctrade": {
+        "token":   "",     # Token d'accès sc-trade.tools (profil utilisateur)
+        "ttl":     300,    # Cache TTL en secondes
+        "enabled": True,   # Activer/désactiver l'intégration sc-trade.tools
+    },
     "dev": {
         "enabled":     False,   # Mode développeur — bypass des comportements de production
         "skip_processed": True, # Si True : ignorer les fichiers déjà dans la DB lors d'un import

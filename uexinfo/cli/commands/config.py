@@ -4,7 +4,7 @@ from __future__ import annotations
 import uexinfo.config.settings as settings
 from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
-from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
+from uexinfo.display.formatter import console, print_error, print_ok, print_warn, print_info, section
 
 
 @register("ship", "sh")
@@ -33,6 +33,10 @@ def cmd_config(args: list[str], ctx) -> None:
         _overlay_close(rest, ctx)
     elif sub == "clock":
         _clock(rest, ctx)
+    elif sub in ("magasins", "restaurants", "services"):
+        _display_toggle(sub, rest, ctx)
+    elif sub == "sctrade":
+        _sctrade_config(rest, ctx)
     elif sub in ("hotkey", "overlay.hotkey"):
         _hotkey(rest, ctx)
     elif "." in sub:
@@ -91,6 +95,64 @@ def _show(cfg: dict, ctx=None) -> None:
     console.print(f"  [bold]scan.auto_ocr :[/bold]     {'on' if scan.get('auto_ocr', True) else 'off'}  [{C.DIM}](OCR auto dès détection d'un screenshot)[/{C.DIM}]")
     console.print(f"  [bold]scan.hour :[/bold]         {scan.get('hour', 2)}h  [{C.DIM}](fenêtre /mission scan)[/{C.DIM}]")
     console.print(f"  [bold]scan.session_gap :[/bold]  {scan.get('session_gap', 60)} min  [{C.DIM}](gap = nouvelle session)[/{C.DIM}]")
+
+    # ── Affichage terminal ─────────────────────────────────────────────────
+    disp = cfg.get("display", {})
+    def _onoff(v, default=True): return f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if (v if v is not None else default) else f"[{C.LOSS}]off[/{C.LOSS}]"
+    console.print(f"  [bold]magasins :[/bold]     {_onoff(disp.get('magasins'))}  [{C.DIM}](magasins dans la vue terminal)[/{C.DIM}]")
+    console.print(f"  [bold]restaurants :[/bold]  {_onoff(disp.get('restaurants'))}  [{C.DIM}](restaurants dans la vue terminal)[/{C.DIM}]")
+    console.print(f"  [bold]services :[/bold]     {_onoff(disp.get('services'))}  [{C.DIM}](services dans la vue terminal)[/{C.DIM}]")
+
+    # ── sc-trade.tools ────────────────────────────────────────────────────────
+    sct = cfg.get("sctrade", {})
+    token_val = sct.get("token", "")
+    token_disp = f"[{C.SUCCESS}]***défini***[/{C.SUCCESS}]" if token_val else f"[{C.LOSS}](non défini)[/{C.LOSS}]"
+    console.print(f"  [bold]sctrade.token :[/bold]   {token_disp}  [{C.DIM}](/config sctrade token <val>)[/{C.DIM}]")
+    console.print(f"  [bold]sctrade :[/bold]         {_onoff(sct.get('enabled', True))}  [{C.DIM}](/config sctrade on|off)[/{C.DIM}]")
+
+
+# ── Affichage terminal (magasins / restaurants / services) ───────────────────
+
+def _display_toggle(key: str, args: list[str], ctx) -> None:
+    """Active/désactive l'affichage d'une section dans la vue terminal."""
+    val_str = args[0].lower() if args else ""
+    if val_str not in ("on", "off", "1", "0", "true", "false", "oui", "non"):
+        disp = ctx.cfg.get("display", {})
+        current = disp.get(key, True)
+        print_info(f"{key} : {'on' if current else 'off'}  —  usage : /config {key} on|off")
+        return
+    enabled = val_str in ("on", "1", "true", "oui")
+    ctx.cfg.setdefault("display", {})[key] = enabled
+    settings.save(ctx.cfg)
+    state = f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if enabled else f"[{C.LOSS}]off[/{C.LOSS}]"
+    console.print(f"  {key} → {state}  [{C.DIM}](sauvegardé)[/{C.DIM}]")
+
+
+# ── sc-trade.tools config ────────────────────────────────────────────────────
+
+def _sctrade_config(args: list[str], ctx) -> None:
+    sct = ctx.cfg.setdefault("sctrade", {})
+    if not args:
+        token_disp = "***défini***" if sct.get("token") else "(non défini)"
+        state = "on" if sct.get("enabled", True) else "off"
+        print_info(f"sctrade: {state}  token: {token_disp}")
+        print_info("Usage: /config sctrade token <val> | on | off")
+        return
+    sub = args[0].lower()
+    if sub == "token":
+        if len(args) < 2:
+            print_warn("Usage: /config sctrade token <valeur>")
+            return
+        sct["token"] = args[1].strip()
+        settings.save(ctx.cfg)
+        console.print(f"  sctrade.token → [{C.SUCCESS}]***sauvegardé***[/{C.SUCCESS}]")
+    elif sub in ("on", "off", "1", "0", "true", "false"):
+        sct["enabled"] = sub in ("on", "1", "true")
+        settings.save(ctx.cfg)
+        state = f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if sct["enabled"] else f"[{C.LOSS}]off[/{C.LOSS}]"
+        console.print(f"  sctrade → {state}  [{C.DIM}](sauvegardé)[/{C.DIM}]")
+    else:
+        print_error(f"Sous-commande sctrade inconnue: {sub}  (token | on | off)")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

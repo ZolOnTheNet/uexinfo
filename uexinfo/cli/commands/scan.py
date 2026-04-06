@@ -424,7 +424,7 @@ def check_log_auto(ctx) -> list[ScanResult]:
 
     if auto_cfg.get("log_accept", True):
         for r in results:
-            _store_result(ctx, r)   # persiste dans scan_prices.json + scan_history
+            _store_result(ctx, r)
 
     return results if auto_cfg.get("signal_scan", True) else []
 
@@ -813,26 +813,18 @@ def _display_mission(result) -> None:
     console.print("")
 
 
-def _resolve_terminal_keys(raw: str, ctx) -> list[str]:
-    """Retourne toutes les clés store possibles pour un terminal (loc_key + full_key).
-
-    Le store peut avoir été alimenté sous le nom court (_loc) OU le nom complet
-    (tel que loggé par SC-Datarunner). On retourne les deux pour garantir une
-    couverture complète lors des suppressions/mises à jour.
+def _terminal_store_key(query: str, ctx) -> str:
+    """Retourne la clé canonique pour scan_prices.json.
+    str(terminal.id) si trouvé dans le cache, sinon 'name:{nom_normalisé}'.
     """
     from uexinfo.cli.commands.info import _loc
-    q = raw.strip().replace("_", " ").lower()
-    keys: list[str] = []
+    q = query.strip().replace("_", " ").lower()
     for t in (ctx.cache.terminals if ctx.cache else []):
         loc_key  = _loc(t.name).lower()
         full_key = t.name.lower()
-        if q in (loc_key, full_key):
-            for k in (loc_key, full_key):
-                if k not in keys:
-                    keys.append(k)
-            return keys
-    # Pas trouvé dans le cache → retourner le nom tel quel
-    return [q]
+        if q in (loc_key, full_key, str(t.id)):
+            return str(t.id)
+    return f"name:{q}"
 
 
 def _scan_resync(args: list[str], ctx) -> None:
@@ -852,17 +844,14 @@ def _scan_resync(args: list[str], ctx) -> None:
     import time
 
     term_raw  = " ".join(args).replace("_", " ").strip()
-    term_keys = _resolve_terminal_keys(term_raw, ctx)
+    term_key = _terminal_store_key(term_raw, ctx)
 
     store = ScanPriceStore()
     # Fusionner les entrées de toutes les clés
     all_entries: dict[str, tuple[str, dict]] = {}  # cid_key → (term_key, entry)
-    for tk in term_keys:
-        for ck, e in store.list_terminal(tk).items():
-            if ck not in all_entries:
-                all_entries[ck] = (tk, e)
-
-    term_key = term_keys[0]
+    for ck, e in store.list_terminal(term_key).items():
+        if ck not in all_entries:
+            all_entries[ck] = (term_key, e)
     if not all_entries:
         print_warn(f"Aucune donnée scan pour «{term_key}».")
         return
@@ -954,34 +943,56 @@ def _scan_edit(args: list[str], ctx) -> None:
     store = ScanPriceStore()
     comm_args_start = 1
 
-    # Résoudre le terminal sur toutes ses clés possibles (loc + full)
-    for n in range(1, min(4, len(args) + 1)):
-        candidate_keys = _resolve_terminal_keys(" ".join(args[:n]), ctx)
-        # Fusionner les entrées de toutes les clés
-        merged: dict[str, tuple[str, dict]] = {}  # cid_key → (stored_tk, entry)
-        for tk in candidate_keys:
-            for ck, e in store.list_terminal(tk).items():
-                if ck not in merged:
-                    merged[ck] = (tk, e)
-        if merged or n == len(args):
-            comm_args_start = n
-            break
-    else:
-        candidate_keys = _resolve_terminal_keys(args[0], ctx)
-        merged = {}
-        comm_args_start = 1
-
-    term_key  = candidate_keys[0]
+    term_key = _terminal_store_key(" ".join(args[:1]), ctx)
+    merged: dict[str, tuple[str, dict]] = {}  # cid_key → (stored_tk, entry)
+    for ck, e in store.list_terminal(term_key).items():
+        if ck not in merged:
+            merged[ck] = (term_key, e)
+    comm_args_start = 1
     # Vue plate des entrées pour la recherche par nom
     entries   = {ck: e for ck, (_, e) in merged.items()}
     rest      = args[comm_args_start:]
 
-    # /scan edit <terminal>  → lister
+    # /scan edit <terminal>  → lister (overlay form si disponible, sinon CLI)
     if not rest:
         if not entries:
             print_warn(f"Aucune donnée scan pour «{term_key}».")
             return
-        all_keys_str = " / ".join(k for k in candidate_keys if store.list_terminal(k))
+
+        # Mode overlay : formulaire éditable
+        if getattr(ctx, "_overlay_msgs", None) is not None or hasattr(ctx, "overlay_send_queue"):
+            if not hasattr(ctx, "_overlay_msgs"):
+                ctx._overlay_msgs = []
+            comms = []
+            for cid_key, (stored_tk, e) in merged.items():
+                name = e.get("commodity_name") or cid_key
+                if e.get("price_buy"):
+                    comms.append({
+                        "cid_key": cid_key, "stored_tk": stored_tk, "name": name,
+                        "mode": "buy",  "price": e.get("price_buy", 0),
+                        "stock_status": e.get("status_buy", 0),
+                        "quantity": e.get("scu_buy"),
+                        "timestamp": e.get("timestamp", 0),
+                    })
+                if e.get("price_sell"):
+                    comms.append({
+                        "cid_key": cid_key, "stored_tk": stored_tk, "name": name,
+                        "mode": "sell", "price": e.get("price_sell", 0),
+                        "stock_status": e.get("status_sell", 0),
+                        "quantity": e.get("scu_sell_max"),
+                        "timestamp": e.get("timestamp", 0),
+                    })
+            comms.sort(key=lambda c: (c["name"].lower(), c["mode"]))
+            ctx._overlay_msgs.append({
+                "type": "scan_edit_existing",
+                "terminal": term_key,
+                "terminal_display": term_key,
+                "commodities": comms,
+            })
+            return
+
+        # Fallback CLI
+        all_keys_str = term_key
         console.print(f"\n[bold {C.UEX}]{all_keys_str}[/bold {C.UEX}]  [{C.DIM}]{len(entries)} entrée(s)[/{C.DIM}]")
         for cid_key, e in sorted(entries.items(), key=lambda x: x[1].get("commodity_name", x[0])):
             pb   = e.get("price_buy")  or 0
@@ -1132,12 +1143,12 @@ def _store_result(ctx, result) -> None:
     ctx.scan_history.append(result)
     if len(ctx.scan_history) > 20:
         ctx.scan_history = ctx.scan_history[-20:]
-    # Persister dans la base locale des prix scannés
     from uexinfo.models.scan_result import ScanResult
     if isinstance(result, ScanResult) and result.commodities:
         from uexinfo.cache.scan_prices import ScanPriceStore
         try:
-            ScanPriceStore().save_result(result)
+            term_key = _terminal_store_key(result.terminal, ctx)
+            ScanPriceStore().save_result(result, terminal_key=term_key)
         except OSError:
             pass
 

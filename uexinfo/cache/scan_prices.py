@@ -38,10 +38,10 @@ class ScanPriceStore:
 
     # ── Écriture ──────────────────────────────────────────────────────────────
 
-    def save_result(self, result: ScanResult) -> None:
+    def save_result(self, result: ScanResult, terminal_key: str = "") -> None:
         """Persiste les prix d'un ScanResult dans le store."""
         data = self._load()
-        term_key = result.terminal.lower().strip()
+        term_key = terminal_key or result.terminal.lower().strip()
         if term_key not in data:
             data[term_key] = {}
 
@@ -81,10 +81,10 @@ class ScanPriceStore:
 
     # ── Lecture ───────────────────────────────────────────────────────────────
 
-    def get_rows(self, terminal_name_lower: str) -> list[dict]:
+    def get_rows(self, terminal_key: str) -> list[dict]:
         """Retourne les enregistrements de prix scannés pour un terminal."""
         data = self._load()
-        entries = data.get(terminal_name_lower, {})
+        entries = data.get(terminal_key, {})
         cutoff = time.time() - (_MAX_AGE_DAYS * 86400)
         return [e for e in entries.values() if e.get("timestamp", 0) >= cutoff]
 
@@ -131,29 +131,56 @@ class ScanPriceStore:
         """Retourne {cid_key: entry} pour un terminal."""
         return self._load().get(terminal_key, {})
 
+    def migrate_keys(self, ctx) -> int:
+        """Convertit les clés nom-terminal → str(terminal_id). Retourne nb migrations."""
+        from uexinfo.cli.commands.info import _loc
+        data = self._load()
+        changed = 0
+        terminals = ctx.cache.terminals if ctx.cache else []
+        id_map: dict[str, str] = {}  # old_key → new_key
+        for t in terminals:
+            loc_key  = _loc(t.name).lower()
+            full_key = t.name.lower()
+            new_key  = str(t.id)
+            for old in (loc_key, full_key):
+                if old in data and old != new_key:
+                    id_map[old] = new_key
+        for old, new in id_map.items():
+            existing = data.get(new, {})
+            existing.update(data.pop(old))
+            data[new] = existing
+            changed += 1
+        if changed:
+            self._write(data)
+        return changed
+
     # ── Fusion ────────────────────────────────────────────────────────────────
 
-    def merge_into(self, uex_rows: list[dict], terminal_name_lower: str) -> list[dict]:
+    def merge_into(self, uex_rows: list[dict], terminal_key: str) -> list[dict]:
         """Fusionne les données scan dans les rows UEX.
 
         Les prix scanné remplacent les champs correspondants dans les rows UEX.
         Les commodités scan absentes du cache UEX sont ajoutées comme rows synthétiques.
         Les rows résultantes ont _player=True sur les champs issus du scan.
         """
-        scan_rows = self.get_rows(terminal_name_lower)
+        scan_rows = self.get_rows(terminal_key)
         if not scan_rows:
             return uex_rows
 
-        # Index scan par commodity_id et par nom
+        # Index scan par commodity_id et par nom — si doublon, prendre le plus récent
         scan_by_id:   dict[int, dict] = {}
         scan_by_name: dict[str, dict] = {}
         for r in scan_rows:
             cid = r.get("commodity_id") or 0
             if cid:
-                scan_by_id[cid] = r
+                existing = scan_by_id.get(cid)
+                if not existing or r.get("timestamp", 0) >= existing.get("timestamp", 0):
+                    scan_by_id[cid] = r
             cname = (r.get("commodity_name") or "").lower()
             if cname:
-                scan_by_name[cname] = r
+                existing = scan_by_name.get(cname)
+                if not existing or r.get("timestamp", 0) >= existing.get("timestamp", 0):
+                    scan_by_name[cname] = r
 
         matched_cids:   set[int] = set()
         matched_cnames: set[str] = set()
@@ -162,7 +189,13 @@ class ScanPriceStore:
         for row in uex_rows:
             cid   = int(row.get("id_commodity") or 0)
             cname = (row.get("commodity_name") or "").lower()
-            scan_r = scan_by_id.get(cid) or scan_by_name.get(cname)
+            # Si doublon id/nom, prendre le plus récent
+            r_by_id   = scan_by_id.get(cid)
+            r_by_name = scan_by_name.get(cname)
+            if r_by_id and r_by_name and r_by_id is not r_by_name:
+                scan_r = r_by_id if r_by_id.get("timestamp", 0) >= r_by_name.get("timestamp", 0) else r_by_name
+            else:
+                scan_r = r_by_id or r_by_name
 
             if scan_r:
                 merged = dict(row)

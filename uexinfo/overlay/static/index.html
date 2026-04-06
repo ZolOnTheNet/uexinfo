@@ -120,6 +120,36 @@ html, body {
 }
 .si-row-btn:hover { background: rgba(0,188,212,0.14); }
 .si-row-btn.done  { color: #4caf50; border-color: #4caf50; cursor: default; }
+.si-del-btn {
+  background: transparent;
+  border: 1px solid rgba(239,83,80,0.30);
+  color: #ef5350;
+  padding: 0 5px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.78em;
+  line-height: 1.4;
+}
+.si-del-btn:hover { background: rgba(239,83,80,0.18); }
+.si-add-btn {
+  background: transparent;
+  border: 1px solid rgba(0,188,212,0.30);
+  color: var(--accent);
+  padding: 1px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.82em;
+  margin-right: 8px;
+}
+.see-mode-buy  { background: rgba(0,188,212,0.15); color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 1px 6px; cursor: pointer; font-size:0.8em; font-family:var(--font); }
+.see-mode-sell { background: rgba(229,192,123,0.15); color: #e5c07b; border: 1px solid #e5c07b; border-radius: 3px; padding: 1px 6px; cursor: pointer; font-size:0.8em; font-family:var(--font); }
+.si-warn-field, .si-warn-field.se-select, input.si-warn-field {
+  border-color: #ff9800 !important;
+  box-shadow: 0 0 4px rgba(255,152,0,0.5);
+  background: rgba(255,152,0,0.10) !important;
+}
 .cw-commodity { color: #ffd600; }
 .cw-location  { color: #00bcd4; }
 .cw-ship      { color: #69f0ae; }
@@ -566,6 +596,18 @@ html, body {
 }
 .tp-btn:hover { background: rgba(0,188,212,0.22); }
 .tp-btn.chosen { background: rgba(76,175,80,0.18); border-color: #4caf50; color: #4caf50; cursor: default; }
+.tbp-wrap { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.tbp-scu { width: 52px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text); font-family: var(--font); font-size: 0.82em; text-align: right;
+  padding: 0 4px; border-radius: 3px; }
+.tbp-scu:focus { border-color: var(--accent); outline: none; background: rgba(255,255,255,0.10); }
+.tbp-profit { font-size: 0.82em; color: #4caf50; min-width: 60px; text-align: right; }
+.tbp-profit.loss { color: #ef5350; }
+.tbp-btn { background: transparent; border: 1px solid rgba(255,152,0,0.50); color: #ff9800;
+  border-radius: 3px; cursor: pointer; padding: 0 7px; font-size: 0.82em;
+  font-family: var(--font); line-height: 1.5; }
+.tbp-btn:hover { background: rgba(255,152,0,0.18); }
+.tbp-btn.chosen { background: rgba(76,175,80,0.18); border-color: #4caf50; color: #4caf50; cursor: default; }
 /* ── Timer barre de statut ─────────────────── */
 #sb-timer { display: none; color: var(--accent); cursor: pointer; padding: 1px 5px; border-radius: 2px; font-variant-numeric: tabular-nums; }
 #sb-timer.running { display: inline; }
@@ -1455,6 +1497,7 @@ function dispatch(msg) {
     case 'vocab':       loadVocab(msg); break;
     case 'scan_edit':       enqueueScanEditor(msg.data); break;
     case 'scan_log_inline':     appendScanInline(msg); break;
+    case 'scan_edit_existing':  appendScanEditExisting(msg); break;
     case 'mission_scan_list':   showMissionScanList(msg); break;
     case 'mission_edit':        showMissionEdit(msg); break;
     case 'voyage_calc_result':    appendVoyageCalcButtons(msg); break;
@@ -1464,6 +1507,7 @@ function dispatch(msg) {
     case 'ocr_queued':           onOcrQueued(msg); break;
     case 'loc_abbrevs': updateLocAbbrevs(msg.map); break;
     case 'trade_pick':  showTradePick(msg); break;
+    case 'terminal_buy_pick': showTerminalBuyPick(msg); break;
     case 'select':      showSelectPanel(msg); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items, msg.common_prefix || ''); break;
@@ -2248,11 +2292,11 @@ function _buildNameSelect(i, nameVal) {
   return `<select data-i="${i}" data-f="name" class="se-select">${opts}</select>`;
 }
 
-function _buildStockSelect(i, stockStatus) {
+function _buildStockSelect(i, stockStatus, extraClass) {
   const opts = _STOCK_LABELS.map((lbl, idx) =>
     `<option value="${idx}"${idx === (stockStatus || 0) ? ' selected' : ''}>${lbl}</option>`
   ).join('');
-  return `<select data-i="${i}" data-f="stock_status" class="se-select">${opts}</select>`;
+  return `<select data-i="${i}" data-f="stock_status" class="se-select${extraClass || ''}">${opts}</select>`;
 }
 
 // ── Formulaire scan log inline (validé, affiché dans l'output) ───────────────
@@ -2271,14 +2315,22 @@ function appendScanInline(msg) {
 
   let rows = '';
   (data.commodities || []).forEach((c, i) => {
+    const uex = c.uex_price || 0;
+    // Détection anomalies : prix ou quantité aberrants vs UEX
+    const priceWarn = uex && c.price && (c.price < uex * 0.1 || c.price > uex * 10)
+      ? ' si-warn-field' : '';
+    const stockWarn = (c.stock_status === 0) ? ' si-warn-field' : '';
     rows +=
       `<tr>` +
+      `<td><button class="si-del-btn" onclick="siDeleteRow(this)" title="Supprimer">−</button></td>` +
       `<td>${_buildNameSelect(i, c.name || '')}</td>` +
-      `<td>${_buildStockSelect(i, c.stock_status)}</td>` +
+      `<td>${_buildStockSelect(i, c.stock_status, stockWarn)}</td>` +
       `<td><input type="number" class="num se-inline" data-i="${i}" data-f="quantity"` +
            ` value="${c.quantity != null ? c.quantity : ''}" min="0" placeholder="—"></td>` +
-      `<td><input type="number" class="num se-inline" data-i="${i}" data-f="price"` +
-           ` value="${c.price || ''}" min="0" placeholder="—"></td>` +
+      `<td><input type="number" class="num se-inline${priceWarn}" data-i="${i}" data-f="price"` +
+           ` value="${c.price || ''}" min="0" placeholder="—"` +
+           `${uex ? ` title="UEX: ${uex.toLocaleString()}"` : ''}>` +
+      `</td>` +
       `<td><button class="si-row-btn" onclick="submitScanInlineRow(this,${i})">MàJ</button></td>` +
       `</tr>`;
   });
@@ -2293,23 +2345,117 @@ function appendScanInline(msg) {
     `</div>` +
     `<table>` +
       `<thead><tr>` +
-        `<th style="text-align:left">Commodité</th>` +
+        `<th></th><th style="text-align:left">Commodité</th>` +
         `<th>Stock</th><th>Qté</th><th>Prix</th><th></th>` +
       `</tr></thead>` +
       `<tbody>${rows}</tbody>` +
     `</table>` +
-    `<button class="si-maj-btn" onclick="submitScanInline(this)">✓ Valider tout</button>`;
+    `<div style="margin-top:6px">` +
+      `<button class="si-add-btn" onclick="siAddRow(this)">+ Ajouter</button>` +
+      `<button class="si-maj-btn" onclick="submitScanInline(this)">✓ Valider tout</button>` +
+    `</div>`;
 
   elOutput.appendChild(div);
   elOutput.scrollTop = elOutput.scrollHeight;
 }
 
-function submitScanInline(btn) {
-  if (btn.classList.contains('done')) return;
-  const div      = btn.closest('.scan-inline');
-  const terminal = div.dataset.terminal;
-  const mode     = div.dataset.mode;
-  const comms    = [];
+// ── Éditeur scan existant (scan_edit_existing) ───────────────────────────────
+
+function appendScanEditExisting(msg) {
+  const terminal     = msg.terminal || '';
+  const termDisplay  = msg.terminal_display || terminal;
+  const commodities  = msg.commodities || [];
+
+  const div = document.createElement('div');
+  div.className = 'scan-inline';
+  div.dataset.terminal = terminal;
+  div.dataset.editExisting = '1';
+
+  let rows = '';
+  commodities.forEach((c, i) => {
+    const modeClass = c.mode === 'sell' ? 'see-mode-sell' : 'see-mode-buy';
+    const modeLabel = c.mode === 'sell' ? 'VENTE' : 'ACHAT';
+    const ts = c.timestamp ? new Date(c.timestamp * 1000).toLocaleDateString('fr-FR') : '';
+    rows +=
+      `<tr data-idx="${i}" data-cid-key="${esc(c.cid_key||'')}" data-stored-tk="${esc(c.stored_tk||terminal)}">` +
+      `<td><button class="si-del-btn" onclick="siDeleteRow(this)" title="Supprimer">−</button></td>` +
+      `<td><input type="text" class="se-inline" style="width:130px" value="${esc(c.name||'')}" data-f="name"></td>` +
+      `<td><button class="${modeClass}" onclick="seeToggleMode(this)" data-mode="${c.mode||'buy'}">${modeLabel}</button></td>` +
+      `<td>${_buildStockSelect(i, c.stock_status||0, '')}</td>` +
+      `<td><input type="number" class="num se-inline" value="${c.quantity!=null?c.quantity:''}" min="0" placeholder="—" data-f="quantity"></td>` +
+      `<td><input type="number" class="num se-inline" value="${c.price||''}" min="0" placeholder="—" data-f="price"></td>` +
+      `<td style="color:var(--dim);font-size:0.75em">${ts}</td>` +
+      `</tr>`;
+  });
+
+  div.innerHTML =
+    `<div class="si-head">` +
+      `<span class="si-term">${esc(termDisplay)}</span>` +
+      `<span style="color:#e5a030;font-size:0.85em"> ✏ édition</span>` +
+    `</div>` +
+    `<table>` +
+      `<thead><tr>` +
+        `<th></th><th style="text-align:left">Commodité</th>` +
+        `<th>Mode</th><th>Stock</th><th>Qté</th><th>Prix</th><th>Date</th>` +
+      `</tr></thead>` +
+      `<tbody>${rows}</tbody>` +
+    `</table>` +
+    `<div style="margin-top:6px">` +
+      `<button class="si-add-btn" onclick="seeAddRow(this)">+ Ajouter</button>` +
+      `<button class="si-maj-btn" onclick="seeSubmit(this)">✓ Sauvegarder</button>` +
+    `</div>`;
+
+  elOutput.appendChild(div);
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+function seeToggleMode(btn) {
+  const isSell = btn.dataset.mode === 'sell';
+  btn.dataset.mode  = isSell ? 'buy' : 'sell';
+  btn.textContent   = isSell ? 'ACHAT' : 'VENTE';
+  btn.className     = isSell ? 'see-mode-buy' : 'see-mode-sell';
+}
+
+function seeAddRow(btn) {
+  const tbody = btn.closest('.scan-inline').querySelector('tbody');
+  const i = tbody.rows.length;
+  const tr = document.createElement('tr');
+  tr.dataset.idx = i; tr.dataset.cidKey = ''; tr.dataset.storedTk = '';
+  tr.innerHTML =
+    `<td><button class="si-del-btn" onclick="siDeleteRow(this)">−</button></td>` +
+    `<td><input type="text" class="se-inline" style="width:130px" value="" data-f="name"></td>` +
+    `<td><button class="see-mode-buy" onclick="seeToggleMode(this)" data-mode="buy">ACHAT</button></td>` +
+    `<td>${_buildStockSelect(i, 0, '')}</td>` +
+    `<td><input type="number" class="num se-inline" value="" min="0" placeholder="—" data-f="quantity"></td>` +
+    `<td><input type="number" class="num se-inline" value="" min="0" placeholder="—" data-f="price"></td>` +
+    `<td></td>`;
+  tbody.appendChild(tr);
+}
+
+function seeSubmit(btn) {
+  const div  = btn.closest('.scan-inline');
+  const term = div.dataset.terminal;
+  const comms = [];
+  div.querySelectorAll('tbody tr').forEach(tr => {
+    const name  = (tr.querySelector('[data-f="name"]')?.value || '').trim();
+    const price = parseInt(tr.querySelector('[data-f="price"]')?.value || 0) || 0;
+    const qty   = tr.querySelector('[data-f="quantity"]')?.value;
+    const stock = parseInt(tr.querySelector('select')?.value || 0) || 0;
+    const modeBtn = tr.querySelector('[data-mode]');
+    const mode  = modeBtn ? modeBtn.dataset.mode : 'buy';
+    const cidKey   = tr.dataset.cidKey   || '';
+    const storedTk = tr.dataset.storedTk || term;
+    if (!name) return;
+    comms.push({ cid_key: cidKey, stored_tk: storedTk, name, mode, price, stock_status: stock,
+                 quantity: qty !== '' && qty != null ? parseInt(qty) : null });
+  });
+  send({ type: 'scan_existing_save', data: { terminal: term, commodities: comms } });
+  btn.textContent = '✓ Sauvegardé';
+  btn.disabled = true;
+}
+
+function _siCollectComms(div) {
+  const comms = [];
   div.querySelectorAll('tbody tr').forEach(tr => {
     const qty = tr.querySelector('[data-f="quantity"]').value;
     comms.push({
@@ -2319,6 +2465,15 @@ function submitScanInline(btn) {
       stock_status: parseInt(tr.querySelector('[data-f="stock_status"]').value) || 0,
     });
   });
+  return comms;
+}
+
+function submitScanInline(btn) {
+  if (btn.classList.contains('done')) return;
+  const div      = btn.closest('.scan-inline');
+  const terminal = div.dataset.terminal;
+  const mode     = div.dataset.mode;
+  const comms    = _siCollectComms(div);
   send({type: 'scan_confirm', data: {terminal, mode, commodities: comms}});
   btn.textContent = '✓ Envoyé';
   btn.classList.add('done');
@@ -2330,20 +2485,38 @@ function submitScanInlineRow(btn, idx) {
   const div      = btn.closest('.scan-inline');
   const terminal = div.dataset.terminal;
   const mode     = div.dataset.mode;
-  const comms    = [];
-  div.querySelectorAll('tbody tr').forEach(tr => {
-    const qty = tr.querySelector('[data-f="quantity"]').value;
-    comms.push({
-      name:         tr.querySelector('[data-f="name"]').value,
-      price:        parseInt(tr.querySelector('[data-f="price"]').value)    || 0,
-      quantity:     qty !== '' ? parseInt(qty) : null,
-      stock_status: parseInt(tr.querySelector('[data-f="stock_status"]').value) || 0,
-    });
-  });
-  send({type: 'scan_confirm', data: {terminal, mode, commodities: comms, single_idx: idx}});
+  // Recalculer l'index réel de la ligne (les suppressions décalent les indices)
+  const rows = Array.from(div.querySelectorAll('tbody tr'));
+  const tr   = btn.closest('tr');
+  const realIdx = rows.indexOf(tr);
+  const comms = _siCollectComms(div);
+  send({type: 'scan_confirm', data: {terminal, mode, commodities: comms, single_idx: realIdx}});
   btn.textContent = '✓';
   btn.classList.add('done');
   btn.disabled = true;
+}
+
+function siDeleteRow(btn) {
+  const tr = btn.closest('tr');
+  tr.remove();
+}
+
+function siAddRow(btn) {
+  const div   = btn.closest('.scan-inline');
+  const tbody = div.querySelector('tbody');
+  const rows  = tbody.querySelectorAll('tr');
+  const i     = rows.length;
+  const tr    = document.createElement('tr');
+  tr.innerHTML =
+    `<td><button class="si-del-btn" onclick="siDeleteRow(this)" title="Supprimer">−</button></td>` +
+    `<td>${_buildNameSelect(i, '')}</td>` +
+    `<td>${_buildStockSelect(i, 0)}</td>` +
+    `<td><input type="number" class="num se-inline" data-i="${i}" data-f="quantity" value="" min="0" placeholder="—"></td>` +
+    `<td><input type="number" class="num se-inline" data-i="${i}" data-f="price" value="" min="0" placeholder="—"></td>` +
+    `<td><button class="si-row-btn" onclick="submitScanInlineRow(this,${i})">MàJ</button></td>`;
+  tbody.appendChild(tr);
+  // Focus sur le select de commodité de la nouvelle ligne
+  tr.querySelector('select[data-f="name"]')?.focus();
 }
 
 function enqueueScanEditor(data) {
@@ -2494,6 +2667,97 @@ function chooseTrade(idx, btn) {
   if (btn) { btn.textContent = '\u2713'; btn.classList.add('chosen'); btn.disabled = true; }
   send({type: 'trade_chosen', idx});
   startTimer();
+}
+
+// ── Terminal buy pick (boutons → Voyage sur la section Acheter sur place) ────
+
+function showTerminalBuyPick(msg) {
+  const entries = msg.entries || [];
+  if (!entries.length) return;
+
+  // Matcher chaque entrée par nom de commodité dans les lignes ANSI
+  const used = new Set();
+  for (const e of entries) {
+    const nameLC = e.name.toLowerCase();
+    // Préfixe pour matcher les noms tronqués (ex: "agricultural su…")
+    const prefix = nameLC.length > 14 ? nameLC.slice(0, 14) : nameLC;
+    for (const d of _lastAnsiDivs) {
+      if (used.has(d)) continue;
+      const txt = d.textContent.toLowerCase();
+      // La ligne doit contenir le nom complet, le préfixe tronqué, ou le code [XXXX]
+      const hasName = txt.includes(nameLC) || txt.includes(prefix);
+      const hasCode = e.code && txt.includes('[' + e.code.toLowerCase() + ']');
+      if (!hasName && !hasCode) continue;
+      // Éviter les lignes d'en-tête / séparateurs
+      if (txt.includes('commodité') || txt.startsWith('─') || txt.startsWith('▼')) continue;
+      used.add(d);
+
+      // Tooltip avec nom complet + destination pour les noms tronqués
+      d.title = `${e.name} → ${e.dest}  (${e.price_buy} → ${e.price_sell})`;
+
+      const wrap = document.createElement('span');
+      wrap.className = 'tbp-wrap';
+      wrap.dataset.idx = e.idx;
+      wrap.dataset.priceBuy  = e.price_buy;
+      wrap.dataset.priceSell = e.price_sell;
+      wrap.dataset.qtyOrig   = e.qty;
+
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.className = 'tbp-scu';
+      inp.value = e.qty;
+      inp.min = 1;
+      inp.title = 'SCU à charger';
+      inp.oninput = () => _tbpRecalc(wrap);
+
+      const prof = document.createElement('span');
+      prof.className = 'tbp-profit';
+      const pVal = (e.price_sell - e.price_buy) * e.qty;
+      prof.textContent = _fmtAuec(pVal);
+      if (pVal < 0) prof.classList.add('loss');
+
+      const btn = document.createElement('button');
+      btn.className = 'tbp-btn';
+      btn.textContent = '→ Voyage';
+      btn.onclick = () => _tbpChoose(wrap, btn);
+
+      wrap.appendChild(inp);
+      wrap.appendChild(prof);
+      wrap.appendChild(btn);
+      d.appendChild(wrap);
+      break;
+    }
+  }
+}
+
+function _tbpRecalc(wrap) {
+  const inp  = wrap.querySelector('.tbp-scu');
+  const prof = wrap.querySelector('.tbp-profit');
+  const qty  = parseInt(inp.value) || 0;
+  const pb   = parseFloat(wrap.dataset.priceBuy)  || 0;
+  const ps   = parseFloat(wrap.dataset.priceSell) || 0;
+  const val  = (ps - pb) * qty;
+  prof.textContent = _fmtAuec(val);
+  prof.classList.toggle('loss', val < 0);
+}
+
+function _tbpChoose(wrap, btn) {
+  if (btn.classList.contains('chosen')) return;
+  const inp = wrap.querySelector('.tbp-scu');
+  const qty = parseInt(inp.value) || parseInt(wrap.dataset.qtyOrig) || 0;
+  send({type: 'terminal_buy_chosen', data: {idx: parseInt(wrap.dataset.idx), qty}});
+  btn.textContent = '✓';
+  btn.classList.add('chosen');
+  btn.disabled = true;
+  startTimer();
+}
+
+function _fmtAuec(v) {
+  const abs = Math.abs(v);
+  const sign = v < 0 ? '-' : '+';
+  if (abs >= 1e6) return sign + (abs / 1e6).toFixed(1) + ' M.';
+  if (abs >= 1e3) return sign + Math.round(abs / 1e3) + ' k';
+  return sign + abs;
 }
 
 // ── Timer chargement ─────────────────────────────────────────────────────────

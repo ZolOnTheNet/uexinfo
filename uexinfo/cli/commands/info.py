@@ -59,9 +59,33 @@ def _notable_scu(scu_str: str) -> str:
 
 _NAME_MAX = 17  # largeur max du nom seul (sans la partie SCU)
 
+# Index des codes commodité — initialisé lazily
+_comm_codes: dict[str, str] = {}  # commodity_name.lower() → code
+_comm_codes_by_id: dict[int, str] = {}  # commodity_id → code
 
-def _abbrev_name(name: str, maxlen: int = _NAME_MAX) -> str:
-    """Raccourcit les noms longs. Ex: 'Construction Materials' → 'Constr. Materials'."""
+
+def _ensure_comm_codes(ctx) -> None:
+    """Construit les index de codes à partir du cache (une seule fois)."""
+    if _comm_codes:
+        return
+    for c in (ctx.cache.commodities or []):
+        if c.code:
+            _comm_codes[c.name.lower()] = c.code
+            _comm_codes_by_id[c.id] = c.code
+
+
+def _comm_code(name: str = "", cid: int = 0) -> str:
+    """Retourne le code abrégé d'une commodité (ex: 'AGRI')."""
+    if cid and cid in _comm_codes_by_id:
+        return _comm_codes_by_id[cid]
+    return _comm_codes.get(name.lower(), "")
+
+
+def _abbrev_name(name: str, maxlen: int = _NAME_MAX, code: str = "") -> str:
+    """Raccourcit les noms longs. Ex: 'Construction Materials' → 'Constr. Materials'.
+
+    Si *code* est fourni et que le nom est tronqué, le code est ajouté : 'Agricultural Su… [AGRI]'.
+    """
     if len(name) <= maxlen:
         return name
     parts = name.split()
@@ -69,7 +93,10 @@ def _abbrev_name(name: str, maxlen: int = _NAME_MAX) -> str:
         candidate = parts[0] + " " + parts[-1]
         if len(candidate) <= maxlen:
             return candidate
-    return name[:maxlen - 1] + "…"
+    short = name[:maxlen - 1] + "…"
+    if code:
+        short = f"{short} [{C.DIM}][{code}][/{C.DIM}]"
+    return short
 
 
 def _abbrev_terminal(name: str, maxlen: int) -> str:
@@ -159,9 +186,9 @@ def _fmt_date(date_modified) -> str:
         return ""
 
 
-def _entry_ns(name: str, scu_str: str, status: int | None, buy: bool) -> str:
+def _entry_ns(name: str, scu_str: str, status: int | None, buy: bool, code: str = "") -> str:
     """Formate 'NomCourt (SCU)' avec le SCU coloré selon le statut de stock."""
-    short = _abbrev_name(name)
+    short = _abbrev_name(name, code=code)
     s = int(status or 0)
     color_map = _BUY_STATUS_COLOR if buy else _SELL_STATUS_COLOR
     color = color_map.get(s, C.DIM)
@@ -308,23 +335,10 @@ def _terminal_prices(t: Terminal, ctx) -> list[dict]:
         if slug and slug != loc_q2:
             rows = _fetch_prices(f"ts_{slug}", {"terminal_name": slug}, ctx)
 
-    # Fusionner avec les données scan persistées du joueur
-    # Le scan store peut utiliser différentes clés selon la source :
-    #   - loc_key : "arc-l3" (nom court)
-    #   - full_key : "admin - arc-l3" (nom UEX complet)
-    #   - station_key : "arc-l3 modern express station" (nom SC-Datarunner)
+    # Fusionner avec les données scan persistées du joueur (clé canonique = str(t.id))
     from uexinfo.cache.scan_prices import ScanPriceStore
-    store = ScanPriceStore()
-    tried: set[str] = set()
-    for key in (
-        _loc(t.name).lower(),
-        t.name.lower(),
-        (t.space_station_name or "").lower().strip(),
-        (t.city_name or "").lower().strip(),
-    ):
-        if key and key not in tried:
-            rows = store.merge_into(rows, key)
-            tried.add(key)
+    store_key = str(t.id) if t.id else f"name:{_loc(t.name).lower()}"
+    rows = ScanPriceStore().merge_into(rows, store_key)
 
     return rows
 
@@ -490,10 +504,11 @@ def _fetch_container_sizes(commodity_id: int, ctx) -> dict[str, str]:
     return sizes
 
 
-def _fmt_container_sizes(raw) -> str:
-    """Formate container_sizes en '1·2·4' (ou '—' si vide).
+def _fmt_container_sizes(raw, short: bool = False) -> str:
+    """Formate container_sizes en '1/2/4' ou '1-4' (short).
 
     raw peut être une liste [1,2,4], une chaîne '1,2,4', ou un int.
+    short=True → format compact min-max (ex: '8-32').
     """
     if not raw:
         return "—"
@@ -503,7 +518,87 @@ def _fmt_container_sizes(raw) -> str:
         vals = sorted({int(v) for v in raw if str(v).isdigit()})
     else:
         vals = sorted({int(v.strip()) for v in str(raw).split(",") if v.strip().isdigit()})
-    return "/".join(str(v) for v in vals) if vals else "—"
+    if not vals:
+        return "—"
+    if short:
+        return str(vals[0]) if len(vals) == 1 else f"{vals[0]}-{vals[-1]}"
+    return "/".join(str(v) for v in vals)
+
+
+def _short_sizes(s: str) -> str:
+    """Convertit '8/16/24/32' ou '1·2·4' → '8-32' ou '1-4'. Passe-plat si déjà court ou vide."""
+    if not s or s == "—":
+        return ""
+    # Déjà au format court (ex: "8-32")
+    if "-" in s and "/" not in s and "·" not in s:
+        return s
+    # Extraire les nombres
+    import re
+    vals = sorted({int(v) for v in re.findall(r'\d+', s)})
+    if not vals:
+        return ""
+    return str(vals[0]) if len(vals) == 1 else f"{vals[0]}-{vals[-1]}"
+
+
+def _fetch_terminal_container_sizes(terminal_id: int, ctx) -> dict:
+    """Retourne les données de routes depuis un terminal (un seul appel API).
+
+    Clé = commodity_name_lower → {
+        "origin_sizes": "8-32",
+        "dest_sizes":   {"dest_name_lower": "8-32"},
+        "best_route":   {   # meilleur trade UEX pour cette commodité
+            "dest_name": str, "dest_system": str,
+            "dest_planet": str, "dest_orbit": str, "dest_station": str,
+            "price_sell": float, "profit": float, "distance": float, "score": float,
+        } | None
+    }
+    """
+    import time as _time
+    cache_key = f"tcs_{terminal_id}"
+    cached = ctx._price_cache.get(cache_key)
+    if cached and _time.time() - cached[0] < 300:
+        return cached[1]
+
+    try:
+        routes = UEXClient().get_routes(id_terminal_origin=terminal_id)
+    except UEXError:
+        return {}
+
+    # Grouper par commodité — garder la meilleure route (score/profit décroissant)
+    best: dict[str, dict] = {}  # cname → meilleur route dict
+    result: dict = {}
+    for route in routes:
+        cname = (route.get("commodity_name") or "").lower()
+        if not cname:
+            continue
+        if cname not in result:
+            result[cname] = {"origin_sizes": _fmt_container_sizes(route.get("container_sizes_origin"), short=True), "dest_sizes": {}, "best_route": None}
+        dest = (route.get("destination_terminal_name") or "").lower()
+        if dest:
+            result[cname]["dest_sizes"][dest] = _fmt_container_sizes(route.get("container_sizes_destination"), short=True)
+        # Meilleure route = score le plus élevé, à défaut profit
+        score = float(route.get("score") or 0)
+        prev = best.get(cname)
+        if prev is None or score > prev.get("_score", 0):
+            best[cname] = {
+                "_score":      score,
+                "dest_name":   route.get("destination_terminal_name") or "",
+                "dest_system": route.get("destination_star_system_name") or "",
+                "dest_planet": route.get("destination_planet_name") or "",
+                "dest_orbit":  route.get("destination_orbit_name") or "",
+                "dest_station":route.get("destination_space_station_name") or "",
+                "price_sell":  float(route.get("price_destination") or 0),
+                "profit":      float(route.get("profit") or 0),
+                "distance":    float(route.get("distance") or 0),
+            }
+
+    for cname, rdata in result.items():
+        br = best.get(cname)
+        if br:
+            rdata["best_route"] = {k: v for k, v in br.items() if k != "_score"}
+
+    ctx._price_cache[cache_key] = (_time.time(), result)
+    return result
 
 
 # ── Données scan ───────────────────────────────────────────────────────────────
@@ -573,6 +668,24 @@ def _show_scan_section(result: ScanResult, ctx) -> None:
                 if cname:
                     uex_prices_by_name[cname] = p
 
+    # Charger les prix persistants (édités via /scan edit) pour overlay
+    from uexinfo.cache.scan_prices import ScanPriceStore
+    _store_key_q = str(matched_terminal.id) if matched_terminal and matched_terminal.id else f"name:{terminal_name_q}"
+    store_rows = ScanPriceStore().get_rows(_store_key_q)
+    store_prices: dict[int, int] = {}       # commodity_id → prix store
+    store_prices_by_name: dict[str, int] = {}  # name.lower() → prix store
+    is_sell = result.mode == "sell"
+    store_price_field = "price_sell" if is_sell else "price_buy"
+    for sr in store_rows:
+        sp = sr.get(store_price_field) or 0
+        if sp:
+            scid = sr.get("commodity_id") or 0
+            if scid:
+                store_prices[scid] = sp
+            sname = (sr.get("commodity_name") or "").lower()
+            if sname:
+                store_prices_by_name[sname] = sp
+
     tbl = Table(show_header=True, box=None, padding=(0, 1))
     tbl.add_column("Commodité", style=C.NEUTRAL, no_wrap=True, min_width=20)
     tbl.add_column(f"Prix/{C.SCU}", justify="right", no_wrap=True)
@@ -582,8 +695,12 @@ def _show_scan_section(result: ScanResult, ctx) -> None:
 
     for sc in sorted(result.commodities, key=lambda s: s.name):
         uex_p = uex_prices.get(sc.commodity_id) or uex_prices_by_name.get(sc.name.lower(), 0)
+        # Prix persistant (édité) prioritaire sur la valeur OCR en mémoire
+        stored_p = store_prices.get(sc.commodity_id) or store_prices_by_name.get(sc.name.lower(), 0)
         price_corrected = False
-        if sc.price:
+        if stored_p:
+            price_val = stored_p
+        elif sc.price:
             price_val = sc.price
         elif result.validated and uex_p:
             price_val = uex_p
@@ -694,16 +811,36 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
 
     # ── Distances via API UEX (même logique que _show_commodity) ─────────
     dist_map: dict[str, float] = {}
-    if origin_terminal.id:
-        dist_map = _fetch_route_distances(origin_terminal.id, ctx)
     player_sys = _player_system(ctx)
+
+    # ── Routes UEX : tailles cargo + destinations (UN seul appel API) ─────
+    cargo_sizes: dict = {}
+    if origin_terminal.id:
+        cargo_sizes = _fetch_terminal_container_sizes(origin_terminal.id, ctx)
+
+    # dist_map construit depuis les routes déjà chargées (pas d'appel séparé)
+    dist_map: dict[str, float] = {
+        v["best_route"]["dest_name"].lower(): v["best_route"]["distance"]
+        for v in cargo_sizes.values()
+        if v.get("best_route") and v["best_route"].get("dest_name") and v["best_route"].get("distance")
+    }
 
     # ── Construire toutes les lignes avec calculs ──────────────────────────
     entries: list[tuple[float, dict]] = []   # (profit_full, data)
 
+    _ensure_comm_codes(ctx)
+    # Table nom→id pour résoudre les scans joueur sans id
+    _comm_name_to_id: dict[str, int] = {
+        c.name.lower(): c.id
+        for c in (getattr(ctx.cache, "commodities", None) or [])
+        if c.id
+    }
+
     for r in buy_rows:
         name       = r.get("commodity_name", "?")
         id_comm    = int(r.get("id_commodity") or 0)
+        if not id_comm:
+            id_comm = _comm_name_to_id.get(name.lower(), 0)
         scu_min    = int(r.get("scu_buy") or 0)
         scu_max    = int(r.get("scu_buy_max") or scu_min)
         price_buy  = float(r.get("price_buy") or 0)
@@ -717,47 +854,49 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         qty_buy          = min(ship_cargo, stock_available) if stock_available > 0 else ship_cargo
         total_buy        = qty_buy * price_buy
 
-        best_buyers = _find_best_buyers(id_comm, origin_terminal.id, ctx, player_dest, sys_filter=sys_filter)
+        # ── Destination : uniquement depuis commodities_routes (déjà chargé, zéro appel API)
+        cs_entry   = cargo_sizes.get(name.lower(), {})
+        best_route = cs_entry.get("best_route")
 
-        if not best_buyers:
-            # Pas d'acheteur connu → non affiché dans la table (pas d'opportunité de trade)
-            continue
+        if best_route and best_route.get("dest_name"):
+            dest_name      = best_route["dest_name"]
+            dest_system    = best_route["dest_system"]
+            price_sell     = best_route["price_sell"]
+            total_sell_opt = qty_buy * price_sell
+            profit_opt     = total_sell_opt - total_buy
+            qty_sell_lim   = qty_buy
+            qty_unsold     = 0
+            risk_pct       = 20
+            dest_display   = _dot_name(
+                dest_name, dest_system, origin_system,
+                space_station=best_route.get("dest_station") or "",
+                planet=best_route.get("dest_planet") or "",
+                orbit=best_route.get("dest_orbit") or "",
+            )
+            dest_style   = "underline" if dest_name.lower() == player_dest else ""
+            dest_tag     = f"{dest_style} {C.LABEL}".strip()
+            distance_str = _dist_label(dest_name, dest_system, player_sys, dist_map)
+        else:
+            # Pas de route connue → afficher sans destination, zéro appel API
+            dest_name      = ""
+            dest_display   = f"[{C.DIM}]—[/{C.DIM}]"
+            dest_tag       = C.DIM
+            price_sell     = 0.0
+            qty_sell_lim   = qty_buy
+            qty_unsold     = 0
+            total_sell_opt = 0.0
+            profit_opt     = -total_buy
+            risk_pct       = 100
+            distance_str   = ""
 
-        buyer       = best_buyers[0]
-        dest_name   = buyer.get("terminal_name", "?")
-        dest_system = buyer.get("star_system_name", "")
-        price_sell  = float(buyer.get("price_sell") or 0)
-        status_sell = int(buyer.get("status_sell") or 0)
-
-        inv_multiplier  = {1: 1.0, 2: 0.8, 3: 0.6, 4: 0.4, 5: 0.2, 7: 0}
-        inv_percent     = inv_multiplier.get(status_sell, 0.5)
-        qty_sell_lim    = int(qty_buy * inv_percent)
-        qty_unsold      = qty_buy - qty_sell_lim
-        # Profit optimiste (tout le cargo vendu) + indicateur de risque
-        total_sell_opt  = qty_buy * price_sell
-        profit_opt      = total_sell_opt - total_buy
-
-        # Risque = saturation destination (70%) + ancienneté des données (30%)
-        import time as _time
-        sat_risk  = qty_unsold / qty_buy if qty_buy > 0 else 0
-        dest_ts   = buyer.get("date_modified") or 0
-        age_hours = (_time.time() - dest_ts) / 3600 if dest_ts else 24
-        age_risk  = min(1.0, age_hours / 12)   # 100% risk après 12h sans màj
-        risk_pct  = int((sat_risk * 0.7 + age_risk * 0.3) * 100)
-
-        dest_display = _dot_name(
-            dest_name, dest_system, origin_system,
-            space_station=buyer.get("space_station_name") or "",
-            planet=buyer.get("planet_name") or "",
-            orbit=buyer.get("orbit_name") or "",
-        )
-        dest_style = "underline" if dest_name.lower() == player_dest else ""
-        dest_tag   = f"{dest_style} {C.LABEL}".strip()
-
-        distance_str = _dist_label(dest_name, dest_system, player_sys, dist_map)
+        comm_code = _comm_code(name, id_comm)
+        # Tailles conteneurs (cs_entry déjà calculé plus haut)
+        orig_sz = cs_entry.get("origin_sizes", "")
+        dest_sz = cs_entry.get("dest_sizes", {}).get(dest_name.lower(), "") if dest_name else ""
 
         entries.append((profit_opt, {
-            "name": name, "scu_range": _notable_scu(_scu(scu_min, scu_max)),
+            "name": name, "code": comm_code,
+            "scu_range": _notable_scu(_scu(scu_min, scu_max)),
             "price_buy": price_buy, "date": date_buy,
             "dest": dest_display, "dest_tag": dest_tag,
             "price_sell": price_sell,
@@ -768,6 +907,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             "distance": distance_str,
             "dest_name_raw": dest_name,
             "_player": r.get("_player_buy", False),
+            "orig_sizes": orig_sz, "dest_sizes": dest_sz,
         }))
 
     # ── Trier : destination prioritaire, puis ROI décroissant ───────────
@@ -793,6 +933,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     tbl.add_column("ROI",            justify="right", no_wrap=True)
     tbl.add_column("Dist",           style=C.DIM,    justify="right", no_wrap=True)
     tbl.add_column(C.SCU,            style=C.DIM,    justify="right", no_wrap=True)
+    tbl.add_column("T.Cargo",        style=C.DIM,    no_wrap=True)
     tbl.add_column("Coût",           style=C.DIM,    justify="right", no_wrap=True)
     tbl.add_column("Vente",          justify="right", no_wrap=True)
     tbl.add_column("Profit",         justify="right", no_wrap=True)
@@ -823,7 +964,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         else:
             risk_cell = f"[{C.LOSS}]{risk}%[/{C.LOSS}]"
 
-        name_raw = _abbrev_name(d["name"], 16)
+        name_raw = _abbrev_name(d["name"], 16, code=d.get("code", ""))
         if d["scu_range"]:
             name_raw = f"{name_raw} [dim]({d['scu_range']})[/dim]"
         if player:
@@ -843,6 +984,18 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         if d["unsold"]:
             scu_cell = f"[{C.WARNING}]{d['qty_sell']}/{d['qty']}[/{C.WARNING}]"
 
+        # T.Cargo : tailles origine → destination (format compact min-max)
+        o_sz = _short_sizes(d.get("orig_sizes", ""))
+        d_sz = _short_sizes(d.get("dest_sizes", ""))
+        if o_sz and d_sz and o_sz != d_sz:
+            cargo_cell = f"{o_sz}→{d_sz}"
+        elif o_sz:
+            cargo_cell = o_sz
+        elif d_sz:
+            cargo_cell = d_sz
+        else:
+            cargo_cell = f"[{C.DIM}]—[/{C.DIM}]"
+
         tbl.add_row(
             name_cell,
             price_cell,
@@ -852,6 +1005,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             roi_cell,
             d["distance"],
             scu_cell,
+            cargo_cell,
             _price_short(d["total_buy"]),
             _price_short(d["total_sell"]),
             f"[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]",
@@ -860,6 +1014,30 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     if has_player:
         console.print(f"[{C.DIM}]★ = données joueur (confirmées)[/{C.DIM}]")
     console.print(tbl)
+
+    # Stocker les entrées pour l'overlay (boutons → Voyage + input SCU)
+    # Uniquement les entrées avec une destination connue (sinon bouton inutile)
+    ctx.last_terminal_buy_entries = {
+        "origin": _loc(origin_terminal.name),
+        "origin_id": origin_terminal.id,
+        "entries": [
+            {
+                "idx":        i,
+                "name":       d["name"],
+                "code":       d.get("code", ""),
+                "price_buy":  int(d["price_buy"]),
+                "price_sell": int(d["price_sell"]),
+                "dest":       d["dest_name_raw"],
+                "dest_display": d["dest"],
+                "qty":        d["qty"],
+                "profit":     int(d["profit"]),
+                "risk":       d.get("risk", 0),
+                "distance":   d.get("distance", ""),
+            }
+            for i, (_, d) in enumerate(entries)
+            if d.get("dest_name_raw")   # seulement si destination connue
+        ],
+    }
 
 
 # ── Affichage site ─────────────────────────────────────────────────────────────
@@ -1036,19 +1214,24 @@ def _show_site_header(t: Terminal, ctx) -> None:
                 names.append(n)
         return "  ·  ".join(names)
 
-    if magasins:
+    disp = ctx.cfg.get("display", {})
+    show_mag  = disp.get("magasins",    True)
+    show_rest = disp.get("restaurants", True)
+    show_svc  = disp.get("services",    True)
+
+    if magasins and show_mag:
         console.print(
             f"  [{C.DIM}]Magasins[/{C.DIM}]     [{C.NEUTRAL}]{_fmt_names(magasins)}[/{C.NEUTRAL}]"
         )
-    if restaurants:
+    if restaurants and show_rest:
         console.print(
             f"  [{C.DIM}]Restaurants[/{C.DIM}]  [{C.NEUTRAL}]{_fmt_names(restaurants)}[/{C.NEUTRAL}]"
         )
-    if services:
+    if services and show_svc:
         console.print(
             f"  [{C.DIM}]Services[/{C.DIM}]     [{C.DIM}]{_fmt_names(services)}[/{C.DIM}]"
         )
-    if line_parts or magasins or restaurants or services:
+    if line_parts or (magasins and show_mag) or (restaurants and show_rest) or (services and show_svc):
         console.print()
 
 
@@ -1071,6 +1254,8 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
         console.print(f"[{C.DIM}]Aucune donnée pour ce terminal.[/{C.DIM}]")
         console.print(f"[{C.DIM}]Utilisez /scan pour capturer les prix directement en jeu.[/{C.DIM}]")
         return
+
+    _ensure_comm_codes(ctx)
 
     # ── Données fusionnées : scan joueur (★ bold) + UEX communauté (italic) ─
     has_player_data = any(
@@ -1098,7 +1283,7 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                 _show_buy_detailed(buy_rows, t, ctx, sys_filter=sys_filter)
             else:
                 console.print(f"\n[bold {C.UEX}]▼ Acheter sur place[/bold {C.UEX}]")
-                console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à vendre ici[/italic {C.DIM}]")
+                console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à acheter ici[/italic {C.DIM}]")
 
             console.print(f"\n[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
             if sell_rows:
@@ -1117,11 +1302,13 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                         price_str = price_val
                     if d:
                         price_str = f"{price_str}  [{C.DIM}]{d}[/{C.DIM}]"
+                    cname = r.get("commodity_name") or "?"
                     name_raw = _entry_ns(
-                        r.get("commodity_name") or "?",
+                        cname,
                         _scu(r.get("scu_sell"), r.get("scu_sell_max"))
                         or _scu(r.get("scu_sell_stock")),
                         r.get("status_sell"), buy=False,
+                        code=_comm_code(cname, int(r.get("id_commodity") or 0)),
                     )
                     if player_sell:
                         name_raw = f"[bold {C.NEUTRAL}]{name_raw}[/bold {C.NEUTRAL}]"
@@ -1131,7 +1318,7 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                     f"italic {C.NEUTRAL}", f"italic {C.PROFIT}",
                 ))
             else:
-                console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à acheter ici[/italic {C.DIM}]")
+                console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à vendre ici[/italic {C.DIM}]")
 
             total = len({r.get("commodity_name") for r in rows})
             dates = [r.get("date_modified") for r in rows if r.get("date_modified")]
@@ -1276,9 +1463,13 @@ def _parse_sys_filter(
     """
     remaining: list[str] = []
     sys_filter: list[str] | None = None
+    _RESERVED = {"edit", "e"}  # flags non-système à ne pas consommer
     for arg in args:
         if arg.startswith("--"):
             val = arg[2:].lower()
+            if val in _RESERVED:
+                remaining.append(arg)
+                continue
             if val == "all":
                 sys_filter = []
             else:
@@ -1531,6 +1722,70 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         f"[{C.DIM}]  Prix en {C.AUEC}  ·  T.Cargo : tailles des conteneurs en {C.SCU} (ex. 1/2/4)"
         f"  ·  Dispo ░=vide ████=plein  ·  ROI vs meilleur achat local[/{C.DIM}]"
     )
+
+    # ── sc-trade.tools (public — aucun token requis) ──────────────────────────
+    sct_cfg = ctx.cfg.get("sctrade", {})
+    if sct_cfg.get("enabled", True):
+        try:
+            from uexinfo.api.sctrade_client import SCTradeClient
+            token = sct_cfg.get("token", "")
+            client = SCTradeClient(token=token)
+            if token:
+                # Endpoint token : données structurées par terminal
+                txs = client.commodity_transactions(c.name)
+            else:
+                # Endpoint public : listings communauté
+                txs = client.crowdsource_for_commodity(c.name)
+            if txs:
+                _show_sctrade_transactions(txs, ctx, crowdsource=not token)
+        except Exception:
+            pass
+
+
+def _show_sctrade_transactions(txs: list[dict], ctx, crowdsource: bool = False) -> None:
+    """Affiche les prix sc-trade.tools pour une commodité."""
+    from rich.table import Table
+    src = "données communauté · crowdsource" if crowdsource else "données communauté"
+    console.print(f"\n[bold {C.SCTRADE}]sc-trade.tools[/bold {C.SCTRADE}]  [{C.DIM}]{src}[/{C.DIM}]")
+    t = Table(show_header=True, header_style=f"bold {C.SCTRADE}", box=None, pad_edge=False)
+    t.add_column("Terminal",   style=C.SCTRADE, min_width=28)
+    t.add_column("Action",     style="white",   width=7)
+    t.add_column("Prix/□",     justify="right", min_width=9)
+    t.add_column("Stock SCU",  justify="right", min_width=9)
+
+    if crowdsource:
+        # Format crowdsource : transaction="BUYS"|"SELLS", location, price, quantity, saturation
+        def _action(r):
+            t = r.get("transaction", "")
+            return "SELL" if t == "BUYS" else "BUY"   # BUYS = terminal achète = joueur vend
+        rows_norm = [
+            {"location": r.get("location", "?"), "action": _action(r),
+             "price": r.get("price", 0), "stock": r.get("quantity", 0),
+             "ts": r.get("timestamp", "")}
+            for r in txs if r.get("price", 0) > 0
+        ]
+    else:
+        # Format token : action="BUY"|"SELL", location, price, quantityInScu
+        rows_norm = [
+            {"location": r.get("location", "?"), "action": r.get("action", "?"),
+             "price": r.get("price", 0),
+             "stock": r.get("quantityInScu") or r.get("itemQuantityInScu") or 0,
+             "ts": ""}
+            for r in txs if r.get("price", 0) > 0
+        ]
+
+    buys  = sorted([r for r in rows_norm if r["action"] == "BUY"],  key=lambda r: r["price"])
+    sells = sorted([r for r in rows_norm if r["action"] == "SELL"], key=lambda r: r["price"], reverse=True)
+
+    for r in (buys + sells)[:20]:
+        color = C.PROFIT if r["action"] == "SELL" else C.LOSS
+        t.add_row(
+            r["location"],
+            f"[{color}]{r['action']}[/{color}]",
+            f"{int(r['price']):,}".replace(",", " "),
+            f"{int(r['stock']):,}".replace(",", " ") if r["stock"] else "—",
+        )
+    console.print(t)
 
 
 # ── Cache prix véhicules ────────────────────────────────────────────────────────
@@ -1949,6 +2204,20 @@ def cmd_info(args: list[str], ctx) -> None:
 
     if first == "list":
         _show_commodity_list(args[1:], ctx)
+        return
+
+    # /info --edit <terminal> → formulaire overlay d'édition des scans
+    if first in ("--edit", "-edit", "-e"):
+        from uexinfo.cli.commands.scan import _scan_edit
+        terminal_args = args[1:]
+        if not terminal_args:
+            loc = (ctx.player.location or "").strip()
+            if loc:
+                terminal_args = [loc]
+            else:
+                print_warn("Usage : /info --edit <terminal>")
+                return
+        _scan_edit(terminal_args, ctx)
         return
 
     if first in _SUBS:
