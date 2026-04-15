@@ -101,10 +101,13 @@ def _fetch_terminal_uex_prices(result: ScanResult, ctx) -> dict[str, tuple[int, 
         client = UEXClient()
         try:
             data = client.get_prices(**kwargs)
+            ctx._price_cache[key] = (time.time(), data)
+            return data
         except UEXError:
+            stale = ctx._price_cache.get_stale(key)
+            if stale:
+                return stale[1]
             return []
-        ctx._price_cache[key] = (time.time(), data)
-        return data
 
     rows = (_fetch(f"t{terminal.id}", id_terminal=terminal.id) if terminal
             else _fetch(f"tl_{name_lower}", terminal_name=name_lower))
@@ -620,9 +623,10 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
                 rows = client.get_prices(id_terminal=terminal.id)
             else:
                 rows = client.get_prices(terminal_name=name_lower)
+            ctx._price_cache[cache_key] = (time.time(), rows)
         except UEXError:
-            return False
-        ctx._price_cache[cache_key] = (time.time(), rows)
+            stale = ctx._price_cache.get_stale(cache_key)
+            rows = stale[1] if stale else []
 
     if not rows:
         return False
@@ -857,12 +861,19 @@ def _scan_resync(args: list[str], ctx) -> None:
         return
 
     console.print(f"[{C.DIM}]Chargement des prix UEX pour {term_key}…[/{C.DIM}]")
+    stale_key = f"tl_{term_key.lower()}"
     try:
         client = UEXClient()
         rows = client.get_prices(terminal_name=term_key)
-    except UEXError as e:
-        print_error(f"Erreur API UEX : {e}")
-        return
+        ctx._price_cache[stale_key] = (__import__("time").time(), rows)
+    except UEXError:
+        stale = ctx._price_cache.get_stale(stale_key)
+        if stale:
+            rows = stale[1]
+            console.print(f"[orange1]API hors-ligne — prix du cache utilisés[/orange1]")
+        else:
+            print_error("API UEX inaccessible et aucune donnée cache pour ce terminal.")
+            return
 
     # Index UEX par commodity_id et par nom
     uex_by_id:   dict[int, dict] = {}

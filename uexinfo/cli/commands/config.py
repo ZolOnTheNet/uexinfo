@@ -35,6 +35,8 @@ def cmd_config(args: list[str], ctx) -> None:
         _clock(rest, ctx)
     elif sub in ("magasins", "restaurants", "services"):
         _display_toggle(sub, rest, ctx)
+    elif sub == "uex":
+        _uex_config(rest, ctx)
     elif sub == "sctrade":
         _sctrade_config(rest, ctx)
     elif sub in ("hotkey", "overlay.hotkey"):
@@ -103,6 +105,12 @@ def _show(cfg: dict, ctx=None) -> None:
     console.print(f"  [bold]restaurants :[/bold]  {_onoff(disp.get('restaurants'))}  [{C.DIM}](restaurants dans la vue terminal)[/{C.DIM}]")
     console.print(f"  [bold]services :[/bold]     {_onoff(disp.get('services'))}  [{C.DIM}](services dans la vue terminal)[/{C.DIM}]")
 
+    # ── API UEX Corp ──────────────────────────────────────────────────────────
+    api_cfg = cfg.get("api", {})
+    uex_key = api_cfg.get("secret_key", "")
+    uex_key_disp = f"[{C.SUCCESS}]***défini***[/{C.SUCCESS}]" if uex_key else f"[{C.LOSS}](non défini)[/{C.LOSS}]"
+    console.print(f"  [bold]uex.key :[/bold]         {uex_key_disp}  [{C.DIM}](/config uex key <val>)[/{C.DIM}]")
+
     # ── sc-trade.tools ────────────────────────────────────────────────────────
     sct = cfg.get("sctrade", {})
     token_val = sct.get("token", "")
@@ -126,6 +134,33 @@ def _display_toggle(key: str, args: list[str], ctx) -> None:
     settings.save(ctx.cfg)
     state = f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if enabled else f"[{C.LOSS}]off[/{C.LOSS}]"
     console.print(f"  {key} → {state}  [{C.DIM}](sauvegardé)[/{C.DIM}]")
+
+
+# ── UEX Corp API config ───────────────────────────────────────────────────────
+
+def _uex_config(args: list[str], ctx) -> None:
+    """Gestion de la clé secrète API UEX Corp.
+
+    Usage :
+      /config uex key <secret_key>   Définit la clé
+      /config uex key                Affiche l'état
+      /config uex                    Affiche l'état
+    """
+    api = ctx.cfg.setdefault("api", {})
+    if not args or args[0].lower() in ("key",) and len(args) < 2:
+        key = api.get("secret_key", "")
+        state = "***défini***" if key else "(non défini)"
+        print_info(f"uex.key: {state}")
+        print_info("Usage: /config uex key <secret_key>")
+        print_info("Clé disponible sur https://uexcorp.space (profil utilisateur)")
+        return
+    sub = args[0].lower()
+    if sub == "key":
+        api["secret_key"] = args[1].strip()
+        settings.save(ctx.cfg)
+        console.print(f"  uex.key → [{C.SUCCESS}]***sauvegardé***[/{C.SUCCESS}]  [{C.DIM}](relancer pour activer)[/{C.DIM}]")
+    else:
+        print_error(f"Sous-commande uex inconnue : {sub}  (key)")
 
 
 # ── sc-trade.tools config ────────────────────────────────────────────────────
@@ -249,27 +284,41 @@ def _ship(args: list[str], ctx) -> None:
         _save_player(ctx)
 
     elif sub == "remove":
-        name   = " ".join(rest)
-        if not name:
+        raw  = " ".join(rest).replace("_", " ").strip()
+        if not raw:
             print_error("Usage : /ship remove <nom du vaisseau>")
             if ctx.player.ships:
                 console.print(f"[{C.DIM}]Vaisseaux actuels :[/{C.DIM}]")
-                for s in ctx.player.ships[:5]:
+                for s in ctx.player.ships:
                     console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
             return
-        before = len(ctx.player.ships)
-        ctx.player.ships = [s for s in ctx.player.ships if s.name.lower() != name.lower()]
-        if len(ctx.player.ships) == before:
-            print_error(f"Vaisseau introuvable : {name}")
+        # Chercher d'abord un nom exact dans la flotte (avec normalisation casse + dot-notation)
+        raw_lower = raw.lower()
+        match_name = next(
+            (s.name for s in ctx.player.ships if s.name.lower() == raw_lower),
+            None,
+        )
+        if match_name is None:
+            # Essayer via _find_vehicle (gère la notation pointée ship.xxx / RSI.xxx)
+            from uexinfo.cli.commands.info import _find_vehicle
+            v = _find_vehicle(raw, ctx)
+            canon_lower = (v.name_full if v else raw).lower()
+            match_name = next(
+                (s.name for s in ctx.player.ships if s.name.lower() == canon_lower),
+                None,
+            )
+        if match_name is None:
+            print_error(f"Vaisseau introuvable dans votre flotte : {raw}")
             if ctx.player.ships:
                 console.print(f"[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
-                for s in ctx.player.ships[:5]:
+                for s in ctx.player.ships:
                     console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
             return
-        if ctx.player.active_ship.lower() == name.lower():
+        ctx.player.ships = [s for s in ctx.player.ships if s.name != match_name]
+        if ctx.player.active_ship.lower() == match_name.lower():
             ctx.player.active_ship = ctx.player.ships[0].name if ctx.player.ships else ""
         _save_player(ctx)
-        print_ok(f"Vaisseau retiré : {name}")
+        print_ok(f"Vaisseau retiré : {match_name}")
 
     elif sub in ("set", "select"):
         name  = " ".join(rest)
@@ -413,7 +462,7 @@ def _ship(args: list[str], ctx) -> None:
             console.print(f"[{C.DIM}]Ajoutez-le d'abord avec /ship add <nom>[/{C.DIM}]")
             if ctx.player.ships:
                 console.print(f"\n[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
-                for s in ctx.player.ships[:5]:
+                for s in ctx.player.ships:
                     console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
             return
 

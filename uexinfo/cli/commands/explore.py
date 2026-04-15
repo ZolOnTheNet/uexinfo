@@ -149,13 +149,15 @@ def _search_ships(query: str, ctx) -> list:
     return [v for v in vehicles if q in v.name_full.lower()]
 
 
-def _ship_table(vehicles: list) -> Table:
+def _ship_table(vehicles: list, ctx=None) -> Table:
+    from uexinfo.data.cargo_grids import format_cargo_config
     tbl = Table(show_header=True, box=None, padding=(0, 1))
     tbl.add_column("Vaisseau",  style=C.NEUTRAL, no_wrap=True, min_width=26)
     tbl.add_column(C.SCU,  style=C.UEX, justify="right")
     tbl.add_column("Éq.", style=C.DIM, justify="right")
     tbl.add_column("Pad",  style=C.DIM, justify="center")
     tbl.add_column("Rôles", style=C.DIM)
+    tbl.add_column("Grilles", style=C.DIM)
     for v in sorted(vehicles, key=lambda v: v.name_full):
         roles = []
         if v.is_cargo:         roles.append("cargo")
@@ -165,8 +167,12 @@ def _ship_table(vehicles: list) -> Table:
         if v.is_ground_vehicle: roles.append("ground")
         if v.is_concept:       roles.append("[dim]concept[/dim]")
         scu = str(v.scu) if v.scu else "—"
+        grid_str = ""
+        if ctx is not None:
+            grid = ctx.cargo_grid_manager.get_grid(v.name_full)
+            grid_str = format_cargo_config(grid) if grid else ""
         tbl.add_row(v.name_full, scu, v.crew or "?", v.pad_type or "?",
-                    " · ".join(roles) or "—")
+                    " · ".join(roles) or "—", grid_str)
     return tbl
 
 
@@ -203,12 +209,12 @@ def _show_ships_query(query: str, ctx) -> None:
     if len(by_mfr) == 1:
         mfr_label = list(by_mfr.keys())[0]
         section(f"Vaisseaux — {mfr_label}")
-        console.print(_ship_table(matched))
+        console.print(_ship_table(matched, ctx))
     else:
         section(f"Vaisseaux — « {query} »  ({len(matched)} résultats)")
         for mfr, ships in sorted(by_mfr.items()):
             console.print(f"[bold {C.UEX}]{mfr}[/bold {C.UEX}]")
-            console.print(_ship_table(ships))
+            console.print(_ship_table(ships, ctx))
             console.print()
 
 
@@ -372,7 +378,7 @@ def cmd_explore(args: list[str], ctx) -> None:
                 for mfr, ships in sorted(by_mfr2.items()):
                     if len(by_mfr2) > 1:
                         console.print(f"[bold {C.UEX}]{mfr}[/bold {C.UEX}]")
-                    console.print(_ship_table(ships))
+                    console.print(_ship_table(ships, ctx))
                     if len(by_mfr2) > 1:
                         console.print()
             else:

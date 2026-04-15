@@ -43,7 +43,9 @@ def cmd_refresh(args: list[str], ctx) -> None:
         ctx._price_cache.clear()
         print_ok("Cache prix vidé — les prochaines requêtes iront chercher les données live.")
     elif sub == "sctrade":
-        print_info("Intégration sc-trade.tools disponible en Phase 4.")
+        from uexinfo.display.formatter import print_ok
+        ctx._price_cache.__delitem__("sct_listings") if "sct_listings" in ctx._price_cache else None
+        print_ok("Cache sc-trade.tools vidé — prochain appel rechargera les données.")
     else:
         print_error(f"Option inconnue : {sub}  (all | static | prices | sctrade | status)")
 

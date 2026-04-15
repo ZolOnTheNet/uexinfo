@@ -111,13 +111,25 @@ class PriceCache:
     # ── Interface dict-compatible ─────────────────────────────────────────────
 
     def get(self, key: str) -> tuple[float, list] | None:
-        """Retourne (fetched_at, data) si valide, None sinon."""
+        """Retourne (fetched_at, data) si valide (TTL OK), None sinon."""
         self._ensure_loaded()
         entry = self._mem.get(key)
         if not entry or not self._is_valid(key, entry):
             return None
         self._record_query(key)
         return entry["fetched_at"], entry["data"]
+
+    def get_stale(self, key: str) -> tuple[float, list] | None:
+        """Retourne (fetched_at, data) sans vérification TTL.
+
+        Utilisé comme fallback quand l'API est inaccessible.
+        Retourne None seulement si aucune donnée n'existe (clé inconnue).
+        """
+        self._ensure_loaded()
+        entry = self._mem.get(key)
+        if not entry or "data" not in entry:
+            return None
+        return entry.get("fetched_at", 0.0), entry["data"]
 
     def __contains__(self, key: str) -> bool:
         self._ensure_loaded()

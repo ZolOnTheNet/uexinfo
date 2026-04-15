@@ -17,6 +17,8 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("cache",                  "Gestion du cache"),
         ("scan",                   "Configuration OCR/scan"),
         ("player",                 "Infos joueur"),
+        ("uex",                    "Clé secrète API UEX Corp"),
+        ("sctrade",                "Paramètres sc-trade.tools"),
         ("hotkey",                 "Hotkey overlay (alt+shift+u, ctrl+f3…)"),
         ("close",                  "Mode fermeture overlay (normal/dblclick)"),
         ("voyage.calc.nbsaut",     "Nb max de missions par voyage calc"),
@@ -53,6 +55,9 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("ocr",     "Reconnaissance optique seule"),
         ("log",     "Lecture du fichier Game.log seule"),
         ("confirm", "OCR + confirmation log"),
+    ],
+    "config uex": [
+        ("key", "Définit la clé secrète personnelle UEX Corp"),
     ],
     "go": [
         ("from", "Définit votre position actuelle"),
@@ -123,12 +128,22 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("batch",    "Debug OCR sur tous les fichiers d'un dossier"),
     ],
     "trade": [
-        ("buy",     "Meilleurs achats possibles"),
-        ("sell",    "Meilleures ventes possibles"),
-        ("best",    "Meilleures routes de trading"),
-        ("compare", "Compare les prix"),
-        ("from",    "Bilan depuis un terminal spécifique"),
-        ("to",      "Bilan vers un terminal spécifique"),
+        ("buy",      "Meilleurs achats possibles"),
+        ("sell",     "Meilleures ventes possibles"),
+        ("best",     "Meilleures routes de trading"),
+        ("compare",  "Compare les prix"),
+        ("from",     "Bilan depuis un terminal spécifique"),
+        ("to",       "Bilan vers un terminal spécifique"),
+        ("sctrade",  "Routes via sc-trade.tools"),
+    ],
+    "trade sctrade": [
+        ("--from",        "Terminal de départ (défaut : position joueur)"),
+        ("--to",          "Terminal d'arrivée (défaut : destination joueur)"),
+        ("--ship",        "Vaisseau (filtre SCU)"),
+        ("--budget",      "Budget en aUEC"),
+        ("--stops",       "Nombre max d'étapes"),
+        ("--same-system", "Rester dans le même système stellaire"),
+        ("--ss",          "Alias --same-system"),
     ],
     "trade buy":     [],  # dynamique : commodités
     "trade sell":    [],  # dynamique : commodités
@@ -140,6 +155,13 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("--roi",    "Tri par ROI (%)"),
         ("--margin", "Tri par marge (%)"),
         ("--scu",    "Tri par profit par SCU"),
+    ],
+    "trade sctrade": [
+        ("--from",   "Lieu d'origine (défaut : position joueur)"),
+        ("--to",     "Lieu de destination → itinéraire origin→dest"),
+        ("--ship",   "Nom du vaisseau (défaut : vaisseau actif)"),
+        ("--budget", "Budget en aUEC (ex: 500k)"),
+        ("--stops",  "Nombre max d'escales (défaut : 3)"),
     ],
     "nav": [
         ("@local",        "Position courante du joueur"),
@@ -175,7 +197,12 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("-b-", "Trier par bénéfice décroissant"),
     ],
     "info ship":  [],  # dynamique : vaisseaux
-    "explore":    [],  # dynamique : ship / commodity / système
+    "explore": [
+        ("ship",      "Vaisseaux par fabricant / nom"),
+        ("commodity", "Catégories de commodités"),
+    ],
+    "explore ship":      [],  # dynamique : vaisseaux
+    "explore commodity": [],  # dynamique : commodités
     "refresh": [
         ("all",     "Rafraîchit tout"),
         ("static",  "Systèmes, terminaux, commodités"),
@@ -242,24 +269,48 @@ SUBS: dict[str, list[tuple[str, str]]] = {
 }
 
 # ── Type d'élément dynamique attendu après le contexte ────────────────────────
-# Valeurs : "location" | "terminal" | "commodity" | "vehicle" | "any" | None
+# Valeurs : "location" | "terminal" | "commodity" | "vehicle" | "system" | "any" | None
 NEXT_TYPE: dict[str, str | None] = {
-    "go":            "location",
-    "lieu":          "location",
-    "dest":          "location",
-    "nav":           "location",
-    "info":          "any",        # terminal + commodity + vehicle
-    "info terminal": "terminal",
-    "info commodity":"commodity",
-    "info ship":     "vehicle",
-    "trade from":    "terminal",
-    "trade to":      "terminal",
-    "trade buy":     "commodity",
-    "trade sell":    "commodity",
-    "trade compare": "commodity",
-    "voyage tb":     "location",
-    "voyage on":     None,
-    "voyage add":    None,
+    "go":                "location",
+    "lieu":              "location",
+    "dest":              "location",
+    "nav":               "location",
+    "info":              "any",        # terminal + commodity + vehicle
+    "info terminal":     "terminal",
+    "info commodity":    "commodity",
+    "info ship":         "vehicle",
+    "trade from":        "terminal",
+    "trade to":          "terminal",
+    "trade buy":         "commodity",
+    "trade sell":        "commodity",
+    "trade compare":     "commodity",
+    "voyage tb":         "location",
+    "voyage on":         None,
+    "voyage add":        None,
+    "explore":           "system",     # noms de systèmes stellaires
+    "explore ship":      "vehicle",    # fabricants / noms de vaisseaux
+    "explore commodity": "commodity",  # catégories + noms de commodités
+}
+
+# ── Abréviations fabricants → préfixe du nom complet ──────────────────────────
+# Usage : completion dot-notation (RSI.hermes, ship.crusader) et lookup /info
+# Le préfixe est le premier mot du nom du fabricant tel que retourné par l'API.
+MFR_ABBREV: dict[str, str] = {
+    "rsi":   "robert",    # Robert Space Industries
+    "misc":  "musashi",   # Musashi Industrial & Starflight Concern
+    "drak":  "drake",     # Drake Interplanetary
+    "aegis": "aegis",     # Aegis Dynamics
+    "crus":  "crusader",  # Crusader Industries
+    "orig":  "origin",    # Origin Jumpworks
+    "anvl":  "anvil",     # Anvil Aerospace
+    "banu":  "banu",      # Banu
+    "argo":  "argo",      # Argo Astronautics
+    "tumb":  "tumbril",   # Tumbril Land Systems
+    "gatac": "gatac",     # Gatac Manufacture
+    "krig":  "kruger",    # Kruger Intergalactic
+    "espr":  "esperia",   # Esperia
+    "xian":  "xi",        # Xi'An
+    "vncl":  "vanduul",   # Vanduul
 }
 
 # ── Descriptions courtes des commandes racines (pour hint) ────────────────────

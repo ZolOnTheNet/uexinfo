@@ -582,6 +582,16 @@ html, body {
 }
 #titlebar .tb-close:hover { color: var(--red); opacity: 1; }
 
+/* ── Toast copie ─────────────────────────────────────────────────────────── */
+#copy-toast {
+  position: fixed; bottom: 28px; right: 12px;
+  background: rgba(10,20,25,0.92); color: #69f0ae;
+  font-size: 11px; padding: 3px 10px; border-radius: 4px;
+  border: 1px solid rgba(105,240,174,0.3);
+  opacity: 0; transition: opacity 0.2s;
+  pointer-events: none; z-index: 9999;
+}
+
 /* ── Bouton Choisir inline (fin de ligne trade) ──────────────────────────── */
 .tp-btn {
   background: transparent;
@@ -929,6 +939,7 @@ html, body {
   <span id="tb-close-btn" class="tb-close" title="Fermer (ou /quit)" onclick="handleCloseClick()">✕</span>
 </div>
 <div id="output"></div>
+<div id="copy-toast"></div>
 
 <div id="vc-progress" style="display:none;padding:2px 10px 1px;font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;border-top:1px solid rgba(0,188,212,0.08)">
   <span id="vc-prog-bar"></span>
@@ -1983,26 +1994,44 @@ elOutput.addEventListener('contextmenu', e => {
   else closeCtx();
 });
 
-// ── Copie presse-papiers (robuste en WebView) ─────────────────────────────────
-function copyText(text, feedbackEl) {
-  const done = () => {
-    if (feedbackEl) { feedbackEl.textContent = '✓ Copié'; feedbackEl.style.color='#69f0ae'; }
-  };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(done).catch(() => { _copyFallback(text); done(); });
-  } else {
-    _copyFallback(text); done();
-  }
+// ── Copie presse-papiers — pywebview.api.copy_clipboard (Win32 direct, 100% fiable) ─
+const _copyToast = document.getElementById('copy-toast');
+let _copyToastTimer = null;
+
+function _showCopyToast(msg) {
+  if (!_copyToast) return;
+  _copyToast.textContent = msg;
+  _copyToast.style.opacity = '1';
+  clearTimeout(_copyToastTimer);
+  _copyToastTimer = setTimeout(() => { _copyToast.style.opacity = '0'; }, 1800);
 }
-function _copyFallback(text) {
+
+function copyText(text, feedbackEl) {
+  if (!text) return;
+  // Voie 1 : window.pywebview.api.copy_clipboard — direct, synchrone, aucun drop possible
+  if (window.pywebview && window.pywebview.api) {
+    window.pywebview.api.copy_clipboard(text);
+    _showCopyToast('✓ Copié');
+    if (feedbackEl) { feedbackEl.textContent = '✓ Copié'; feedbackEl.style.color = '#69f0ae'; }
+    return;
+  }
+  // Voie 2 : WebSocket fallback (si pywebview.api non disponible)
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({type: 'copy', text}));
+    _showCopyToast('✓ Copié');
+    if (feedbackEl) { feedbackEl.textContent = '✓ Copié'; feedbackEl.style.color = '#69f0ae'; }
+    return;
+  }
+  // Voie 3 : execCommand sur textarea caché (dernier recours)
   const el = document.createElement('textarea');
   el.value = text;
-  el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+  el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px';
   document.body.appendChild(el);
-  el.focus();
-  el.select();
+  el.focus(); el.select();
   try { document.execCommand('copy'); } catch(_) {}
   document.body.removeChild(el);
+  _showCopyToast('✓ Copié');
+  if (feedbackEl) { feedbackEl.textContent = '✓ Copié'; feedbackEl.style.color = '#69f0ae'; }
 }
 
 // ── Menu contextuel ───────────────────────────────────────────────────────────
@@ -2032,7 +2061,7 @@ function showCtx(word, x, y, type, sel) {
     <div class="mw">${typeLabel ? typeLabel+' · ' : ''}${esc(word)}</div>
     <div class="mi" onclick="sendCmd('/info ${ws}');closeCtx()">Info</div>
     <div class="ms"></div>
-    ${type === 'location'  || !type ? `<div class="mi" onclick="sendCmd('/go ${ws}');closeCtx()">Aller</div><div class="mi" onclick="sendCmd('/dest ${ws}');closeCtx()">Destination</div>` : ''}
+    ${type === 'location'  || !type ? `<div class="mi" onclick="sendCmd('/go ${ws}');closeCtx()">Venir</div><div class="mi" onclick="sendCmd('/dest ${ws}');closeCtx()">Destination</div>` : ''}
     ${type === 'commodity' || !type ? `<div class="mi" onclick="sendCmd('/trade');closeCtx()">Trade</div>` : ''}
     ${type === 'ship'      || !type ? `<div class="mi" onclick="sendCmd('/player ship set ${ws}');closeCtx()">Vaisseau actif</div>` : ''}
   `) : '';
@@ -2082,15 +2111,38 @@ document.addEventListener('click', () => {
 
 // ── Raccourcis globaux ────────────────────────────────────────────────────────
 
+function _outputText() {
+  return Array.from(elOutput.querySelectorAll('.line'))
+    .map(l => l.textContent
+      .replace(/\u00A0/g, ' ')          // NBSP → espace normal
+      .replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '') // purge caractères de contrôle (SYN, ESC…) sauf \n \t
+    )
+    .join('\n')
+    .trimEnd();
+}
+
+function _cleanText(t) {
+  return t.replace(/\u00A0/g, ' ').replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '');
+}
+
 document.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.key==='y') {
+  // Ctrl+C ou Ctrl+Shift+C : sélection si dispo, sinon tout l'output
+  if (e.ctrlKey && e.code === 'KeyC') {
+    const sel = _cleanText(window.getSelection()?.toString() || '');
+    copyText(sel || _outputText());
     e.preventDefault();
-    const txt = Array.from(elOutput.querySelectorAll('.line'))
-                     .map(l=>l.textContent).join('\n');
-    navigator.clipboard.writeText(txt).catch(()=>{});
-    appendSystem('✓ Copié');
+    return;
   }
-  if (e.key==='F1') { e.preventDefault(); sendCmd('/help'); }
+
+  // Ctrl+Y : idem (conservé)
+  if (e.ctrlKey && e.key === 'y') {
+    e.preventDefault();
+    copyText(_outputText());
+    return;
+  }
+
+  if (e.key === 'F1') { e.preventDefault(); sendCmd('/help'); }
+
   // Toute touche imprimable redirige vers l'input de commande,
   // SAUF si le focus est déjà dans un champ de formulaire (scan inline, select, etc.)
   if (!e.ctrlKey && !e.altKey && e.key.length === 1) {

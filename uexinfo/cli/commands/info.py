@@ -299,15 +299,24 @@ def _fetch_prices(key: str, api_kwargs: dict, ctx) -> list[dict]:
     cached = ctx._price_cache.get(key)
     if cached:
         _ts, data = cached
+        ctx._api_offline = False
         return data
     client = UEXClient()
     try:
         data = client.get_prices(**api_kwargs)
+        ctx._price_cache[key] = (time.time(), data)
+        ctx._api_offline = False
+        return data
     except UEXError as e:
+        # Fallback : données cache même expirées (API hors-ligne)
+        stale = ctx._price_cache.get_stale(key)
+        if stale:
+            _ts, data = stale
+            ctx._api_offline = True
+            return data
+        ctx._api_offline = True
         console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
         return []
-    ctx._price_cache[key] = (time.time(), data)
-    return data
 
 
 def _to_slug(name: str) -> str:
@@ -806,7 +815,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
 
     player_dest = (ctx.player.destination or "").lower().strip()
     hint = f"  [{C.DIM}](⭐ = vendable à destination)[/{C.DIM}]" if player_dest else ""
-    console.print(f"\n[bold {C.UEX}]▼ Acheter sur place[/bold {C.UEX}]{hint}")
+    pc = C.SCTRADE if getattr(ctx, "_api_offline", False) else C.UEX
+    console.print(f"\n[bold {pc}]▼ Acheter sur place[/bold {pc}]{hint}")
     origin_system = origin_terminal.star_system_name
 
     # ── Distances via API UEX (même logique que _show_commodity) ─────────
@@ -1261,7 +1271,10 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
     has_player_data = any(
         r.get("_player_buy") or r.get("_player_sell") for r in rows
     )
-    if has_player_data:
+    offline = getattr(ctx, "_api_offline", False)
+    if offline:
+        console.print(f"[{C.SCTRADE}]cache local · UEX Corp hors-ligne · données plus ou moins récentes[/{C.SCTRADE}]")
+    elif has_player_data:
         console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées  ·  ★ données joueur[/italic {C.DIM}]")
     else:
         console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
@@ -1279,10 +1292,12 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
             term_w = getattr(console, "width", None) or 100
             n_cols = _n_cols(term_w)
 
+            pc = C.SCTRADE if offline else C.UEX   # couleur prix : orange si cache local
+
             if buy_rows:
                 _show_buy_detailed(buy_rows, t, ctx, sys_filter=sys_filter)
             else:
-                console.print(f"\n[bold {C.UEX}]▼ Acheter sur place[/bold {C.UEX}]")
+                console.print(f"\n[bold {pc}]▼ Acheter sur place[/bold {pc}]")
                 console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à acheter ici[/italic {C.DIM}]")
 
             console.print(f"\n[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
@@ -1298,6 +1313,8 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                     player_sell = r.get("_player_sell", False)
                     if player_sell:
                         price_str = f"[bold {C.PROFIT}]★ {price_val}[/bold {C.PROFIT}]"
+                    elif offline:
+                        price_str = f"[{C.SCTRADE}]{price_val}[/{C.SCTRADE}]"
                     else:
                         price_str = price_val
                     if d:
@@ -1313,9 +1330,10 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                     if player_sell:
                         name_raw = f"[bold {C.NEUTRAL}]{name_raw}[/bold {C.NEUTRAL}]"
                     entries.append((name_raw, price_str))
+                sell_col = f"{C.SCTRADE}" if offline else f"italic {C.PROFIT}"
                 console.print(_multi_col_table(
                     entries, ("Marchandise (SCU)", "Vente"), n_cols,
-                    f"italic {C.NEUTRAL}", f"italic {C.PROFIT}",
+                    f"italic {C.NEUTRAL}", sell_col,
                 ))
             else:
                 console.print(f"  [bold red]✗[/bold red] [italic {C.DIM}]Rien à vendre ici[/italic {C.DIM}]")
@@ -1329,7 +1347,8 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                     date_str = f"  ·  màj {dt.strftime('%d %b %Y %H:%M')}"
                 except Exception:
                     pass
-            console.print(f"\n[italic {C.DIM}]{total} marchandises{date_str}[/italic {C.DIM}]")
+            footer_col = C.SCTRADE if offline else C.DIM
+            console.print(f"\n[italic {footer_col}]{total} marchandises{date_str}[/italic {footer_col}]")
 
 
 # ── Affichage commodité ────────────────────────────────────────────────────────
@@ -1523,6 +1542,11 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         console.print(f"[{C.DIM}]Aucune donnée de prix disponible.[/{C.DIM}]")
         return
 
+    offline = getattr(ctx, "_api_offline", False)
+    pc = C.SCTRADE if offline else C.UEX
+    if offline:
+        console.print(f"[{C.SCTRADE}]cache local · UEX Corp hors-ligne · données plus ou moins récentes[/{C.SCTRADE}]")
+
     all_rows = rows  # sauvegardé avant le filtre système pour le résumé "existe aussi"
 
     if effective_filter:
@@ -1566,7 +1590,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     # ── Résumé ─────────────────────────────────────────────────────────────
     parts = []
     if buy_rows:
-        parts.append(f"Achat min : [{C.UEX}]{_price_fmt(buy_rows[0]['price_buy'])}[/{C.UEX}]")
+        parts.append(f"Achat min : [{pc}]{_price_fmt(buy_rows[0]['price_buy'])}[/{pc}]")
     if sell_rows:
         parts.append(f"Vente max : [{C.PROFIT}]{_price_fmt(sell_rows[0]['price_sell'])}[/{C.PROFIT}]")
     if ref_buy and sell_rows:
@@ -1583,14 +1607,14 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
 
     # ── Table ACHAT ────────────────────────────────────────────────────────
     if buy_rows:
-        console.print(f"[bold {C.UEX}]▼ Acheter là-bas[/bold {C.UEX}]")
+        console.print(f"[bold {pc}]▼ Acheter là-bas[/bold {pc}]")
         tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
         tbl.add_column("Terminal (Sys)", no_wrap=True, min_width=24)
-        tbl.add_column(f"Achat/{C.SCU}",  style=C.UEX,  justify="right", no_wrap=True)
+        tbl.add_column(f"Achat/{C.SCU}",  style=pc,    justify="right", no_wrap=True)
         tbl.add_column("T.Cargo",        style=C.DIM,  justify="right", no_wrap=True)
         tbl.add_column("Dispo",          no_wrap=True)
         tbl.add_column("Dist",           no_wrap=True)
-        tbl.add_column("Total achat",    style=C.UEX,  justify="right", no_wrap=True)
+        tbl.add_column("Total achat",    style=pc,     justify="right", no_wrap=True)
 
         for r in buy_rows[:30]:
             price     = r.get("price_buy") or 0
@@ -1697,7 +1721,8 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         ship_note = f"  ·  {ctx.player.active_ship} ({player_scu} {C.SCU})"
     elif ctx.player.active_ship:
         ship_note = f"  ·  {ctx.player.active_ship} — /ship cargo <nom> <n> pour le {C.SCU}"
-    console.print(f"\n[{C.DIM}]{n_t} terminaux{date_str}{ship_note}[/{C.DIM}]")
+    footer_col = C.SCTRADE if offline else C.DIM
+    console.print(f"\n[{footer_col}]{n_t} terminaux{date_str}{ship_note}[/{footer_col}]")
 
     # ── Résumé autres systèmes (si filtre actif) ────────────────────────────
     if effective_filter and all_rows is not rows:
@@ -1840,11 +1865,16 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
     pad_str  = v.pad_type or "—"
     scu_str  = str(v.scu) if v.scu else "—"
 
+    from uexinfo.data.cargo_grids import format_cargo_config
+    grid      = ctx.cargo_grid_manager.get_grid(v.name_full)
+    grid_str  = format_cargo_config(grid) if grid else ""
+
     console.print(
         f"[{C.LABEL}]Fabricant[/{C.LABEL}]  {v.manufacturer or '—'}"
         f"    [{C.LABEL}]Cargo[/{C.LABEL}]  [{C.UEX}]{scu_str} {C.SCU}[/{C.UEX}]"
         f"    [{C.LABEL}]Équipage[/{C.LABEL}]  {crew_str}"
         f"    [{C.LABEL}]Pad[/{C.LABEL}]  {pad_str}"
+        + (f"    [{C.LABEL}]Grilles[/{C.LABEL}]  [{C.DIM}]{grid_str}[/{C.DIM}]" if grid_str else "")
     )
     if roles:
         console.print(f"[{C.LABEL}]Rôles[/{C.LABEL}]  " + " · ".join(roles))
@@ -2035,17 +2065,42 @@ def _find_commodity(query: str, ctx) -> Commodity | None:
 
 
 def _find_vehicle(query: str, ctx) -> Vehicle | None:
+    from uexinfo.cli.completer_data import MFR_ABBREV
     q = query.replace("_", " ").lower().strip()
     vehicles = ctx.cache.vehicles or []
+
+    # ── Notation pointée : <mfr_abbrev>.<nom>  ou  ship.<nom> ────────────
+    mfr_prefix: str | None = None
+    name_q = q
+    if "." in q:
+        pfx, rest = q.split(".", 1)
+        pfx  = pfx.strip()
+        rest = rest.strip()
+        mfr_full = MFR_ABBREV.get(pfx)
+        if mfr_full is not None or pfx == "ship":
+            mfr_prefix = mfr_full   # None pour "ship" = pas de filtre fabricant
+            name_q = rest
+        # Si préfixe non reconnu, on laisse q inchangé (ex: "port.tressler")
+
+    # ── Recherche avec filtre fabricant éventuel ──────────────────────────
+    def _mfr_ok(v) -> bool:
+        return not mfr_prefix or (v.manufacturer or "").lower().startswith(mfr_prefix)
+
     for v in vehicles:
-        if v.name_full.lower() == q or v.name.lower() == q:
+        if _mfr_ok(v) and (v.name_full.lower() == name_q or v.name.lower() == name_q):
             return v
     for v in vehicles:
-        if v.name_full.lower().startswith(q):
+        if _mfr_ok(v) and v.name_full.lower().startswith(name_q):
             return v
     for v in vehicles:
-        if q in v.name_full.lower():
+        if _mfr_ok(v) and name_q in v.name_full.lower():
             return v
+
+    # Si la notation pointée n'a rien donné, ne pas tomber sur la recherche floue
+    # pour éviter les faux positifs avec le point dans q.
+    if name_q != q:
+        return None
+
     try:
         from rapidfuzz import process, fuzz
         names_lower = [v.name_full.lower() for v in vehicles]

@@ -670,15 +670,19 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
 # ── /trade sctrade ─────────────────────────────────────────────────────────────
 
 def _trade_sctrade(args: list[str], ctx) -> None:
-    """/trade sctrade [--from <loc>] [--ship <ship>] [--budget <N>] [--stops <N>]
+    """/trade sctrade [--from <loc>] [--to <dest>] [--ship <ship>] [--budget <N>]
+                      [--stops <N>] [--same-system|--ss]
 
     Utilise sc-trade.tools pour trouver les meilleures routes.
     Token requis pour le calcul de routes : /config sctrade token <token>
     Sans token : affiche les données communauté disponibles.
+
+    Auto-remplissage : origin ← position joueur, dest ← destination joueur.
+    Si origin == dest après auto-remplissage, dest est effacée (même lieu = inutile).
+    --same-system / --ss : restreindre les routes au système du joueur.
     """
     from uexinfo.api.sctrade_client import SCTradeClient, SCTradeError, SCTradeAuthError
     from uexinfo.display.formatter import section
-    from rich.table import Table
 
     sct_cfg = ctx.cfg.get("sctrade", {})
     if not sct_cfg.get("enabled", True):
@@ -688,50 +692,78 @@ def _trade_sctrade(args: list[str], ctx) -> None:
     token = sct_cfg.get("token", "")
     client = SCTradeClient(token=token)
 
-    # Paramètres depuis args ou player
-    origin    = ""
-    ship_name = ""
-    budget    = 0
-    max_stops = 3
+    # ── Parsing des arguments ─────────────────────────────────────────────────
+    origin      = ""
+    ship_name   = ""
+    budget      = 0
+    max_stops   = 3
+    dest        = ""
+    same_system = False
+    _dest_explicit = False   # --to passé explicitement → pas d'effacement auto
 
     i = 0
     while i < len(args):
         a = args[i].lower()
         if a in ("--from", "-f") and i + 1 < len(args):
-            origin = args[i + 1]; i += 2
+            origin = args[i + 1].replace("_", " "); i += 2
         elif a in ("--ship", "-s") and i + 1 < len(args):
             ship_name = args[i + 1]; i += 2
         elif a in ("--budget", "-b") and i + 1 < len(args):
             budget = int(args[i + 1].replace(" ", "").replace("k", "000").replace("K", "000")); i += 2
         elif a in ("--stops", "-n") and i + 1 < len(args):
             max_stops = int(args[i + 1]); i += 2
+        elif a in ("--to", "-t") and i + 1 < len(args):
+            dest = args[i + 1].replace("_", " "); _dest_explicit = True; i += 2
+        elif a in ("--same-system", "--ss", "--same", "-ss"):
+            same_system = True; i += 1
         else:
             i += 1
 
+    # ── Auto-remplissage depuis le joueur ─────────────────────────────────────
     if not origin:
-        origin = (ctx.player.location or "").strip()
+        origin = (ctx.player.location or "").strip().replace("_", " ")
+
+    if not _dest_explicit:
+        _auto = (ctx.player.destination or "").strip().replace("_", " ")
+        if _auto:
+            # Destination auto : si elle est identique à l'origin, inutile de la garder
+            if _auto.lower() != origin.lower():
+                dest = _auto
+            # sinon dest reste vide (pas de boucle sur soi-même)
+
+    # Si --to passé manuellement et == origin → effacer dest (c'est dest qui "venait de" l'autre)
+    if _dest_explicit and dest and dest.lower() == origin.lower():
+        dest = ""
+
     if not ship_name:
         ship_name = getattr(ctx.player, "active_ship", "") or ctx.cfg.get("player", {}).get("active_ship", "")
     if not budget:
-        # Estimation grossière : 1000 aUEC/SCU × cargo
         cargo = _player_cargo(ctx)
         budget = max(10_000, cargo * 1_000)
 
-    # Cargo du vaisseau
-    cargo_scu = _player_cargo(ctx) or 32
+    cargo_scu  = _player_cargo(ctx) or 32
+    player_sys = _player_system(ctx) or ""
 
-    section(f"Routes sc-trade.tools  [{C.DIM}]{ship_name or '?'}  {budget:,} aUEC  {cargo_scu} SCU[/{C.DIM}]")
+    dest_label = f"  →  [{C.UEX}]{dest}[/{C.UEX}]" if dest else ""
+    ss_label   = f"  [{C.DIM}](système : {player_sys})[/{C.DIM}]" if same_system and player_sys else ""
+    section(f"Routes sc-trade.tools{dest_label}{ss_label}  [{C.DIM}]{ship_name or '?'}  {budget:,} aUEC  {cargo_scu} SCU[/{C.DIM}]")
 
     if client.has_token:
         # Route via API serveur (token Patreon)
         try:
-            routes = client.trades(
-                ship=ship_name or "Freelancer",
-                investment=budget,
-                max_cargo_scu=cargo_scu,
-                max_stops=max_stops,
-                origin=origin,
+            kw: dict = dict(
+                ship        = ship_name or "Freelancer",
+                investment  = budget,
+                max_cargo_scu = cargo_scu,
+                max_stops   = max_stops,
+                origin      = origin,
             )
+            if same_system and player_sys:
+                kw["star_system"] = player_sys
+            if dest:
+                routes = client.itinerary(destination=dest, **kw)
+            else:
+                routes = client.trades(**kw)
         except SCTradeAuthError as e:
             print_error(str(e))
             return
@@ -741,14 +773,34 @@ def _trade_sctrade(args: list[str], ctx) -> None:
         _display_sctrade_routes(routes)
     else:
         # Calcul local depuis les listings publics
-        console.print(f"[{C.DIM}]Chargement des données communauté sc-trade.tools…[/{C.DIM}]")
-        try:
-            listings = client.crowdsource_listings(max_pages=6)
-        except SCTradeError as e:
-            print_error(str(e))
+        if dest:
+            console.print(f"[{C.WARNING}]Itinéraire origin→dest nécessite un token Patreon sc-trade.tools.[/{C.WARNING}]")
+            console.print(f"[{C.DIM}]/config sctrade token <token>[/{C.DIM}]")
             return
+        console.print(f"[{C.DIM}]Chargement des données communauté sc-trade.tools…[/{C.DIM}]")
+        import time
+        CACHE_KEY = "sct_listings"
+        TTL = 15 * 60  # 15 minutes
+
+        cached = ctx._price_cache.get(CACHE_KEY)
+        if cached and (time.time() - cached[0]) < TTL:
+            listings = cached[1]
+        else:
+            try:
+                listings = client.crowdsource_listings(max_pages=6)
+            except SCTradeError as e:
+                print_error(str(e))
+                return
+            ctx._price_cache[CACHE_KEY] = (time.time(), listings)
+
+        # Filtrer par système si --same-system
+        if same_system and player_sys:
+            sys_lower = player_sys.lower()
+            listings = [l for l in listings if sys_lower in l.get("location", "").lower()]
+
         routes = _compute_routes_from_listings(
-            listings, budget=budget, cargo_scu=cargo_scu, origin=origin
+            listings, budget=budget, cargo_scu=cargo_scu,
+            origin=origin, same_system=same_system, player_sys=player_sys,
         )
         _display_sctrade_routes(routes)
         console.print(
@@ -797,13 +849,18 @@ def _compute_routes_from_listings(
     budget: int,
     cargo_scu: int,
     origin: str = "",
+    same_system: bool = False,
+    player_sys: str = "",
 ) -> list[dict]:
     """Calcul local de routes depuis les listings crowdsource sc-trade.tools.
 
-    Stratégie simple : pour chaque commodité, trouver le meilleur achat
-    et la meilleure vente, calculer le profit potentiel.
+    Stratégie : pour chaque commodité, meilleur achat + meilleure vente.
+    Si same_system=True, achat ET vente doivent être dans player_sys.
+    Si origin est fourni, le lieu d'achat est scoré comme prioritaire si proche.
     """
     from collections import defaultdict
+
+    sys_lower = player_sys.lower() if (same_system and player_sys) else ""
 
     # Index : commodity → {location → {buy/sell: price}}
     prices: dict[str, dict[str, dict]] = defaultdict(lambda: defaultdict(dict))
@@ -814,6 +871,9 @@ def _compute_routes_from_listings(
         tx   = r.get("transaction", "")
         if not comm or not loc or p <= 0:
             continue
+        # Filtre système (déjà appliqué sur listings avant appel, mais double-sécurité)
+        if sys_lower and sys_lower not in loc.lower():
+            continue
         if tx == "SELLS":   # terminal vend → joueur achète
             existing = prices[comm][loc].get("buy", 0)
             if p < existing or not existing:
@@ -823,31 +883,35 @@ def _compute_routes_from_listings(
             if p > existing:
                 prices[comm][loc]["sell"] = p
 
+    origin_lower = origin.lower()
     routes = []
     for comm, locs in prices.items():
-        # Meilleur achat (prix le plus bas)
         buy_opts  = [(loc, d["buy"])  for loc, d in locs.items() if "buy"  in d]
         sell_opts = [(loc, d["sell"]) for loc, d in locs.items() if "sell" in d]
         if not buy_opts or not sell_opts:
             continue
         buy_loc,  p_buy  = min(buy_opts,  key=lambda x: x[1])
         sell_loc, p_sell = max(sell_opts, key=lambda x: x[1])
-        if p_sell <= p_buy:
+        if sell_loc == buy_loc or p_sell <= p_buy:
             continue
         margin = (p_sell - p_buy) / p_buy
-        if margin < 0.05:   # ROI < 5% → ignorer
+        if margin < 0.05:
             continue
         qty    = min(cargo_scu, budget // max(p_buy, 1))
         profit = int((p_sell - p_buy) * qty)
+        # Bonus de tri si le lieu d'achat est proche de l'origin du joueur
+        origin_bonus = 1 if (origin_lower and origin_lower in buy_loc.lower()) else 0
         routes.append({
-            "commodity":  comm.title(),
-            "origin_loc": buy_loc,
-            "dest_loc":   sell_loc,
-            "p_buy":      p_buy,
-            "p_sell":     p_sell,
-            "profit":     profit,
-            "qty":        qty,
+            "commodity":    comm.title(),
+            "origin_loc":   buy_loc,
+            "dest_loc":     sell_loc,
+            "p_buy":        p_buy,
+            "p_sell":       p_sell,
+            "profit":       profit,
+            "qty":          qty,
+            "_origin_bonus": origin_bonus,
         })
 
-    routes.sort(key=lambda r: r["profit"], reverse=True)
+    # Tri : profit desc, avec légère préférence pour les achats proches de l'origin
+    routes.sort(key=lambda r: (r["_origin_bonus"], r["profit"]), reverse=True)
     return routes

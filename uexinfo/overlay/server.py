@@ -75,6 +75,29 @@ _STATUS_CMDS = frozenset({"player", "p", "go", "lieu", "ship", "config", "dest",
 _QUIT_CMDS   = frozenset({"quit", "exit", "bye", "quitter", "/quit", "/exit", "/bye", "/quitter"})
 
 
+def _clipboard_win(text: str) -> None:
+    """Copie text dans le presse-papiers via PowerShell Set-Clipboard (fallback WS)."""
+    import sys
+    if sys.platform != "win32":
+        return
+    try:
+        import subprocess
+        subprocess.run(
+            [
+                "powershell", "-NoProfile", "-NonInteractive", "-STA",
+                "-Command",
+                "[Console]::InputEncoding = [System.Text.Encoding]::UTF8; "
+                "Set-Clipboard -Value ([Console]::In.ReadToEnd())",
+            ],
+            input=text.encode("utf-8"),
+            capture_output=True,
+            timeout=8,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+    except Exception as exc:
+        print(f"[overlay] clipboard error: {exc}", flush=True)
+
+
 class OverlayServer:
     """Serveur WebSocket qui expose le moteur CLI au frontend HTML."""
 
@@ -300,6 +323,8 @@ class OverlayServer:
                     print(f"[overlay] open_file error: {e}", flush=True)
         elif t == "history":
             await ws.send(json.dumps({"type": "history", "items": self._history}))
+        elif t == "copy":
+            _clipboard_win(msg.get("text", ""))
 
     # ── Exécution des commandes ───────────────────────────────────────────────
 
@@ -1157,6 +1182,13 @@ class OverlayServer:
         # ── Candidats selon le contexte ───────────────────────────────────
         candidates: list[dict] = []
 
+        # — Cas 0 : notation pointée dans le mot courant (RSI.hermes, ship.anvil) ——
+        if current_word and "." in current_word and not current_word.startswith("/"):
+            dot_items = self._complete_dotted(current_word)
+            if dot_items is not None:
+                cp = self._common_prefix([c["insert"] for c in dot_items]) if dot_items else ""
+                return {"common_prefix": cp, "items": dot_items}
+
         # — Cas 1 : ligne vide ou saisie d'une commande (commence par /) ——
         if not tokens or (len(tokens) == 1 and not before.endswith(" ")):
             # Commandes enregistrées
@@ -1238,6 +1270,68 @@ class OverlayServer:
         results += self._dyn_typed("any", q)
         return results
 
+    def _complete_dotted(self, word: str) -> list[dict] | None:
+        """Complétion contextuelle pour la notation pointée.
+
+        Préfixes reconnus :
+          ship.<mfr|nom>      → vaisseaux filtrés par fabricant / nom
+          <ABBREV>.<nom>      → vaisseaux du fabricant (RSI.hermes, DRAK.cutlass…)
+          commodity.<nom>     → commodités
+
+        Retourne None si le préfixe n'est pas reconnu (délègue au moteur normal).
+        """
+        from uexinfo.cli.completer_data import MFR_ABBREV
+
+        parts   = word.split(".", 1)
+        pfx_raw = parts[0]                             # casse d'origine pour l'insert
+        pfx     = pfx_raw.lower().replace("_", " ").strip()
+        sfx     = parts[1].lower().replace("_", " ").strip() if len(parts) > 1 else ""
+
+        # ── Vaisseaux ──────────────────────────────────────────────────────────
+        is_ship   = pfx in ("ship", "vaisseau", "s")
+        mfr_pfix  = MFR_ABBREV.get(pfx)   # ex: "rsi" → "robert"
+
+        if is_ship or mfr_pfix is not None:
+            if not self.ctx or not self.ctx.cache:
+                return []
+            results: list[dict] = []
+            for v in (self.ctx.cache.vehicles or []):
+                vname = getattr(v, "name_full", "") or getattr(v, "name", "") or ""
+                if not vname:
+                    continue
+                mfr = (getattr(v, "manufacturer", "") or "").lower()
+                # Filtrer par fabricant si abréviation connue
+                if mfr_pfix and not mfr.startswith(mfr_pfix):
+                    continue
+                # Filtrer par nom si suffixe présent
+                if sfx:
+                    vl = vname.lower()
+                    if not (vl.startswith(sfx)
+                            or sfx in vl
+                            or any(w.startswith(sfx.split()[0]) for w in vl.split() if sfx.split())):
+                        continue
+                # Insert = nom seul (sans le préfixe dot) pour ne pas polluer /ship add etc.
+                insert = vname.replace(" ", "_")
+                hint   = f"vaisseau · {mfr.title()}" if mfr else "vaisseau"
+                results.append(self._mk(vname, hint, insert))
+            return sorted(results, key=lambda c: c["value"].lower())[:40]
+
+        # ── Commodités ─────────────────────────────────────────────────────────
+        if pfx in ("commodity", "com", "commodité"):
+            if not self.ctx or not self.ctx.cache:
+                return []
+            results = []
+            for c in (self.ctx.cache.commodities or []):
+                cname = c.name or ""
+                kind  = getattr(c, "kind", "") or "commodité"
+                if sfx and not (cname.lower().startswith(sfx) or sfx in cname.lower()):
+                    continue
+                insert = f"{pfx_raw}.{cname.replace(' ', '_')}"
+                results.append(self._mk(cname, kind, insert))
+            return results[:40]
+
+        return None  # préfixe non reconnu → déléguer au moteur normal
+
     def _dyn_typed(self, ntype: str, q: str) -> list[dict]:
         """Retourne des suggestions dynamiques selon le type attendu."""
         if not self.ctx:
@@ -1248,8 +1342,19 @@ class OverlayServer:
         do_com  = ntype in ("commodity", "any")
         do_veh  = ntype in ("vehicle", "any")
         do_ship = ntype == "any"  # vaisseaux joueur en priorité dans "any"
+        do_sys  = ntype == "system"
+
+        # — Systèmes stellaires (pour /explore) ————————————————————————————
+        if do_sys and self.ctx.cache:
+            for s in (self.ctx.cache.star_systems or []):
+                name = getattr(s, "name", "") or ""
+                if not name:
+                    continue
+                insert = name.lower().replace(" ", "_")
+                results.append(self._mk(name, "système stellaire", insert))
 
         # — Vaisseaux du joueur (priorité dans "any") ——————————————————————
+        player_ship_names: set[str] = set()
         if do_ship:
             player = getattr(self.ctx, "player", None)
             if player:
@@ -1257,6 +1362,7 @@ class OverlayServer:
                     name = getattr(s, "name", "") or ""
                     if not name:
                         continue
+                    player_ship_names.add(name.lower())
                     insert = name.replace(" ", "_")
                     results.append(self._mk(name, "vaisseau joueur", insert))
 
@@ -1279,15 +1385,22 @@ class OverlayServer:
                 kind   = getattr(c, "kind", "") or "commodité"
                 results.append(self._mk(c.name or insert, kind, insert))
 
-        # — Tous les vaisseaux (si type "vehicle") ——————————————————————————
-        if do_veh and not do_ship and self.ctx.cache:
+        # — Catalogue complet vaisseaux (vehicle ou any) ———————————————————
+        if do_veh and self.ctx.cache:
+            veh_count = 0
+            veh_limit = 50 if do_ship else 300  # limiter en mode "any" pour ne pas noyer
             for v in (self.ctx.cache.vehicles or []):
                 name = getattr(v, "name_full", "") or getattr(v, "name", "") or ""
                 if not name:
                     continue
-                mfr    = getattr(v, "company_name", "") or ""
+                if name.lower() in player_ship_names:
+                    continue  # déjà ajouté comme vaisseau joueur
+                mfr    = getattr(v, "manufacturer", "") or ""  # champ correct du modèle Vehicle
                 insert = name.replace(" ", "_")
                 results.append(self._mk(name, f"vaisseau · {mfr}", insert))
+                veh_count += 1
+                if veh_count >= veh_limit:
+                    break
 
         return results
 

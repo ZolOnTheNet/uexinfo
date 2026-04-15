@@ -1898,10 +1898,8 @@ def _run_analysis(voyage: Voyage, ctx) -> None:
 def _suggest_cargo(missions: list, order: list[int], spare_scu: float,
                    resolved: dict, dist: dict, ctx) -> None:
     """Propose des cargaisons rentables pour remplir le SCU disponible."""
-    try:
-        from uexinfo.api.uex_client import UEXClient
-        client = UEXClient(ctx.cfg.get("api_key", ""))
-    except Exception:
+    cache = ctx.cache
+    if not cache:
         return
 
     console.print(f"\n  [bold]Cargo supplémentaire disponible :[/bold] [{C.DIM}]{spare_scu:.0f} SCU libres[/{C.DIM}]")
@@ -1918,13 +1916,23 @@ def _suggest_cargo(missions: list, order: list[int], spare_scu: float,
     if not legs:
         return
 
+    def _get_prices(terminal_name: str) -> list[dict]:
+        """Fetch terminal prices : cache d'abord (stale OK), API en dernier recours."""
+        key = f"tl_{terminal_name.lower().replace(' ', '_')}"
+        cached = ctx._price_cache.get(key) or ctx._price_cache.get_stale(key)
+        if cached:
+            return cached[1]
+        try:
+            from uexinfo.api.uex_client import UEXClient, UEXError
+            data = UEXClient().get_prices(terminal_name=terminal_name)
+            ctx._price_cache[key] = (__import__("time").time(), data)
+            return data
+        except Exception:
+            return []
+
     # Pour chaque leg, chercher les meilleures routes commerciales
     suggestions: list[tuple[float, str, str, str, float, float]] = []
     # (profit_par_scu, commodity, from, to, buy_price, sell_price)
-
-    cache = ctx.cache
-    if not cache:
-        return
 
     for from_loc, to_loc in legs[:3]:  # limiter aux 3 premiers legs
         from_terminals = _loc_terminals(from_loc, cache)
@@ -1933,25 +1941,23 @@ def _suggest_cargo(missions: list, order: list[int], spare_scu: float,
             continue
         for ft in from_terminals[:2]:
             for tt in to_terminals[:2]:
-                try:
-                    prices = client.get_prices(terminal_name=ft.name)
-                    buys = {p.commodity_name: p for p in prices if p.operation == "buy"}
-                except Exception:
+                prices  = _get_prices(ft.name)
+                prices2 = _get_prices(tt.name)
+                if not prices or not prices2:
                     continue
-                try:
-                    prices2 = client.get_prices(terminal_name=tt.name)
-                    sells = {p.commodity_name: p for p in prices2 if p.operation == "sell"}
-                except Exception:
-                    continue
+                buys  = {p["commodity_name"]: p for p in prices  if p.get("price_buy")}
+                sells = {p["commodity_name"]: p for p in prices2 if p.get("price_sell")}
                 for name, bp in buys.items():
                     if name not in sells:
                         continue
                     sp = sells[name]
-                    if not bp.price or not sp.price:
+                    buy_p  = float(bp.get("price_buy")  or 0)
+                    sell_p = float(sp.get("price_sell") or 0)
+                    if not buy_p or not sell_p:
                         continue
-                    profit = sp.price - bp.price
+                    profit = sell_p - buy_p
                     if profit > 0:
-                        suggestions.append((profit, name, ft.name, tt.name, bp.price, sp.price))
+                        suggestions.append((profit, name, ft.name, tt.name, buy_p, sell_p))
 
     if not suggestions:
         console.print(f"  [{C.DIM}]Aucune opportunité commerciale détectée sur ces legs.[/{C.DIM}]")

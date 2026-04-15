@@ -2,6 +2,11 @@
 from __future__ import annotations
 
 import requests
+try:
+    import cloudscraper as _cloudscraper
+    _HAS_CLOUDSCRAPER = True
+except ImportError:
+    _HAS_CLOUDSCRAPER = False
 
 BASE_URL = "https://uexcorp.space/api/2.0"
 TIMEOUT = 15
@@ -12,18 +17,32 @@ class UEXError(Exception):
 
 
 class UEXClient:
-    def __init__(self, timeout: int = TIMEOUT):
+    def __init__(self, secret_key: str | None = None, timeout: int = TIMEOUT):
+        # Si aucune clé fournie, lire depuis la config
+        if secret_key is None:
+            try:
+                from uexinfo.config.settings import load as _load_cfg
+                secret_key = _load_cfg().get("api", {}).get("secret_key", "")
+            except Exception:
+                secret_key = ""
+        self._secret_key = secret_key.strip() if secret_key else ""
         self.timeout = timeout
-        self.session = requests.Session()
+        if _HAS_CLOUDSCRAPER:
+            self.session = _cloudscraper.create_scraper(
+                browser={"browser": "chrome", "platform": "windows", "mobile": False}
+            )
+        else:
+            self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "uexinfo-cli/0.1",
             "Accept": "application/json",
         })
+        if self._secret_key:
+            self.session.headers["secret_key"] = self._secret_key
 
     def _get(self, endpoint: str, params: dict | None = None) -> list:
         url = f"{BASE_URL}/{endpoint.lstrip('/')}"
         try:
-            r = self.session.get(url, params=params, timeout=self.timeout)
+            r = self.session.get(url, params=params or None, timeout=self.timeout)
             r.raise_for_status()
             body = r.json()
         except requests.exceptions.ConnectionError:

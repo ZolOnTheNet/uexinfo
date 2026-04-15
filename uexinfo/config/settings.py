@@ -67,6 +67,9 @@ DEFAULT: dict = {
         "restaurants": True,   # Afficher la liste des restaurants dans la vue terminal
         "services":    True,   # Afficher la liste des services dans la vue terminal
     },
+    "api": {
+        "secret_key": "",  # Clé secrète personnelle UEX Corp (uexcorp.space → profil)
+    },
     "sctrade": {
         "token":   "",     # Token d'accès sc-trade.tools (profil utilisateur)
         "ttl":     300,    # Cache TTL en secondes

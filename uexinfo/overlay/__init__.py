@@ -99,6 +99,35 @@ class _WindowApi:
             except Exception:
                 pass
 
+    def copy_clipboard(self, text: str) -> bool:
+        """Copie text dans le presse-papiers via PowerShell Set-Clipboard.
+
+        Approche robuste — pas de ctypes, pas de problèmes 64-bit, gère tout Unicode.
+        Appelé directement depuis JS via window.pywebview.api (pas de WebSocket).
+        La donnée persiste dans le presse-papiers après la fin de PowerShell.
+        """
+        if sys.platform != "win32":
+            return False
+        try:
+            import subprocess
+            # Texte transmis via stdin → pas de limite de longueur ni d'injection
+            subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-NonInteractive", "-STA",
+                    "-Command",
+                    "[Console]::InputEncoding = [System.Text.Encoding]::UTF8; "
+                    "Set-Clipboard -Value ([Console]::In.ReadToEnd())",
+                ],
+                input=text.encode("utf-8"),
+                capture_output=True,
+                timeout=8,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            return True
+        except Exception as exc:
+            print(f"[overlay] clipboard error: {exc}", flush=True)
+            return False
+
     def restore_transparency(self) -> None:
         """Appelé depuis JS sur mouseup (fin de resize) — restaure la transparence DWM
         et sauvegarde la géométrie."""
@@ -326,7 +355,13 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     # ── 4. Nettoyage à la fermeture ───────────────────────────────────────────
 
     def _save_geometry() -> None:
-        """Sauvegarde position et dimensions via Win32 GetWindowRect."""
+        """Sauvegarde position (Win32) + dimensions (PyWebView) de la fenêtre.
+
+        On utilise GetWindowRect UNIQUEMENT pour la position (x, y) car elle
+        est fiable. Pour width/height on prend window.width/window.height —
+        même référentiel que create_window — pour éviter la dérive cumulative
+        causée par le border invisible DWM (WS_THICKFRAME) ou le DPI scaling.
+        """
         try:
             import ctypes.wintypes as _wt
             _user32 = ctypes.windll.user32
@@ -334,11 +369,15 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
             if _hwnd and server.ctx:
                 _rect = _wt.RECT()
                 _user32.GetWindowRect(_hwnd, ctypes.byref(_rect))
+                # Dimensions : référentiel PyWebView (mis à jour par resize())
+                # afin d'éviter que GetWindowRect n'introduise un offset DWM/DPI
+                w = window.width  if (window.width  and window.width  > 50) else (_rect.right  - _rect.left)
+                h = window.height if (window.height and window.height > 50) else (_rect.bottom - _rect.top)
                 ov = server.ctx.cfg.setdefault("overlay", {})
                 ov["x"]      = _rect.left
                 ov["y"]      = _rect.top
-                ov["width"]  = _rect.right  - _rect.left
-                ov["height"] = _rect.bottom - _rect.top
+                ov["width"]  = w
+                ov["height"] = h
                 _settings.save(server.ctx.cfg)
                 print(
                     f"[overlay] Géométrie sauvegardée : "

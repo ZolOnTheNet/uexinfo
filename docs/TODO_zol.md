@@ -19,6 +19,7 @@ si dans le texte (texte avant donc) déclanche la selection d'un terminal ou d'u
 
 # extensions sympa
 
+
 # si le texte saisie n'abouti pas, vérifier si celui-ci n' existe en commande (essayer avec / devant)
 
 18x16c 3:30 min de chargement
