@@ -311,12 +311,20 @@ def _ship(args: list[str], ctx) -> None:
     elif sub == "remove":
         raw  = " ".join(rest).replace("_", " ").strip()
         if not raw:
-            print_error("Usage : /ship remove <nom du vaisseau>")
-            if ctx.player.ships:
+            if not ctx.player.ships:
+                print_warn("Aucun vaisseau configuré")
+                return
+            from uexinfo.cli.selector import SelectItem, pick
+            items = [SelectItem(label=s.name, value=s.name) for s in ctx.player.ships]
+            chosen = pick(ctx, items, title="Retirer un vaisseau", mode="single", confirm_label="Retirer")
+            if chosen:
+                raw = chosen[0].value
+            else:
+                print_error("Usage : /ship remove <nom du vaisseau>")
                 console.print(f"[{C.DIM}]Vaisseaux actuels :[/{C.DIM}]")
                 for s in ctx.player.ships:
                     console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
-            return
+                return
         # Chercher d'abord un nom exact dans la flotte (avec normalisation casse + dot-notation)
         raw_lower = raw.lower()
         match_name = next(
@@ -325,7 +333,6 @@ def _ship(args: list[str], ctx) -> None:
         )
         if match_name is None:
             # Essayer via _find_vehicle (gère la notation pointée ship.xxx / RSI.xxx)
-            from uexinfo.cli.commands.info import _find_vehicle
             v = _find_vehicle(raw, ctx)
             canon_lower = (v.name_full if v else raw).lower()
             match_name = next(
@@ -348,13 +355,28 @@ def _ship(args: list[str], ctx) -> None:
     elif sub in ("set", "select"):
         name  = " ".join(rest)
         if not name:
-            print_error("Usage : /ship set <nom du vaisseau>")
-            if ctx.player.ships:
+            if not ctx.player.ships:
+                print_warn("Aucun vaisseau configuré — /ship add <nom>")
+                return
+            from uexinfo.cli.selector import SelectItem, pick
+            items = [
+                SelectItem(
+                    label=s.name,
+                    meta="◄ actif" if s.name == ctx.player.active_ship else "",
+                    value=s.name,
+                    selected=(s.name == ctx.player.active_ship),
+                )
+                for s in ctx.player.ships
+            ]
+            chosen = pick(ctx, items, title="Choisir le vaisseau actif", mode="single", confirm_label="Définir actif")
+            if chosen:
+                name = chosen[0].value
+            else:
                 console.print(f"[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
                 for s in ctx.player.ships:
                     marker = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == ctx.player.active_ship else ""
                     console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]{marker}")
-            return
+                return
         match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
         if match is None:
             print_error(f"{name} n'est pas dans la liste")
@@ -377,17 +399,20 @@ def _ship(args: list[str], ctx) -> None:
         )
 
         if not rest:
-            print_error("Usage : /ship cargo <nom> [--all|-a] [--clear|-c] [capacité] [32x<n>] ...")
-            console.print(f"[{C.DIM}]Exemples :[/{C.DIM}]")
-            console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules[/{C.LABEL}]  [{C.DIM}](affiche config du vaisseau)[/{C.DIM}]")
-            console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules 32x10 16x4[/{C.LABEL}]  [{C.DIM}](modifie le vaisseau)[/{C.DIM}]")
-            console.print(f"  [{C.LABEL}]/ship cargo \"Cutlass Black\" --all[/{C.LABEL}]  [{C.DIM}](affiche le modèle)[/{C.DIM}]")
-            console.print(f"  [{C.LABEL}]/ship cargo Cutlass_Black -a 16x2 8x1[/{C.LABEL}]  [{C.DIM}](modifie le modèle)[/{C.DIM}]")
-            console.print(f"  [{C.LABEL}]/ship cargo Cutlass_Black --clear[/{C.LABEL}]  [{C.DIM}](efface override modèle)[/{C.DIM}]")
-            console.print(f"\n[{C.DIM}]Tailles acceptées : 1, 2, 4, 8, 16, 24, 32 SCU[/{C.DIM}]")
-            console.print(f"[{C.DIM}]--all/-a : modifie le modèle (partagé) au lieu du vaisseau du joueur[/{C.DIM}]")
-            console.print(f"[{C.DIM}]--clear/-c : efface l'override du modèle et revient aux données de base[/{C.DIM}]")
-            return
+            if ctx.player.ships:
+                from uexinfo.cli.selector import SelectItem, pick
+                items = [SelectItem(label=s.name, value=s.name) for s in ctx.player.ships]
+                chosen = pick(ctx, items, title="Vaisseau — configuration cargo", mode="single", confirm_label="Voir config")
+                if chosen:
+                    rest = [chosen[0].value]
+                else:
+                    print_error("Usage : /ship cargo <nom> [--all|-a] [--clear|-c] [capacité] [32x<n>] ...")
+                    console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules[/{C.LABEL}]  [{C.DIM}](affiche config)[/{C.DIM}]")
+                    console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules 32x10 16x4[/{C.LABEL}]  [{C.DIM}](modifie)[/{C.DIM}]")
+                    return
+            else:
+                print_warn("Aucun vaisseau configuré — /ship add <nom>")
+                return
 
         # Extraire le nom du vaisseau et les flags
         ship_name_parts = []

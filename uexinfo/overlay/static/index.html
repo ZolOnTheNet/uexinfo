@@ -1526,6 +1526,7 @@ function dispatch(msg) {
       break;
     case 'echo':        appendEcho(msg.text); startSpin(); break;
     case 'output':      appendAnsi(msg.ansi); break;   // spinner continue jusqu'au 'done'
+    case 'output_html': appendHtml(msg.html); break;  // HTML déjà converti (historique stocké)
     case 'done':
       stopSpin();
       hideProgress();
@@ -1643,6 +1644,22 @@ let _lastAnsiDivs = [];   // Lot de divs du dernier appendAnsi (pour trade pick 
 
 function appendAnsi(ansi) {
   const html  = ANSI.toHtml(ansi);
+  const lines = html.split('\n');
+  const frag  = document.createDocumentFragment();
+  _lastAnsiDivs = [];
+  for (const line of lines) {
+    const d = document.createElement('div');
+    d.className = 'line';
+    d.innerHTML = line || '\u00a0';
+    annotateElement(d);
+    frag.appendChild(d);
+    _lastAnsiDivs.push(d);
+  }
+  elOutput.appendChild(frag);
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+function appendHtml(html) {
   const lines = html.split('\n');
   const frag  = document.createDocumentFragment();
   _lastAnsiDivs = [];
@@ -2200,11 +2217,18 @@ document.addEventListener('keydown', e => {
 
   // Toute touche imprimable redirige vers l'input de commande,
   // SAUF si le focus est déjà dans un champ de formulaire (scan inline, select, etc.)
-  if (!e.ctrlKey && !e.altKey && e.key.length === 1) {
+  if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
     const tag = (document.activeElement || {}).tagName || '';
     if (document.activeElement !== elInput
         && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
+      e.preventDefault();
+      // Insérer le caractère manuellement à la position du curseur
+      const pos = elInput.selectionStart ?? elInput.value.length;
+      elInput.value = elInput.value.slice(0, pos) + e.key + elInput.value.slice(pos);
+      elInput.setSelectionRange(pos + 1, pos + 1);
       elInput.focus();
+      histIdx = -1;
+      elInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
 });

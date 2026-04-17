@@ -33,15 +33,17 @@ def load() -> list[str]:
         return []
 
 
-def append(command: str) -> None:
-    """Ajoute une commande à l'historique sur disque."""
+def append(command: str, html_output: str = "") -> None:
+    """Ajoute une commande à l'historique sur disque, avec son output HTML optionnel."""
     if not command.strip():
         return
     try:
         _HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-        entry = json.dumps({"ts": datetime.now().isoformat(timespec="seconds"), "cmd": command})
+        entry: dict = {"ts": datetime.now().isoformat(timespec="seconds"), "cmd": command}
+        if html_output:
+            entry["html"] = html_output
         with open(_HISTORY_PATH, "a", encoding="utf-8") as f:
-            f.write(entry + "\n")
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except OSError:
         pass
 
@@ -49,7 +51,6 @@ def append(command: str) -> None:
 def last_n(n: int = 100) -> list[str]:
     """Retourne les N dernières commandes uniques, les plus récentes en premier (index 0 = plus récente)."""
     all_cmds = load()
-    # Dédoublonner en gardant la dernière occurrence (newest first car on itère en reverse)
     seen: set[str] = set()
     result = []
     for cmd in reversed(all_cmds):
@@ -63,6 +64,33 @@ def last_n_raw(n: int = 5) -> list[str]:
     """Retourne les N dernières commandes brutes (avec doublons), les plus récentes en premier."""
     all_cmds = load()
     return list(reversed(all_cmds[-n:]))
+
+
+def last_n_raw_with_output(n: int = 5) -> list[dict]:
+    """Retourne les N dernières entrées brutes avec leur output HTML stocké.
+
+    Retourne une liste de dicts {"cmd": ..., "html": ...}, les plus récentes en premier.
+    Les entrées sans HTML ont html="".
+    """
+    if not _HISTORY_PATH.exists():
+        return []
+    try:
+        entries = []
+        with open(_HISTORY_PATH, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    cmd = obj.get("cmd", "")
+                    if cmd:
+                        entries.append({"cmd": cmd, "html": obj.get("html", "")})
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+        return list(reversed(entries[-n:]))
+    except OSError:
+        return []
 
 
 def stats() -> dict:

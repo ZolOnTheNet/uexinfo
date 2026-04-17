@@ -28,6 +28,14 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("voyage.calc.favoris",    "Lieux à privilégier (liste)"),
         ("voyage.calc.exclure",    "Lieux à exclure systématiquement (liste)"),
     ],
+    "ship": [
+        ("list",   "Liste vos vaisseaux"),
+        ("add",    "Ajoute un vaisseau"),
+        ("remove", "Retire un vaisseau"),
+        ("set",    "Définit le vaisseau actif"),
+        ("select", "Alias de set"),
+        ("cargo",  "Configure les grilles cargo"),
+    ],
     "config ship": [
         ("list",   "Liste vos vaisseaux"),
         ("add",    "Ajoute un vaisseau"),
@@ -276,6 +284,10 @@ NEXT_TYPE: dict[str, str | None] = {
     "dest":              "location",
     "nav":               "location",
     "info":              "any",        # terminal + commodity + vehicle
+    "ship set":          "vehicle",
+    "ship select":       "vehicle",
+    "ship add":          "vehicle",
+    "ship remove":       "vehicle",
     "info terminal":     "terminal",
     "info commodity":    "commodity",
     "info ship":         "vehicle",

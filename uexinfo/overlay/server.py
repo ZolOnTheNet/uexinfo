@@ -187,16 +187,14 @@ class OverlayServer:
             # Envoyer l'historique de saisie (navigation ↑/↓)
             await websocket.send(json.dumps({"type": "history", "items": self._history}))
 
-            # Rejouer les N dernières commandes avec leurs résultats réels
+            # Afficher les N dernières commandes avec leurs résultats stockés (sans ré-exécution)
             cmdhistory_n = ov_cfg.get("cmdhistory", 5)
-            # last_n_raw : brut avec doublons, plus récentes en premier → on inverse pour afficher du plus ancien
-            recent = list(reversed(_history_mod.last_n_raw(cmdhistory_n)))
-            loop = asyncio.get_event_loop()
-            for cmd in recent:
-                await websocket.send(json.dumps({"type": "echo", "text": cmd}))
-                output, _ = await loop.run_in_executor(None, self._exec_sync, cmd)
-                if output:
-                    await websocket.send(json.dumps({"type": "output", "ansi": output}))
+            # last_n_raw_with_output : plus récentes en premier → on inverse pour afficher du plus ancien au plus récent
+            recent = list(reversed(_history_mod.last_n_raw_with_output(cmdhistory_n)))
+            for entry in recent:
+                await websocket.send(json.dumps({"type": "echo", "text": entry["cmd"]}))
+                if entry["html"]:
+                    await websocket.send(json.dumps({"type": "output_html", "html": entry["html"]}))
                 await websocket.send(json.dumps({"type": "done"}))
 
             # Banner EN DERNIER → déclenche setAlpha → overlay devient visible
@@ -244,6 +242,15 @@ class OverlayServer:
                     continue
 
                 t = msg.get("type")
+
+                # ── Réponse au sélecteur (toujours prioritaire) ───────────
+                if t in ("select_confirm", "select_cancel"):
+                    if t == "select_confirm":
+                        self._select_indices = msg.get("indices", [])
+                    else:
+                        self._select_indices = None
+                    self._select_event.set()
+                    continue
 
                 # ── Annulation (double-Esc) ────────────────────────────────
                 if t == "cancel":
@@ -304,12 +311,6 @@ class OverlayServer:
             await self._handle_scan_confirm(ws, msg.get("data", {}))
         elif t == "scan_existing_save":
             await self._handle_scan_existing_save(ws, msg.get("data", {}))
-        elif t == "select_confirm":
-            self._select_indices = msg.get("indices", [])
-            self._select_event.set()
-        elif t == "select_cancel":
-            self._select_indices = None
-            self._select_event.set()
         elif t == "trade_chosen":
             await self._handle_trade_chosen(msg.get("idx"))
         elif t == "terminal_buy_chosen":
@@ -367,8 +368,10 @@ class OverlayServer:
                 await asyncio.sleep(2)    # attendre le os._exit(0) du thread
             os._exit(0)  # fallback au cas où on_quit ne tue pas
 
-        # Sauvegarder dans l'historique
-        _history_mod.append(line)
+        # Mémoriser la commande originale (avant résolution des abréviations)
+        original_line = line
+
+        # Mise à jour de l'historique en mémoire (navigation ↑/↓)
         if not self._history or self._history[0] != line:
             self._history.insert(0, line)
             if len(self._history) > 500:
@@ -441,6 +444,10 @@ class OverlayServer:
         _progress_task.cancel()
         # Envoyer uniquement la partie non encore streamée
         output_delta = output[_streamed_len:]
+
+        # Sauvegarder la commande + son output HTML dans l'historique persistant
+        from uexinfo.display.ansi_html import ansi_to_html as _ansi_to_html
+        _history_mod.append(original_line, html_output=_ansi_to_html(output))
 
         self.ctx.select_fn = None
         self.ctx._overlay_send_fn = None
