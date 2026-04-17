@@ -1,19 +1,33 @@
 # UEXInfo
 
-CLI interactif pour **Star Citizen** — interroge l'[API UEX Corp 2.0](https://uexcorp.space/api/2.0/)
-pour trouver les meilleures opportunités de trading, planifier des routes et consulter
-les informations de l'univers en temps réel.
+> **Projet en cours de développement actif — fonctionnalités instables, API en évolution.**
 
-Deux modes d'utilisation :
-- **REPL** — terminal classique avec autocomplétion (prompt_toolkit)
-- **TUI** — interface graphique dans le terminal (Textual), base du futur overlay in-game
+Overlay in-game pour **Star Citizen** — fenêtre semi-transparente superposée au jeu,
+alimentée par l'[API UEX Corp 2.0](https://uexcorp.space/api/2.0/) et optionnellement
+[sc-trade.tools](https://sc-trade.tools), pour consulter prix, routes et missions
+sans quitter le cockpit.
+
+---
+
+## Comment ça fonctionne
+
+L'overlay est une fenêtre **PyWebView** (Chromium embarqué) sans bordure, semi-transparente,
+qui tourne par-dessus Star Citizen. Elle communique avec un serveur **WebSocket** local
+qui exécute les commandes et renvoie l'affichage en HTML/ANSI.
+
+- Hotkey configurable (`Alt+Shift+U` par défaut) pour afficher/masquer la fenêtre
+- Saisie de commandes avec autocomplétion inline et dropdown
+- Clic gauche sur un mot → `/info` automatique
+- Clic droit → menu contextuel (acheter / vendre / aller à / définir vaisseau)
+- Taille et position mémorisées entre les sessions
 
 ---
 
 ## Prérequis
 
 - **Python 3.11+**
-- **Git**
+- **pywebview**, **pynput**, **websockets**, **rich** (installés automatiquement)
+- (Optionnel) **Tesseract OCR** ou **SC-Datarunner** pour `/scan`
 - Connexion internet
 
 ---
@@ -40,68 +54,16 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### (Optionnel) Playwright — données sc-trade.tools
-
-```bash
-pip install -e ".[playwright]"
-playwright install chromium
-# Linux : playwright install-deps chromium
-```
-
 ---
 
 ## Lancement
 
 ```bash
-uexinfo              # Mode REPL (défaut)
-uexinfo --tui        # Mode TUI (interface graphique terminal)
-uexinfo -t           # Alias --tui
-uexinfo --help       # Aide en ligne
-uexinfo -?           # Alias --help
-
-uexinfo-cli          # REPL explicite (rétro-compat)
-uexinfo-tui          # TUI direct (raccourcis, scripts)
+uexinfo              # Lance l'overlay (mode unique)
 ```
 
 Au premier démarrage, les données statiques (terminaux, commodités, systèmes)
 sont téléchargées et mises en cache dans `~/.uexinfo/`.
-
----
-
-## Mode REPL
-
-Interface en ligne de commande avec :
-- **Tab / F2** — complétion contextuelle (commandes, terminaux, commodités, vaisseaux)
-- **↑ ↓** — historique des commandes (persistant dans `~/.uexinfo/history.txt`)
-- **Ctrl+↑** — ouvrir l'éditeur de scan interactif
-- Saisie libre (sans `/`) → recherche `/info` automatique
-- `@lieu` → se positionner et afficher les infos du terminal
-
-```
-> /ship add Cutlass_Black
-> /ship set Cutlass_Black
-> @Port_Tressler
-> /trade
-> exit
-```
-
----
-
-## Mode TUI
-
-Interface graphique dans le terminal :
-- **Tab / →** — accepte la suggestion inline
-- **Ctrl+↓** — ouvre la liste déroulante de complétion (15 entrées max)
-- **↑ ↓** — historique
-- **F1** — aide
-- **Ctrl+L** — vider l'affichage
-- **Ctrl+Y** — copier tout l'affichage dans le presse-papiers
-- **Clic gauche** — recherche `/info` sur le mot cliqué
-- **Clic droit** — menu contextuel
-
-> **Futur : overlay in-game** — le mode TUI est la base du prochain overlay
-> superposé à Star Citizen (`uexinfo --tui` + `pip install -e ".[overlay]"`).
-> Il permettra de consulter prix et routes sans quitter le jeu.
 
 ---
 
@@ -118,13 +80,13 @@ Le `/` est optionnel : `trade sell Copper` = `/trade sell Copper`.
 | `/go to <terminal>` | Définir la destination |
 | `/go clear` | Effacer position et destination |
 | `/dest <terminal>` | Raccourci pour définir la destination |
-| `/arriver` | Arrivée : la destination devient la position |
+| `/arriver` | La destination devient la position |
 
 ### Vaisseau
 
 | Commande | Description |
 |----------|-------------|
-| `/ship list` | Lister les vaisseaux avec grille cargo |
+| `/ship list` | Lister les vaisseaux avec grilles cargo |
 | `/ship add <nom>` | Ajouter un vaisseau |
 | `/ship set <nom>` | Définir le vaisseau actif |
 | `/ship cargo <nom> <scu>` | Configurer la capacité cargo |
@@ -139,8 +101,8 @@ Le `/` est optionnel : `trade sell Copper` = `/trade sell Copper`.
 | `/trade to <dest>` | Bilan en gardant la position courante |
 | `/trade buy <commodité>` | Meilleurs terminaux d'achat |
 | `/trade sell <commodité>` | Meilleurs terminaux de vente |
-| `/trade best` | Meilleures routes (Phase 3) |
-| `/trade compare <commodité>` | Comparer les prix (Phase 3) |
+| `/trade best` | Meilleures routes *(Phase 3 — non implémenté)* |
+| `/trade compare <commodité>` | Comparer les prix *(Phase 3 — non implémenté)* |
 
 Le bilan `/trade` affiche pour chaque commodité :
 - Prix achat `A:` et vente `V:` par □ (SCU)
@@ -156,7 +118,25 @@ Le bilan `/trade` affiche pour chaque commodité :
 | `/info terminal <nom>` | Forcer la recherche terminal |
 | `/info commodity <nom>` | Forcer la recherche commodité |
 | `/info ship <nom>` | Fiche vaisseau (cargo, pad, fabricant) |
-| `/explore <chemin>` | Navigation arborescente (ex: `ship.crusader.cutlass_black`) |
+| `/explore <chemin>` | Navigation arborescente (ex : `ship.crusader.cutlass_black`) |
+
+### Missions
+
+| Commande | Description |
+|----------|-------------|
+| `/mission list` | Lister les missions actives |
+| `/mission scan` | Détecter les missions depuis un screenshot |
+| `/mission edit` | Éditer une mission |
+| `/mission add` | Ajouter une mission manuellement |
+
+### Voyage
+
+| Commande | Description |
+|----------|-------------|
+| `/voyage new` | Créer un nouveau voyage |
+| `/voyage calc` | Calculer le bilan du voyage |
+| `/voyage list` | Lister les voyages |
+| `/voyage on/off` | Activer/désactiver le suivi de voyage |
 
 ### Navigation stellaire
 
@@ -174,10 +154,9 @@ Le bilan `/trade` affiche pour chaque commodité :
 | Commande | Description |
 |----------|-------------|
 | `/scan` ou `/scan ecran` | Scanner depuis un screenshot |
-| `/scan log` | Lire le fichier Game.log |
+| `/scan log` | Lire le fichier Game.log (SC-Datarunner) |
 | `/scan history` | Historique des scans |
-| `/scan status` | Dernier scan en cours |
-| **Ctrl+↑** (REPL) | Éditeur de scan interactif |
+| `/scan status` | État du dernier scan |
 
 ### Automatisation
 
@@ -203,12 +182,36 @@ Le bilan `/trade` affiche pour chaque commodité :
 | Commande | Description |
 |----------|-------------|
 | `/refresh` | Rafraîchir les données (terminaux, prix…) |
+| `/sync` | Forcer la resynchronisation des prix |
 | `/select planet <nom>` | Filtrer sur une planète |
 | `/select clear` | Effacer les filtres |
+| `= <expression>` | Calculatrice rapide (ex : `= 16*46*500`) |
 | `/history` | Historique des scans |
 | `/undo` | Annuler la dernière action |
 | `/help` | Aide détaillée |
-| `exit` / `bye` | Quitter |
+| `exit` / `bye` | Fermer l'overlay |
+
+---
+
+## Sources de données
+
+### UEX Corp 2.0 — source principale
+
+Toutes les données sont issues de l'[API UEX Corp 2.0](https://uexcorp.space/api/2.0/).
+
+- Terminaux, commodités, systèmes stellaires, planètes (cache 24h)
+- Prix en temps réel (cache 5 min)
+- Véhicules et vaisseaux
+
+Affiché en **cyan** dans l'interface.
+
+### sc-trade.tools — source complémentaire (optionnel)
+
+Les données de [sc-trade.tools](https://sc-trade.tools) peuvent être croisées
+pour valider les prix. Nécessite un token API (`/config sctrade token <token>`).
+En l'absence de token, l'application fonctionne normalement avec UEX seul.
+
+Affiché en **orange** dans l'interface.
 
 ---
 
@@ -221,8 +224,8 @@ Le bilan `/trade` affiche pour chaque commodité :
 
 | Couleur | Source |
 |---------|--------|
-| Cyan | UEX Corp 2.0 (données primaires) |
-| Orange | sc-trade.tools (données croisées) |
+| Cyan | UEX Corp 2.0 |
+| Orange | sc-trade.tools |
 | Vert | Profit positif / bon stock |
 | Rouge | Perte / rupture de stock |
 
@@ -245,6 +248,11 @@ scu  = 46
 [trade]
 min_profit_per_scu = 500
 illegal_commodities = false
+
+[overlay]
+hotkey = "alt+shift+u"
+width  = 500
+height = 880
 ```
 
 ---
@@ -253,8 +261,29 @@ illegal_commodities = false
 
 - **Cache statique** (`~/.uexinfo/`) — terminaux, commodités, systèmes, véhicules (TTL 24h)
 - **Cache prix** (`~/.uexinfo/price_cache.json`) — prix UEX Corp (TTL 5 min)
-- **Historique** (`~/.uexinfo/history.txt`) — commandes REPL (500 entrées)
+- **Historique** (`~/.uexinfo/history.txt`) — commandes (500 entrées)
 - **Graphe de transport** (`uexinfo/data/transport_network.json`) — distances entre nœuds
+- **Base screenshots** (`~/.uexinfo/screenshot_db.json`) — résultats OCR
+
+---
+
+## État du développement
+
+Projet **en développement actif**. Certaines fonctionnalités peuvent être instables
+ou manquantes. Les contributions et retours sont les bienvenus.
+
+- [x] Overlay PyWebView semi-transparent superposable à Star Citizen
+- [x] Autocomplétion inline + dropdown (terminaux, commodités, vaisseaux)
+- [x] `/info` — terminal, commodité, vaisseau (grilles cargo)
+- [x] `/trade` — bilan route, achat/vente, découpage cargo
+- [x] `/scan` — OCR screenshot et lecture Game.log (SC-Datarunner)
+- [x] `/nav` — réseau QT, jump points, calcul de routes
+- [x] `/mission` — catalogue de missions avec scan OCR
+- [x] `/voyage` — tableau de bord multi-missions
+- [x] Source UEX Corp 2.0 (données primaires)
+- [ ] Routes optimales `/trade best` (Phase 3)
+- [ ] Intégration complète sc-trade.tools (données orange)
+- [ ] Résumé vocal / alertes sonores (Phase 4)
 
 ---
 
@@ -262,22 +291,7 @@ illegal_commodities = false
 
 - [Architecture](docs/architecture.md)
 - [API UEX 2.0](docs/api-uex.md)
-- [Commandes CLI](docs/commands.md)
-
----
-
-## Roadmap
-
-- [x] REPL avec complétion contextuelle, historique, `@lieu`
-- [x] `/info` — terminal, commodité, vaisseau (grilles cargo)
-- [x] `/trade` — bilan route, achat/vente, packing par grille
-- [x] `/scan` — OCR et lecture Game.log
-- [x] `/nav` — réseau de transport, calcul de routes
-- [x] TUI Textual avec suggestion inline et dropdown
-- [x] Mode TUI (`--tui`), aide en ligne (`--help`, `-?`)
-- [ ] Routes optimales `/trade best` (Phase 3)
-- [ ] Overlay in-game `uexinfo --tui` superposé à Star Citizen (Phase 4)
-- [ ] Intégration sc-trade.tools (données orange)
+- [Commandes](docs/commands.md)
 
 ---
 
