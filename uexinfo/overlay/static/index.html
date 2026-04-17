@@ -6,7 +6,7 @@
 <style>
 /* ── Variables ────────────────────────────────────────────────────────── */
 :root {
-  --alpha:     0.76;
+  --alpha:     0;   /* invisible jusqu'au banner (évite flash opaque au démarrage) */
   --bg:        rgba(10, 12, 18, var(--alpha));
   --bg-input:  rgba(8,  10, 16, calc(var(--alpha) + 0.10));
   --bg-status: rgba(6,   8, 14, calc(var(--alpha) + 0.08));
@@ -1499,7 +1499,7 @@ const elCtx    = document.getElementById('ctx-menu');
 
 function connect() {
   ws = new WebSocket(`ws://localhost:${WS_PORT}`);
-  ws.onopen    = () => { ws.send(JSON.stringify({type:'status'})); };
+  ws.onopen    = () => { /* le serveur envoie status + vocab + history + banner au connect */ };
   ws.onmessage = e  => dispatch(JSON.parse(e.data));
   ws.onclose   = () => {
     appendSystem('⬤ Déconnecté — reconnexion dans 2s…');

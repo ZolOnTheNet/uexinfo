@@ -172,12 +172,29 @@ class OverlayServer:
         _queued_cmd:  dict | None = None   # 1 commande en attente si occupé
 
         try:
-            # Envoyer le statut initial + bannière
+            # Séquence d'initialisation : status → vocab → history → blocs écho → banner
+            # Le banner est envoyé EN DERNIER pour appliquer l'opacité
+            # seulement une fois le contenu chargé (évite le flash opaque au démarrage).
             from uexinfo import __version__
             ov_cfg     = self.ctx.cfg.get("overlay", {})
             opacity    = ov_cfg.get("opacity", 0.76)
             close_mode = ov_cfg.get("close", "normal")
             clock      = ov_cfg.get("clock", True)
+
+            await self._send_status(websocket)
+            await self._send_vocab(websocket)
+
+            # Envoyer l'historique de saisie (navigation ↑/↓)
+            await websocket.send(json.dumps({"type": "history", "items": self._history}))
+
+            # Rejouer les N dernières commandes comme blocs écho (sans résultats)
+            cmdhistory_n = ov_cfg.get("cmdhistory", 5)
+            recent = list(reversed(self._history[:cmdhistory_n]))  # plus ancien → plus récent
+            for cmd in recent:
+                await websocket.send(json.dumps({"type": "echo", "text": cmd}))
+                await websocket.send(json.dumps({"type": "done"}))
+
+            # Banner EN DERNIER → déclenche setAlpha → overlay devient visible
             await websocket.send(json.dumps({
                 "type":       "banner",
                 "text":       f"UEXInfo v{__version__} — /help pour l'aide",
@@ -185,8 +202,6 @@ class OverlayServer:
                 "close_mode": close_mode,
                 "clock":      clock,
             }))
-            await self._send_status(websocket)
-            await self._send_vocab(websocket)
 
             # Boucle principale : asyncio.wait permet de traiter "cancel"
             # pendant qu'une commande longue est en cours dans un thread.
