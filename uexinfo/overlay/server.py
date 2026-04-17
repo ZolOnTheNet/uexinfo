@@ -321,6 +321,8 @@ class OverlayServer:
                         subprocess.Popen(["xdg-open", abs_path])
                 except Exception as e:
                     print(f"[overlay] open_file error: {e}", flush=True)
+        elif t == "context_help":
+            await self._handle_context_help(ws, msg.get("text", ""))
         elif t == "history":
             await ws.send(json.dumps({"type": "history", "items": self._history}))
         elif t == "copy":
@@ -351,7 +353,7 @@ class OverlayServer:
         _history_mod.append(line)
         if not self._history or self._history[0] != line:
             self._history.insert(0, line)
-            if len(self._history) > 200:
+            if len(self._history) > 500:
                 self._history.pop()
 
         # Résoudre les abréviations *-suffixées (noms de lieux) dans la commande
@@ -504,6 +506,36 @@ class OverlayServer:
         _buf.seek(0)
 
         return output.replace("\r\n", "\n").replace("\r", "\n").rstrip(), needs_status
+
+    # ── Aide contextuelle (Ctrl+Espace) ──────────────────────────────────────
+
+    async def _handle_context_help(self, ws, text: str) -> None:
+        """Ctrl+Espace — affiche l'aide pour le contexte courant sans modifier l'historique."""
+        loop = asyncio.get_event_loop()
+        output = await loop.run_in_executor(None, self._context_help_sync, text)
+        label = text.strip() or "(aide générale)"
+        await ws.send(json.dumps({"type": "echo", "text": f"? {label}"}))
+        if output:
+            await ws.send(json.dumps({"type": "output", "ansi": output}))
+        await ws.send(json.dumps({"type": "done"}))
+
+    def _context_help_sync(self, text: str) -> str:
+        from uexinfo.cli.commands import dispatch
+        tokens = text.strip().lstrip("/").split()
+        cmd  = tokens[0].lower() if tokens else ""
+        # Si le dernier token est partiel (sans espace finale), ne pas l'inclure
+        if tokens and not text.rstrip(" ").endswith(" ") and len(tokens) > 1:
+            subs = [t.lower() for t in tokens[1:-1]]
+        else:
+            subs = [t.lower() for t in tokens[1:]]
+        args = ([cmd] + subs) if cmd else []
+        _buf.truncate(0)
+        _buf.seek(0)
+        dispatch("help", args, self.ctx)
+        output = _buf.getvalue()
+        _buf.truncate(0)
+        _buf.seek(0)
+        return output.replace("\r\n", "\n").replace("\r", "\n").rstrip()
 
     # ── Opacité ───────────────────────────────────────────────────────────────
 

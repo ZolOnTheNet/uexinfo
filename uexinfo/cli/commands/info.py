@@ -293,67 +293,31 @@ def _player_system(ctx) -> str:
     return ""
 
 
-# ── Cache prix ─────────────────────────────────────────────────────────────────
+# ── Cache prix — délégué au DataManager ────────────────────────────────────────
+
+from uexinfo.cache.data_manager import DataManager as _DM, Source as _Source
+
 
 def _fetch_prices(key: str, api_kwargs: dict, ctx) -> list[dict]:
-    cached = ctx._price_cache.get(key)
-    if cached:
-        _ts, data = cached
-        ctx._api_offline = False
-        return data
-    client = UEXClient()
-    try:
-        data = client.get_prices(**api_kwargs)
-        ctx._price_cache[key] = (time.time(), data)
-        ctx._api_offline = False
-        return data
-    except UEXError as e:
-        # Fallback : données cache même expirées (API hors-ligne)
-        stale = ctx._price_cache.get_stale(key)
-        if stale:
-            _ts, data = stale
-            ctx._api_offline = True
-            return data
-        ctx._api_offline = True
-        console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
-        return []
+    """Compatibilité — délègue à DataManager.fetch_prices, retourne seulement les données."""
+    data, _src = _DM.fetch_prices(key, api_kwargs, ctx)
+    return data
 
 
 def _to_slug(name: str) -> str:
-    """'Admin - Orbituary' → 'admin-orbituary' (slug UEX Corp)."""
     s = name.lower().replace(" - ", "-")
     s = re.sub(r"[^a-z0-9-]+", "-", s)
     return s.strip("-")
 
 
 def _terminal_prices(t: Terminal, ctx) -> list[dict]:
-    """Récupère les prix d'un terminal avec chaîne de fallback : id → code → loc → slug.
-    Fusionne ensuite les données scan du joueur (prioritaires sur les données UEX).
-    """
-    rows = _fetch_prices(f"t{t.id}", {"id_terminal": t.id}, ctx)
-    if not rows:
-        if t.code:
-            rows = _fetch_prices(f"tc_{t.code}", {"terminal_code": t.code}, ctx)
-    if not rows:
-        loc_q = _loc(t.name).lower()
-        if loc_q:
-            rows = _fetch_prices(f"tl_{loc_q}", {"terminal_name": loc_q}, ctx)
-    if not rows:
-        slug = _to_slug(t.name)
-        loc_q2 = _loc(t.name).lower()
-        if slug and slug != loc_q2:
-            rows = _fetch_prices(f"ts_{slug}", {"terminal_name": slug}, ctx)
-
-    # Fusionner avec les données scan persistées du joueur (clé canonique = str(t.id))
-    from uexinfo.cache.scan_prices import ScanPriceStore
-    store_key = str(t.id) if t.id else f"name:{_loc(t.name).lower()}"
-    rows = ScanPriceStore().merge_into(rows, store_key)
-
+    rows, _src = _DM.terminal_prices(t, ctx)
     return rows
 
 
 def _commodity_prices(c_id: int, ctx) -> list[dict]:
-    return _fetch_prices(f"c{c_id}", {"id_commodity": c_id}, ctx)
+    data, _src = _DM.commodity_prices(c_id, ctx)
+    return data
 
 
 
