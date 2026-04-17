@@ -189,7 +189,8 @@ class OverlayServer:
 
             # Rejouer les N dernières commandes avec leurs résultats réels
             cmdhistory_n = ov_cfg.get("cmdhistory", 5)
-            recent = list(reversed(self._history[:cmdhistory_n]))  # plus ancien → plus récent
+            # last_n_raw : brut avec doublons, plus récentes en premier → on inverse pour afficher du plus ancien
+            recent = list(reversed(_history_mod.last_n_raw(cmdhistory_n)))
             loop = asyncio.get_event_loop()
             for cmd in recent:
                 await websocket.send(json.dumps({"type": "echo", "text": cmd}))

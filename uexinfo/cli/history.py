@@ -47,16 +47,22 @@ def append(command: str) -> None:
 
 
 def last_n(n: int = 100) -> list[str]:
-    """Retourne les N dernières commandes uniques."""
+    """Retourne les N dernières commandes uniques, les plus récentes en premier (index 0 = plus récente)."""
     all_cmds = load()
-    # Dédoublonner tout en conservant l'ordre (dernière occurrence gagne)
+    # Dédoublonner en gardant la dernière occurrence (newest first car on itère en reverse)
     seen: set[str] = set()
     result = []
     for cmd in reversed(all_cmds):
         if cmd not in seen:
             seen.add(cmd)
             result.append(cmd)
-    return list(reversed(result[-n:]))
+    return result[:n]  # result[0] = plus récente, result[-1] = plus ancienne
+
+
+def last_n_raw(n: int = 5) -> list[str]:
+    """Retourne les N dernières commandes brutes (avec doublons), les plus récentes en premier."""
+    all_cmds = load()
+    return list(reversed(all_cmds[-n:]))
 
 
 def stats() -> dict:
