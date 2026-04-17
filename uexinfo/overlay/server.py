@@ -187,11 +187,15 @@ class OverlayServer:
             # Envoyer l'historique de saisie (navigation ↑/↓)
             await websocket.send(json.dumps({"type": "history", "items": self._history}))
 
-            # Rejouer les N dernières commandes comme blocs écho (sans résultats)
+            # Rejouer les N dernières commandes avec leurs résultats réels
             cmdhistory_n = ov_cfg.get("cmdhistory", 5)
             recent = list(reversed(self._history[:cmdhistory_n]))  # plus ancien → plus récent
+            loop = asyncio.get_event_loop()
             for cmd in recent:
                 await websocket.send(json.dumps({"type": "echo", "text": cmd}))
+                output, _ = await loop.run_in_executor(None, self._exec_sync, cmd)
+                if output:
+                    await websocket.send(json.dumps({"type": "output", "ansi": output}))
                 await websocket.send(json.dumps({"type": "done"}))
 
             # Banner EN DERNIER → déclenche setAlpha → overlay devient visible
