@@ -41,6 +41,8 @@ def cmd_config(args: list[str], ctx) -> None:
         _sctrade_config(rest, ctx)
     elif sub in ("hotkey", "overlay.hotkey"):
         _hotkey(rest, ctx)
+    elif sub == "cmdhistory":
+        _cmdhistory(rest, ctx)
     elif "." in sub:
         _set_dotkey(sub, rest, ctx)
     else:
@@ -84,6 +86,7 @@ def _show(cfg: dict, ctx=None) -> None:
     console.print(f"  [bold]overlay.opacity :[/bold]  {ov.get('opacity', 0.95)}")
     clock_val = ov.get("clock", True)
     console.print(f"  [bold]overlay.clock :[/bold]    {'on' if clock_val else 'off'}")
+    console.print(f"  [bold]overlay.cmdhistory :[/bold] {ov.get('cmdhistory', 5)}  [{C.DIM}](commandes+résultats conservés)[/{C.DIM}]")
 
     # ── Trade / cache / scan ───────────────────────────────────────────────
     console.print(f"  [bold]Profit min/{C.SCU} :[/bold] {trade.get('min_profit_per_scu', 0)} {C.AUEC}")
@@ -188,6 +191,28 @@ def _sctrade_config(args: list[str], ctx) -> None:
         console.print(f"  sctrade → {state}  [{C.DIM}](sauvegardé)[/{C.DIM}]")
     else:
         print_error(f"Sous-commande sctrade inconnue: {sub}  (token | on | off)")
+
+
+# ── Historique commandes+résultats ───────────────────────────────────────────
+
+def _cmdhistory(args: list[str], ctx) -> None:
+    ov = ctx.cfg.setdefault("overlay", {})
+    if not args:
+        n = ov.get("cmdhistory", 5)
+        print_info(f"cmdhistory : {n}  —  nombre de commandes+résultats conservés dans l'overlay")
+        print_info("Usage : /config cmdhistory <n>  (1–50)")
+        return
+    try:
+        n = int(args[0])
+    except ValueError:
+        print_error("Usage : /config cmdhistory <n>  (1–50)")
+        return
+    if not 1 <= n <= 50:
+        print_error("Valeur invalide : doit être entre 1 et 50")
+        return
+    ov["cmdhistory"] = n
+    settings.save(ctx.cfg)
+    console.print(f"  cmdhistory → [{C.SUCCESS}]{n}[/{C.SUCCESS}]  [{C.DIM}](sauvegardé — actif au prochain démarrage)[/{C.DIM}]")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

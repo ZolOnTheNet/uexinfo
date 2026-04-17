@@ -1101,12 +1101,14 @@ class OverlayServer:
         vm = getattr(self.ctx, "voyage_manager", None)
         voyages = sorted(vm.voyage_names()) if vm else []
 
+        cmdhistory = self.ctx.cfg.get("overlay", {}).get("cmdhistory", 5)
         await ws.send(json.dumps({
             "type":        "vocab",
             "commodities": commodities,
             "locations":   locations,
             "ships":       ships,
             "voyages":     voyages,
+            "cmdhistory":  cmdhistory,
         }))
 
     # ── Complétion ────────────────────────────────────────────────────────────

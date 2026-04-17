@@ -20,8 +20,12 @@ def register(*names: str):
 
 def dispatch(name: str, args: list[str], ctx: "AppContext") -> None:
     # /cmd help  →  /help cmd
-    if args and args[0].lower() == "help":
-        dispatch("help", [name], ctx)
+    if args and args[0].lower() in ("help", "aide", "?", "--help"):
+        dispatch("help", [name] + args[1:], ctx)
+        return
+    # /cmd subcmd help  →  /help cmd subcmd
+    if len(args) >= 2 and args[-1].lower() in ("help", "aide", "?", "--help"):
+        dispatch("help", [name] + args[:-1], ctx)
         return
 
     handler = _registry.get(name.lower())

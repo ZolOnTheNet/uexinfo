@@ -1240,6 +1240,8 @@ let scanSc = false, scanLog = false;
 let blinkState = false;
 let currentShips = [];
 let currentShip  = '';
+let cmdHistoryMax = 5;     // configurable via /config cmdhistory
+let _blockAnchor  = null;  // nœud DOM marquant le début du bloc courant
 let currentPos   = '';
 let currentDest  = '';
 let overlayAlpha = 0.76;
@@ -1294,6 +1296,7 @@ function annotateLocNode(node) {
 }
 
 function loadVocab(msg) {
+  if (msg.cmdhistory !== undefined) cmdHistoryMax = msg.cmdhistory;
   vocabFullNames.clear();
   vocab.commoditiesRaw = (msg.commodities || []).slice().sort();   // casse originale pour les <select>
 
@@ -1315,6 +1318,28 @@ function loadVocab(msg) {
   vocabRe = all.length
     ? new RegExp(`(?<![\\w-])(${all.join('|')})(?![\\w-])`, 'gi')
     : null;
+}
+
+function _finalizeBlock() {
+  if (!_blockAnchor || !_blockAnchor.parentNode) { _blockAnchor = null; return; }
+  const block = document.createElement('div');
+  block.className = 'cmd-block';
+  const parent = _blockAnchor.parentNode;
+  parent.insertBefore(block, _blockAnchor);
+  let node = _blockAnchor;
+  while (node) {
+    const next = node.nextSibling;
+    block.appendChild(node);
+    node = next;
+  }
+  _blockAnchor = null;
+  _enforceHistoryLimit();
+}
+
+function _enforceHistoryLimit() {
+  const blocks = elOutput.querySelectorAll(':scope > .cmd-block');
+  const excess = blocks.length - cmdHistoryMax;
+  for (let i = 0; i < excess; i++) blocks[i].remove();
 }
 
 function vocabType(word) {
@@ -1499,6 +1524,7 @@ function dispatch(msg) {
     case 'done':
       stopSpin();
       hideProgress();
+      _finalizeBlock();
       // Retour du focus vers la zone de saisie après chaque commande
       if (!document.getElementById('scan-overlay').classList.contains('open'))
         elInput.focus();
@@ -1584,7 +1610,7 @@ function sendCmd(text) {
   if (!text) return;
   send({type:'cmd', text});
   if (!history.length || history[0] !== text) history.unshift(text);
-  if (history.length > 200) history.pop();
+  if (history.length > 500) history.pop();
   histIdx = -1; histSave = '';
   elInput.value = '';
   closeComps();
@@ -1604,6 +1630,7 @@ function appendEcho(text) {
   const d = document.createElement('div');
   d.className = 'line echo'; d.textContent = text;
   elOutput.appendChild(d);
+  _blockAnchor = d;   // début du bloc courant (echo + tout ce qui suit jusqu'à 'done')
   elOutput.scrollTop = elOutput.scrollHeight;
 }
 
