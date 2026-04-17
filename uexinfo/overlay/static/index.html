@@ -527,6 +527,10 @@ html, body {
 #completion-list .ci .ch { color: var(--dim); font-size: 0.88em; flex: 1; }
 #completion-list .ci.sel { background: rgba(0,188,212,0.15); }
 #completion-list .ci:hover { background: rgba(255,255,255,0.06); }
+/* Mode IntelliSense : hints plus lisibles, hauteur augmentée */
+#completion-list.intellisense { max-height: 280px; }
+#completion-list.intellisense .ci .ch { color: #8899aa; font-size: 0.92em; }
+#completion-list.intellisense .ci .cv { min-width: 120px; }
 #completion-list::-webkit-scrollbar { width: 3px; }
 #completion-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
 
@@ -1242,6 +1246,7 @@ let currentShips = [];
 let currentShip  = '';
 let cmdHistoryMax = 5;     // configurable via /config cmdhistory
 let _blockAnchor  = null;  // nœud DOM marquant le début du bloc courant
+let _intellisense = false; // true quand le dropdown est ouvert en mode IntelliSense
 let currentPos   = '';
 let currentDest  = '';
 let overlayAlpha = 0.76;
@@ -1845,8 +1850,20 @@ elInput.addEventListener('keydown', e => {
   }
   if (e.ctrlKey && e.key === ' ') {
     e.preventDefault();
-    closeComps();
-    send({type: 'context_help', text: elInput.value || ''});
+    // IntelliSense : montre TOUTES les options du contexte courant
+    // On tronque le mot partiel pour que le serveur retourne la liste complète du contexte
+    const before = elInput.value.slice(0, elInput.selectionStart);
+    const lastSpace = before.lastIndexOf(' ');
+    let ctx;
+    if (lastSpace >= 0) {
+      ctx = before.slice(0, lastSpace + 1);   // contexte = tokens précédents
+    } else if (before.trim()) {
+      ctx = before + ' ';   // commande seule → ajoute espace pour voir sous-commandes
+    } else {
+      ctx = '';              // vide → toutes les commandes
+    }
+    _intellisense = true;
+    send({type: 'complete', text: ctx, cursor: ctx.length});
     return;
   }
   if (e.key === 'Tab') {
@@ -1872,11 +1889,15 @@ elInput.addEventListener('input', () => {
 
 function showComps(items, commonPrefix) {
   const fromTab = _tabTriggered;
-  _tabTriggered = false;
+  const fromIntellisense = _intellisense;
+  _tabTriggered  = false;
+  _intellisense  = false;
   completions = items;
   compIdx = -1;
   elComp.innerHTML = '';
   if (!items.length) { closeComps(); return; }
+
+  elComp.classList.toggle('intellisense', fromIntellisense);
 
   // Appliquer le préfixe commun si Tab et qu'il étend le mot courant
   if (fromTab && commonPrefix) {
@@ -1895,7 +1916,8 @@ function showComps(items, commonPrefix) {
   }
 
   // Tab + un seul résultat → complétion directe sans afficher la liste
-  if (fromTab && items.length === 1) { applyComp(items[0]); return; }
+  // (pas en IntelliSense : on affiche toujours la liste)
+  if (fromTab && !fromIntellisense && items.length === 1) { applyComp(items[0]); return; }
 
   items.forEach((item, i) => {
     const d = document.createElement('div');
