@@ -791,6 +791,57 @@ def _pick_best_allowed_route(routes: list, filters: dict, ctx) -> dict | None:
     return {k: v for k, v in best.items() if k != "_score"}
 
 
+def _find_best_allowed_from_prices(id_commodity: int, buy_price: float,
+                                    filters: dict, ctx) -> dict | None:
+    """Fallback : trouve la meilleure destination autorisée via commodities_prices.
+
+    Utilisé quand les routes pré-calculées UEX sont toutes filtrées (ex. Pyro exclu).
+    """
+    import time as _time
+    from uexinfo.cli.commands.select import is_destination_allowed
+
+    cache_key = f"cprices_{id_commodity}"
+    cached = ctx._price_cache.get(cache_key)
+    if cached and _time.time() - cached[0] < 300:
+        all_prices = cached[1]
+    else:
+        try:
+            all_prices = UEXClient().get_prices(id_commodity=id_commodity)
+            ctx._price_cache[cache_key] = (_time.time(), all_prices)
+        except UEXError:
+            return None
+
+    term_by_name = {t.name.lower(): t for t in (ctx.cache.terminals or [])}
+    best: dict | None = None
+    best_roi = -1.0
+
+    for p in all_prices:
+        sell = float(p.get("price_sell") or 0)
+        if sell <= 0 or buy_price <= 0 or sell <= buy_price:
+            continue
+        dn = (p.get("terminal_name") or "").lower()
+        t_obj = term_by_name.get(dn)
+        if t_obj is None:
+            continue  # Terminal inconnu (Pyro hors cache) → skip en fallback
+        if not is_destination_allowed(t_obj, filters):
+            continue
+        roi = (sell - buy_price) / buy_price
+        if roi > best_roi:
+            best_roi = roi
+            best = {
+                "dest_name":    p.get("terminal_name") or "",
+                "dest_system":  t_obj.star_system_name or "",
+                "dest_planet":  t_obj.planet_name or "",
+                "dest_orbit":   t_obj.orbit_name or "",
+                "dest_station": t_obj.space_station_name or "",
+                "price_sell":   sell,
+                "profit":       sell - buy_price,
+                "distance":     0.0,
+            }
+
+    return best
+
+
 def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys_filter=None) -> None:
     """Affiche la section Acheter avec table alignée, triée par profit décroissant."""
     # Récupérer le cargo du vaisseau actif
@@ -824,19 +875,28 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     # Filtres /select
     _sel = ctx.cfg.get("filters", {})
 
-    # Meilleure route filtrée par commodité
+    # Meilleure route filtrée par commodité — itère sur buy_rows (source de vérité)
     _best_filtered: dict[str, dict | None] = {}
     _has_filters = any(
         (isinstance(v, dict) and (v.get("include") or v.get("exclude")))
         for v in _sel.values()
     )
-    for cname, cs_v in cargo_sizes.items():
+    for _r in buy_rows:
+        _ckey = (_r.get("commodity_name") or "").lower()
+        if not _ckey:
+            continue
+        cs_v = cargo_sizes.get(_ckey, {})
         if _has_filters:
-            _best_filtered[cname] = _pick_best_allowed_route(
-                cs_v.get("routes", []), _sel, ctx
-            )
+            best = _pick_best_allowed_route(cs_v.get("routes", []), _sel, ctx)
+            if best is None:
+                # Fallback : UEX ne propose que des routes vers des systèmes filtrés
+                _cid  = int(_r.get("id_commodity") or 0)
+                _pbuy = float(_r.get("price_buy") or 0)
+                if _cid and _pbuy > 0:
+                    best = _find_best_allowed_from_prices(_cid, _pbuy, _sel, ctx)
+            _best_filtered[_ckey] = best
         else:
-            _best_filtered[cname] = cs_v.get("best_route")
+            _best_filtered[_ckey] = cs_v.get("best_route")
 
     # dist_map construit depuis les meilleures routes filtrées (pas d'appel séparé)
     dist_map: dict[str, float] = {
