@@ -255,9 +255,11 @@ def _dot_name(
     """
     name = terminal_name.strip()
     if " - " in name:
-        service_raw, station = name.split(" - ", 1)
-        service = service_raw.strip().lower()
-        station = station.strip()
+        service_raw = name.split(" - ", 1)[0].strip()
+        service = service_raw.lower()
+        # Pour les noms multi-segments ("TDD - Trade and Dev Division - Area 18"),
+        # on veut le dernier segment (le lieu réel), pas le second.
+        station = _loc(name)
     else:
         # Pas de séparateur : le nom entier est le lieu, pas de type de service
         service = ""
