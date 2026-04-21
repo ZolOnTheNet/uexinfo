@@ -234,7 +234,13 @@ def _multi_col_table(
 
 
 def _loc(full_name: str) -> str:
-    """Retire le préfixe service ('Admin - ', 'Shop - ', …)."""
+    """Retire le préfixe service ('Admin - ', 'Shop - ', …).
+    Exception TDD : retourne 'TDD - <lieu>' pour garder le contexte.
+    """
+    from uexinfo.display.formatter import shorten_terminal_name
+    short = shorten_terminal_name(full_name)
+    if short != full_name:
+        return short  # ex. "TDD - Area 18"
     return full_name.rsplit(" - ", 1)[-1].strip()
 
 
@@ -253,7 +259,8 @@ def _dot_name(
     - station  = partie après ' - ' ; sinon space_station / orbit / planet
     - système  = affiché seulement si différent du système courant du joueur
     """
-    name = terminal_name.strip()
+    from uexinfo.display.formatter import shorten_terminal_name
+    name = shorten_terminal_name(terminal_name.strip())
     if " - " in name:
         service_raw = name.split(" - ", 1)[0].strip()
         service = service_raw.lower()

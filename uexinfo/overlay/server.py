@@ -1211,6 +1211,31 @@ class OverlayServer:
         # ── Candidats selon le contexte ───────────────────────────────────
         candidates: list[dict] = []
 
+        # — Cas @ : complétion des lieux (@local, @dest, @NomTerminal) ————————
+        if current_word.startswith("@"):
+            loc_q = current_word[1:].lower()
+            at_items: list[dict] = []
+            for shortcut, hint in [("@local", "position courante"),
+                                   ("@dest",  "destination joueur")]:
+                if not loc_q or shortcut[1:].startswith(loc_q):
+                    at_items.append(self._mk(shortcut, hint, shortcut))
+            if self.ctx and self.ctx.cache:
+                for t in (self.ctx.cache.terminals or []):
+                    name = t.name or ""
+                    if not name:
+                        continue
+                    if loc_q and not (name.lower().startswith(loc_q)
+                                      or loc_q in name.lower()):
+                        continue
+                    system = getattr(t, "star_system_name", "") or ""
+                    at_items.append(self._mk(
+                        f"@{name}", f"terminal · {system}",
+                        f"@{name.replace(' ', '_')}",
+                    ))
+            at_items = at_items[:40]
+            cp = self._common_prefix([c["insert"] for c in at_items]) if at_items else ""
+            return {"common_prefix": cp, "items": at_items}
+
         # — Cas 0 : notation pointée dans le mot courant (RSI.hermes, ship.anvil) ——
         if current_word and "." in current_word and not current_word.startswith("/"):
             dot_items = self._complete_dotted(current_word)
@@ -1397,35 +1422,50 @@ class OverlayServer:
 
         # — Terminaux / lieux ——————————————————————————————————————————————
         if do_loc and self.ctx.cache:
-            count = 0
+            q_lower = q.lower() if q else ""
+            t_count = 0
+            # Quand q est fourni : scanner TOUS les terminaux filtrés (pas de limite aveugle)
+            # Quand q est vide   : retourner les 80 premiers (liste de contexte)
             for t in (self.ctx.cache.terminals or []):
-                insert = (t.name or "").replace(" ", "_")
+                name   = t.name or ""
+                insert = name.replace(" ", "_")
+                if q_lower and not (insert.lower().startswith(q_lower)
+                                    or q_lower in insert.lower()):
+                    continue
                 system = getattr(t, "star_system_name", "") or ""
-                results.append(self._mk(t.name or insert,
-                                         f"terminal · {system}", insert))
-                count += 1
-                if count >= 80:
+                results.append(self._mk(name or insert, f"terminal · {system}", insert))
+                t_count += 1
+                if t_count >= (40 if q_lower else 80):
                     break
 
         # — Commodités ——————————————————————————————————————————————————————
         if do_com and self.ctx.cache:
+            q_lower = q.lower() if q else ""
             for c in (self.ctx.cache.commodities or []):
-                insert = (c.name or "").replace(" ", "_")
-                kind   = getattr(c, "kind", "") or "commodité"
-                results.append(self._mk(c.name or insert, kind, insert))
+                name   = c.name or ""
+                insert = name.replace(" ", "_")
+                if q_lower and not (insert.lower().startswith(q_lower)
+                                    or q_lower in insert.lower()):
+                    continue
+                kind = getattr(c, "kind", "") or "commodité"
+                results.append(self._mk(name or insert, kind, insert))
 
         # — Catalogue complet vaisseaux (vehicle ou any) ———————————————————
         if do_veh and self.ctx.cache:
+            q_lower   = q.lower() if q else ""
             veh_count = 0
-            veh_limit = 50 if do_ship else 300  # limiter en mode "any" pour ne pas noyer
+            veh_limit = 50 if do_ship else 300
             for v in (self.ctx.cache.vehicles or []):
                 name = getattr(v, "name_full", "") or getattr(v, "name", "") or ""
                 if not name:
                     continue
                 if name.lower() in player_ship_names:
-                    continue  # déjà ajouté comme vaisseau joueur
-                mfr    = getattr(v, "manufacturer", "") or ""  # champ correct du modèle Vehicle
+                    continue
                 insert = name.replace(" ", "_")
+                if q_lower and not (insert.lower().startswith(q_lower)
+                                    or q_lower in insert.lower()):
+                    continue
+                mfr = getattr(v, "manufacturer", "") or ""
                 results.append(self._mk(name, f"vaisseau · {mfr}", insert))
                 veh_count += 1
                 if veh_count >= veh_limit:

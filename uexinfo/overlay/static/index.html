@@ -1874,8 +1874,10 @@ elInput.addEventListener('keydown', e => {
     let ctx;
     if (lastSpace >= 0) {
       ctx = before.slice(0, lastSpace + 1);   // contexte = tokens précédents
+    } else if (before.trim().startsWith('/') || before.trim().startsWith('@')) {
+      ctx = before + ' ';   // commande /xxx ou @loc → espace pour voir sous-éléments
     } else if (before.trim()) {
-      ctx = before + ' ';   // commande seule → ajoute espace pour voir sous-commandes
+      ctx = before;         // texte libre (ex: "Ba") → complétion directe, sans espace
     } else {
       ctx = '';              // vide → toutes les commandes
     }

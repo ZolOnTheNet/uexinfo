@@ -69,3 +69,30 @@ def profit_color(value: float) -> str:
     if value < 0:
         return C.LOSS
     return C.NEUTRAL
+
+
+import re as _re
+_TDD_RE = _re.compile(
+    r"^TDD\s*-\s*Trade and Development(?:\s+Division)?\s*-\s*(.+)$",
+    _re.IGNORECASE,
+)
+
+def shorten_terminal_name(name: str) -> str:
+    """Abrège 'TDD - Trade and Development Division - Area 18' → 'TDD - Area 18'."""
+    if not name:
+        return name
+    m = _TDD_RE.match(name)
+    if m:
+        return f"TDD - {m.group(1).strip()}"
+    return name
+
+
+def terminal_category(t) -> str:
+    """Retourne 'station' | 'outpost' | 'city' | 'other' selon le type de terminal."""
+    if getattr(t, "space_station_name", None):
+        return "station"
+    if getattr(t, "outpost_name", None):
+        return "outpost"
+    if getattr(t, "city_name", None):
+        return "city"
+    return "other"
