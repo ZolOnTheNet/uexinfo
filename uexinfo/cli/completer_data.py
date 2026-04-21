@@ -78,37 +78,24 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("clear", "Efface position et destination"),
     ],
     "select": [
+        ("show",     "Statut ✓/✗ des lieux d'un système"),
+        ("edit",     "Éditeur TUI avec cases à cocher"),
+        ("clear",    "Efface les filtres"),
+        ("dest",     "Type de destination : station/outpost/city"),
+        ("system",   "Filtre par système stellaire"),
+        ("station",  "Filtre par station (nom)"),
+        ("outpost",  "Filtre par avant-poste (nom)"),
+        ("city",     "Filtre par ville (nom)"),
+        ("terminal", "Filtre par terminal (nom)"),
+        ("planet",   "Filtre par planète (nom)"),
+    ],
+    "select dest": [
         ("+station",  "Inclure les stations"),
-        ("+outpost",  "Inclure les avant-postes"),
-        ("+city",     "Inclure les villes"),
         ("-station",  "Exclure les stations"),
+        ("+outpost",  "Inclure les avant-postes"),
         ("-outpost",  "Exclure les avant-postes"),
+        ("+city",     "Inclure les villes"),
         ("-city",     "Exclure les villes"),
-        ("system",    "Filtre par système stellaire"),
-        ("planet",    "Filtre par planète"),
-        ("station",   "Filtre par station (nom)"),
-        ("terminal",  "Filtre par terminal (nom)"),
-        ("city",      "Filtre par ville (nom)"),
-        ("outpost",   "Filtre par avant-poste (nom)"),
-        ("add",       "Ajoute un filtre par nom"),
-        ("remove",    "Retire un filtre par nom"),
-        ("clear",     "Efface tous les filtres"),
-    ],
-    "select add": [
-        ("system",   "Ajoute un système au filtre"),
-        ("planet",   "Ajoute une planète au filtre"),
-        ("station",  "Ajoute une station au filtre"),
-        ("terminal", "Ajoute un terminal au filtre"),
-        ("city",     "Ajoute une ville au filtre"),
-        ("outpost",  "Ajoute un avant-poste au filtre"),
-    ],
-    "select remove": [
-        ("system",   "Retire un système du filtre"),
-        ("planet",   "Retire une planète du filtre"),
-        ("station",  "Retire une station du filtre"),
-        ("terminal", "Retire un terminal du filtre"),
-        ("city",     "Retire une ville du filtre"),
-        ("outpost",  "Retire un avant-poste du filtre"),
     ],
     "player": [
         ("info", "Affiche vos informations"),
@@ -308,6 +295,12 @@ NEXT_TYPE: dict[str, str | None] = {
     "explore":           "system",     # noms de systèmes stellaires
     "explore ship":      "vehicle",    # fabricants / noms de vaisseaux
     "explore commodity": "commodity",  # catégories + noms de commodités
+    "select system":     "system",
+    "select show":       "system",
+    "select edit":       "system",
+    "select station":    "sel_loc",
+    "select outpost":    "sel_loc",
+    "select city":       "sel_loc",
 }
 
 # ── Abréviations fabricants → préfixe du nom complet ──────────────────────────

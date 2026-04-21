@@ -772,24 +772,19 @@ def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx,
     return sorted(buyers, key=sort_key)[:3]
 
 
-def _terminal_type_lookup(ctx) -> dict[str, str]:
-    """Retourne {terminal_name_lower: 'station'|'outpost'|'city'|'other'}."""
-    from uexinfo.display.formatter import terminal_category
-    return {t.name.lower(): terminal_category(t) for t in (ctx.cache.terminals or [])}
-
-
-def _pick_best_allowed_route(routes: list, type_inc: list, type_exc: list,
-                              type_lookup: dict) -> dict | None:
-    """Retourne la meilleure route dont la destination respecte les filtres type_include/type_exclude."""
+def _pick_best_allowed_route(routes: list, filters: dict, ctx) -> dict | None:
+    """Retourne la meilleure route filtrée selon les filtres /select."""
+    from uexinfo.cli.commands.select import is_destination_allowed
+    term_by_name = {t.name.lower(): t for t in (ctx.cache.terminals or [])}
     allowed = []
     for r in routes:
-        dest_lo = (r.get("dest_name") or "").lower()
-        cat = type_lookup.get(dest_lo, "other")
-        if type_inc and cat not in type_inc:
-            continue
-        if type_exc and cat in type_exc:
-            continue
-        allowed.append(r)
+        dn = (r.get("dest_name") or "").lower()
+        t_obj = term_by_name.get(dn)
+        if t_obj is None:
+            # Terminal Pyro absent du cache → laisser passer
+            allowed.append(r)
+        elif is_destination_allowed(t_obj, filters):
+            allowed.append(r)
     if not allowed:
         return None
     best = max(allowed, key=lambda r: r.get("_score", 0))
@@ -826,19 +821,19 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     if origin_terminal.id:
         cargo_sizes = _fetch_terminal_container_sizes(origin_terminal.id, ctx)
 
-    # Filtres catégorie (/select +station -city …)
+    # Filtres /select
     _sel = ctx.cfg.get("filters", {})
-    _type_inc = _sel.get("type_include", [])
-    _type_exc = _sel.get("type_exclude", [])
-    _use_filter = bool(_type_inc or _type_exc)
-    _type_lookup = _terminal_type_lookup(ctx) if _use_filter else {}
 
     # Meilleure route filtrée par commodité
     _best_filtered: dict[str, dict | None] = {}
+    _has_filters = any(
+        (isinstance(v, dict) and (v.get("include") or v.get("exclude")))
+        for v in _sel.values()
+    )
     for cname, cs_v in cargo_sizes.items():
-        if _use_filter:
+        if _has_filters:
             _best_filtered[cname] = _pick_best_allowed_route(
-                cs_v.get("routes", []), _type_inc, _type_exc, _type_lookup
+                cs_v.get("routes", []), _sel, ctx
             )
         else:
             _best_filtered[cname] = cs_v.get("best_route")

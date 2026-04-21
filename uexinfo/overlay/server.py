@@ -1392,11 +1392,12 @@ class OverlayServer:
             return []
         results: list[dict] = []
 
-        do_loc  = ntype in ("location", "terminal", "any")
-        do_com  = ntype in ("commodity", "any")
-        do_veh  = ntype in ("vehicle", "any")
-        do_ship = ntype == "any"  # vaisseaux joueur en priorité dans "any"
-        do_sys  = ntype == "system"
+        do_loc    = ntype in ("location", "terminal", "any")
+        do_com    = ntype in ("commodity", "any")
+        do_veh    = ntype in ("vehicle", "any")
+        do_ship   = ntype == "any"  # vaisseaux joueur en priorité dans "any"
+        do_sys    = ntype == "system"
+        do_sel_loc = ntype == "sel_loc"
 
         # — Systèmes stellaires (pour /explore) ————————————————————————————
         if do_sys and self.ctx.cache:
@@ -1449,6 +1450,27 @@ class OverlayServer:
                     continue
                 kind = getattr(c, "kind", "") or "commodité"
                 results.append(self._mk(name or insert, kind, insert))
+
+        # — Noms de lieux (station/outpost/city) pour /select station|outpost|city ——
+        if do_sel_loc and self.ctx.cache:
+            q_lower = q.lower() if q else ""
+            seen_sel: set[str] = set()
+            for t in (self.ctx.cache.terminals or []):
+                for field in ("space_station_name", "outpost_name", "city_name"):
+                    lname = getattr(t, field, "") or ""
+                    if not lname or lname in seen_sel:
+                        continue
+                    if q_lower and not (lname.lower().startswith(q_lower)
+                                        or q_lower in lname.lower()):
+                        continue
+                    seen_sel.add(lname)
+                    insert = lname.replace(" ", "_")
+                    sys_name = getattr(t, "star_system_name", "") or ""
+                    results.append(self._mk(lname, f"lieu · {sys_name}", insert))
+                    if len(seen_sel) >= 60:
+                        break
+            if len(seen_sel) >= 60:
+                pass  # limite atteinte, pas d'autre traitement nécessaire
 
         # — Catalogue complet vaisseaux (vehicle ou any) ———————————————————
         if do_veh and self.ctx.cache:
