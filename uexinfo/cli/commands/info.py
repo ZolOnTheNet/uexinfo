@@ -95,7 +95,8 @@ def _abbrev_name(name: str, maxlen: int = _NAME_MAX, code: str = "") -> str:
             return candidate
     short = name[:maxlen - 1] + "…"
     if code:
-        short = f"{short} [{C.DIM}][{code}][/{C.DIM}]"
+        # \[ = crochet ouvrant littéral en Rich markup (évite que [CM] soit interprété comme tag)
+        short = f"{short} [{C.DIM}]\\[{code}][/{C.DIM}]"
     return short
 
 
@@ -546,38 +547,38 @@ def _fetch_terminal_container_sizes(terminal_id: int, ctx) -> dict:
     except UEXError:
         return {}
 
-    # Grouper par commodité — garder la meilleure route (score/profit décroissant)
-    best: dict[str, dict] = {}  # cname → meilleur route dict
+    # Grouper par commodité — garder toutes les routes + meilleure non filtrée
     result: dict = {}
     for route in routes:
         cname = (route.get("commodity_name") or "").lower()
         if not cname:
             continue
         if cname not in result:
-            result[cname] = {"origin_sizes": _fmt_container_sizes(route.get("container_sizes_origin"), short=True), "dest_sizes": {}, "best_route": None}
+            result[cname] = {
+                "origin_sizes": _fmt_container_sizes(route.get("container_sizes_origin"), short=True),
+                "dest_sizes": {},
+                "best_route": None,
+                "routes": [],   # toutes les routes (pour filtrage à l'affichage)
+            }
         dest = (route.get("destination_terminal_name") or "").lower()
         if dest:
             result[cname]["dest_sizes"][dest] = _fmt_container_sizes(route.get("container_sizes_destination"), short=True)
-        # Meilleure route = score le plus élevé, à défaut profit
         score = float(route.get("score") or 0)
-        prev = best.get(cname)
+        rdict = {
+            "_score":      score,
+            "dest_name":   route.get("destination_terminal_name") or "",
+            "dest_system": route.get("destination_star_system_name") or "",
+            "dest_planet": route.get("destination_planet_name") or "",
+            "dest_orbit":  route.get("destination_orbit_name") or "",
+            "dest_station":route.get("destination_space_station_name") or "",
+            "price_sell":  float(route.get("price_destination") or 0),
+            "profit":      float(route.get("profit") or 0),
+            "distance":    float(route.get("distance") or 0),
+        }
+        result[cname]["routes"].append(rdict)
+        prev = result[cname]["best_route"]
         if prev is None or score > prev.get("_score", 0):
-            best[cname] = {
-                "_score":      score,
-                "dest_name":   route.get("destination_terminal_name") or "",
-                "dest_system": route.get("destination_star_system_name") or "",
-                "dest_planet": route.get("destination_planet_name") or "",
-                "dest_orbit":  route.get("destination_orbit_name") or "",
-                "dest_station":route.get("destination_space_station_name") or "",
-                "price_sell":  float(route.get("price_destination") or 0),
-                "profit":      float(route.get("profit") or 0),
-                "distance":    float(route.get("distance") or 0),
-            }
-
-    for cname, rdata in result.items():
-        br = best.get(cname)
-        if br:
-            rdata["best_route"] = {k: v for k, v in br.items() if k != "_score"}
+            result[cname]["best_route"] = rdict
 
     ctx._price_cache[cache_key] = (_time.time(), result)
     return result
@@ -771,6 +772,30 @@ def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx,
     return sorted(buyers, key=sort_key)[:3]
 
 
+def _terminal_type_lookup(ctx) -> dict[str, str]:
+    """Retourne {terminal_name_lower: 'station'|'outpost'|'city'|'other'}."""
+    from uexinfo.display.formatter import terminal_category
+    return {t.name.lower(): terminal_category(t) for t in (ctx.cache.terminals or [])}
+
+
+def _pick_best_allowed_route(routes: list, type_inc: list, type_exc: list,
+                              type_lookup: dict) -> dict | None:
+    """Retourne la meilleure route dont la destination respecte les filtres type_include/type_exclude."""
+    allowed = []
+    for r in routes:
+        dest_lo = (r.get("dest_name") or "").lower()
+        cat = type_lookup.get(dest_lo, "other")
+        if type_inc and cat not in type_inc:
+            continue
+        if type_exc and cat in type_exc:
+            continue
+        allowed.append(r)
+    if not allowed:
+        return None
+    best = max(allowed, key=lambda r: r.get("_score", 0))
+    return {k: v for k, v in best.items() if k != "_score"}
+
+
 def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys_filter=None) -> None:
     """Affiche la section Acheter avec table alignée, triée par profit décroissant."""
     # Récupérer le cargo du vaisseau actif
@@ -801,11 +826,28 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     if origin_terminal.id:
         cargo_sizes = _fetch_terminal_container_sizes(origin_terminal.id, ctx)
 
-    # dist_map construit depuis les routes déjà chargées (pas d'appel séparé)
+    # Filtres catégorie (/select +station -city …)
+    _sel = ctx.cfg.get("filters", {})
+    _type_inc = _sel.get("type_include", [])
+    _type_exc = _sel.get("type_exclude", [])
+    _use_filter = bool(_type_inc or _type_exc)
+    _type_lookup = _terminal_type_lookup(ctx) if _use_filter else {}
+
+    # Meilleure route filtrée par commodité
+    _best_filtered: dict[str, dict | None] = {}
+    for cname, cs_v in cargo_sizes.items():
+        if _use_filter:
+            _best_filtered[cname] = _pick_best_allowed_route(
+                cs_v.get("routes", []), _type_inc, _type_exc, _type_lookup
+            )
+        else:
+            _best_filtered[cname] = cs_v.get("best_route")
+
+    # dist_map construit depuis les meilleures routes filtrées (pas d'appel séparé)
     dist_map: dict[str, float] = {
-        v["best_route"]["dest_name"].lower(): v["best_route"]["distance"]
-        for v in cargo_sizes.values()
-        if v.get("best_route") and v["best_route"].get("dest_name") and v["best_route"].get("distance")
+        br["dest_name"].lower(): br["distance"]
+        for br in _best_filtered.values()
+        if br and br.get("dest_name") and br.get("distance")
     }
 
     # ── Construire toutes les lignes avec calculs ──────────────────────────
@@ -837,9 +879,9 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         qty_buy          = min(ship_cargo, stock_available) if stock_available > 0 else ship_cargo
         total_buy        = qty_buy * price_buy
 
-        # ── Destination : uniquement depuis commodities_routes (déjà chargé, zéro appel API)
+        # ── Destination : meilleure route filtrée par les filtres /select catégorie
         cs_entry   = cargo_sizes.get(name.lower(), {})
-        best_route = cs_entry.get("best_route")
+        best_route = _best_filtered.get(name.lower())
 
         if best_route and best_route.get("dest_name"):
             dest_name      = best_route["dest_name"]
