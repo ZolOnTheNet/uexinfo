@@ -776,12 +776,20 @@ def _pick_best_allowed_route(routes: list, filters: dict, ctx) -> dict | None:
     """Retourne la meilleure route filtrée selon les filtres /select."""
     from uexinfo.cli.commands.select import is_destination_allowed
     term_by_name = {t.name.lower(): t for t in (ctx.cache.terminals or [])}
+    sys_f    = filters.get("system", {})
+    sys_exc  = [s.lower() for s in sys_f.get("exclude", [])]
+    sys_inc  = [s.lower() for s in sys_f.get("include", [])]
     allowed = []
     for r in routes:
         dn = (r.get("dest_name") or "").lower()
         t_obj = term_by_name.get(dn)
         if t_obj is None:
-            # Terminal Pyro absent du cache → laisser passer
+            # Terminal hors cache (Pyro) — appliquer le filtre système via la route
+            dest_sys = (r.get("dest_system") or "").lower()
+            if sys_exc and dest_sys in sys_exc:
+                continue
+            if sys_inc and dest_sys not in sys_inc:
+                continue
             allowed.append(r)
         elif is_destination_allowed(t_obj, filters):
             allowed.append(r)
@@ -792,24 +800,29 @@ def _pick_best_allowed_route(routes: list, filters: dict, ctx) -> dict | None:
 
 
 def _find_best_allowed_from_prices(id_commodity: int, buy_price: float,
-                                    filters: dict, ctx) -> dict | None:
-    """Fallback : trouve la meilleure destination autorisée via commodities_prices.
+                                    filters: dict, ctx,
+                                    origin_terminal=None) -> dict | None:
+    """Fallback : trouve la meilleure destination autorisée via DataManager.commodity_prices.
 
-    Utilisé quand les routes pré-calculées UEX sont toutes filtrées (ex. Pyro exclu).
+    Utilisé quand les routes pré-calculées UEX sont vides ou toutes filtrées.
+    Flux : PriceCache (disque) → UEX API si expiré — identique aux autres requêtes prix.
+    Distances calculées depuis le graphe de transport (si graphe peuplé).
     """
-    import time as _time
+    from uexinfo.cache.data_manager import DataManager
     from uexinfo.cli.commands.select import is_destination_allowed
 
-    cache_key = f"cprices_{id_commodity}"
-    cached = ctx._price_cache.get(cache_key)
-    if cached and _time.time() - cached[0] < 300:
-        all_prices = cached[1]
-    else:
-        try:
-            all_prices = UEXClient().get_prices(id_commodity=id_commodity)
-            ctx._price_cache[cache_key] = (_time.time(), all_prices)
-        except UEXError:
-            return None
+    all_prices, _src = DataManager.commodity_prices(id_commodity, ctx)
+    if not all_prices:
+        return None
+
+    # Préparer le graphe de distances (une seule fois par origine)
+    dist_map_graph: dict[str, float] = {}
+    if origin_terminal is not None:
+        alias_map = _get_site_alias_map(ctx)
+        origin_node = alias_map.get(_site_key(origin_terminal).lower())
+        if origin_node:
+            graph_dists = ctx.cache.transport_graph.find_all_distances(origin_node)
+            dist_map_graph = graph_dists or {}
 
     term_by_name = {t.name.lower(): t for t in (ctx.cache.terminals or [])}
     best: dict | None = None
@@ -822,12 +835,15 @@ def _find_best_allowed_from_prices(id_commodity: int, buy_price: float,
         dn = (p.get("terminal_name") or "").lower()
         t_obj = term_by_name.get(dn)
         if t_obj is None:
-            continue  # Terminal inconnu (Pyro hors cache) → skip en fallback
+            continue  # Terminal hors cache → on ne peut pas évaluer les filtres
         if not is_destination_allowed(t_obj, filters):
             continue
         roi = (sell - buy_price) / buy_price
         if roi > best_roi:
             best_roi = roi
+            # Distance depuis le graphe nav
+            dest_node = alias_map.get(_site_key(t_obj).lower()) if dist_map_graph else None
+            dist_gm   = dist_map_graph.get(dest_node, 0.0) if dest_node else 0.0
             best = {
                 "dest_name":    p.get("terminal_name") or "",
                 "dest_system":  t_obj.star_system_name or "",
@@ -836,7 +852,7 @@ def _find_best_allowed_from_prices(id_commodity: int, buy_price: float,
                 "dest_station": t_obj.space_station_name or "",
                 "price_sell":   sell,
                 "profit":       sell - buy_price,
-                "distance":     0.0,
+                "distance":     dist_gm,
             }
 
     return best
@@ -893,7 +909,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
                 _cid  = int(_r.get("id_commodity") or 0)
                 _pbuy = float(_r.get("price_buy") or 0)
                 if _cid and _pbuy > 0:
-                    best = _find_best_allowed_from_prices(_cid, _pbuy, _sel, ctx)
+                    best = _find_best_allowed_from_prices(_cid, _pbuy, _sel, ctx,
+                                                          origin_terminal=origin_terminal)
             _best_filtered[_ckey] = best
         else:
             _best_filtered[_ckey] = cs_v.get("best_route")
