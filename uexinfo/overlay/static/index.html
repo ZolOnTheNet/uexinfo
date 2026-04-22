@@ -83,8 +83,20 @@ html, body {
   border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 3px;
 }
 .scan-inline .si-term  { color: var(--accent); font-weight: bold; }
+.scan-inline .si-term-input {
+  background: transparent; border: none; outline: none;
+  color: var(--accent); font-weight: bold; font-size: inherit;
+  font-family: inherit; width: 220px; padding: 0;
+}
+.scan-inline .si-term-input:focus { border-bottom: 1px solid var(--accent); }
 .scan-inline .si-mode-buy  { color: var(--accent); }
 .scan-inline .si-mode-sell { color: var(--yellow, #e5c07b); }
+.scan-inline .si-mode-select {
+  background: transparent; border: none; outline: none;
+  color: var(--accent); font-size: inherit; font-family: inherit;
+  cursor: pointer; padding: 0 2px;
+}
+.scan-inline .si-mode-select option { background: #0d1018; color: var(--text); }
 .si-warn {
   font-size: 0.80em; color: var(--yellow, #ffd600); opacity: 0.72;
   margin-bottom: 5px; padding: 2px 0;

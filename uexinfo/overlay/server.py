@@ -1140,11 +1140,11 @@ class OverlayServer:
             "ships":       ships,
             "voyages":     voyages,
             "cmdhistory":  cmdhistory,
-            "terminals":   sorted(
+            "terminals":   sorted({
                 f"{_loc(t.name)} ({t.star_system_name})"
                 for t in (cache.terminals or [])
                 if t.star_system_name
-            ),
+            }),
         }))
 
     # ── Complétion ────────────────────────────────────────────────────────────

@@ -1727,9 +1727,14 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
                 f"{_price_fmt(total)} [{C.DIM}](×{qty_buy})[/{C.DIM}]"
                 if total else f"[{C.DIM}]—[/{C.DIM}]"
             )
+            age_buy = _fmt_date(r.get("date_modified"))
+            price_cell = (
+                f"{_price_fmt(price)}  [{C.DIM}]{age_buy}[/{C.DIM}]"
+                if age_buy else _price_fmt(price)
+            )
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
-                _price_fmt(price),
+                price_cell,
                 container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]"),
                 _scu_frac(scu_min, scu_max, status, buy=True),
                 _dist_label(term_name, sys, player_sys, dist_map),
@@ -1787,7 +1792,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
-                _scu_frac(scu_sell_stock, scu_sell_max, status, buy=False),
+                _scu_frac(scu_stock, scu_sell_max, status, buy=False),
                 (f"{_price_short(player_sell_max)} {C.SCU}"
                  if player_sell_max
                  else container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]")),
