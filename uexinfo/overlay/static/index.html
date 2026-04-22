@@ -1395,8 +1395,9 @@ function _vocabWordPrefix(haystack, needle) {
 
 function annotateNode(textNode) {
   if (!vocabRe && !vocabFullNames.size) return;
-  const text = textNode.textContent;
-  const isTruncated = text.endsWith('\u2026');
+  const text        = textNode.textContent;
+  const trimmed     = text.trimEnd();
+  const isTruncated = trimmed.endsWith('\u2026');
 
   // ── Passage 1 : regex normale (fonctionne aussi sur texte tronqué partiel) ──
   if (vocabRe) {
@@ -1429,7 +1430,7 @@ function annotateNode(textNode) {
   // ── Passage 2 : texte tronqué «…» non reconnu par la regex → préfixe-mot ──
   // Couvre "TerminalNomLong…" et "TermName (Sy…" ou "Sys.Station.ty…"
   if (isTruncated && vocabFullNames.size) {
-    const prefix = text.slice(0, -1).trimEnd().toLowerCase();
+    const prefix = trimmed.slice(0, -1).trimEnd().toLowerCase();
     if (prefix.length >= 3) {
       for (const [lc, canonical] of vocabFullNames) {
         // terme vocab commence par le préfixe (nom coupé avant la fin du terme)
