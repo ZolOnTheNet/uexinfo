@@ -21,6 +21,8 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("sctrade",                "Paramètres sc-trade.tools"),
         ("hotkey",                 "Hotkey overlay (alt+shift+u, ctrl+f3…)"),
         ("close",                  "Mode fermeture overlay (normal/dblclick)"),
+        ("scan.autopos",           "Auto-position depuis tout scan (on|off)"),
+        ("scan.log.autopos",       "Auto-position depuis log Datarunner (on|off|quick)"),
         ("voyage.calc.nbsaut",     "Nb max de missions par voyage calc"),
         ("voyage.calc.prop",       "Nb de propositions (1=critère, ≥2=dist+benef+roi)"),
         ("voyage.calc.options",    "Options par défaut pour /voyage calc"),

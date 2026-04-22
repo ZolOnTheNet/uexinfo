@@ -778,6 +778,8 @@ def _clock(args: list[str], ctx) -> None:
 
 # Clés acceptées avec leur type attendu et description
 _DOT_KEYS: dict[str, tuple[type, str]] = {
+    "scan.autopos":        (str,   "Mise à jour auto-position depuis tout scan OCR/log (on|off)"),
+    "scan.log.autopos":    (str,   "Mise à jour auto-position depuis log Datarunner (on|off|quick)"),
     "voyage.calc.nbsaut":  (int,   "Nb max de missions par proposition"),
     "voyage.calc.prop":    (int,   "Nb de propositions (1=critère seul, ≥2=dist+benef+roi)"),
     "voyage.calc.options": (str,   'Options par défaut (ex: "--boucle --station")'),

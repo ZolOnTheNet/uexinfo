@@ -388,6 +388,90 @@ def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult
         return []
 
 
+# ── Auto-position depuis scan ─────────────────────────────────────────────────
+
+def _resolve_autopos_terminal(terminal_name: str, ctx) -> str:
+    """Résout un nom de terminal vers un nom canonique avec disambiguation.
+
+    Pour les gateways/jump-points présents dans plusieurs systèmes
+    (ex: "Nyx Gateway" côté Stanton ET côté Nyx), on préfère le terminal
+    dont star_system_name correspond au système actuel du joueur.
+    """
+    if not terminal_name:
+        return ""
+    terminals = getattr(ctx.cache, "terminals", None) or []
+    name_lo = terminal_name.lower().strip()
+
+    # 1. Correspondance exacte
+    exact = [t for t in terminals if t.name.lower() == name_lo
+             or t.name.lower().endswith(f"- {name_lo}")]
+
+    # 2. Correspondance partielle (le terminal contient le nom scanné)
+    if not exact:
+        exact = [t for t in terminals if name_lo in t.name.lower()]
+
+    if not exact:
+        return terminal_name  # inconnu : retourner tel quel
+
+    if len(exact) == 1:
+        return exact[0].name
+
+    # Plusieurs résultats : préférer celui du système actuel du joueur
+    player_sys = ""
+    loc = (ctx.player.location or "").lower()
+    for t in terminals:
+        if loc in t.name.lower() or t.name.lower() in loc:
+            player_sys = (t.star_system_name or "").lower()
+            break
+    if not player_sys:
+        player_sys = ctx.cfg.get("player", {}).get("system", "").lower()
+
+    if player_sys:
+        same_sys = [t for t in exact if (t.star_system_name or "").lower() == player_sys]
+        if same_sys:
+            return same_sys[0].name
+
+    return exact[0].name
+
+
+def _apply_autopos(terminal_name: str, ctx) -> tuple[str, str] | None:
+    """Applique la mise à jour auto-position.
+
+    Retourne (new_pos, old_pos) si la position a changé, sinon None.
+    """
+    import uexinfo.config.settings as _settings
+
+    new_pos = _resolve_autopos_terminal(terminal_name, ctx)
+    if not new_pos:
+        return None
+    old_pos = ctx.player.location or ""
+    if new_pos == old_pos:
+        return None
+
+    ctx.player.location = new_pos
+    ctx.cfg["player"] = ctx.player.to_config()
+    _settings.save(ctx.cfg)
+
+    # Notification console
+    console.print(
+        f"  [bold]Position auto :[/bold] [{C.UEX}]{new_pos}[/{C.UEX}]"
+        + (f"  [{C.DIM}](ancienne : {old_pos})[/{C.DIM}]" if old_pos else "")
+    )
+
+    # Message overlay (boutons [Ancienne position] [Définir dest])
+    pending = getattr(ctx, "_overlay_msgs", None)
+    if pending is None:
+        ctx._overlay_msgs = []
+        pending = ctx._overlay_msgs
+    pending.append({
+        "type": "position_update",
+        "new":  new_pos,
+        "old":  old_pos,
+    })
+
+    return new_pos, old_pos
+
+
 def check_log_auto(ctx) -> list[ScanResult]:
     """Vérifie si le fichier log a changé (mtime) et lit les nouveaux scans.
 
@@ -428,6 +512,12 @@ def check_log_auto(ctx) -> list[ScanResult]:
     if auto_cfg.get("log_accept", True):
         for r in results:
             _store_result(ctx, r)
+
+    # Mode quick : mise à jour auto-position dès détection du changement de log
+    if results and ctx.cfg.get("scan", {}).get("log", {}).get("autopos", "off") == "quick":
+        last_terminal = next((r.terminal for r in reversed(results) if r.terminal), None)
+        if last_terminal:
+            _apply_autopos(last_terminal, ctx)
 
     return results if auto_cfg.get("signal_scan", True) else []
 
@@ -1163,6 +1253,12 @@ def _store_result(ctx, result) -> None:
         except OSError:
             pass
 
+    # scan.autopos : mise à jour auto-position sur tout scan (OCR ou log)
+    if (isinstance(result, ScanResult)
+            and result.terminal
+            and ctx.cfg.get("scan", {}).get("autopos", "off") == "on"):
+        _apply_autopos(result.terminal, ctx)
+
 
 def _display_result(result, ctx) -> None:
     """Dispatch vers le bon affichage selon le type de résultat."""
@@ -1446,6 +1542,13 @@ def cmd_scan(args: list[str], ctx) -> None:
         for result in results:
             _store_result(ctx, result)
             _display_scan(result, ctx)
+
+        # Auto-position depuis log (mode on ou quick)
+        log_autopos = ctx.cfg.get("scan", {}).get("log", {}).get("autopos", "off")  # clé: scan.log.autopos
+        if results and log_autopos in ("on", "quick"):
+            last_terminal = next((r.terminal for r in reversed(results) if r.terminal), None)
+            if last_terminal:
+                _apply_autopos(last_terminal, ctx)
         return
 
     # /scan status

@@ -1570,6 +1570,20 @@ class OverlayServer:
             n_queued = self._check_and_queue_screenshots()
             if n_queued > 0:
                 await self._broadcast_raw(json.dumps({"type": "ocr_queued", "n": n_queued}))
+
+            # Mode quick : vérifier le log SC-Datarunner et mettre à jour la position
+            if self.ctx.cfg.get("scan", {}).get("log", {}).get("autopos", "off") == "quick":
+                try:
+                    from uexinfo.cli.commands.scan import check_log_auto
+                    check_log_auto(self.ctx)  # déclenche _apply_autopos si terminal détecté
+                    pending = getattr(self.ctx, "_overlay_msgs", [])
+                    if pending:
+                        for msg in pending:
+                            await self._broadcast_raw(json.dumps(msg))
+                        self.ctx._overlay_msgs = []
+                except Exception:
+                    pass
+
             for ws in list(self._clients):
                 try:
                     await self._send_status(ws)

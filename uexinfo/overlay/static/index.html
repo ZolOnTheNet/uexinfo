@@ -932,6 +932,35 @@ html, body {
   z-index: 0;
   text-shadow: 0 0 40px var(--accent);
 }
+/* ── Bandeau auto-position ──────────────────────────────────────────────── */
+.pos-update-banner {
+  position: fixed;
+  bottom: 48px; left: 8px; right: 8px;
+  background: rgba(20,30,20,0.96);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex; align-items: center; gap: 10px;
+  z-index: 9999;
+  font-size: 0.85em;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+}
+.pos-update-info { flex: 1; }
+.pos-new  { color: var(--accent); font-weight: bold; }
+.pos-old  { color: var(--dim); font-size: 0.88em; margin-left: 8px; }
+.pos-update-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.pos-update-btns button {
+  background: rgba(0,180,80,0.18); border: 1px solid var(--accent);
+  color: var(--fg); border-radius: 4px; padding: 3px 8px;
+  cursor: pointer; font-size: 0.82em;
+}
+.pos-update-btns button:hover { background: rgba(0,180,80,0.38); }
+.pos-update-btns .btn-secondary {
+  background: rgba(120,120,120,0.15); border-color: var(--dim);
+}
+.pos-update-btns .btn-close-pos {
+  background: none; border-color: transparent; color: var(--dim); padding: 3px 6px;
+}
 </style>
 </head>
 <body>
@@ -1552,6 +1581,7 @@ function dispatch(msg) {
     case 'trade_pick':  showTradePick(msg); break;
     case 'terminal_buy_pick': showTerminalBuyPick(msg); break;
     case 'select':      showSelectPanel(msg); break;
+    case 'position_update': showPositionUpdate(msg.new, msg.old); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items, msg.common_prefix || ''); break;
     case 'hint':        elHint.textContent = msg.text; break;
@@ -1624,6 +1654,60 @@ function sendCmd(text) {
 }
 
 // ── Sortie ────────────────────────────────────────────────────────────────────
+
+// ── Notification auto-position ────────────────────────────────────────────────
+let _posUpdateTimer = null;
+
+function showPositionUpdate(newPos, oldPos) {
+  // Supprimer une éventuelle notification précédente non fermée
+  const prev = document.getElementById('pos-update-banner');
+  if (prev) prev.remove();
+  if (_posUpdateTimer) { clearTimeout(_posUpdateTimer); _posUpdateTimer = null; }
+
+  const banner = document.createElement('div');
+  banner.id = 'pos-update-banner';
+  banner.className = 'pos-update-banner';
+
+  const info = document.createElement('div');
+  info.className = 'pos-update-info';
+  info.innerHTML =
+    `<span class="pos-new">📍 ${escHtml(newPos)}</span>` +
+    (oldPos ? `  <span class="pos-old">ancienne : ${escHtml(oldPos)}</span>` : '');
+
+  const btns = document.createElement('div');
+  btns.className = 'pos-update-btns';
+
+  const btnDest = document.createElement('button');
+  btnDest.textContent = 'Définir dest';
+  btnDest.onclick = () => { sendCmd(`/go to ${newPos}`); banner.remove(); };
+
+  const btnOld = document.createElement('button');
+  btnOld.className = 'btn-secondary';
+  btnOld.textContent = oldPos ? `Revenir à ${oldPos}` : 'Annuler';
+  btnOld.onclick = () => {
+    if (oldPos) sendCmd(`/go from ${oldPos}`);
+    banner.remove();
+  };
+
+  const btnClose = document.createElement('button');
+  btnClose.className = 'btn-close-pos';
+  btnClose.textContent = '✕';
+  btnClose.onclick = () => banner.remove();
+
+  btns.appendChild(btnDest);
+  if (oldPos) btns.appendChild(btnOld);
+  btns.appendChild(btnClose);
+  banner.appendChild(info);
+  banner.appendChild(btns);
+  document.body.appendChild(banner);
+
+  // Auto-fermeture après 30s si pas d'interaction
+  _posUpdateTimer = setTimeout(() => { banner.remove(); _posUpdateTimer = null; }, 30000);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 function appendSystem(text, color) {
   const d = document.createElement('div');
