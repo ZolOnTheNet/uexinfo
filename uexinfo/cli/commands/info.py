@@ -1427,18 +1427,24 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
 
             total = len({r.get("commodity_name") for r in rows})
             dates = [r.get("date_modified") for r in rows if r.get("date_modified")]
-            date_str = ""
-            if dates:
-                try:
-                    dt = datetime.fromtimestamp(max(float(d) for d in dates))
-                    date_str = f"  ·  màj {dt.strftime('%d %b %Y %H:%M')}"
-                except Exception:
-                    pass
+            date_str = f"  ·  {_fmt_date(max(float(d) for d in dates))}" if dates else ""
             footer_col = C.SCTRADE if offline else C.DIM
             console.print(f"\n[italic {footer_col}]{total} marchandises{date_str}[/italic {footer_col}]")
 
 
 # ── Affichage commodité ────────────────────────────────────────────────────────
+
+def _scu_frac(observed: int, max_val: int, status: int, buy: bool) -> str:
+    """Affiche observé / max en SCU coloré selon le status UEX."""
+    if not max_val:
+        return f"[{C.DIM}]—[/{C.DIM}]"
+    obs_str = str(observed) if observed else "—"
+    if buy:
+        color = {1: C.DIM, 2: C.LOSS}.get(status, C.WARNING if status in (3, 4) else C.PROFIT)
+    else:
+        color = C.PROFIT if status in (1, 2) else (C.WARNING if status in (3, 4) else C.LOSS)
+    return f"[{color}]{obs_str} / {max_val}[/{color}]"
+
 
 _BUY_STATUS_BAR: dict[int, str] = {
     1: f"[{C.DIM}]░░░░[/{C.DIM}]",
@@ -1699,7 +1705,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         tbl.add_column("Terminal (Sys)", no_wrap=True, min_width=24)
         tbl.add_column(f"Achat/{C.SCU}",  style=pc,    justify="right", no_wrap=True)
         tbl.add_column("T.Cargo",        style=C.DIM,  justify="right", no_wrap=True)
-        tbl.add_column("Dispo",          no_wrap=True)
+        tbl.add_column("SCU dispo/max",  no_wrap=True)
         tbl.add_column("Dist",           no_wrap=True)
         tbl.add_column("Total achat",    style=pc,     justify="right", no_wrap=True)
 
@@ -1725,7 +1731,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
                 container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]"),
-                _bar_buy(status, scu_max),
+                _scu_frac(scu_min, scu_max, status, buy=True),
                 _dist_label(term_name, sys, player_sys, dist_map),
                 total_cell,
             )
@@ -1781,7 +1787,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
-                _bar_sell(status, scu_sell_max),
+                _scu_frac(scu_sell_stock, scu_sell_max, status, buy=False),
                 (f"{_price_short(player_sell_max)} {C.SCU}"
                  if player_sell_max
                  else container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]")),
@@ -1796,13 +1802,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     # ── Footer ─────────────────────────────────────────────────────────────
     n_t    = len({r.get("terminal_name") for r in active})
     dates  = [r.get("date_modified") for r in active if r.get("date_modified")]
-    date_str = ""
-    if dates:
-        try:
-            dt = datetime.fromtimestamp(max(float(d) for d in dates))
-            date_str = f"  ·  màj {dt.strftime('%d %b %Y %H:%M')}"
-        except Exception:
-            pass
+    date_str = f"  ·  {_fmt_date(max(float(d) for d in dates))}" if dates else ""
     ship_note = ""
     if player_scu:
         ship_note = f"  ·  {ctx.player.active_ship} ({player_scu} {C.SCU})"
@@ -1832,12 +1832,12 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
 
     console.print(
         f"[{C.DIM}]  Prix en {C.AUEC}  ·  T.Cargo : tailles des conteneurs en {C.SCU} (ex. 1/2/4)"
-        f"  ·  Dispo ░=vide ████=plein  ·  ROI vs meilleur achat local[/{C.DIM}]"
+        f"  ·  SCU dispo/max : observé / connu  ·  ROI vs meilleur achat local[/{C.DIM}]"
     )
 
-    # ── sc-trade.tools (public — aucun token requis) ──────────────────────────
+    # ── sc-trade.tools (fallback hors-ligne uniquement) ───────────────────────
     sct_cfg = ctx.cfg.get("sctrade", {})
-    if sct_cfg.get("enabled", True):
+    if offline and sct_cfg.get("enabled", True):
         try:
             from uexinfo.api.sctrade_client import SCTradeClient
             token = sct_cfg.get("token", "")
@@ -1858,7 +1858,7 @@ def _show_sctrade_transactions(txs: list[dict], ctx, crowdsource: bool = False) 
     """Affiche les prix sc-trade.tools pour une commodité."""
     from rich.table import Table
     src = "données communauté · crowdsource" if crowdsource else "données communauté"
-    console.print(f"\n[bold {C.SCTRADE}]sc-trade.tools[/bold {C.SCTRADE}]  [{C.DIM}]{src}[/{C.DIM}]")
+    console.print(f"\n[bold {C.SCTRADE}]sc-trade.tools · données hors-ligne[/bold {C.SCTRADE}]  [{C.DIM}]{src}[/{C.DIM}]")
     t = Table(show_header=True, header_style=f"bold {C.SCTRADE}", box=None, pad_edge=False)
     t.add_column("Terminal",   style=C.SCTRADE, min_width=28)
     t.add_column("Action",     style="white",   width=7)

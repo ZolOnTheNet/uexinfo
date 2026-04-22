@@ -1066,7 +1066,8 @@ html, body {
       <div id="scan-form-panel">
         <div class="se-meta">
           <label>Terminal</label>
-          <input type="text" id="se-terminal">
+          <input type="text" id="se-terminal" list="se-terminal-list">
+          <datalist id="se-terminal-list"></datalist>
           <label>Mode</label>
           <select id="se-mode">
             <option value="buy">ACHAT</option>
@@ -1352,6 +1353,16 @@ function loadVocab(msg) {
   vocabRe = all.length
     ? new RegExp(`(?<![\\w-])(${all.join('|')})(?![\\w-])`, 'gi')
     : null;
+
+  const datalist = document.getElementById('se-terminal-list');
+  if (datalist) {
+    datalist.innerHTML = '';
+    (msg.locations || []).forEach(loc => {
+      const opt = document.createElement('option');
+      opt.value = loc;
+      datalist.appendChild(opt);
+    });
+  }
 }
 
 function _finalizeBlock() {
