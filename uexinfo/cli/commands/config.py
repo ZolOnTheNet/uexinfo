@@ -1,4 +1,4 @@
-"""Commande /config."""
+"""Commande /config avec affichage en colonnes amélioré."""
 from __future__ import annotations
 
 import uexinfo.config.settings as settings
@@ -57,69 +57,142 @@ def _show(cfg: dict, ctx=None) -> None:
     cache_cfg = cfg.get("cache", {})
     scan      = cfg.get("scan", {})
 
+    # Détecter la largeur de la console pour adapter l'affichage
+    console_width = console.width
+    num_columns = 1
+    if console_width >= 120:
+        num_columns = 3
+    elif console_width >= 80:
+        num_columns = 2
+
+    # Fonction pour formater les lignes en colonnes bien alignées
+    def print_columns(items):
+        if num_columns == 1:
+            for item in items:
+                console.print(item)
+        else:
+            # Filtrer les items vides (séparateurs)
+            content_items = [item for item in items if item.strip()]
+            
+            # Calculer la largeur maximale pour chaque colonne
+            col_width = (console_width - 6) // num_columns
+            
+            # Regrouper les items par ligne
+            lines = []
+            for i in range(0, len(content_items), num_columns):
+                line_items = content_items[i:i+num_columns]
+                
+                # Formater chaque item avec la largeur appropriée
+                formatted_items = []
+                for j, item in enumerate(line_items):
+                    # Pour la dernière colonne, utiliser tout l'espace restant
+                    if j == len(line_items) - 1 and len(line_items) < num_columns:
+                        remaining_width = console_width - (col_width * j) - 4
+                        formatted_items.append(f"{item:<{remaining_width}}")
+                    else:
+                        formatted_items.append(f"{item:<{col_width}}")
+                
+                lines.append("  ".join(formatted_items))
+            
+            # Afficher les lignes avec les séparateurs
+            for item in items:
+                if item.strip():  # Si c'est un item normal
+                    if lines:
+                        console.print(lines.pop(0))
+                else:  # Si c'est un séparateur vide
+                    console.print(item)
+
+    # Fonction pour créer des paires clé-valeur bien formatées
+    def config_item(key, value, note=""):
+        note_str = f"  [{C.DIM}]{note}[/{C.DIM}]" if note else ""
+        return f"[bold]{key}:[/bold] {value}{note_str}"
+
+    # Préparer les items pour chaque section
+    config_items = []
+
     # ── Vaisseaux & position (source unique : ctx.player) ─────────────────
     p = ctx.player if ctx else None
     if p:
         active = p.active_ship or ""
-        console.print(f"  [bold]Vaisseau actif :[/bold] [{C.UEX}]{active or '(non défini)'}[/{C.UEX}]")
+        config_items.append(config_item("Vaisseau actif", f"[{C.UEX}]{active or '(non défini)'}[/{C.UEX}]"))
+        config_items.append(config_item("Position", f"[{C.UEX}]{p.location or '(non définie)'}[/{C.UEX}]"))
+        config_items.append(config_item("Destination", f"[{C.UEX}]{p.destination or '(non définie)'}[/{C.UEX}]"))
+        
+        # Section séparée pour les vaisseaux
+        config_items.append("")
+        config_items.append("[bold]Vaisseaux:[/bold]")
         for s in p.ships:
             scu_str = str(s.scu) if s.scu else "?"
             marker  = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == active else ""
-            console.print(f"    [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} {C.SCU}[/{C.DIM}]{marker}")
-        console.print(f"  [bold]Position :[/bold]    [{C.UEX}]{p.location or '(non définie)'}[/{C.UEX}]")
-        console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{p.destination or '(non définie)'}[/{C.UEX}]")
+            config_items.append(f"  [{C.UEX}]{s.name}[/{C.UEX}]  [{C.DIM}]{scu_str} {C.SCU}[/{C.DIM}]{marker}")
     else:
         # Fallback si pas de contexte
         ships   = cfg.get("ships", {})
         current = ships.get("current", "")
         pos     = cfg.get("position", {})
-        console.print(f"  [bold]Vaisseau actif :[/bold] [{C.UEX}]{current or '(non défini)'}[/{C.UEX}]")
-        console.print(f"  [bold]Position :[/bold]    [{C.UEX}]{pos.get('current') or '(non définie)'}[/{C.UEX}]")
-        console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{pos.get('destination') or '(non définie)'}[/{C.UEX}]")
+        config_items.append(config_item("Vaisseau actif", f"[{C.UEX}]{current or '(non défini)'}[/{C.UEX}]"))
+        config_items.append(config_item("Position", f"[{C.UEX}]{pos.get('current') or '(non définie)'}[/{C.UEX}]"))
+        config_items.append(config_item("Destination", f"[{C.UEX}]{pos.get('destination') or '(non définie)'}[/{C.UEX}]"))
+
+    # Séparateur pour les sections
+    config_items.append("")
 
     # ── Overlay ────────────────────────────────────────────────────────────
     ov = cfg.get("overlay", {})
     close_mode = ov.get("close", "normal")
-    close_label = "normal (✕ ferme)" if close_mode == "normal" else "dblclick (✕ masque, double-clic ferme)"
-    console.print(f"  [bold]overlay.close :[/bold]    {close_label}")
-    console.print(f"  [bold]overlay.hotkey :[/bold]   {ov.get('hotkey', 'alt+shift+u')}")
-    console.print(f"  [bold]overlay.opacity :[/bold]  {ov.get('opacity', 0.95)}")
-    clock_val = ov.get("clock", True)
-    console.print(f"  [bold]overlay.clock :[/bold]    {'on' if clock_val else 'off'}")
-    console.print(f"  [bold]overlay.cmdhistory :[/bold] {ov.get('cmdhistory', 5)}  [{C.DIM}](commandes+résultats conservés)[/{C.DIM}]")
+    close_label = "normal" if close_mode == "normal" else "dblclick"
+    config_items.append(config_item("overlay.close", close_label, "✕ ferme / masque"))
+    config_items.append(config_item("overlay.hotkey", ov.get('hotkey', 'alt+shift+u')))
+    config_items.append(config_item("overlay.opacity", str(ov.get('opacity', 0.95))))
+    clock_val = ov.get('clock', True)
+    config_items.append(config_item("overlay.clock", "on" if clock_val else "off"))
+    config_items.append(config_item("overlay.cmdhistory", str(ov.get('cmdhistory', 5)), "commandes conservées"))
+
+    # Séparateur
+    config_items.append("")
 
     # ── Trade / cache / scan ───────────────────────────────────────────────
-    console.print(f"  [bold]Profit min/{C.SCU} :[/bold] {trade.get('min_profit_per_scu', 0)} {C.AUEC}")
-    console.print(f"  [bold]Marge min :[/bold]     {trade.get('min_margin_percent', 0)} %")
-    console.print(f"  [bold]Illégal :[/bold]       {'oui' if trade.get('illegal_commodities') else 'non'}")
-    console.print(f"  [bold]TTL cache :[/bold]     {cache_cfg.get('ttl_static', 86400)}s statique  /  {cache_cfg.get('ttl_prices', 300)}s prix")
-    console.print(f"  [bold]scan.mode :[/bold]         {scan.get('mode', 'ocr')}  [{C.DIM}](ocr|log|confirm)[/{C.DIM}]")
-    console.print(f"  [bold]scan.tesseract :[/bold]    {scan.get('tesseract_exe') or '(auto)'}  [{C.DIM}](moteur OCR pour lire les screenshots)[/{C.DIM}]")
-    console.print(f"  [bold]scan.logpath :[/bold]      {scan.get('sc_log_path') or '(non défini)'}")
-    console.print(f"  [bold]scan.screenshots :[/bold]  {scan.get('sc_screenshots_dir') or '(non défini)'}")
-    console.print(f"  [bold]scan.auto_ocr :[/bold]     {'on' if scan.get('auto_ocr', True) else 'off'}  [{C.DIM}](OCR auto dès détection d'un screenshot)[/{C.DIM}]")
-    console.print(f"  [bold]scan.hour :[/bold]         {scan.get('hour', 2)}h  [{C.DIM}](fenêtre /mission scan)[/{C.DIM}]")
-    console.print(f"  [bold]scan.session_gap :[/bold]  {scan.get('session_gap', 60)} min  [{C.DIM}](gap = nouvelle session)[/{C.DIM}]")
+    config_items.append(config_item(f"Profit min/{C.SCU}", f"{trade.get('min_profit_per_scu', 0)} {C.AUEC}"))
+    config_items.append(config_item("Marge min", f"{trade.get('min_margin_percent', 0)} %"))
+    config_items.append(config_item("Illégal", "oui" if trade.get('illegal_commodities') else "non"))
+    config_items.append(config_item("TTL cache", f"{cache_cfg.get('ttl_static', 86400)}s / {cache_cfg.get('ttl_prices', 300)}s"))
+    config_items.append(config_item("scan.mode", scan.get('mode', 'ocr'), "ocr|log|confirm"))
+    config_items.append(config_item("scan.tesseract", scan.get('tesseract_exe') or '(auto)'))
+    config_items.append(config_item("scan.logpath", scan.get('sc_log_path') or '(non défini)'))
+    config_items.append(config_item("scan.screenshots", scan.get('sc_screenshots_dir') or '(non défini)'))
+    config_items.append(config_item("scan.auto_ocr", "on" if scan.get('auto_ocr', True) else "off"))
+    config_items.append(config_item("scan.hour", f"{scan.get('hour', 2)}h"))
+    config_items.append(config_item("scan.session_gap", f"{scan.get('session_gap', 60)} min"))
+
+    # Séparateur
+    config_items.append("")
 
     # ── Affichage terminal ─────────────────────────────────────────────────
     disp = cfg.get("display", {})
     def _onoff(v, default=True): return f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if (v if v is not None else default) else f"[{C.LOSS}]off[/{C.LOSS}]"
-    console.print(f"  [bold]magasins :[/bold]     {_onoff(disp.get('magasins'))}  [{C.DIM}](magasins dans la vue terminal)[/{C.DIM}]")
-    console.print(f"  [bold]restaurants :[/bold]  {_onoff(disp.get('restaurants'))}  [{C.DIM}](restaurants dans la vue terminal)[/{C.DIM}]")
-    console.print(f"  [bold]services :[/bold]     {_onoff(disp.get('services'))}  [{C.DIM}](services dans la vue terminal)[/{C.DIM}]")
+    config_items.append(config_item("magasins", _onoff(disp.get('magasins'))))
+    config_items.append(config_item("restaurants", _onoff(disp.get('restaurants'))))
+    config_items.append(config_item("services", _onoff(disp.get('services'))))
+
+    # Séparateur
+    config_items.append("")
 
     # ── API UEX Corp ──────────────────────────────────────────────────────────
     api_cfg = cfg.get("api", {})
     uex_key = api_cfg.get("secret_key", "")
-    uex_key_disp = f"[{C.SUCCESS}]***défini***[/{C.SUCCESS}]" if uex_key else f"[{C.LOSS}](non défini)[/{C.LOSS}]"
-    console.print(f"  [bold]uex.key :[/bold]         {uex_key_disp}  [{C.DIM}](/config uex key <val>)[/{C.DIM}]")
+    uex_key_disp = f"[{C.SUCCESS}]définie[/{C.SUCCESS}]" if uex_key else f"[{C.LOSS}]non définie[/{C.LOSS}]"
+    config_items.append(config_item("uex.key", uex_key_disp))
 
     # ── sc-trade.tools ────────────────────────────────────────────────────────
     sct = cfg.get("sctrade", {})
     token_val = sct.get("token", "")
-    token_disp = f"[{C.SUCCESS}]***défini***[/{C.SUCCESS}]" if token_val else f"[{C.LOSS}](non défini)[/{C.LOSS}]"
-    console.print(f"  [bold]sctrade.token :[/bold]   {token_disp}  [{C.DIM}](/config sctrade token <val>)[/{C.DIM}]")
-    console.print(f"  [bold]sctrade :[/bold]         {_onoff(sct.get('enabled', True))}  [{C.DIM}](/config sctrade on|off)[/{C.DIM}]")
+    token_disp = f"[{C.SUCCESS}]définie[/{C.SUCCESS}]" if token_val else f"[{C.LOSS}]non définie[/{C.LOSS}]"
+    config_items.append(config_item("sctrade.token", token_disp))
+    sct_state = f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if sct.get('enabled', True) else f"[{C.LOSS}]off[/{C.LOSS}]"
+    config_items.append(config_item("sctrade", sct_state))
+
+    # Afficher les items en colonnes
+    print_columns(config_items)
 
 
 # ── Affichage terminal (magasins / restaurants / services) ───────────────────
