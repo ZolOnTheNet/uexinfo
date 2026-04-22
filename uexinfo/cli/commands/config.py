@@ -65,42 +65,44 @@ def _show(cfg: dict, ctx=None) -> None:
     elif console_width >= 80:
         num_columns = 2
 
-    # Fonction pour formater les lignes en colonnes bien alignées
+    # Affichage multi-colonnes via rich.Table (gère les markup nativement)
     def print_columns(items):
         if num_columns == 1:
             for item in items:
                 console.print(item)
-        else:
-            # Filtrer les items vides (séparateurs)
-            content_items = [item for item in items if item.strip()]
-            
-            # Calculer la largeur maximale pour chaque colonne
-            col_width = (console_width - 6) // num_columns
-            
-            # Regrouper les items par ligne
-            lines = []
-            for i in range(0, len(content_items), num_columns):
-                line_items = content_items[i:i+num_columns]
-                
-                # Formater chaque item avec la largeur appropriée
-                formatted_items = []
-                for j, item in enumerate(line_items):
-                    # Pour la dernière colonne, utiliser tout l'espace restant
-                    if j == len(line_items) - 1 and len(line_items) < num_columns:
-                        remaining_width = console_width - (col_width * j) - 4
-                        formatted_items.append(f"{item:<{remaining_width}}")
-                    else:
-                        formatted_items.append(f"{item:<{col_width}}")
-                
-                lines.append("  ".join(formatted_items))
-            
-            # Afficher les lignes avec les séparateurs
-            for item in items:
-                if item.strip():  # Si c'est un item normal
-                    if lines:
-                        console.print(lines.pop(0))
-                else:  # Si c'est un séparateur vide
-                    console.print(item)
+            return
+
+        from rich.table import Table as _T
+
+        # Regrouper les items de contenu en lignes de num_columns,
+        # en insérant des lignes vides là où se trouvaient les séparateurs.
+        rows: list[list[str]] = []   # chaque entrée = une ligne de la table
+        pending: list[str] = []      # items en cours d'accumulation
+
+        def _flush_pending():
+            for k in range(0, len(pending), num_columns):
+                chunk = pending[k:k + num_columns]
+                while len(chunk) < num_columns:
+                    chunk.append("")
+                rows.append(chunk)
+            pending.clear()
+
+        for item in items:
+            if item.strip():
+                pending.append(item)
+            else:
+                _flush_pending()
+                rows.append([""] * num_columns)  # ligne de séparation
+
+        _flush_pending()
+
+        tbl = _T(box=None, padding=(0, 2), show_header=False,
+                 show_edge=False, expand=True)
+        for _ in range(num_columns):
+            tbl.add_column(ratio=1)
+        for row in rows:
+            tbl.add_row(*row)
+        console.print(tbl)
 
     # Fonction pour créer des paires clé-valeur bien formatées
     def config_item(key, value, note=""):
