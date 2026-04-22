@@ -1704,6 +1704,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
         tbl.add_column("Terminal (Sys)", no_wrap=True, min_width=24)
         tbl.add_column(f"Achat/{C.SCU}",  style=pc,    justify="right", no_wrap=True)
+        tbl.add_column("Âge",            style=C.DIM,  justify="right", no_wrap=True)
         tbl.add_column("T.Cargo",        style=C.DIM,  justify="right", no_wrap=True)
         tbl.add_column("SCU dispo/max",  no_wrap=True)
         tbl.add_column("Dist",           no_wrap=True)
@@ -1727,14 +1728,10 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
                 f"{_price_fmt(total)} [{C.DIM}](×{qty_buy})[/{C.DIM}]"
                 if total else f"[{C.DIM}]—[/{C.DIM}]"
             )
-            age_buy = _fmt_date(r.get("date_modified"))
-            price_cell = (
-                f"{_price_fmt(price)}  [{C.DIM}]{age_buy}[/{C.DIM}]"
-                if age_buy else _price_fmt(price)
-            )
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
-                price_cell,
+                _price_fmt(price),
+                _fmt_date(r.get("date_modified")) or "—",
                 container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]"),
                 _scu_frac(scu_min, scu_max, status, buy=True),
                 _dist_label(term_name, sys, player_sys, dist_map),
@@ -1755,6 +1752,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
         tbl.add_column("Terminal (Sys)",  no_wrap=True, min_width=24)
         tbl.add_column(f"Vente/{C.SCU}",   style=C.PROFIT, justify="right", no_wrap=True)
+        tbl.add_column("Âge",             style=C.DIM,    justify="right", no_wrap=True)
         tbl.add_column("Niveau/Max",      no_wrap=True)
         tbl.add_column("T.Cargo",         style=C.DIM,    justify="right", no_wrap=True)
         tbl.add_column("Dist",            no_wrap=True)
@@ -1792,6 +1790,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
+                _fmt_date(r.get("date_modified")) or "—",
                 _scu_frac(scu_stock, scu_sell_max, status, buy=False),
                 (f"{_price_short(player_sell_max)} {C.SCU}"
                  if player_sell_max
