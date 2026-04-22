@@ -703,7 +703,11 @@ class OverlayServer:
         try:
             from uexinfo.models.scan_result import ScannedCommodity
             # Pour les scans inline (log), trouver le bon résultat par terminal+mode
-            terminal_key = (data.get("terminal") or "").strip().lower()
+            raw_terminal = (data.get("terminal") or "").strip()
+            # Stripper le suffixe système "(Stanton)" ajouté pour désambiguïser
+            import re as _re
+            terminal_bare = _re.sub(r'\s*\([^)]+\)$', '', raw_terminal).strip()
+            terminal_key  = terminal_bare.lower()
             mode_key     = data.get("mode") or ""
             result       = None
             if terminal_key and mode_key:
@@ -716,8 +720,8 @@ class OverlayServer:
                 result = getattr(self.ctx, "last_scan", None)
             if result is None:
                 return
-            result.terminal = data.get("terminal", result.terminal)
-            result.mode     = data.get("mode",     result.mode)
+            result.terminal = terminal_bare or result.terminal
+            result.mode     = data.get("mode", result.mode)
 
             incoming = data.get("commodities", [])
             single_idx = data.get("single_idx")   # None = tout, int = une seule ligne
@@ -1136,6 +1140,11 @@ class OverlayServer:
             "ships":       ships,
             "voyages":     voyages,
             "cmdhistory":  cmdhistory,
+            "terminals":   sorted(
+                f"{_loc(t.name)} ({t.star_system_name})"
+                for t in (cache.terminals or [])
+                if t.star_system_name
+            ),
         }))
 
     # ── Complétion ────────────────────────────────────────────────────────────

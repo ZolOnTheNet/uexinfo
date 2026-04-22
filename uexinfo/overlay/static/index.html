@@ -1357,7 +1357,9 @@ function loadVocab(msg) {
   const datalist = document.getElementById('se-terminal-list');
   if (datalist) {
     datalist.innerHTML = '';
-    (msg.locations || []).forEach(loc => {
+    // Terminaux qualifiés par système (ex: "Nyx Gateway (Stanton)") pour désambiguïser
+    const termList = (msg.terminals && msg.terminals.length) ? msg.terminals : (msg.locations || []);
+    termList.forEach(loc => {
       const opt = document.createElement('option');
       opt.value = loc;
       datalist.appendChild(opt);
@@ -2533,9 +2535,11 @@ function _buildStockSelect(i, stockStatus, extraClass) {
 function appendScanInline(msg) {
   const data = msg.data || {};
   const isS  = data.mode === 'sell';
-  const modeHtml = isS
-    ? '<span class="si-mode-sell">VENTE</span>'
-    : '<span class="si-mode-buy">ACHAT</span>';
+  const modeHtml =
+    `<select class="si-mode-select">` +
+    `<option value="buy"${isS ? '' : ' selected'}>ACHAT</option>` +
+    `<option value="sell"${isS ? ' selected' : ''}>VENTE</option>` +
+    `</select>`;
 
   const div = document.createElement('div');
   div.className = 'scan-inline';
@@ -2566,7 +2570,8 @@ function appendScanInline(msg) {
 
   div.innerHTML =
     `<div class="si-head">` +
-      `<span class="si-term">${esc(data.terminal || '—')}</span>${modeHtml}` +
+      `<input type="text" class="si-term-input" list="se-terminal-list" value="${esc(data.terminal || '')}" placeholder="Terminal…">` +
+      modeHtml +
     `</div>` +
     `<div class="si-warn">` +
       `⚠ Seules les valeurs détectées par le logiciel sont récupérables. ` +
@@ -2700,8 +2705,8 @@ function _siCollectComms(div) {
 function submitScanInline(btn) {
   if (btn.classList.contains('done')) return;
   const div      = btn.closest('.scan-inline');
-  const terminal = div.dataset.terminal;
-  const mode     = div.dataset.mode;
+  const terminal = div.querySelector('.si-term-input')?.value.trim() || div.dataset.terminal;
+  const mode     = div.querySelector('.si-mode-select')?.value || div.dataset.mode;
   const comms    = _siCollectComms(div);
   send({type: 'scan_confirm', data: {terminal, mode, commodities: comms}});
   btn.textContent = '✓ Envoyé';
@@ -2712,9 +2717,8 @@ function submitScanInline(btn) {
 function submitScanInlineRow(btn, idx) {
   if (btn.classList.contains('done')) return;
   const div      = btn.closest('.scan-inline');
-  const terminal = div.dataset.terminal;
-  const mode     = div.dataset.mode;
-  // Recalculer l'index réel de la ligne (les suppressions décalent les indices)
+  const terminal = div.querySelector('.si-term-input')?.value.trim() || div.dataset.terminal;
+  const mode     = div.querySelector('.si-mode-select')?.value || div.dataset.mode;
   const rows = Array.from(div.querySelectorAll('tbody tr'));
   const tr   = btn.closest('tr');
   const realIdx = rows.indexOf(tr);
