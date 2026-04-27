@@ -858,6 +858,46 @@ def _find_best_allowed_from_prices(id_commodity: int, buy_price: float,
     return best
 
 
+def _dest_sell_info(id_commodity: int, dest_name: str, ctx) -> tuple[int, float | None]:
+    """status_sell + timestamp observation à la destination pour une commodité.
+
+    Interroge commodity_prices (caché). Retourne (0, None) si inconnu.
+    """
+    if not id_commodity or not dest_name:
+        return 0, None
+    from uexinfo.cache.data_manager import DataManager
+    all_prices, _ = DataManager.commodity_prices(id_commodity, ctx)
+    dest_lc = dest_name.lower()
+    for p in all_prices:
+        if (p.get("terminal_name") or "").lower() == dest_lc:
+            return int(p.get("status_sell") or 0), p.get("date_modified")
+    return 0, None
+
+
+def _compute_risk(buy_ts, dest_status_sell: int, dest_ts) -> int:
+    """Risque = 30% fraîcheur achat + 70% saturation destination pondérée par âge.
+
+    La saturation converge vers 50% (incertitude max) au bout de 48h —
+    un état « Haut » vieux de 3 jours vaut ~55%, pas 80%.
+    """
+    import time as _t
+    now = _t.time()
+
+    buy_age_h = (now - float(buy_ts)) / 3600 if buy_ts else 48.0
+    if buy_age_h < 2:    buy_risk = 5
+    elif buy_age_h < 6:  buy_risk = 10
+    elif buy_age_h < 24: buy_risk = 25
+    else:                buy_risk = 50
+
+    # status_sell : Out=5% (destination vide, veut acheter), Max=95% (saturée)
+    sat_base = {0: 50, 1: 5, 2: 20, 3: 40, 4: 60, 5: 80, 7: 95}.get(dest_status_sell, 50)
+    dest_age_h  = (now - float(dest_ts)) / 3600 if dest_ts else 48.0
+    age_weight  = max(0.0, 1.0 - dest_age_h / 48.0)
+    sat_risk    = age_weight * sat_base + (1.0 - age_weight) * 50.0
+
+    return int(0.30 * buy_risk + 0.70 * sat_risk)
+
+
 def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys_filter=None) -> None:
     """Affiche la section Acheter avec table alignée, triée par profit décroissant."""
     # Récupérer le cargo du vaisseau actif
@@ -945,11 +985,15 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         _ts_buy    = r.get("_scan_ts") if r.get("_player_buy") else r.get("date_modified")
         date_buy   = _fmt_date(_ts_buy)
 
-        stock_multiplier = {1: 0, 2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
-        stock_percent    = stock_multiplier.get(status_buy, 0.5)
-        stock_available  = int(ship_cargo * stock_percent) if status_buy != 1 else 0
-        qty_buy          = min(ship_cargo, stock_available) if stock_available > 0 else ship_cargo
-        total_buy        = qty_buy * price_buy
+        # Cargo disponible : stock réel si connu, sinon estimation par statut
+        if scu_max > 0:
+            qty_buy = min(ship_cargo, scu_max)
+        elif status_buy == 1:
+            qty_buy = 0
+        else:
+            _sm = {2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
+            qty_buy = int(ship_cargo * _sm.get(status_buy, 0.5))
+        total_buy = qty_buy * price_buy
 
         # ── Destination : meilleure route filtrée par les filtres /select catégorie
         cs_entry   = cargo_sizes.get(name.lower(), {})
@@ -963,7 +1007,6 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             profit_opt     = total_sell_opt - total_buy
             qty_sell_lim   = qty_buy
             qty_unsold     = 0
-            risk_pct       = 20
             dest_display   = _dot_name(
                 dest_name, dest_system, origin_system,
                 space_station=best_route.get("dest_station") or "",
@@ -973,18 +1016,22 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             dest_style   = "underline" if dest_name.lower() == player_dest else ""
             dest_tag     = f"{dest_style} {C.LABEL}".strip()
             distance_str = _dist_label(dest_name, dest_system, player_sys, dist_map)
+            dest_status_sell, dest_ts = _dest_sell_info(id_comm, dest_name, ctx)
+            risk_pct = _compute_risk(_ts_buy, dest_status_sell, dest_ts)
         else:
             # Pas de route connue → afficher sans destination, zéro appel API
-            dest_name      = ""
-            dest_display   = f"[{C.DIM}]—[/{C.DIM}]"
-            dest_tag       = C.DIM
-            price_sell     = 0.0
-            qty_sell_lim   = qty_buy
-            qty_unsold     = 0
-            total_sell_opt = 0.0
-            profit_opt     = -total_buy
-            risk_pct       = 100
-            distance_str   = ""
+            dest_name        = ""
+            dest_display     = f"[{C.DIM}]—[/{C.DIM}]"
+            dest_tag         = C.DIM
+            price_sell       = 0.0
+            qty_sell_lim     = qty_buy
+            qty_unsold       = 0
+            total_sell_opt   = 0.0
+            profit_opt       = -total_buy
+            risk_pct         = 100
+            distance_str     = ""
+            dest_status_sell = 0
+            dest_ts          = None
 
         comm_code = _comm_code(name, id_comm)
         # Tailles conteneurs (cs_entry déjà calculé plus haut)
@@ -1003,6 +1050,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             "risk": risk_pct, "unsold": qty_unsold,
             "distance": distance_str,
             "dest_name_raw": dest_name,
+            "sat_status": dest_status_sell, "sat_ts": dest_ts,
             "_player": r.get("_player_buy", False),
             "orig_sizes": orig_sz, "dest_sizes": dest_sz,
         }))
@@ -1026,6 +1074,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     tbl.add_column(f"Prix/{C.SCU}",  justify="right", no_wrap=True)
     tbl.add_column("Âge",            style=C.DIM,    justify="right", no_wrap=True)
     tbl.add_column("→ Dest",         no_wrap=True,   min_width=20, max_width=32)
+    tbl.add_column("Sat.",           no_wrap=True)
     tbl.add_column(f"→Prix/{C.SCU}", justify="right", no_wrap=True)
     tbl.add_column("ROI",            justify="right", no_wrap=True)
     tbl.add_column("Dist",           style=C.DIM,    justify="right", no_wrap=True)
@@ -1077,6 +1126,13 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         if player_dest and d.get("dest_name_raw", "").lower() == player_dest:
             dest_str = f"⭐ {dest_str}"
 
+        # Saturation destination : barre + âge observation (vide=vert, plein=rouge)
+        sat_st = d.get("sat_status", 0)
+        sat_ts = d.get("sat_ts")
+        sat_bar = _stock_bar(sat_st, sell=True) if sat_st else f"[{C.DIM}]——[/{C.DIM}]"
+        sat_age = _fmt_date(sat_ts) if sat_ts else ""
+        sat_cell = f"{sat_bar} [{C.DIM}]{sat_age}[/{C.DIM}]" if sat_age else sat_bar
+
         scu_cell = str(d["qty"])
         if d["unsold"]:
             scu_cell = f"[{C.WARNING}]{d['qty_sell']}/{d['qty']}[/{C.WARNING}]"
@@ -1098,6 +1154,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             price_cell,
             d["date"],
             dest_str,
+            sat_cell,
             sell_cell,
             roi_cell,
             d["distance"],

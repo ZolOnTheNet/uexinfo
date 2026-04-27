@@ -1861,7 +1861,8 @@ document.getElementById('sb-scan-log').addEventListener('click', () => {
 document.getElementById('sb-voyage').addEventListener('click', () => {
   sendCmd('/voyage list');
 });
-document.getElementById('sb-pos').addEventListener('click', () => {
+document.getElementById('sb-pos').addEventListener('click', (e) => {
+  if (e.detail > 1) return;  // laisser dblclick gérer
   elInput.value = '@'; elInput.focus();
   send({type:'complete', text:'@', cursor:1});
 });
