@@ -1747,16 +1747,16 @@ function appendEcho(text) {
   d.className = 'line echo'; d.textContent = text;
   elOutput.appendChild(d);
   _blockAnchor = d;   // début du bloc courant (echo + tout ce qui suit jusqu'à 'done')
+  _lastAnsiDivs = [];  // reset au début de chaque commande (pas à chaque chunk)
   elOutput.scrollTop = elOutput.scrollHeight;
 }
 
-let _lastAnsiDivs = [];   // Lot de divs du dernier appendAnsi (pour trade pick inline)
+let _lastAnsiDivs = [];   // Toutes les divs de la commande en cours (accumulées sur tous les chunks)
 
 function appendAnsi(ansi) {
   const html  = ANSI.toHtml(ansi);
   const lines = html.split('\n');
   const frag  = document.createDocumentFragment();
-  _lastAnsiDivs = [];
   for (const line of lines) {
     const d = document.createElement('div');
     d.className = 'line';
@@ -1772,7 +1772,6 @@ function appendAnsi(ansi) {
 function appendHtml(html) {
   const lines = html.split('\n');
   const frag  = document.createDocumentFragment();
-  _lastAnsiDivs = [];
   for (const line of lines) {
     const d = document.createElement('div');
     d.className = 'line';
@@ -2934,8 +2933,8 @@ function showTerminalBuyPick(msg) {
       const hasName = txt.includes(nameLC) || txt.includes(prefix);
       const hasCode = e.code && txt.includes('[' + e.code.toLowerCase() + ']');
       if (!hasName && !hasCode) continue;
-      // Éviter les lignes d'en-tête / séparateurs
-      if (txt.includes('commodité') || txt.startsWith('─') || txt.startsWith('▼')) continue;
+      // Éviter les lignes d'en-tête / séparateurs / services (ex: "Platinum Bay" contient "tin")
+      if (txt.includes('commodité') || txt.startsWith('─') || txt.startsWith('▼') || txt.includes(' · ') || txt.includes('★ =')) continue;
       used.add(d);
 
       // Tooltip avec nom complet + destination pour les noms tronqués

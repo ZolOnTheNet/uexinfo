@@ -1165,9 +1165,9 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             f"[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]",
             risk_cell,
         )
+    console.print(tbl)
     if has_player:
         console.print(f"[{C.DIM}]★ = données joueur (confirmées)[/{C.DIM}]")
-    console.print(tbl)
 
     # Stocker les entrées pour l'overlay (boutons → Voyage + input SCU)
     # Uniquement les entrées avec une destination connue (sinon bouton inutile)

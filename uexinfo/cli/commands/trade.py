@@ -253,10 +253,6 @@ def _trade_bilan_override(args: list[str], ctx) -> None:
 
 # ── /trade (bilan route) ───────────────────────────────────────────────────────
 
-def _plain_len(s: str) -> int:
-    """Longueur visible (balises Rich retirées)."""
-    return len(re.sub(r'\[/?[^\]]*\]', '', s))
-
 
 def _ship_container_sizes(ctx) -> list[int]:
     """Tailles de containers acceptées par le vaisseau actif."""
@@ -368,77 +364,6 @@ def _fmt_pack(pack_map: dict[int, int]) -> str:
     )
     return f"[ {inner} ]" if inner else ""
 
-
-def _print_trade_entry(d: dict) -> None:
-    """Affichage freeform une ou deux lignes par commodité."""
-    profit = d["profit"]
-    p_color = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
-    p_sign = "+" if profit > 0 else ""
-
-    buy_bar  = _stock_bar(d["status_buy"],  sell=False)
-    sell_bar = _stock_bar(d["status_sell"], sell=True)
-    stock_flow = f"{buy_bar} [dim]→[/dim] {sell_bar}"
-
-    dist_gm = d.get("dest_dist")
-    ppg = ""
-    if dist_gm and dist_gm > 0:
-        ppg = f"  [{p_color}]{p_sign}{_price_short(profit / dist_gm)}/Gm[/{p_color}]"
-
-    qty_str = str(d["qty"])
-    if d["qty_unsold"]:
-        qty_str = f"{d['qty_sell']}/{d['qty']}"
-
-    dest_sz = d.get("dest_sizes") or "—"
-    orig_sz = d.get("orig_sizes") or "—"
-
-    dist_part = f"  {d['dist_str']}" if d.get("dist_str") else ""
-
-    player     = d.get("_player", False)
-    cc = d.get("code", "")
-    name_pfx   = f"★ {_abbrev_name(d['name'], 20, code=cc)}" if player else _abbrev_name(d['name'], 22, code=cc)
-    buy_color  = f"bold {C.UEX}" if player else C.UEX
-    sell_color = f"bold {C.PROFIT}" if player else C.PROFIT
-
-    part1 = (
-        f"[bold {C.NEUTRAL}]▶ {name_pfx}[/bold {C.NEUTRAL}]"
-        f"  [{C.DIM}]A:[/{C.DIM}][{buy_color}]{_price_short(d['price_buy'])}[/{buy_color}] ->"
-        f"  [{C.DIM}]V:[/{C.DIM}][{sell_color}]{_price_short(d['price_sell'])}[/{sell_color}]"
-        f"  [{C.DIM}]{d['date']}[/{C.DIM}]"
-        f"  {stock_flow}"
-        f"  {qty_str} {C.SCU}"
-        + (f"  [{C.DIM}]orig:[/{C.DIM}] {orig_sz}" if orig_sz not in ("—", "", None) else "")
-        + dist_part
-        + (f"  [{C.DIM}]dest:[/{C.DIM}] {dest_sz}" if dest_sz not in ("—", "", None) else "")
-    )
-
-    rest = f" [{C.DIM}]· {d['remainder']} restant[/{C.DIM}]" if d["remainder"] else ""
-    roi_str = ""
-    roi = d.get("roi")
-    if roi is not None:
-        r_sign = "+" if roi >= 0 else ""
-        r_color = C.PROFIT if roi > 5 else (C.LOSS if roi < 0 else C.NEUTRAL)
-        roi_str = f"  ROI:[{r_color}]{r_sign}{roi:.0f}%[/{r_color}]"
-    risk = d.get("risk", 0)
-    if risk <= 15:
-        risk_str = f"  [{C.PROFIT}]⚠{risk}%[/{C.PROFIT}]"
-    elif risk <= 45:
-        risk_str = f"  [{C.WARNING}]⚠{risk}%[/{C.WARNING}]"
-    else:
-        risk_str = f"  [{C.LOSS}]⚠{risk}%[/{C.LOSS}]"
-    part2 = (
-        f"[{C.DIM}]{d['packing']}[/{C.DIM}]{rest}"
-        f"  A_Tot: [{C.UEX}]{_price_short(d['total_buy'])}[/{C.UEX}]"
-        f"  V_Tot:[{C.PROFIT}]{_price_short(d['total_sell'])}[/{C.PROFIT}]"
-        f"  Gain:[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]"
-        + roi_str + risk_str + ppg
-    )
-
-    w = getattr(console, "width", 120) or 120
-    if _plain_len(part1) + _plain_len(part2) + 4 <= w:
-        console.print(part1 + "  ·  " + part2)
-    else:
-        console.print(part1)
-        console.print("  " + part2)
 
 
 def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> None:
@@ -675,8 +600,52 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
     )
     console.print()
 
+    from rich.table import Table
+    tbl = Table(box=None, padding=(0, 1), show_header=True, show_edge=False,
+                header_style=f"bold {C.DIM}")
+    tbl.add_column("Commodité",    no_wrap=True, min_width=14)
+    tbl.add_column(f"A/{C.SCU}",  justify="right", no_wrap=True)
+    tbl.add_column(f"V/{C.SCU}",  justify="right", no_wrap=True)
+    tbl.add_column("Âge",          justify="right", no_wrap=True)
+    tbl.add_column("Stock",         justify="center", no_wrap=True)
+    tbl.add_column("SCU",           justify="right", no_wrap=True)
+    tbl.add_column("Gain",          justify="right", no_wrap=True)
+    tbl.add_column("ROI",           justify="right", no_wrap=True)
+    tbl.add_column("⚠",            justify="right", no_wrap=True)
+    tbl.add_column("Cargo",         no_wrap=True)
+
     for d in entries:
-        _print_trade_entry(d)
+        cc = d.get("code", "")
+        name_cell  = f"[{C.NEUTRAL}]{_abbrev_name(d['name'], 16, code=cc)}[/{C.NEUTRAL}]"
+        buy_cell   = f"[{C.UEX}]{_price_short(d['price_buy'])}[/{C.UEX}]"
+        sell_cell  = f"[{C.PROFIT}]{_price_short(d['price_sell'])}[/{C.PROFIT}]"
+        age_cell   = d['date']
+        stock_cell = f"{_stock_bar(d['status_buy'], sell=False)}[{C.DIM}]→[/{C.DIM}]{_stock_bar(d['status_sell'], sell=True)}"
+        if d["qty_unsold"]:
+            qty_cell = f"[{C.DIM}]{d['qty_sell']}[/{C.DIM}]/{d['qty']}"
+        else:
+            qty_cell = str(d["qty"])
+        profit     = d["profit"]
+        p_sign     = "+" if profit > 0 else ""
+        p_color    = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
+        gain_cell  = f"[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]"
+        roi = d.get("roi")
+        if roi is not None:
+            r_sign   = "+" if roi >= 0 else ""
+            r_color  = C.PROFIT if roi > 5 else (C.LOSS if roi < 0 else C.NEUTRAL)
+            roi_cell = f"[{r_color}]{r_sign}{roi:.0f}%[/{r_color}]"
+        else:
+            roi_cell = "—"
+        risk       = d.get("risk", 0)
+        rk_color   = C.PROFIT if risk <= 15 else (C.WARNING if risk <= 45 else C.LOSS)
+        risk_cell  = f"[{rk_color}]{risk}%[/{rk_color}]"
+        cargo_cell = d["packing"]
+        if d["remainder"]:
+            cargo_cell += f" [{C.DIM}]+{d['remainder']}[/{C.DIM}]"
+        tbl.add_row(name_cell, buy_cell, sell_cell, age_cell, stock_cell,
+                    qty_cell, gain_cell, roi_cell, risk_cell, cargo_cell)
+
+    console.print(tbl)
 
     # Stocker les entrées pour le panneau "Choisir" de l'overlay
     ctx.last_trade_entries = {

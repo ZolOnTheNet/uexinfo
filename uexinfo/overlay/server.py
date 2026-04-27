@@ -1105,8 +1105,8 @@ class OverlayServer:
             """Retire le préfixe service ('Admin - ', 'Shop - ', …)."""
             return full_name.rsplit(" - ", 1)[-1].strip()
 
-        # Noms depuis la liste statique UEX + noms observés dans le cache de prix
-        # (couvre les items saisonniers absents de /commodities, ex: "Year Envelope")
+        # Noms depuis la liste statique UEX + cache de prix API + scans joueur
+        # (couvre les items saisonniers: "Year of the Rat Envelope", "Audio Visual Equipment"…)
         _price_cache = getattr(self.ctx, "_price_cache", None)
         _extra_comms: set[str] = set()
         if _price_cache is not None:
@@ -1115,6 +1115,15 @@ class OverlayServer:
                     _cn = _row.get("commodity_name")
                     if _cn and len(_cn) >= MIN:
                         _extra_comms.add(_cn)
+        try:
+            from uexinfo.cache.scan_prices import ScanPriceStore as _SPS
+            for _term_data in _SPS()._load().values():
+                for _entry in _term_data.values():
+                    _cn = _entry.get("commodity_name")
+                    if _cn and len(_cn) >= MIN:
+                        _extra_comms.add(_cn)
+        except Exception:
+            pass
         commodities = sorted({
             c.name for c in (cache.commodities or [])
             if c.name and len(c.name) >= MIN
