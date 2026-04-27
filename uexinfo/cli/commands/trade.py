@@ -131,21 +131,33 @@ def _trade_buy(args: list[str], ctx) -> None:
     section(f"Acheter — {flags}{c.name}  [{c.code}]{sys_note}")
     console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
 
-    term_w = getattr(console, "width", None) or 100
-    n_cols = max(1, min(4, term_w // 32))
+    from rich.table import Table
+    tbl = Table(box=None, padding=(0, 1), show_header=True, show_edge=False,
+                header_style=f"bold {C.DIM}")
+    tbl.add_column("Terminal",        style=f"italic {C.NEUTRAL}", no_wrap=True, min_width=22)
+    tbl.add_column(f"Achat/{C.SCU}", justify="right", style=f"italic {C.UEX}", no_wrap=True)
+    tbl.add_column("Âge",            justify="right", style=C.DIM, no_wrap=True)
+    tbl.add_column(f"Cargo ({C.SCU})", justify="right", style=C.DIM, no_wrap=True)
 
-    entries = [
-        (_term_entry(r.get("terminal_name") or "?", r.get("star_system_name") or "",
-                     player_sys, r.get("scu_buy"), r.get("scu_buy_max"),
-                     r.get("status_buy"), buy=True),
-         _price_short(r.get("price_buy")))
-        for r in buy_rows[:40]
-    ]
-    console.print(_multi_col_table(
-        entries, ("Terminal (stock)", "Achat"), n_cols,
-        f"italic {C.NEUTRAL}", f"italic {C.UEX}",
-    ))
-    console.print(f"\n[{C.DIM}]{len(buy_rows)} terminaux · prix croissant[/{C.DIM}]")
+    for r in buy_rows[:50]:
+        tn   = r.get("terminal_name") or "?"
+        sys_ = r.get("star_system_name") or ""
+        sys_other = bool(sys_ and sys_.lower() != player_sys)
+        loc  = _loc(tn)
+        disp = f"{sys_}.{loc}" if sys_other else loc
+        term = _abbrev_name(disp, maxlen=_TERM_MAX_SYS if sys_other else _TERM_MAX)
+        s    = int(r.get("status_buy") or 0)
+        clr  = _BUY_STATUS_COLOR.get(s, C.DIM)
+        term_cell  = f"[{clr}]{term}[/{clr}]"
+        price_cell = _price_short(r.get("price_buy"))
+        age_cell   = _fmt_date(r.get("date_modified")) or ""
+        scu_min    = int(r.get("scu_buy") or 0)
+        scu_max_v  = int(r.get("scu_buy_max") or scu_min)
+        cargo_cell = _notable_scu(_scu(scu_min, scu_max_v)) or "—"
+        tbl.add_row(term_cell, price_cell, age_cell, cargo_cell)
+
+    console.print(tbl)
+    console.print(f"[{C.DIM}]{len(buy_rows)} terminaux · prix croissant[/{C.DIM}]")
 
 
 # ── /trade sell ───────────────────────────────────────────────────────────────
@@ -179,21 +191,39 @@ def _trade_sell(args: list[str], ctx) -> None:
     section(f"Vendre — {flags}{c.name}  [{c.code}]{sys_note}")
     console.print(f"[italic {C.DIM}]UEX Corp · données communauté · non confirmées[/italic {C.DIM}]")
 
-    term_w = getattr(console, "width", None) or 100
-    n_cols = max(1, min(4, term_w // 32))
+    from rich.table import Table
+    tbl = Table(box=None, padding=(0, 1), show_header=True, show_edge=False,
+                header_style=f"bold {C.DIM}")
+    tbl.add_column("Terminal",         style=f"italic {C.NEUTRAL}", no_wrap=True, min_width=22)
+    tbl.add_column(f"Vente/{C.SCU}",  justify="right", style=f"italic {C.PROFIT}", no_wrap=True)
+    tbl.add_column("Âge",             justify="right", style=C.DIM, no_wrap=True)
+    tbl.add_column(f"Stock ({C.SCU})", justify="right", style=C.DIM, no_wrap=True)
 
-    entries = [
-        (_term_entry(r.get("terminal_name") or "?", r.get("star_system_name") or "",
-                     player_sys, r.get("scu_sell"), r.get("scu_sell_max"),
-                     r.get("status_sell"), buy=False),
-         _price_short(r.get("price_sell")))
-        for r in sell_rows[:40]
-    ]
-    console.print(_multi_col_table(
-        entries, ("Terminal (stock)", "Vente"), n_cols,
-        f"italic {C.NEUTRAL}", f"italic {C.PROFIT}",
-    ))
-    console.print(f"\n[{C.DIM}]{len(sell_rows)} terminaux · prix décroissant[/{C.DIM}]")
+    for r in sell_rows[:50]:
+        tn   = r.get("terminal_name") or "?"
+        sys_ = r.get("star_system_name") or ""
+        sys_other = bool(sys_ and sys_.lower() != player_sys)
+        loc  = _loc(tn)
+        disp = f"{sys_}.{loc}" if sys_other else loc
+        term = _abbrev_name(disp, maxlen=_TERM_MAX_SYS if sys_other else _TERM_MAX)
+        s    = int(r.get("status_sell") or 0)
+        clr  = _SELL_STATUS_COLOR.get(s, C.DIM)
+        term_cell  = f"[{clr}]{term}[/{clr}]"
+        price_cell = _price_short(r.get("price_sell"))
+        age_cell   = _fmt_date(r.get("date_modified")) or ""
+        scu_stock  = int(r.get("scu_sell_stock") or 0)
+        scu_max_v  = int(r.get("scu_sell_max") or r.get("scu_sell") or 0)
+        if scu_max_v:
+            obs = str(scu_stock) if scu_stock else "—"
+            stock_cell = f"{obs}/{scu_max_v}"
+        elif scu_stock:
+            stock_cell = str(scu_stock)
+        else:
+            stock_cell = "—"
+        tbl.add_row(term_cell, price_cell, age_cell, stock_cell)
+
+    console.print(tbl)
+    console.print(f"[{C.DIM}]{len(sell_rows)} terminaux · prix décroissant[/{C.DIM}]")
 
 
 # ── /trade from X to Y ────────────────────────────────────────────────────────

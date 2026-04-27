@@ -916,7 +916,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     player_dest = (ctx.player.destination or "").lower().strip()
     hint = f"  [{C.DIM}](⭐ = vendable à destination)[/{C.DIM}]" if player_dest else ""
     pc = C.SCTRADE if getattr(ctx, "_api_offline", False) else C.UEX
-    console.print(f"\n[bold {pc}]▼ Acheter sur place[/bold {pc}]{hint}")
+    console.print(f"[bold {pc}]▼ Acheter sur place[/bold {pc}]{hint}")
     origin_system = origin_terminal.star_system_name
 
     # ── Distances via API UEX (même logique que _show_commodity) ─────────
@@ -1452,7 +1452,7 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                 entries = []
                 for r in sell_rows:
                     ts = r.get("_scan_ts") if r.get("_player_sell") else r.get("date_modified")
-                    d = _fmt_date(ts)
+                    age = _fmt_date(ts)
                     price_val = _price_short(r.get("price_sell"))
                     player_sell = r.get("_player_sell", False)
                     if player_sell:
@@ -1461,13 +1461,21 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                         price_str = f"[{C.SCTRADE}]{price_val}[/{C.SCTRADE}]"
                     else:
                         price_str = price_val
-                    if d:
-                        price_str = f"{price_str}  [{C.DIM}]{d}[/{C.DIM}]"
+                    # SCU : stock_observé / max - age  (ex: "45/100 - 4h")
+                    scu_stock = int(r.get("scu_sell_stock") or 0)
+                    scu_max   = int(r.get("scu_sell_max") or r.get("scu_sell") or 0)
+                    if scu_max:
+                        obs = str(scu_stock) if scu_stock else "—"
+                        scu_info = f"{obs}/{scu_max}"
+                        if age:
+                            scu_info = f"{scu_info} - {age}"
+                    elif age:
+                        scu_info = age
+                    else:
+                        scu_info = ""
                     cname = r.get("commodity_name") or "?"
                     name_raw = _entry_ns(
-                        cname,
-                        _scu(r.get("scu_sell"), r.get("scu_sell_max"))
-                        or _scu(r.get("scu_sell_stock")),
+                        cname, scu_info,
                         r.get("status_sell"), buy=False,
                         code=_comm_code(cname, int(r.get("id_commodity") or 0)),
                     )

@@ -1105,10 +1105,20 @@ class OverlayServer:
             """Retire le préfixe service ('Admin - ', 'Shop - ', …)."""
             return full_name.rsplit(" - ", 1)[-1].strip()
 
+        # Noms depuis la liste statique UEX + noms observés dans le cache de prix
+        # (couvre les items saisonniers absents de /commodities, ex: "Year Envelope")
+        _price_cache = getattr(self.ctx, "_price_cache", None)
+        _extra_comms: set[str] = set()
+        if _price_cache is not None:
+            for _entry in getattr(_price_cache, "_mem", {}).values():
+                for _row in _entry.get("data", []):
+                    _cn = _row.get("commodity_name")
+                    if _cn and len(_cn) >= MIN:
+                        _extra_comms.add(_cn)
         commodities = sorted({
             c.name for c in (cache.commodities or [])
             if c.name and len(c.name) >= MIN
-        })
+        } | _extra_comms)
         locations = sorted({
             name_variant
             for lst, attr in (
