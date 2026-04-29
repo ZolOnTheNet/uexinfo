@@ -136,13 +136,23 @@ def _list_nodes(args: list[str], ctx) -> None:
     tbl.add_column("Type", style=C.DIM)
     tbl.add_column("Système", style=C.UEX)
     tbl.add_column("Voisins", style=C.NEUTRAL, justify="right")
+    tbl.add_column("Src", style=C.DIM)
 
     for node in sorted(nodes, key=lambda n: (n.system, n.name)):
         neighbors = graph.get_neighbors(node.name)
-        tbl.add_row(node.name, node.type.value, node.system, str(len(neighbors)))
+        src = node.metadata.get("source", "")
+        if src in ("uex_populate", "uex", "uex_auto"):
+            src_cell = f"[{C.UEX}]uex[/{C.UEX}]"
+        elif src in ("estimated", "consolidated"):
+            src_cell = f"[{C.DIM}]estim.[/{C.DIM}]"
+        elif src == "manual":
+            src_cell = f"[{C.NEUTRAL}]manuel[/{C.NEUTRAL}]"
+        else:
+            src_cell = f"[{C.DIM}]{src or '—'}[/{C.DIM}]"
+        tbl.add_row(node.name, node.type.value, node.system, str(len(neighbors)), src_cell)
 
     console.print(tbl)
-    console.print(f"\n[{C.DIM}]{len(nodes)} nœuds[/{C.DIM}]")
+    console.print(f"\n[{C.DIM}]{len(nodes)} nœuds  ·  Src : uex = route UEX directe  ·  estim. = inféré par consolidation (pas de terminal UEX réel)[/{C.DIM}]")
 
 
 # ── Edges ──────────────────────────────────────────────────────────────────────
@@ -615,7 +625,17 @@ def _fetch_missing_distances(from_node: str, graph, ctx) -> None:
     terminals = _get_terminals_for_node(from_node, node, ctx)
 
     if not terminals:
-        print_warn(f"Aucun terminal UEX trouvé pour {from_node!r}")
+        src = node.metadata.get("source", "") if node else ""
+        if src in ("estimated", "consolidated"):
+            print_warn(
+                f"{from_node!r} est un nœud estimé (source={src!r}) — "
+                f"aucun terminal UEX réel connu à cet endroit"
+            )
+            console.print(
+                f"[{C.DIM}]Ce nœud a été inféré par co-localisation, pas par une route UEX directe.[/{C.DIM}]"
+            )
+        else:
+            print_warn(f"Aucun terminal UEX trouvé pour {from_node!r}")
         console.print(f"[{C.DIM}]Astuce : /nav populate  pour enrichir tout le graphe[/{C.DIM}]")
         return
 

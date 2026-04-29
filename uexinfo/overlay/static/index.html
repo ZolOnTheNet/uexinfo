@@ -2957,60 +2957,157 @@ function chooseTrade(idx, btn) {
 
 // ── Terminal buy pick (boutons → Voyage sur la section Acheter sur place) ────
 
+// ── Helpers partagés (table-colonnes et fallback div) ────────────────────────
+
+function _makeTbpWrap(e) {
+  // Utilisé uniquement par le fallback div (legacy ANSI)
+  const wrap = document.createElement('span');
+  wrap.className = 'tbp-wrap';
+  wrap.dataset.idx       = e.idx;
+  wrap.dataset.priceBuy  = e.price_buy;
+  wrap.dataset.priceSell = e.price_sell;
+  wrap.dataset.qtyOrig   = e.qty;
+
+  const inp = document.createElement('input');
+  inp.type = 'number'; inp.className = 'tbp-scu'; inp.value = e.qty; inp.min = 1;
+  inp.title = 'SCU à charger';
+  inp.oninput = () => _tbpRecalc(wrap);
+
+  const prof = document.createElement('span');
+  prof.className = 'tbp-profit';
+  const pVal = (e.price_sell - e.price_buy) * e.qty;
+  prof.textContent = _fmtAuec(pVal);
+  if (pVal < 0) prof.classList.add('loss');
+
+  const btn = document.createElement('button');
+  btn.className = 'tbp-btn'; btn.textContent = '→ Voyage';
+  btn.onclick = () => _tbpChoose(wrap, btn);
+
+  wrap.append(inp, prof, btn);
+  return wrap;
+}
+
 function showTerminalBuyPick(msg) {
   const entries = msg.entries || [];
   if (!entries.length) return;
 
-  // Matcher chaque entrée par nom de commodité dans les lignes ANSI
-  const used = new Set();
-  for (const e of entries) {
-    const nameLC = e.name.toLowerCase();
-    // Préfixe pour matcher les noms tronqués (ex: "agricultural su…")
-    const prefix = nameLC.length > 14 ? nameLC.slice(0, 14) : nameLC;
-    for (const d of _lastAnsiDivs) {
-      if (used.has(d)) continue;
-      const txt = d.textContent.toLowerCase();
-      // La ligne doit contenir le nom complet, le préfixe tronqué, ou le code [XXXX]
-      const hasName = txt.includes(nameLC) || txt.includes(prefix);
-      const hasCode = e.code && txt.includes('[' + e.code.toLowerCase() + ']');
-      if (!hasName && !hasCode) continue;
-      // Éviter les lignes d'en-tête / séparateurs / services (ex: "Platinum Bay" contient "tin")
-      if (txt.includes('commodité') || txt.startsWith('─') || txt.startsWith('▼') || txt.includes(' · ') || txt.includes('★ =')) continue;
-      used.add(d);
+  // Chercher le tableau "Acheter sur place" (_show_buy_detailed → 1 commodité/ligne)
+  let targetTable = null;
+  for (const d of _lastAnsiDivs) {
+    if (d.tagName !== 'TABLE') continue;
+    const tBody = d.querySelector('tbody');
+    if (!tBody) continue;
+    const tText = tBody.textContent.toLowerCase();
+    if (entries.some(e => {
+      const k = e.name.toLowerCase();
+      return tText.includes(k.length > 8 ? k.slice(0, 8) : k);
+    })) { targetTable = d; break; }
+  }
 
-      // Tooltip avec nom complet + destination pour les noms tronqués
-      d.title = `${e.name} → ${e.dest}  (${e.price_buy} → ${e.price_sell})`;
+  if (!targetTable) { _tbpInjectDivs(entries); return; }
 
-      const wrap = document.createElement('span');
-      wrap.className = 'tbp-wrap';
-      wrap.dataset.idx = e.idx;
-      wrap.dataset.priceBuy  = e.price_buy;
-      wrap.dataset.priceSell = e.price_sell;
-      wrap.dataset.qtyOrig   = e.qty;
+  // Ajouter 3 colonnes d'en-tête : SCU □ | Bénéfice | (bouton)
+  const headRow = targetTable.querySelector('thead tr');
+  if (headRow) {
+    ['SCU □', 'Bénéfice', ''].forEach(txt => {
+      const th = document.createElement('th');
+      th.textContent = txt;
+      headRow.appendChild(th);
+    });
+  }
 
+  const tbody = targetTable.querySelector('tbody');
+  if (!tbody) return;
+
+  const usedEntries = new Set();
+
+  for (const tr of tbody.querySelectorAll('tr')) {
+    const firstTd = tr.querySelector('td');
+    const rowTxt  = firstTd ? firstTd.textContent.toLowerCase() : '';
+
+    let e = null;
+    for (const entry of entries) {
+      if (usedEntries.has(entry)) continue;
+      const k = entry.name.toLowerCase();
+      const prefix  = k.length > 14 ? k.slice(0, 14) : k;
+      const byCode  = entry.code && rowTxt.includes('[' + entry.code.toLowerCase() + ']');
+      if (rowTxt.includes(prefix) || byCode) { e = entry; break; }
+    }
+
+    if (e) {
+      usedEntries.add(e);
+      tr.dataset.priceBuy  = e.price_buy;
+      tr.dataset.priceSell = e.price_sell;
+      tr.title = `${e.name} → ${e.dest}  (${e.price_buy} → ${e.price_sell})`;
+
+      const tdScu = document.createElement('td');
       const inp = document.createElement('input');
-      inp.type = 'number';
-      inp.className = 'tbp-scu';
-      inp.value = e.qty;
-      inp.min = 1;
+      inp.type = 'number'; inp.className = 'tbp-scu'; inp.value = e.qty; inp.min = 1;
       inp.title = 'SCU à charger';
-      inp.oninput = () => _tbpRecalc(wrap);
+      inp.oninput = () => _tbpRecalcRow(tr);
+      tdScu.appendChild(inp);
 
+      const tdProf = document.createElement('td');
       const prof = document.createElement('span');
       prof.className = 'tbp-profit';
       const pVal = (e.price_sell - e.price_buy) * e.qty;
       prof.textContent = _fmtAuec(pVal);
       if (pVal < 0) prof.classList.add('loss');
+      tdProf.appendChild(prof);
 
+      const tdBtn = document.createElement('td');
       const btn = document.createElement('button');
-      btn.className = 'tbp-btn';
-      btn.textContent = '→ Voyage';
-      btn.onclick = () => _tbpChoose(wrap, btn);
+      btn.className = 'tbp-btn'; btn.textContent = '→ Voyage';
+      btn.dataset.idx     = e.idx;
+      btn.dataset.qtyOrig = e.qty;
+      btn.onclick = () => _tbpChooseRow(tr, btn);
+      tdBtn.appendChild(btn);
 
-      wrap.appendChild(inp);
-      wrap.appendChild(prof);
-      wrap.appendChild(btn);
-      d.appendChild(wrap);
+      tr.append(tdScu, tdProf, tdBtn);
+    } else {
+      // Cellules vides pour maintenir l'alignement
+      for (let i = 0; i < 3; i++) tr.appendChild(document.createElement('td'));
+    }
+  }
+}
+
+function _tbpRecalcRow(tr) {
+  const inp  = tr.querySelector('.tbp-scu');
+  const prof = tr.querySelector('.tbp-profit');
+  if (!inp || !prof) return;
+  const qty = parseInt(inp.value) || 0;
+  const pb  = parseFloat(tr.dataset.priceBuy)  || 0;
+  const ps  = parseFloat(tr.dataset.priceSell) || 0;
+  const val = (ps - pb) * qty;
+  prof.textContent = _fmtAuec(val);
+  prof.classList.toggle('loss', val < 0);
+}
+
+function _tbpChooseRow(tr, btn) {
+  if (btn.classList.contains('chosen')) return;
+  const inp = tr.querySelector('.tbp-scu');
+  const qty = parseInt(inp ? inp.value : 0) || parseInt(btn.dataset.qtyOrig) || 0;
+  send({type: 'terminal_buy_chosen', data: {idx: parseInt(btn.dataset.idx), qty}});
+  btn.textContent = '✓';
+  btn.classList.add('chosen');
+  btn.disabled = true;
+  startTimer();
+}
+
+function _tbpInjectDivs(entries) {
+  // Fallback : injecter dans les <div class="line"> (format ANSI legacy)
+  const usedDivs = new Set();
+  for (const e of entries) {
+    const nameLC = e.name.toLowerCase();
+    const prefix = nameLC.length > 14 ? nameLC.slice(0, 14) : nameLC;
+    for (const d of _lastAnsiDivs) {
+      if (usedDivs.has(d)) continue;
+      const txt = d.textContent.toLowerCase();
+      if (!txt.includes(nameLC) && !txt.includes(prefix)) continue;
+      if (txt.includes('commodité') || txt.startsWith('─') || txt.startsWith('▼') || txt.includes(' · ') || txt.includes('★ =')) continue;
+      usedDivs.add(d);
+      d.title = `${e.name} → ${e.dest}  (${e.price_buy} → ${e.price_sell})`;
+      d.appendChild(_makeTbpWrap(e));
       break;
     }
   }

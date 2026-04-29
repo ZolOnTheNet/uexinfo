@@ -476,12 +476,12 @@ def _fetch_container_sizes(commodity_id: int, ctx) -> dict[str, str]:
         t_orig = (route.get("origin_terminal_name") or "").strip()
         cs_orig = route.get("container_sizes_origin")
         if t_orig and cs_orig:
-            sizes[t_orig.lower()] = _fmt_container_sizes(cs_orig)
+            sizes[t_orig.lower()] = _fmt_container_sizes(cs_orig, short=True)
         # destination
         t_dest = (route.get("destination_terminal_name") or "").strip()
         cs_dest = route.get("container_sizes_destination")
         if t_dest and cs_dest:
-            sizes[t_dest.lower()] = _fmt_container_sizes(cs_dest)
+            sizes[t_dest.lower()] = _fmt_container_sizes(cs_dest, short=True)
 
     ctx._price_cache[key] = (time.time(), sizes)
     return sizes
@@ -1484,7 +1484,7 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                     entries.append((name_raw, price_str))
                 sell_col = f"{C.SCTRADE}" if offline else f"italic {C.PROFIT}"
                 console.print(_multi_col_table(
-                    entries, ("Marchandise (SCU)", "Vente"), n_cols,
+                    entries, ("Marchandise (obs/max·âge)", "Vente"), n_cols,
                     f"italic {C.NEUTRAL}", sell_col,
                 ))
             else:
@@ -1774,6 +1774,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         tbl.add_column("SCU dispo/max",  no_wrap=True)
         tbl.add_column("Dist",           no_wrap=True)
         tbl.add_column("Total achat",    style=pc,     justify="right", no_wrap=True)
+        tbl.add_column(f"Cargo □",       style=C.DIM,  justify="right", no_wrap=True)
 
         for r in buy_rows[:30]:
             price     = r.get("price_buy") or 0
@@ -1789,18 +1790,18 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             else:
                 qty_buy = scu_max
             total = price * qty_buy if price and qty_buy else None
-            total_cell = (
-                f"{_price_fmt(total)} [{C.DIM}](×{qty_buy})[/{C.DIM}]"
-                if total else f"[{C.DIM}]—[/{C.DIM}]"
-            )
+            total_cell = _price_fmt(total) if total else f"[{C.DIM}]—[/{C.DIM}]"
+            cargo_cell = (f"×{qty_buy} {C.SCU}" if qty_buy else f"[{C.DIM}]—[/{C.DIM}]")
+            sz = _short_sizes(container_map.get(term_name.lower(), "")) or f"[{C.DIM}]—[/{C.DIM}]"
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
                 _fmt_date(r.get("date_modified")) or "—",
-                container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]"),
+                sz,
                 _scu_frac(scu_min, scu_max, status, buy=True),
                 _dist_label(term_name, sys, player_sys, dist_map),
                 total_cell,
+                cargo_cell,
             )
         console.print(tbl)
 
@@ -1822,7 +1823,8 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         tbl.add_column("T.Cargo",         style=C.DIM,    justify="right", no_wrap=True)
         tbl.add_column("Dist",            no_wrap=True)
         tbl.add_column("ROI",             justify="right", no_wrap=True)
-        tbl.add_column("Revenu cargo",    style=C.PROFIT, justify="right", no_wrap=True)
+        tbl.add_column("Revenu",          style=C.PROFIT, justify="right", no_wrap=True)
+        tbl.add_column(f"Cargo □",        style=C.DIM,    justify="right", no_wrap=True)
 
         for r in sell_rows[:30]:
             price        = r.get("price_sell") or 0
@@ -1848,10 +1850,8 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             else:
                 roi_str = f"[{C.DIM}]—[/{C.DIM}]"
 
-            revenue_cell = (
-                f"{_price_fmt(revenue)} [{C.DIM}](×{qty_sell})[/{C.DIM}]"
-                if revenue else f"[{C.DIM}]—[/{C.DIM}]"
-            )
+            revenue_cell = _price_fmt(revenue) if revenue else f"[{C.DIM}]—[/{C.DIM}]"
+            cargo_cell   = (f"×{qty_sell} {C.SCU}" if qty_sell else f"[{C.DIM}]—[/{C.DIM}]")
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
                 _price_fmt(price),
@@ -1859,10 +1859,11 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
                 _scu_frac(scu_stock, scu_sell_max, status, buy=False),
                 (f"{_price_short(player_sell_max)} {C.SCU}"
                  if player_sell_max
-                 else container_map.get(term_name.lower(), f"[{C.DIM}]—[/{C.DIM}]")),
+                 else _short_sizes(container_map.get(term_name.lower(), "")) or f"[{C.DIM}]—[/{C.DIM}]"),
                 _dist_label(term_name, sys, player_sys, dist_map),
                 roi_str,
                 revenue_cell,
+                cargo_cell,
             )
         console.print(tbl)
     else:
