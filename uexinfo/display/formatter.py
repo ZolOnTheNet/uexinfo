@@ -1,14 +1,16 @@
 """Helpers d'affichage Rich — console partagée."""
 from __future__ import annotations
 
-from rich.console import Console
 from rich.table import Table
 from rich import box
 
 from uexinfo.display import colors as C
+from uexinfo.display.capturing_console import CapturingConsole
 
-# Instance console partagée par tous les modules
-console = Console()
+# Instance console partagée par tous les modules.
+# CapturingConsole = drop-in de Rich Console avec highlight=False
+# (évite la fragmentation ANSI sur les nombres) + capture des renderables.
+console = CapturingConsole()
 
 
 def print_error(msg: str) -> None:

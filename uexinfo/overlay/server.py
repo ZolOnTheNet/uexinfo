@@ -1,25 +1,16 @@
 """Serveur WebSocket overlay — reçoit les commandes du frontend HTML et retourne
-la sortie Rich (ANSI) + les mises à jour de statut.
+la sortie Rich structurée (HTML natif) + les mises à jour de statut.
 
 IMPORTANT : ce module doit être importé AVANT tout autre module uexinfo qui
-utilise `uexinfo.display.formatter.console`, car il redirige ce console vers
-un StringIO interne.
+utilise `uexinfo.display.formatter.console`, car il remplace cette console.
 """
 from __future__ import annotations
 
-# ── 1. Redirect console AVANT l'import des commandes ─────────────────────────
-import io as _io
+# ── 1. Remplace console AVANT l'import des commandes ─────────────────────────
 import uexinfo.display.formatter as _fmt_mod
-from rich.console import Console as _RichConsole
+from uexinfo.display.capturing_console import CapturingConsole as _CapturingConsole
 
-_buf = _io.StringIO()
-_fmt_mod.console = _RichConsole(
-    file=_buf,
-    force_terminal=True,
-    markup=True,
-    highlight=True,
-    width=100,
-)
+_fmt_mod.console = _CapturingConsole(width=100)
 
 # ── 2. Imports normaux ────────────────────────────────────────────────────────
 import asyncio
@@ -413,41 +404,25 @@ class OverlayServer:
                 loop,
             )
         self.ctx._overlay_progress_fn = _sync_progress
-        _streamed_len = 0
-        _exec_done    = asyncio.Event()
 
-        async def _stream_progress() -> None:
-            """Envoie le contenu de _buf au fur et à mesure (toutes les 400 ms)."""
-            nonlocal _streamed_len
-            while not _exec_done.is_set():
-                await asyncio.sleep(0.4)
-                try:
-                    chunk = _buf.getvalue()[_streamed_len:]
-                except Exception:
-                    break
-                if chunk:
-                    _streamed_len += len(chunk)
-                    await ws.send(json.dumps({"type": "output", "ansi": chunk}))
-
-        _progress_task = asyncio.create_task(_stream_progress())
         try:
             output, needs_status = await loop.run_in_executor(
                 None, self._exec_sync, line
             )
         except asyncio.CancelledError:
-            _exec_done.set()
-            _progress_task.cancel()
             raise
-        finally:
-            _exec_done.set()
 
-        _progress_task.cancel()
-        # Envoyer uniquement la partie non encore streamée
-        output_delta = output[_streamed_len:]
+        # Générer HTML depuis les renderables capturés (ou fallback ANSI→HTML)
+        from uexinfo.display.render_html import rich_renderables_to_html as _r2h
+        renderables = _fmt_mod.console.flush_renderables()
+        if renderables:
+            html_output = _r2h(renderables)
+        else:
+            from uexinfo.display.ansi_html import ansi_to_html as _ansi_to_html
+            html_output = _ansi_to_html(output)
 
         # Sauvegarder la commande + son output HTML dans l'historique persistant
-        from uexinfo.display.ansi_html import ansi_to_html as _ansi_to_html
-        _history_mod.append(original_line, html_output=_ansi_to_html(output))
+        _history_mod.append(original_line, html_output=html_output)
 
         self.ctx.select_fn = None
         self.ctx._overlay_send_fn = None
@@ -471,8 +446,8 @@ class OverlayServer:
 
         # Pour /scan log, le formulaire inline remplace l'output texte
         is_scan_log = line.strip().lstrip("/").lower().startswith("scan log")
-        if output_delta and not is_scan_log:
-            await ws.send(json.dumps({"type": "output", "ansi": output_delta}))
+        if html_output and not is_scan_log:
+            await ws.send(json.dumps({"type": "output_html", "html": html_output}))
 
         # Messages post-output : boutons d'action inline (mission_actions_inline, voyage_calc_result…)
         for msg in post_msgs:
@@ -510,13 +485,12 @@ class OverlayServer:
             await self._send_vocab(ws)
 
     def _exec_sync(self, line: str) -> tuple[str, bool]:
-        """Exécute la commande de façon bloquante, retourne (output_ansi, needs_status).
+        """Exécute la commande de façon bloquante, retourne (output_ansi_fallback, needs_status).
 
-        _buf est écrit sans verrou pendant l'exec pour permettre le streaming.
-        La sérialisation des commandes est assurée au niveau du handler asyncio.
+        Le rendu principal passe maintenant par CapturingConsole._renderables → HTML natif.
+        L'ANSI est conservé en fallback (commandes non migrées, annulation, etc.).
         """
-        _buf.truncate(0)
-        _buf.seek(0)
+        _fmt_mod.console.reset_capture()
 
         needs_status = False
         try:
@@ -526,10 +500,7 @@ class OverlayServer:
             from rich.markup import escape as _esc
             _fmt_mod.console.print(f"[red]✗ Erreur : {_esc(str(exc))}[/red]")
 
-        output = _buf.getvalue()
-        _buf.truncate(0)
-        _buf.seek(0)
-
+        output = _fmt_mod.console.flush_ansi()
         return output.replace("\r\n", "\n").replace("\r", "\n").rstrip(), needs_status
 
     # ── Opacité ───────────────────────────────────────────────────────────────
@@ -1041,8 +1012,7 @@ class OverlayServer:
     def _exec_mission_scan_add(self, files: list[str], add_to_voyage: bool) -> tuple[str, bool]:
         """Exécute l'ajout des missions sélectionnées (thread bloquant)."""
         with self._lock:
-            _buf.truncate(0)
-            _buf.seek(0)
+            _fmt_mod.console.reset_capture()
             try:
                 from uexinfo.cache.mission_scan import entry_to_mission_result, source_raw_from_entry
                 from uexinfo.models.mission import Mission
@@ -1089,9 +1059,7 @@ class OverlayServer:
             except Exception as exc:
                 _fmt_mod.console.print(f"[red]✗ Erreur : {exc}[/red]")
 
-            output = _buf.getvalue()
-            _buf.truncate(0)
-            _buf.seek(0)
+            output = _fmt_mod.console.flush_ansi()
         return output.replace("\r\n", "\n").replace("\r", "\n").rstrip(), True
 
     # ── Vocabulaire (annotation des termes connus) ────────────────────────────

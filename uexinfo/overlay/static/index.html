@@ -50,6 +50,29 @@ html, body {
   -webkit-user-select: text;
 }
 #output .line { white-space: pre-wrap; min-height: 1em; }
+
+/* ── Styles sémantiques HTML natif (render_html.py) ──────────────────────── */
+.s-uex     { color: #56b6c2; }
+.s-sctrade { color: #e5c07b; }
+.s-profit  { color: #98c379; font-weight: bold; }
+.s-loss    { color: #e06c75; font-weight: bold; }
+.s-warn    { color: #e5c07b; }
+.s-ok      { color: #98c379; }
+.s-dim     { opacity: 0.50; }
+.s-bold    { font-weight: bold; }
+.s-label   { font-weight: bold; color: #abb2bf; }
+
+/* Table native (render_html.py) */
+.rt { border-collapse: collapse; margin: 2px 0; font-size: inherit; }
+.rt th { font-weight: bold; color: #56b6c2; border-bottom: 1px solid #444;
+         padding: 1px 8px 1px 0; white-space: nowrap; }
+.rt td { padding: 0 8px 0 0; white-space: nowrap; }
+.rt tr:hover td { background: rgba(255,255,255,0.04); }
+.rt-title   { font-weight: bold; color: #56b6c2; margin-bottom: 2px; }
+.rt-caption { opacity: 0.55; font-style: italic; margin-top: 2px; }
+.section-title { font-weight: bold; color: #56b6c2; margin: 4px 0 2px; }
+hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
+
 #output .echo {
   background: rgba(29, 60, 110, 0.88);
   color: #dce8ff;
@@ -1770,16 +1793,34 @@ function appendAnsi(ansi) {
 }
 
 function appendHtml(html) {
-  const lines = html.split('\n');
-  const frag  = document.createDocumentFragment();
-  for (const line of lines) {
-    const d = document.createElement('div');
-    d.className = 'line';
-    d.innerHTML = line || '\u00a0';
-    annotateElement(d);
-    frag.appendChild(d);
-    _lastAnsiDivs.push(d);
+  const frag = document.createDocumentFragment();
+
+  // D\u00e9tecter le format : nouveau (blocs HTML) vs ancien (lignes s\u00e9par\u00e9es par \n)
+  // Le nouveau format commence par une balise ouvrante (<div, <table, <hr, <section\u2026)
+  const isBlockFormat = /^\s*<(div|table|hr|section|p)\b/i.test(html);
+
+  if (isBlockFormat) {
+    // Nouveau format \u2014 chaque enfant de niveau sup\u00e9rieur est un bloc
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    for (const child of Array.from(wrap.children)) {
+      annotateElement(child);
+      frag.appendChild(child);
+      _lastAnsiDivs.push(child);
+    }
+  } else {
+    // Ancien format \u2014 HTML inline s\u00e9par\u00e9 par \n (historique ANSI converti)
+    const lines = html.split('\n');
+    for (const line of lines) {
+      const d = document.createElement('div');
+      d.className = 'line';
+      d.innerHTML = line || '\u00a0';
+      annotateElement(d);
+      frag.appendChild(d);
+      _lastAnsiDivs.push(d);
+    }
   }
+
   elOutput.appendChild(frag);
   elOutput.scrollTop = elOutput.scrollHeight;
 }
