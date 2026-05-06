@@ -419,10 +419,18 @@ def _resolve_autopos_terminal(terminal_name: str, ctx) -> str:
     # Plusieurs résultats : préférer celui du système actuel du joueur
     player_sys = ""
     loc = (ctx.player.location or "").lower()
-    for t in terminals:
-        if loc in t.name.lower() or t.name.lower() in loc:
-            player_sys = (t.star_system_name or "").lower()
-            break
+    if loc:
+        # Correspondance exacte d'abord (le nom stocké par _apply_autopos est canonique)
+        for t in terminals:
+            if t.name.lower() == loc:
+                player_sys = (t.star_system_name or "").lower()
+                break
+        if not player_sys:
+            # Correspondance partielle (position abrégée ou sans préfixe service)
+            for t in terminals:
+                if loc in t.name.lower() or t.name.lower() in loc:
+                    player_sys = (t.star_system_name or "").lower()
+                    break
     if not player_sys:
         player_sys = ctx.cfg.get("player", {}).get("system", "").lower()
 
@@ -993,7 +1001,7 @@ def _scan_resync(args: list[str], ctx) -> None:
 
         if entry.get("price_sell"):
             if uex_r is None or not uex_r.get("price_sell"):
-                fields_to_del.extend(["price_sell", "status_sell", "scu_sell_max"])
+                fields_to_del.extend(["price_sell", "status_sell", "scu_sell_stock", "scu_sell_max"])
 
         if not fields_to_del:
             continue
@@ -1080,7 +1088,7 @@ def _scan_edit(args: list[str], ctx) -> None:
                         "cid_key": cid_key, "stored_tk": stored_tk, "name": name,
                         "mode": "sell", "price": e.get("price_sell", 0),
                         "stock_status": e.get("status_sell", 0),
-                        "quantity": e.get("scu_sell_max"),
+                        "quantity": e.get("scu_sell_stock") if e.get("scu_sell_stock") is not None else e.get("scu_sell_max"),
                         "timestamp": e.get("timestamp", 0),
                     })
             comms.sort(key=lambda c: (c["name"].lower(), c["mode"]))
@@ -1180,7 +1188,7 @@ def _scan_edit(args: list[str], ctx) -> None:
                 if e_cur.get("price_buy"):
                     updates["scu_buy"] = v
                 else:
-                    updates["scu_sell_max"] = v
+                    updates["scu_sell_stock"] = v
             except ValueError:
                 print_error(f"qte invalide : {val}") ; return
         elif key in ("stock", "status", "status_buy"):

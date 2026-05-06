@@ -862,7 +862,10 @@ class OverlayServer:
                     entry["price_sell"]    = price
                     entry["status_sell"]   = stock
                     if qty is not None:
-                        entry["scu_sell_max"] = int(qty)
+                        entry["scu_sell_stock"] = int(qty)
+                        existing_max = entry.get("scu_sell_max") or 0
+                        if int(qty) > existing_max:
+                            entry["scu_sell_max"] = int(qty)
 
                 final_key = str(cid) if cid else (cid_key or f"name:{name.lower()}")
                 term_data[final_key] = entry

@@ -82,22 +82,26 @@ def _comm_code(name: str = "", cid: int = 0) -> str:
 
 
 def _abbrev_name(name: str, maxlen: int = _NAME_MAX, code: str = "") -> str:
-    """Raccourcit les noms longs. Ex: 'Construction Materials' → 'Constr. Materials'.
+    """Raccourcit les noms longs.
 
-    Si *code* est fourni et que le nom est tronqué, le code est ajouté : 'Agricultural Su… [AGRI]'.
+    Avec code : toujours inclus ; abrège par mots (sans ellipse si possible).
+    Ex: 'Agricultural Supplies' → 'Agricul. Supplies [AGRS]'
+    Sans code : troncature classique avec ellipse.
     """
+    suffix = f" [{C.DIM}]\\[{code}][/{C.DIM}]" if code else ""
     if len(name) <= maxlen:
-        return name
+        return name + suffix
     parts = name.split()
     if len(parts) >= 3:
         candidate = parts[0] + " " + parts[-1]
         if len(candidate) <= maxlen:
-            return candidate
-    short = name[:maxlen - 1] + "…"
-    if code:
-        # \[ = crochet ouvrant littéral en Rich markup (évite que [CM] soit interprété comme tag)
-        short = f"{short} [{C.DIM}]\\[{code}][/{C.DIM}]"
-    return short
+            return candidate + suffix
+    if code and len(parts) >= 2:
+        for i in range(len(parts[0]) - 1, 3, -1):
+            candidate = parts[0][:i] + ". " + " ".join(parts[1:])
+            if len(candidate) <= maxlen:
+                return candidate + suffix
+    return name[:maxlen - 1] + "…" + suffix
 
 
 def _abbrev_terminal(name: str, maxlen: int) -> str:
@@ -1461,18 +1465,20 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                         price_str = f"[{C.SCTRADE}]{price_val}[/{C.SCTRADE}]"
                     else:
                         price_str = price_val
-                    # SCU : stock_observé / max - age  (ex: "45/100 - 4h")
+                    # SCU : stock_observé / max - age  (ex: "215/2000 - 1j")
                     scu_stock = int(r.get("scu_sell_stock") or 0)
                     scu_max   = int(r.get("scu_sell_max") or r.get("scu_sell") or 0)
                     if scu_max:
                         obs = str(scu_stock) if scu_stock else "—"
                         scu_info = f"{obs}/{scu_max}"
-                        if age:
-                            scu_info = f"{scu_info} - {age}"
-                    elif age:
-                        scu_info = age
+                    elif scu_stock:
+                        scu_info = str(scu_stock)
                     else:
                         scu_info = ""
+                    if scu_info and age:
+                        scu_info = f"{scu_info} - {age}"
+                    elif age:
+                        scu_info = age
                     cname = r.get("commodity_name") or "?"
                     name_raw = _entry_ns(
                         cname, scu_info,

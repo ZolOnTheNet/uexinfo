@@ -67,7 +67,10 @@ class ScanPriceStore:
                     entry["price_sell"] = sc.price
                 entry["status_sell"] = sc.stock_status
                 if sc.quantity is not None:
-                    entry["scu_sell_max"] = sc.quantity
+                    entry["scu_sell_stock"] = sc.quantity
+                    existing_max = entry.get("scu_sell_max") or 0
+                    if sc.quantity > existing_max:
+                        entry["scu_sell_max"] = sc.quantity
             else:
                 if sc.price:
                     entry["price_buy"] = sc.price
@@ -209,8 +212,18 @@ class ScanPriceStore:
                     merged["_player_sell"] = True
                 if scan_r.get("scu_buy") is not None:
                     merged["scu_buy"] = scan_r["scu_buy"]
-                if scan_r.get("scu_sell_max") is not None:
-                    merged["scu_sell_max"] = scan_r["scu_sell_max"]
+                # scu_sell_stock : observation courante (compat : ancien format stockait dans scu_sell_max)
+                scan_stock = scan_r.get("scu_sell_stock")
+                if scan_stock is None and scan_r.get("scu_sell_max") is not None:
+                    scan_stock = scan_r["scu_sell_max"]
+                if scan_stock is not None:
+                    merged["scu_sell_stock"] = scan_stock
+                # scu_sell_max : capacité = max(high-water scan, capacité UEX)
+                scan_max = scan_r.get("scu_sell_max") or 0
+                uex_max  = row.get("scu_sell_max") or 0
+                best_max = max(scan_max, uex_max)
+                if best_max:
+                    merged["scu_sell_max"] = best_max
                 merged["_scan_ts"]   = scan_r.get("timestamp", 0)
                 merged["_validated"] = scan_r.get("validated", False)
                 result.append(merged)
@@ -233,7 +246,8 @@ class ScanPriceStore:
                 "status_buy":     r.get("status_buy", 0),
                 "status_sell":    r.get("status_sell", 0),
                 "scu_buy":        r.get("scu_buy"),
-                "scu_sell_max":   r.get("scu_sell_max"),
+                "scu_sell_stock": r.get("scu_sell_stock") if r.get("scu_sell_stock") is not None else r.get("scu_sell_max"),
+                "scu_sell_max":   r.get("scu_sell_max") or 0,
                 "_player_buy":    bool(r.get("price_buy")),
                 "_player_sell":   bool(r.get("price_sell")),
                 "_scan_ts":       r.get("timestamp", 0),
