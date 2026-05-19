@@ -986,11 +986,13 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         scu_max    = int(r.get("scu_buy_max") or scu_min)
         price_buy  = float(r.get("price_buy") or 0)
         status_buy = int(r.get("status_buy") or 0)
-        _ts_buy    = r.get("_scan_ts") if r.get("_player_buy") else r.get("date_modified")
-        date_buy   = _fmt_date(_ts_buy)
+        _ts_buy  = r.get("_scan_ts") if (r.get("_player_buy") or r.get("_player_stock_buy")) else r.get("date_modified")
+        date_buy = _fmt_date(_ts_buy)
 
-        # Cargo disponible : stock réel si connu, sinon estimation par statut
-        if scu_max > 0:
+        # Cargo disponible : stock observé joueur (exact) > UEX max > estimation statut
+        if r.get("_player_stock_buy") and scu_min > 0:
+            qty_buy = min(ship_cargo, scu_min)   # scu_buy scan = stock réel observé
+        elif scu_max > 0:
             qty_buy = min(ship_cargo, scu_max)
         elif status_buy == 1:
             qty_buy = 0
@@ -1055,7 +1057,9 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             "distance": distance_str,
             "dest_name_raw": dest_name,
             "sat_status": dest_status_sell, "sat_ts": dest_ts,
+            "src_status": status_buy,
             "_player": r.get("_player_buy", False),
+            "_player_stock": r.get("_player_stock_buy", False),
             "orig_sizes": orig_sz, "dest_sizes": dest_sz,
         }))
 
@@ -1071,12 +1075,14 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     entries.sort(key=_roi_key)
 
     # ── Afficher en table alignée ─────────────────────────────────────────
-    has_player = any(d.get("_player") for _, d in entries)
+    has_player       = any(d.get("_player") for _, d in entries)
+    has_player_stock = any(d.get("_player_stock") and not d.get("_player") for _, d in entries)
 
     tbl = Table(show_header=True, box=None, padding=(0, 1), show_edge=False)
     tbl.add_column("Commodité",      no_wrap=True, min_width=14)
     tbl.add_column(f"Prix/{C.SCU}",  justify="right", no_wrap=True)
     tbl.add_column("Âge",            style=C.DIM,    justify="right", no_wrap=True)
+    tbl.add_column("Src",            no_wrap=True)
     tbl.add_column("→ Dest",         no_wrap=True,   min_width=20, max_width=32)
     tbl.add_column("Sat.",           no_wrap=True)
     tbl.add_column(f"→Prix/{C.SCU}", justify="right", no_wrap=True)
@@ -1116,7 +1122,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
 
         name_raw = _abbrev_name(d["name"], 16, code=d.get("code", ""))
         if d["scu_range"]:
-            name_raw = f"{name_raw} [dim]({d['scu_range']})[/dim]"
+            scu_pfx  = "★" if d.get("_player_stock") and not player else ""
+            name_raw = f"{name_raw} [dim]({scu_pfx}{d['scu_range']})[/dim]"
         if player:
             name_cell  = f"[bold {C.NEUTRAL}]★ {name_raw}[/bold {C.NEUTRAL}]"
             price_cell = f"[bold {C.UEX}]{_price_short(d['price_buy'])}[/bold {C.UEX}]"
@@ -1153,10 +1160,13 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         else:
             cargo_cell = f"[{C.DIM}]—[/{C.DIM}]"
 
+        src_cell = _stock_bar(d.get("src_status", 0), sell=False)
+
         tbl.add_row(
             name_cell,
             price_cell,
             d["date"],
+            src_cell,
             dest_str,
             sat_cell,
             sell_cell,
@@ -1172,6 +1182,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
     console.print(tbl)
     if has_player:
         console.print(f"[{C.DIM}]★ = données joueur (confirmées)[/{C.DIM}]")
+    elif has_player_stock:
+        console.print(f"[{C.DIM}]★SCU = stock observé par le joueur[/{C.DIM}]")
 
     # Stocker les entrées pour l'overlay (boutons → Voyage + input SCU)
     # Uniquement les entrées avec une destination connue (sinon bouton inutile)
@@ -1417,7 +1429,9 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
 
     # ── Données fusionnées : scan joueur (★ bold) + UEX communauté (italic) ─
     has_player_data = any(
-        r.get("_player_buy") or r.get("_player_sell") for r in rows
+        r.get("_player_buy") or r.get("_player_sell")
+        or r.get("_player_stock_buy") or r.get("_player_stock_sell")
+        for r in rows
     )
     offline = getattr(ctx, "_api_offline", False)
     if offline:
@@ -1450,15 +1464,17 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
 
             console.print(f"\n[bold {C.PROFIT}]▼ Vendre ici[/bold {C.PROFIT}]")
             if sell_rows:
-                sell_has_player = any(r.get("_player_sell") for r in sell_rows)
+                sell_has_player = any(r.get("_player_sell") or r.get("_player_stock_sell") for r in sell_rows)
                 if sell_has_player:
                     console.print(f"[{C.DIM}]★ = données joueur (confirmées)[/{C.DIM}]")
                 entries = []
                 for r in sell_rows:
-                    ts = r.get("_scan_ts") if r.get("_player_sell") else r.get("date_modified")
+                    player_sell  = r.get("_player_sell", False)
+                    player_stock = r.get("_player_stock_sell", False)
+                    # Âge : timestamp scan si prix ou SCU vient du scan, sinon date UEX
+                    ts  = r.get("_scan_ts") if (player_sell or player_stock) else r.get("date_modified")
                     age = _fmt_date(ts)
                     price_val = _price_short(r.get("price_sell"))
-                    player_sell = r.get("_player_sell", False)
                     if player_sell:
                         price_str = f"[bold {C.PROFIT}]★ {price_val}[/bold {C.PROFIT}]"
                     elif offline:
@@ -1475,6 +1491,9 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                         scu_info = str(scu_stock)
                     else:
                         scu_info = ""
+                    # Marqueur ★ sur le SCU si c'est une observation scan sans prix scan
+                    if player_stock and not player_sell and scu_info:
+                        scu_info = f"★{scu_info}"
                     if scu_info and age:
                         scu_info = f"{scu_info} - {age}"
                     elif age:
@@ -1501,6 +1520,45 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
             date_str = f"  ·  {_fmt_date(max(float(d) for d in dates))}" if dates else ""
             footer_col = C.SCTRADE if offline else C.DIM
             console.print(f"\n[italic {footer_col}]{total} marchandises{date_str}[/italic {footer_col}]")
+
+    _show_terminal_notes(t, ctx)
+
+
+def _show_terminal_notes(t, ctx) -> None:
+    """Affiche les notes personnelles pour ce terminal (si activé dans /config info note)."""
+    if not ctx.cfg.get("info", {}).get("note", True):
+        return
+    from uexinfo.cache.data_manager import _loc_short
+    from uexinfo.cache.notes_manager import NoteStore
+    loc = _loc_short(t.name).strip()
+    notes = NoteStore().list_by_location(loc)
+    if not notes:
+        return
+    from datetime import datetime
+    pending = getattr(ctx, "_overlay_msgs", None)
+
+    if pending is not None:
+        # Overlay : HTML avec boutons [−], pas de console.print
+        pending.append({
+            "type":  "note_list",
+            "notes": [
+                {"id": n["id"], "location": n["location"],
+                 "message": n["message"],
+                 "date": datetime.fromtimestamp(n.get("timestamp", 0)).strftime("%d/%m/%Y")}
+                for n in notes
+            ],
+        })
+        return
+
+    # CLI : affichage texte
+    console.print()
+    for n in notes:
+        date_str = datetime.fromtimestamp(n.get("timestamp", 0)).strftime("%d/%m/%Y")
+        console.print(
+            f"  [{C.DIM}]#{n['id']:3d}[/{C.DIM}]"
+            f"  [{C.LABEL}]{n['location']}[/{C.LABEL}]"
+            f"  [{C.DIM}]{date_str}[/{C.DIM}]  {n['message']}"
+        )
 
 
 # ── Affichage commodité ────────────────────────────────────────────────────────
@@ -1916,52 +1974,33 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
     if offline and sct_cfg.get("enabled", True):
         try:
             from uexinfo.api.sctrade_client import SCTradeClient
-            token = sct_cfg.get("token", "")
-            client = SCTradeClient(token=token)
-            if token:
-                # Endpoint token : données structurées par terminal
-                txs = client.commodity_transactions(c.name)
-            else:
-                # Endpoint public : listings communauté
-                txs = client.crowdsource_for_commodity(c.name)
+            client = SCTradeClient()
+            txs = client.crowdsource_for_commodity(c.name)
             if txs:
-                _show_sctrade_transactions(txs, ctx, crowdsource=not token)
+                _show_sctrade_transactions(txs, ctx)
         except Exception:
             pass
 
 
-def _show_sctrade_transactions(txs: list[dict], ctx, crowdsource: bool = False) -> None:
-    """Affiche les prix sc-trade.tools pour une commodité."""
+def _show_sctrade_transactions(txs: list[dict], ctx) -> None:
+    """Affiche les prix sc-trade.tools pour une commodité (format crowdsource)."""
     from rich.table import Table
-    src = "données communauté · crowdsource" if crowdsource else "données communauté"
-    console.print(f"\n[bold {C.SCTRADE}]sc-trade.tools · données hors-ligne[/bold {C.SCTRADE}]  [{C.DIM}]{src}[/{C.DIM}]")
+    console.print(f"\n[bold {C.SCTRADE}]sc-trade.tools · données hors-ligne[/bold {C.SCTRADE}]  [{C.DIM}]données communauté[/{C.DIM}]")
     t = Table(show_header=True, header_style=f"bold {C.SCTRADE}", box=None, pad_edge=False)
     t.add_column("Terminal",   style=C.SCTRADE, min_width=28)
     t.add_column("Action",     style="white",   width=7)
     t.add_column("Prix/□",     justify="right", min_width=9)
     t.add_column("Stock SCU",  justify="right", min_width=9)
 
-    if crowdsource:
-        # Format crowdsource : transaction="BUYS"|"SELLS", location, price, quantity, saturation
-        def _action(r):
-            t = r.get("transaction", "")
-            return "SELL" if t == "BUYS" else "BUY"   # BUYS = terminal achète = joueur vend
-        rows_norm = [
-            {"location": r.get("location", "?"), "action": _action(r),
-             "price": r.get("price", 0), "stock": r.get("quantity", 0),
-             "ts": r.get("timestamp", "")}
-            for r in txs if r.get("price", 0) > 0
-        ]
-    else:
-        # Format token : action="BUY"|"SELL", location, price, quantityInScu
-        rows_norm = [
-            {"location": r.get("location", "?"), "action": r.get("action", "?"),
-             "price": r.get("price", 0),
-             "stock": r.get("quantityInScu") or r.get("itemQuantityInScu") or 0,
-             "ts": ""}
-            for r in txs if r.get("price", 0) > 0
-        ]
+    def _action(r):
+        tx = r.get("transaction", "")
+        return "SELL" if tx == "BUYS" else "BUY"   # BUYS = terminal achète = joueur vend
 
+    rows_norm = [
+        {"location": r.get("location", "?"), "action": _action(r),
+         "price": r.get("price", 0), "stock": r.get("quantity", 0)}
+        for r in txs if r.get("price", 0) > 0
+    ]
     buys  = sorted([r for r in rows_norm if r["action"] == "BUY"],  key=lambda r: r["price"])
     sells = sorted([r for r in rows_norm if r["action"] == "SELL"], key=lambda r: r["price"], reverse=True)
 
@@ -2164,9 +2203,12 @@ def _find_terminal(query: str, ctx, strong: bool = False) -> Terminal | None:
         if t.name.lower() == q or t.code.lower() == q:
             return t
 
-    # ── 3. Nom court ou espace-station exact → préfère Admin/TDD ─────────
+    # ── 3. Nom court ou espace-station exact, ou query = nom court + suffixe ─
+    # ex: "seraphim station" → loc="seraphim" → q.startswith("seraphim ")
     matches = [t for t in ctx.cache.terminals
-               if _loc(t.name).lower() == q or t.space_station_name.lower() == q]
+               if _loc(t.name).lower() == q
+               or q.startswith(_loc(t.name).lower() + " ")
+               or t.space_station_name.lower() == q]
     if matches:
         return min(matches, key=_trading_priority)
 
@@ -2180,9 +2222,12 @@ def _find_terminal(query: str, ctx, strong: bool = False) -> Terminal | None:
     if strong:
         return None
 
-    # ── 5. Contient (nom ou espace-station) → préfère Admin/TDD ──────────
+    # ── 5. Contient (nom, espace-station, ou nom court contenu dans la query)
+    # ex: "seraphim" contenu dans "seraphim station above crusader"
     matches = [t for t in ctx.cache.terminals
-               if q in t.name.lower() or q in t.space_station_name.lower()]
+               if q in t.name.lower()
+               or q in t.space_station_name.lower()
+               or _loc(t.name).lower() in q]
     if matches:
         return min(matches, key=_trading_priority)
 
@@ -2199,10 +2244,13 @@ def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
     if not q:
         return []
 
-    # Préfixe exact
-    matches = [t for t in ctx.cache.terminals if _loc(t.name).lower().startswith(q)]
+    # Préfixe exact, extension (query commence par loc + espace), ou contient
+    matches = [t for t in ctx.cache.terminals
+               if _loc(t.name).lower().startswith(q)
+               or q.startswith(_loc(t.name).lower() + " ")]
     if not matches:
-        matches = [t for t in ctx.cache.terminals if q in t.name.lower()]
+        matches = [t for t in ctx.cache.terminals
+                   if q in t.name.lower() or _loc(t.name).lower() in q]
 
     # Dédupliquer par station : garder le terminal de commerce (Admin/TDD)
     seen: dict[str, Terminal] = {}
@@ -2371,6 +2419,14 @@ def _show_terminal_by_name(query: str, ctx, sys_filter=None) -> bool:
     q = query.replace("_", " ").lower().strip()
     cache_key = f"tn_{q}"
     rows = _fetch_prices(cache_key, {"terminal_name": q}, ctx)
+    # Retry sans suffixe de lieu commun ("seraphim station" → "seraphim")
+    if not rows:
+        for suffix in (" station", " outpost", " hub", " platform", " point", " harbor"):
+            if q.endswith(suffix):
+                short_q = q[:-len(suffix)].strip()
+                rows = _fetch_prices(f"tn_{short_q}", {"terminal_name": short_q}, ctx)
+                if rows:
+                    break
     if not rows:
         return False
 
@@ -2395,6 +2451,111 @@ def _show_terminal_by_name(query: str, ctx, sys_filter=None) -> bool:
         ctx._price_cache.copy_entry(cache_key, tid_key)
     _show_terminal(t, ctx, sys_filter=sys_filter)
     return True
+
+
+# ── /info reset-list / reset-price ────────────────────────────────────────────
+
+def _info_reset_cache(args: list[str], sub: str, ctx) -> None:
+    """Invalide le cache de prix d'un terminal et recharge immédiatement."""
+    query = " ".join(args).replace("_", " ").strip()
+    if not query:
+        loc = (ctx.player.location or "").strip().replace("_", " ")
+        if loc:
+            query = loc
+        else:
+            print_warn(f"Usage : /info {sub} <nom_terminal>")
+            return
+
+    # Résoudre le terminal (fort puis souple)
+    t = _find_terminal(query, ctx, strong=True) or _find_terminal(query, ctx)
+
+    # Construire toutes les clés de cache possibles pour ce terminal
+    q_lo = query.lower()
+    keys: list[str] = [f"tn_{q_lo}"]
+    if t:
+        loc_q = _loc(t.name).lower()
+        slug = _to_slug(t.name)
+        keys = [
+            f"t{t.id}",
+            f"tc_{t.code}" if t.code else "",
+            f"tl_{loc_q}",
+            f"ts_{slug}",
+            f"tn_{loc_q}",
+            f"tn_{q_lo}",
+        ]
+
+    deleted = [k for k in keys if k and ctx._price_cache.delete(k)]
+
+    label = t.name if t else query
+    what  = "liste commodités" if "list" in sub else "prix"
+
+    if not deleted:
+        console.print(f"[{C.DIM}]Aucune donnée en cache pour « {label} » (déjà expiré ou inconnu)[/{C.DIM}]")
+    else:
+        console.print(
+            f"[{C.SUCCESS}]✓[/{C.SUCCESS}] Cache {what} effacé pour [bold]{label}[/bold]"
+            f"  [{C.DIM}]({len(deleted)} entrée(s))[/{C.DIM}]"
+        )
+    console.print()
+
+    # Re-fetch immédiat
+    if t:
+        _show_terminal(t, ctx)
+    elif not _show_terminal_by_name(query, ctx):
+        print_warn(f"Terminal introuvable : {query}")
+
+
+# ── /info reset-scan ──────────────────────────────────────────────────────────
+
+def _info_reset_scan(args: list[str], ctx) -> None:
+    """Supprime les données scan joueur d'un terminal (ou une commodité précise)."""
+    from uexinfo.cache.scan_prices import ScanPriceStore
+
+    query      = ""
+    commodity_q = ""
+    if args:
+        query = args[0].replace("_", " ").strip()
+        if len(args) > 1:
+            commodity_q = " ".join(args[1:]).replace("_", " ").strip()
+    if not query:
+        loc = (ctx.player.location or "").strip().replace("_", " ")
+        if loc:
+            query = loc
+        else:
+            print_warn("Usage : /info reset-scan <terminal> [commodité]")
+            return
+
+    t = _find_terminal(query, ctx, strong=True) or _find_terminal(query, ctx)
+    if not t:
+        print_warn(f"Terminal introuvable : {query}")
+        return
+
+    store       = ScanPriceStore()
+    term_key    = str(t.id) if t.id else f"name:{_loc(t.name).lower()}"
+
+    if commodity_q:
+        ok = store.delete_commodity(term_key, commodity_q)
+        if ok:
+            console.print(
+                f"[{C.SUCCESS}]✓[/{C.SUCCESS}] Scan "
+                f"[bold]{commodity_q}[/bold] supprimé pour [bold]{t.name}[/bold]"
+            )
+        else:
+            console.print(
+                f"[{C.DIM}]Aucun scan trouvé pour « {commodity_q} » à {t.name}[/{C.DIM}]"
+            )
+    else:
+        n = store.delete_terminal(term_key)
+        if n:
+            console.print(
+                f"[{C.SUCCESS}]✓[/{C.SUCCESS}] {n} entrée(s) scan supprimée(s)"
+                f" pour [bold]{t.name}[/bold]"
+            )
+        else:
+            console.print(f"[{C.DIM}]Aucune donnée scan pour « {t.name} »[/{C.DIM}]")
+
+    console.print()
+    _show_terminal(t, ctx)
 
 
 # ── Commande principale ────────────────────────────────────────────────────────
@@ -2422,6 +2583,14 @@ def cmd_info(args: list[str], ctx) -> None:
 
     if first == "list":
         _show_commodity_list(args[1:], ctx)
+        return
+
+    if first in ("reset-list", "reset-price"):
+        _info_reset_cache(args[1:], first, ctx)
+        return
+
+    if first == "reset-scan":
+        _info_reset_scan(args[1:], ctx)
         return
 
     # /info --edit <terminal> → formulaire overlay d'édition des scans

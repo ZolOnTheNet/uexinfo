@@ -105,4 +105,19 @@ def run_command(line: str, ctx) -> set[str]:
         dispatch("info", words, ctx)
         return {"info"}
 
+    # Bannière de changement de version (détectée depuis l'API UEX)
+    notice = getattr(ctx, "_version_notice", None)
+    if notice:
+        stored, detected, env = notice
+        ctx._version_notice = None
+        console.print(
+            f"\n[bold yellow]⚡ Version SC détectée : [white]{detected}[/white]"
+            f"  (config {env} : {stored or '—'})[/bold yellow]"
+        )
+        console.print(
+            f"  [dim]/config version {detected}[/dim]          → changer (garder scans)\n"
+            f"  [dim]/config version {detected} --reset[/dim]  → changer + recharger UEX\n"
+            f"  [dim]/config version ptu {detected}[/dim]      → si c'est le PTU"
+        )
+
     return set()

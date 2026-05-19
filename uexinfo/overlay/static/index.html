@@ -398,6 +398,48 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 .ml-btn-del  { border-color: rgba(239,83,80,0.3); color: #ef5350; }
 .ml-btn-del:hover { background: rgba(239,83,80,0.12); }
 .ml-btn-del.ml-confirm { background: rgba(239,83,80,0.25); border-color: #ef5350; color: #fff; }
+/* notes joueur — liste avec boutons de suppression */
+.note-list {
+  margin: 4px 0 8px;
+  border-left: 2px solid rgba(0,188,212,0.25);
+  padding-left: 8px;
+}
+.note-row {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 2px 0; font-size: 0.88em;
+}
+.note-id   { color: var(--dim); min-width: 34px; flex-shrink: 0; }
+.note-date { color: var(--dim); min-width: 70px; flex-shrink: 0; }
+.note-msg  { flex: 1; word-break: break-word; color: var(--text); }
+.note-del  {
+  cursor: pointer; border: 1px solid rgba(239,83,80,0.7); border-radius: 3px;
+  color: #ef5350; padding: 0 4px; font-size: 0.82em; line-height: 1.5;
+  flex-shrink: 0; background: transparent; font-family: inherit;
+}
+.note-del:hover { background: rgba(239,83,80,0.2); }
+/* formulaire note */
+.note-form {
+  margin: 6px 0; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-input);
+}
+.note-form label { display: block; color: var(--dim); font-size: 0.82em; margin-bottom: 2px; }
+.note-form input, .note-form textarea {
+  width: 100%; background: rgba(0,0,0,0.25); border: 1px solid #334;
+  color: var(--text); font-family: var(--font); font-size: var(--font-size);
+  padding: 2px 4px; border-radius: 2px; resize: vertical;
+}
+.note-form textarea { min-height: 60px; }
+.note-form-btns { display: flex; gap: 6px; margin-top: 4px; }
+.note-form-btns button {
+  cursor: pointer; border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text); background: transparent; font-family: var(--font);
+  font-size: var(--font-size); padding: 1px 8px;
+}
+.note-form-btns .nb-save { border-color: rgba(76,175,80,0.5); color: #4caf50; }
+.note-form-btns .nb-save:hover { background: rgba(76,175,80,0.12); }
+.note-form-btns .nb-cancel { border-color: rgba(85,86,102,0.5); color: var(--dim); }
+.note-form-btns .nb-cancel:hover { background: rgba(255,255,255,0.05); }
 /* voyage-calc-result — boutons inline par proposition */
 .vcr-block {
   margin: 4px 0 8px;
@@ -1624,6 +1666,8 @@ function dispatch(msg) {
     case 'voyage_calc_result':    appendVoyageCalcButtons(msg); break;
     case 'mission_list_actions':  showMissionListActions(msg); break;
     case 'mission_actions_inline': appendMissionActions(msg); break;
+    case 'note_list':  appendNoteList(msg); break;
+    case 'note_edit':  showNoteForm(msg);   break;
     case 'screenshot_processed': onScreenshotProcessed(msg); break;
     case 'ocr_queued':           onOcrQueued(msg); break;
     case 'loc_abbrevs': updateLocAbbrevs(msg.map); break;
@@ -3190,6 +3234,9 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Redimensionnement (poignée bas-droite) ────────────────────────────────────
+// Dimensions synchronisées avec PyWebView (_wW/_wH) pour éviter la dérive
+// cumulative due à window.outerWidth ≠ window._width (bordures DWM invisibles).
+let _wW = 0, _wH = 0;  // initialisées par get_size() au chargement
 
 (function() {
   const grip = document.getElementById('resize-grip');
@@ -3197,7 +3244,9 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     e.stopPropagation();
     const startSX = e.screenX, startSY = e.screenY;
-    const startW  = window.outerWidth, startH = window.outerHeight;
+    // Utilise les dimensions PyWebView si disponibles, sinon outerWidth en fallback
+    const startW = _wW || window.outerWidth;
+    const startH = _wH || window.outerHeight;
     let pending = false;
 
     function onMove(me) {
@@ -3207,6 +3256,7 @@ document.addEventListener('keydown', e => {
       const nh = Math.max(200, startH + (me.screenY - startSY));
       try {
         window.pywebview.api.resize(nw, nh)
+          .then(sz => { if (sz) { _wW = sz.w; _wH = sz.h; } })
           .catch(() => {}).finally(() => { pending = false; });
       } catch(_) { pending = false; }
     }
@@ -3229,10 +3279,23 @@ function esc(s) {
 
 // ── Démarrage ─────────────────────────────────────────────────────────────────
 
+function _initSize() {
+  try {
+    window.pywebview.api.get_size()
+      .then(sz => { if (sz) { _wW = sz.w; _wH = sz.h; } })
+      .catch(() => {});
+  } catch(_) {}
+}
+
 window.addEventListener('load', () => {
   connect();
   elInput.focus();
 });
+
+// Initialise _wW/_wH dès que l'API PyWebView est disponible
+window.addEventListener('pywebviewready', _initSize);
+// Fallback si pywebviewready s'est déjà produit avant l'écoute
+if (window.pywebview && window.pywebview.api) _initSize();
 
 // Focus input quand la fenêtre (re)prend le focus OS (hotkey toggle)
 window.addEventListener('focus', () => { elInput.focus(); });
@@ -3825,6 +3888,118 @@ document.addEventListener('keydown', (e) => {
     if (ov.classList.contains('open')) { closeMissionScan(); e.stopPropagation(); }
   }
 });
+
+// ── Notes joueur ──────────────────────────────────────────────────────────────
+
+function appendNoteList(msg) {
+  const notes = msg.notes || [];
+  const div = document.createElement('div');
+  div.className = 'note-list';
+  if (notes.length === 0) {
+    const empty = document.createElement('span');
+    empty.style.color = 'var(--dim)';
+    empty.style.fontSize = '0.85em';
+    empty.textContent = '(aucune note)';
+    div.appendChild(empty);
+  } else {
+    for (const n of notes) {
+      const row = document.createElement('div');
+      row.className = 'note-row';
+
+      // Tout sur une ligne : #id [-] lieu  date  message
+      const idEl = document.createElement('span');
+      idEl.className = 'note-id';
+      idEl.textContent = `#${String(n.id).padStart(2)}`;
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'note-del';
+      delBtn.title = 'Supprimer cette note';
+      delBtn.textContent = '-';
+      delBtn.addEventListener('click', () => sendCmd(`/note -r ${n.id}`));
+
+      const locEl = document.createElement('span');
+      locEl.className = 'note-date';
+      locEl.textContent = n.location || '';
+
+      const dateEl = document.createElement('span');
+      dateEl.className = 'note-date';
+      dateEl.textContent = n.date || '';
+
+      const msgEl = document.createElement('span');
+      msgEl.className = 'note-msg';
+      msgEl.textContent = n.message;
+
+      row.appendChild(idEl);
+      row.appendChild(delBtn);
+      if (n.location) row.appendChild(locEl);
+      if (n.date)     row.appendChild(dateEl);
+      row.appendChild(msgEl);
+      div.appendChild(row);
+    }
+  }
+  elOutput.appendChild(div);
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
+function showNoteForm(msg) {
+  const noteId  = msg.id   || null;
+  const initLoc = msg.location || '';
+  const initMsg = msg.message  || '';
+
+  const div = document.createElement('div');
+  div.className = 'note-form';
+
+  const locLabel = document.createElement('label');
+  locLabel.textContent = 'Lieu';
+  const locInput = document.createElement('input');
+  locInput.type  = 'text';
+  locInput.value = initLoc;
+  locInput.placeholder = 'ex: ARC-L1';
+
+  const msgLabel = document.createElement('label');
+  msgLabel.textContent = 'Note';
+  const msgArea = document.createElement('textarea');
+  msgArea.value = initMsg;
+  msgArea.placeholder = 'Votre note…';
+
+  const btns = document.createElement('div');
+  btns.className = 'note-form-btns';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'nb-save';
+  saveBtn.textContent = noteId ? 'Modifier' : 'Ajouter';
+  saveBtn.addEventListener('click', () => {
+    const loc  = locInput.value.trim().replace(/\s+/g, '_');
+    const text = msgArea.value.trim();
+    if (!text) return;
+    if (noteId) {
+      // Update via delete + re-add (server-side /note -e -n not yet supported in overlay flow)
+      sendCmd(`/note -r ${noteId}`);
+      setTimeout(() => sendCmd(`/note -l ${loc} ${text}`), 300);
+    } else {
+      sendCmd(loc ? `/note -l ${loc} ${text}` : `/note ${text}`);
+    }
+    div.remove();
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'nb-cancel';
+  cancelBtn.textContent = 'Annuler';
+  cancelBtn.addEventListener('click', () => div.remove());
+
+  btns.appendChild(saveBtn);
+  btns.appendChild(cancelBtn);
+
+  div.appendChild(locLabel);
+  div.appendChild(locInput);
+  div.appendChild(msgLabel);
+  div.appendChild(msgArea);
+  div.appendChild(btns);
+
+  elOutput.appendChild(div);
+  elOutput.scrollTop = elOutput.scrollHeight;
+  msgArea.focus();
+}
 </script>
 </body>
 </html>

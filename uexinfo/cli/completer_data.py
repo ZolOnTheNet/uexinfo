@@ -29,6 +29,16 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("voyage.calc.gap_max",    "Transit ⚠ au-delà de N Gm (défaut 3)"),
         ("voyage.calc.favoris",    "Lieux à privilégier (liste)"),
         ("voyage.calc.exclure",    "Lieux à exclure systématiquement (liste)"),
+        ("version",                "Version SC active (live/PTU)"),
+    ],
+    "config version": [
+        ("use",    "Basculer entre live et PTU"),
+        ("ptu",    "Définir la version PTU"),
+        ("--reset", "Invalider le cache UEX après changement de version"),
+    ],
+    "config version use": [
+        ("live", "Environnement live"),
+        ("ptu",  "Environnement PTU"),
     ],
     "ship": [
         ("list",   "Liste vos vaisseaux"),
@@ -188,10 +198,13 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("consolidate",   "Infère les distances manquantes"),
     ],
     "info": [
-        ("terminal",  "Infos sur un terminal"),
-        ("commodity", "Infos sur une commodité"),
-        ("ship",      "Infos sur un vaisseau"),
-        ("list",      "Liste des commodités"),
+        ("terminal",    "Infos sur un terminal"),
+        ("commodity",   "Infos sur une commodité"),
+        ("ship",        "Infos sur un vaisseau"),
+        ("list",        "Liste des commodités"),
+        ("reset-list",  "Effacer + recharger la liste des commodités"),
+        ("reset-price", "Effacer + recharger les prix d'un terminal"),
+        ("reset-scan",  "Supprimer les données scan joueur d'un terminal"),
     ],
     "info list": [
         ("-p+", "Trier par prix croissant"),
@@ -261,6 +274,16 @@ SUBS: dict[str, list[tuple[str, str]]] = {
     "history": [],
     "undo":    [],
     "debug":   [],
+    "note": [
+        ("-l",      "Lieu de la note"),
+        ("-r",      "Supprimer par ID ou lieu"),
+        ("-e",      "Formulaire d'édition"),
+        ("-n",      "Numéro de note (avec --edit)"),
+        ("--lieu",  "Lieu de la note"),
+        ("--rm",    "Supprimer par ID ou lieu"),
+        ("--edit",  "Formulaire d'édition"),
+        ("--num",   "Numéro de note (avec --edit)"),
+    ],
     "dev": [
         ("on",          "Active le mode développeur"),
         ("off",         "Désactive le mode développeur"),
@@ -303,6 +326,8 @@ NEXT_TYPE: dict[str, str | None] = {
     "select station":    "sel_loc",
     "select outpost":    "sel_loc",
     "select city":       "sel_loc",
+    "note -l":           "location",
+    "note --lieu":       "location",
 }
 
 # ── Abréviations fabricants → préfixe du nom complet ──────────────────────────
@@ -352,6 +377,8 @@ CMD_HINTS: dict[str, str] = {
     "auto":    "Automatisations (log, scan…)",
     "history": "Historique des commandes",
     "undo":    "Annuler la dernière action",
+    "note":    "Notes personnelles par lieu",
+    "notes":   "Alias /note",
     "debug":   "Niveau de trace (0-5)",
     "dev":     "Mode développeur / import screenshots",
     "quit":    "Quitter",

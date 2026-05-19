@@ -63,6 +63,8 @@ def cmd_go(args: list[str], ctx) -> None:
             print_error("Spécifie un lieu")
             return
         resolved = _resolve(name, ctx)
+        if resolved is None:
+            return
         ctx.player.location = resolved
         _save_player(ctx)
         print_ok(f"Position : {resolved}")
@@ -73,6 +75,8 @@ def cmd_go(args: list[str], ctx) -> None:
             print_error("Spécifie un lieu")
             return
         resolved = _resolve(name, ctx)
+        if resolved is None:
+            return
         ctx.player.destination = resolved
         _save_player(ctx)
         print_ok(f"Destination : {resolved}")
@@ -80,6 +84,8 @@ def cmd_go(args: list[str], ctx) -> None:
     else:
         name = " ".join(args)
         resolved = _resolve(name, ctx)
+        if resolved is None:
+            return
         ctx.player.location = resolved
         _save_player(ctx)
         print_ok(f"Position : {resolved}")
@@ -92,20 +98,61 @@ def _show(player) -> None:
     console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{dest}[/{C.UEX}]")
 
 
-def _resolve(name: str, ctx) -> str:
-    """Résout un nom de lieu depuis le cache (terminal, ville…)."""
-    t = ctx.cache.find_terminal(name)
-    if t:
-        return t.name
-    # Recherche parmi les planètes
+def _resolve(name: str, ctx) -> str | None:
+    """Résout un nom de lieu vers le nom canonique UEX.
+
+    Retourne le nom résolu, ou None si l'utilisateur a annulé la sélection.
+    Retourne le nom brut si le lieu n'est pas dans le cache (Pyro, etc.).
+    """
+    from uexinfo.cache.data_manager import _loc_short
+    q = name.lower().strip().replace("_", " ")
+
+    # Match exact (nom complet, code ou nom court)
+    for t in ctx.cache.terminals:
+        if t.code.lower() == q or t.name.lower() == q or _loc_short(t.name).lower() == q:
+            return t.name
+
+    # Candidats : loc court préfixe de q, ou q préfixe de loc court,
+    # ou loc court contenu dans q (ex: "seraphim" dans "seraphim station")
+    candidates = []
+    seen_locs: set[str] = set()
+    for t in ctx.cache.terminals:
+        loc = _loc_short(t.name).lower()
+        if (loc.startswith(q) or q.startswith(loc + " ") or loc == q):
+            if loc not in seen_locs:
+                seen_locs.add(loc)
+                candidates.append(t)
+
+    if len(candidates) == 1:
+        return candidates[0].name
+
+    if len(candidates) > 1:
+        from uexinfo.cli.selector import SelectItem, pick
+        items = [
+            SelectItem(label=_loc_short(t.name), value=t, meta=t.star_system_name or "")
+            for t in candidates[:20]
+        ]
+        chosen = pick(ctx, items, title=f"Destination — «{name}»", mode="single")
+        if chosen:
+            return chosen[0].value.name
+        # CLI : afficher la liste et demander de préciser
+        console.print(f"[{C.WARNING}]Plusieurs lieux correspondent à «{name}» — précisez :[/{C.WARNING}]")
+        for it in items:
+            meta = f"  [{C.DIM}]{it.meta}[/{C.DIM}]" if it.meta else ""
+            console.print(f"  [{C.UEX}]{it.label}[/{C.UEX}]{meta}")
+        return None
+
+    # Planètes et systèmes (match exact)
     for p in ctx.cache.planets:
-        if p.name.lower() == name.lower():
+        if p.name.lower() == q:
             return p.name
-    # Recherche parmi les systèmes
     for s in ctx.cache.star_systems:
-        if s.name.lower() == name.lower():
+        if s.name.lower() == q:
             return s.name
-    # Retourne tel quel si inconnu
+
+    # Inconnu (Pyro, lieu perso) → accepter tel quel avec avertissement
+    from uexinfo.display.formatter import print_warn
+    print_warn(f"Lieu «{name}» non trouvé dans le cache — accepté tel quel")
     return name
 
 
@@ -136,6 +183,8 @@ def cmd_dest(args: list[str], ctx) -> None:
         return
     name = " ".join(args)
     resolved = _resolve(name, ctx)
+    if resolved is None:
+        return
     ctx.player.destination = resolved
     _save_player(ctx)
     print_ok(f"Destination : {resolved}")

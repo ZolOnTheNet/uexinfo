@@ -163,6 +163,15 @@ class PriceCache:
             self._mem[dst] = dict(self._mem[src])
             self._save()
 
+    def delete(self, key: str) -> bool:
+        """Supprime une entrée (mémoire + disque). Retourne True si elle existait."""
+        self._ensure_loaded()
+        if key in self._mem:
+            del self._mem[key]
+            self._save()
+            return True
+        return False
+
     def clear(self) -> None:
         """Vide le cache mémoire ET disque (utilisé par /refresh prices)."""
         self._ensure_loaded()

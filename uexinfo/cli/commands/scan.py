@@ -916,17 +916,10 @@ def _display_mission(result) -> None:
 
 
 def _terminal_store_key(query: str, ctx) -> str:
-    """Retourne la clé canonique pour scan_prices.json.
-    str(terminal.id) si trouvé dans le cache, sinon 'name:{nom_normalisé}'.
-    """
-    from uexinfo.cli.commands.info import _loc
-    q = query.strip().replace("_", " ").lower()
-    for t in (ctx.cache.terminals if ctx.cache else []):
-        loc_key  = _loc(t.name).lower()
-        full_key = t.name.lower()
-        if q in (loc_key, full_key, str(t.id)):
-            return str(t.id)
-    return f"name:{q}"
+    """Clé canonique pour scan_prices.json. Délègue à canonical_terminal_key."""
+    from uexinfo.cache.data_manager import canonical_terminal_key
+    terminals = ctx.cache.terminals if (ctx.cache) else []
+    return canonical_terminal_key(query, terminals)
 
 
 def _scan_resync(args: list[str], ctx) -> None:
@@ -945,15 +938,18 @@ def _scan_resync(args: list[str], ctx) -> None:
     from uexinfo.api.uex_client import UEXClient, UEXError
     import time
 
+    from uexinfo.cache.data_manager import all_terminal_keys
     term_raw  = " ".join(args).replace("_", " ").strip()
-    term_key = _terminal_store_key(term_raw, ctx)
+    term_key  = _terminal_store_key(term_raw, ctx)
+    terminals = ctx.cache.terminals if ctx.cache else []
 
     store = ScanPriceStore()
-    # Fusionner les entrées de toutes les clés
-    all_entries: dict[str, tuple[str, dict]] = {}  # cid_key → (term_key, entry)
-    for ck, e in store.list_terminal(term_key).items():
-        if ck not in all_entries:
-            all_entries[ck] = (term_key, e)
+    # Agréger les entrées de toutes les clés du lieu (loc:, terminal ID, frères)
+    all_entries: dict[str, tuple[str, dict]] = {}  # cid_key → (stored_key, entry)
+    for key in all_terminal_keys(term_raw, terminals):
+        for ck, e in store.list_terminal(key).items():
+            if ck not in all_entries:
+                all_entries[ck] = (key, e)
     if not all_entries:
         print_warn(f"Aucune donnée scan pour «{term_key}».")
         return
@@ -1049,14 +1045,18 @@ def _scan_edit(args: list[str], ctx) -> None:
     from uexinfo.cache.scan_prices import ScanPriceStore
     import time
 
+    from uexinfo.cache.data_manager import all_terminal_keys
     store = ScanPriceStore()
     comm_args_start = 1
 
-    term_key = _terminal_store_key(" ".join(args[:1]), ctx)
+    term_raw = " ".join(args[:1])
+    term_key = _terminal_store_key(term_raw, ctx)
+    terminals = ctx.cache.terminals if ctx.cache else []
     merged: dict[str, tuple[str, dict]] = {}  # cid_key → (stored_tk, entry)
-    for ck, e in store.list_terminal(term_key).items():
-        if ck not in merged:
-            merged[ck] = (term_key, e)
+    for key in all_terminal_keys(term_raw, terminals):
+        for ck, e in store.list_terminal(key).items():
+            if ck not in merged:
+                merged[ck] = (key, e)
     comm_args_start = 1
     # Vue plate des entrées pour la recherche par nom
     entries   = {ck: e for ck, (_, e) in merged.items()}
@@ -1091,7 +1091,7 @@ def _scan_edit(args: list[str], ctx) -> None:
                         "quantity": e.get("scu_sell_stock") if e.get("scu_sell_stock") is not None else e.get("scu_sell_max"),
                         "timestamp": e.get("timestamp", 0),
                     })
-            comms.sort(key=lambda c: (c["name"].lower(), c["mode"]))
+            comms.sort(key=lambda c: (0 if c["mode"] == "buy" else 1, c["name"].lower()))
             ctx._overlay_msgs.append({
                 "type": "scan_edit_existing",
                 "terminal": term_key,
@@ -1256,8 +1256,12 @@ def _store_result(ctx, result) -> None:
     if isinstance(result, ScanResult) and result.commodities:
         from uexinfo.cache.scan_prices import ScanPriceStore
         try:
-            term_key = _terminal_store_key(result.terminal, ctx)
-            ScanPriceStore().save_result(result, terminal_key=term_key)
+            term_key   = _terminal_store_key(result.terminal, ctx)
+            _ver_cfg   = ctx.cfg.get("version", {})
+            _sc_env    = _ver_cfg.get("active", "live")
+            _sc_ver    = _ver_cfg.get(_sc_env, "")
+            ScanPriceStore().save_result(result, terminal_key=term_key,
+                                         sc_version=_sc_ver, sc_env=_sc_env)
         except OSError:
             pass
 

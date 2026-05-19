@@ -38,7 +38,8 @@ class ScanPriceStore:
 
     # ── Écriture ──────────────────────────────────────────────────────────────
 
-    def save_result(self, result: ScanResult, terminal_key: str = "") -> None:
+    def save_result(self, result: ScanResult, terminal_key: str = "",
+                    sc_version: str = "", sc_env: str = "live") -> None:
         """Persiste les prix d'un ScanResult dans le store."""
         data = self._load()
         term_key = terminal_key or result.terminal.lower().strip()
@@ -61,6 +62,9 @@ class ScanPriceStore:
             entry["commodity_id"] = sc.commodity_id
             entry["timestamp"] = scan_ts
             entry["validated"] = result.validated
+            if sc_version:
+                entry["sc_version"] = sc_version
+                entry["sc_env"]     = sc_env
 
             if is_sell:
                 if sc.price:
@@ -84,12 +88,25 @@ class ScanPriceStore:
 
     # ── Lecture ───────────────────────────────────────────────────────────────
 
-    def get_rows(self, terminal_key: str) -> list[dict]:
-        """Retourne les enregistrements de prix scannés pour un terminal."""
+    def get_rows(self, terminal_key: str,
+                 sc_version: str = "", sc_env: str = "live") -> list[dict]:
+        """Retourne les enregistrements de prix scannés pour un terminal.
+
+        Si sc_version est fourni, les entrées taguées avec une version différente
+        sont ignorées. Les entrées sans tag de version (legacy) passent toujours.
+        """
         data = self._load()
         entries = data.get(terminal_key, {})
         cutoff = time.time() - (_MAX_AGE_DAYS * 86400)
-        return [e for e in entries.values() if e.get("timestamp", 0) >= cutoff]
+        rows = [e for e in entries.values() if e.get("timestamp", 0) >= cutoff]
+        if sc_version:
+            rows = [
+                r for r in rows
+                if not r.get("sc_version")                               # legacy sans tag → OK
+                or (r["sc_version"] == sc_version
+                    and r.get("sc_env", "live") == sc_env)
+            ]
+        return rows
 
     # ── Modification ─────────────────────────────────────────────────────────
 
@@ -130,28 +147,59 @@ class ScanPriceStore:
         self._write(data)
         return True
 
+    def delete_terminal(self, terminal_key: str) -> int:
+        """Supprime toutes les données scan d'un terminal. Retourne le nb d'entrées."""
+        data = self._load()
+        if terminal_key not in data:
+            return 0
+        n = len(data[terminal_key])
+        del data[terminal_key]
+        self._write(data)
+        return n
+
+    def delete_commodity(self, terminal_key: str, commodity_name: str) -> bool:
+        """Supprime les données scan d'une commodité (match nom insensible à la casse)."""
+        data = self._load()
+        term = data.get(terminal_key, {})
+        name_lo = commodity_name.lower().strip()
+        to_del = [k for k, v in term.items()
+                  if (v.get("commodity_name") or "").lower().strip() == name_lo]
+        if not to_del:
+            return False
+        for k in to_del:
+            del term[k]
+        if term:
+            data[terminal_key] = term
+        else:
+            del data[terminal_key]
+        self._write(data)
+        return True
+
     def list_terminal(self, terminal_key: str) -> dict[str, dict]:
         """Retourne {cid_key: entry} pour un terminal."""
         return self._load().get(terminal_key, {})
 
     def migrate_keys(self, ctx) -> int:
-        """Convertit les clés nom-terminal → str(terminal_id). Retourne nb migrations."""
-        from uexinfo.cli.commands.info import _loc
+        """Migre les clés legacy (name:…, nom brut) vers str(terminal_id). Retourne nb migrations."""
+        from uexinfo.cache.data_manager import canonical_terminal_key
         data = self._load()
         changed = 0
         terminals = ctx.cache.terminals if ctx.cache else []
         id_map: dict[str, str] = {}  # old_key → new_key
-        for t in terminals:
-            loc_key  = _loc(t.name).lower()
-            full_key = t.name.lower()
-            new_key  = str(t.id)
-            for old in (loc_key, full_key):
-                if old in data and old != new_key:
-                    id_map[old] = new_key
+        for old_key in list(data.keys()):
+            if old_key.isdigit():  # déjà canonique
+                continue
+            bare = old_key[5:] if old_key.startswith("name:") else old_key
+            new_key = canonical_terminal_key(bare, terminals)
+            if new_key.isdigit() and new_key != old_key:
+                id_map[old_key] = new_key
         for old, new in id_map.items():
             existing = data.get(new, {})
-            existing.update(data.pop(old))
+            for cid_key, entry in data[old].items():
+                if cid_key not in existing or entry.get("timestamp", 0) >= existing[cid_key].get("timestamp", 0):
+                    existing[cid_key] = entry
             data[new] = existing
+            del data[old]
             changed += 1
         if changed:
             self._write(data)
@@ -159,14 +207,15 @@ class ScanPriceStore:
 
     # ── Fusion ────────────────────────────────────────────────────────────────
 
-    def merge_into(self, uex_rows: list[dict], terminal_key: str) -> list[dict]:
+    def merge_into(self, uex_rows: list[dict], terminal_key: str,
+                   sc_version: str = "", sc_env: str = "live") -> list[dict]:
         """Fusionne les données scan dans les rows UEX.
 
         Les prix scanné remplacent les champs correspondants dans les rows UEX.
         Les commodités scan absentes du cache UEX sont ajoutées comme rows synthétiques.
         Les rows résultantes ont _player=True sur les champs issus du scan.
         """
-        scan_rows = self.get_rows(terminal_key)
+        scan_rows = self.get_rows(terminal_key, sc_version=sc_version, sc_env=sc_env)
         if not scan_rows:
             return uex_rows
 
@@ -212,12 +261,14 @@ class ScanPriceStore:
                     merged["_player_sell"] = True
                 if scan_r.get("scu_buy") is not None:
                     merged["scu_buy"] = scan_r["scu_buy"]
+                    merged["_player_stock_buy"] = True
                 # scu_sell_stock : observation courante (compat : ancien format stockait dans scu_sell_max)
                 scan_stock = scan_r.get("scu_sell_stock")
                 if scan_stock is None and scan_r.get("scu_sell_max") is not None:
                     scan_stock = scan_r["scu_sell_max"]
                 if scan_stock is not None:
                     merged["scu_sell_stock"] = scan_stock
+                    merged["_player_stock_sell"] = True
                 # scu_sell_max : capacité = max(high-water scan, capacité UEX)
                 scan_max = scan_r.get("scu_sell_max") or 0
                 uex_max  = row.get("scu_sell_max") or 0

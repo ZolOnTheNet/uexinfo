@@ -60,6 +60,18 @@ class CacheManager:
             else:
                 raise
 
+    def invalidate(self) -> None:
+        """Supprime les fichiers de cache statique — force rechargement UEX au prochain accès."""
+        for fname in _STATIC_FILES.values():
+            path = DATA_DIR / fname
+            if path.exists():
+                path.unlink()
+        self.commodities = []
+        self.terminals   = []
+        self.star_systems = []
+        self.planets     = []
+        self.vehicles    = []
+
     def _is_expired(self, key: str) -> bool:
         path = DATA_DIR / _STATIC_FILES[key]
         if not path.exists():

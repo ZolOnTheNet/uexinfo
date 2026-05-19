@@ -84,12 +84,23 @@ class _WindowApi:
             except Exception:
                 pass
 
-    def resize(self, w: int, h: int) -> None:
+    def resize(self, w: int, h: int) -> dict:
+        w, h = max(200, int(w)), max(200, int(h))
         if self._win:
             try:
-                self._win.resize(max(200, int(w)), max(200, int(h)))
+                self._win.resize(w, h)
             except Exception:
                 pass
+        return {"w": w, "h": h}
+
+    def get_size(self) -> dict:
+        """Retourne les dimensions actuelles telles que PyWebView les connaît."""
+        if self._win:
+            try:
+                return {"w": int(self._win.width), "h": int(self._win.height)}
+            except Exception:
+                pass
+        return {"w": 500, "h": 880}
 
     def hide_window(self) -> None:
         """Masque la fenêtre (utilisé en mode close=dblclick, clic simple sur ✕)."""

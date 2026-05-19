@@ -43,6 +43,7 @@ import uexinfo.cli.commands.mission      # noqa: F401
 import uexinfo.cli.commands.voyage       # noqa: F401
 import uexinfo.cli.commands.calc         # noqa: F401
 import uexinfo.cli.commands.sync         # noqa: F401
+import uexinfo.cli.commands.note         # noqa: F401
 
 from uexinfo.cli.runner import run_command
 from uexinfo.cli.context import AppContext
@@ -1082,7 +1083,12 @@ class OverlayServer:
         _extra_comms: set[str] = set()
         if _price_cache is not None:
             for _entry in getattr(_price_cache, "_mem", {}).values():
-                for _row in _entry.get("data", []):
+                _data = _entry.get("data", [])
+                if not isinstance(_data, list):
+                    continue   # rd_* distances, cs_* containers, etc. — pas des listes de prix
+                for _row in _data:
+                    if not isinstance(_row, dict):
+                        continue
                     _cn = _row.get("commodity_name")
                     if _cn and len(_cn) >= MIN:
                         _extra_comms.add(_cn)

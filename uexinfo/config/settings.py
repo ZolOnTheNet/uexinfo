@@ -71,13 +71,20 @@ DEFAULT: dict = {
         "secret_key": "",  # Clé secrète personnelle UEX Corp (uexcorp.space → profil)
     },
     "sctrade": {
-        "token":   "",     # Token d'accès sc-trade.tools (profil utilisateur)
         "ttl":     300,    # Cache TTL en secondes
         "enabled": True,   # Activer/désactiver l'intégration sc-trade.tools
     },
     "dev": {
         "enabled":     False,   # Mode développeur — bypass des comportements de production
         "skip_processed": True, # Si True : ignorer les fichiers déjà dans la DB lors d'un import
+    },
+    "info": {
+        "note": True,   # Afficher les notes personnelles dans la vue /info terminal
+    },
+    "version": {
+        "live":   "",       # Version SC live active (ex: "4.0")
+        "ptu":    "",       # Version SC PTU (vide si inactif)
+        "active": "live",   # Environnement actif : "live" ou "ptu"
     },
     "voyage": {
         "calc": {

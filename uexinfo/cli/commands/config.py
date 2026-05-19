@@ -35,6 +35,10 @@ def cmd_config(args: list[str], ctx) -> None:
         _clock(rest, ctx)
     elif sub in ("magasins", "restaurants", "services"):
         _display_toggle(sub, rest, ctx)
+    elif sub == "info":
+        _info_config(rest, ctx)
+    elif sub == "version":
+        _version_config(rest, ctx)
     elif sub == "uex":
         _uex_config(rest, ctx)
     elif sub == "sctrade":
@@ -187,9 +191,6 @@ def _show(cfg: dict, ctx=None) -> None:
 
     # ── sc-trade.tools ────────────────────────────────────────────────────────
     sct = cfg.get("sctrade", {})
-    token_val = sct.get("token", "")
-    token_disp = f"[{C.SUCCESS}]définie[/{C.SUCCESS}]" if token_val else f"[{C.LOSS}]non définie[/{C.LOSS}]"
-    config_items.append(config_item("sctrade.token", token_disp))
     sct_state = f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if sct.get('enabled', True) else f"[{C.LOSS}]off[/{C.LOSS}]"
     config_items.append(config_item("sctrade", sct_state))
 
@@ -212,6 +213,96 @@ def _display_toggle(key: str, args: list[str], ctx) -> None:
     settings.save(ctx.cfg)
     state = f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if enabled else f"[{C.LOSS}]off[/{C.LOSS}]"
     console.print(f"  {key} → {state}  [{C.DIM}](sauvegardé)[/{C.DIM}]")
+
+
+# ── Config section /info ─────────────────────────────────────────────────────
+
+def _info_config(args: list[str], ctx) -> None:
+    """Paramètres de la commande /info.
+
+    /config info note on|off   Afficher les notes dans la vue terminal
+    """
+    if not args:
+        info_cfg = ctx.cfg.get("info", {})
+        def _onoff(v): return "on" if (v if v is not None else True) else "off"
+        print_info(f"info.note : {_onoff(info_cfg.get('note', True))}  —  /config info note on|off")
+        return
+    sub2 = args[0].lower()
+    if sub2 == "note":
+        val_str = args[1].lower() if len(args) > 1 else ""
+        if val_str not in ("on", "off", "1", "0", "true", "false", "oui", "non"):
+            current = ctx.cfg.get("info", {}).get("note", True)
+            print_info(f"info.note : {'on' if current else 'off'}  —  usage : /config info note on|off")
+            return
+        enabled = val_str in ("on", "1", "true", "oui")
+        ctx.cfg.setdefault("info", {})["note"] = enabled
+        settings.save(ctx.cfg)
+        state = f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if enabled else f"[{C.LOSS}]off[/{C.LOSS}]"
+        console.print(f"  info.note -> {state}  [{C.DIM}](sauvegarde)[/{C.DIM}]")
+    else:
+        print_error(f"Sous-commande inconnue : info {sub2}  —  note")
+
+
+# ── Version SC ────────────────────────────────────────────────────────────────
+
+def _version_config(args: list[str], ctx) -> None:
+    """Gestion des versions Star Citizen.
+
+    /config version                          Afficher les versions connues
+    /config version <X.Y>                    Changer la version active (garder scans)
+    /config version <X.Y> --reset            Changer + invalider le cache UEX
+    /config version ptu <X.Y>               Enregistrer la version PTU
+    /config version use live|ptu            Basculer d'environnement
+    """
+    ver_cfg = ctx.cfg.setdefault("version", {})
+
+    if not args:
+        active = ver_cfg.get("active", "live")
+        live   = ver_cfg.get("live",   "") or "—"
+        ptu    = ver_cfg.get("ptu",    "") or "—"
+        section("Versions Star Citizen")
+        console.print(f"  live  : [{C.UEX}]{live}[/{C.UEX}]"
+                      + (f"  [bold {C.SUCCESS}]← actif[/bold {C.SUCCESS}]" if active == "live" else ""))
+        console.print(f"  ptu   : [{C.UEX}]{ptu}[/{C.UEX}]"
+                      + (f"  [bold {C.SUCCESS}]← actif[/bold {C.SUCCESS}]" if active == "ptu" else ""))
+        return
+
+    # /config version use live|ptu
+    if args[0].lower() == "use":
+        env = args[1].lower() if len(args) > 1 else ""
+        if env not in ("live", "ptu"):
+            print_error("Usage : /config version use live|ptu")
+            return
+        ver_cfg["active"] = env
+        settings.save(ctx.cfg)
+        ver_str = ver_cfg.get(env, "") or "—"
+        print_ok(f"Environnement actif : {env}  ({ver_str})")
+        return
+
+    # /config version ptu X.Y
+    if args[0].lower() == "ptu":
+        if len(args) < 2:
+            print_error("Usage : /config version ptu <numéro>")
+            return
+        ver = args[1]
+        ver_cfg["ptu"] = ver
+        settings.save(ctx.cfg)
+        print_ok(f"Version PTU : {ver}")
+        return
+
+    # /config version X.Y [--reset]
+    ver   = args[0]
+    reset = "--reset" in args
+    active = ver_cfg.get("active", "live")
+    ver_cfg[active] = ver
+    settings.save(ctx.cfg)
+
+    if reset:
+        ctx.cache.invalidate()
+        ctx._price_cache.clear()
+        print_ok(f"Version {active} : {ver}  ·  cache UEX invalidé — rechargement au prochain accès")
+    else:
+        print_ok(f"Version {active} : {ver}  ·  anciens scans de version différente ignorés")
 
 
 # ── UEX Corp API config ───────────────────────────────────────────────────────
@@ -246,26 +337,18 @@ def _uex_config(args: list[str], ctx) -> None:
 def _sctrade_config(args: list[str], ctx) -> None:
     sct = ctx.cfg.setdefault("sctrade", {})
     if not args:
-        token_disp = "***défini***" if sct.get("token") else "(non défini)"
         state = "on" if sct.get("enabled", True) else "off"
-        print_info(f"sctrade: {state}  token: {token_disp}")
-        print_info("Usage: /config sctrade token <val> | on | off")
+        print_info(f"sctrade: {state}")
+        print_info("Usage: /config sctrade on | off")
         return
     sub = args[0].lower()
-    if sub == "token":
-        if len(args) < 2:
-            print_warn("Usage: /config sctrade token <valeur>")
-            return
-        sct["token"] = args[1].strip()
-        settings.save(ctx.cfg)
-        console.print(f"  sctrade.token → [{C.SUCCESS}]***sauvegardé***[/{C.SUCCESS}]")
-    elif sub in ("on", "off", "1", "0", "true", "false"):
+    if sub in ("on", "off", "1", "0", "true", "false"):
         sct["enabled"] = sub in ("on", "1", "true")
         settings.save(ctx.cfg)
         state = f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if sct["enabled"] else f"[{C.LOSS}]off[/{C.LOSS}]"
         console.print(f"  sctrade → {state}  [{C.DIM}](sauvegardé)[/{C.DIM}]")
     else:
-        print_error(f"Sous-commande sctrade inconnue: {sub}  (token | on | off)")
+        print_error(f"Sous-commande sctrade inconnue: {sub}  (on | off)")
 
 
 # ── Historique commandes+résultats ───────────────────────────────────────────

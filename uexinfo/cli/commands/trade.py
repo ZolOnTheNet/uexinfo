@@ -67,6 +67,30 @@ def cmd_trade(args: list[str], ctx) -> None:
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+def _pick_terminal(candidates: list, query: str, role: str, ctx):
+    """Sélectionneur de terminal ambigu.
+
+    Overlay : panneau de sélection cliquable.
+    CLI     : liste texte + instruction de préciser.
+    Retourne le Terminal choisi ou None si annulé.
+    """
+    from uexinfo.cli.selector import SelectItem, pick
+    from uexinfo.cli.commands.info import _loc
+    items = [
+        SelectItem(label=_loc(t.name), value=t, meta=t.star_system_name or "")
+        for t in candidates[:20]
+    ]
+    chosen = pick(ctx, items, title=f"{role} — «{query}»", mode="single")
+    if chosen:
+        return chosen[0].value
+    # CLI fallback : liste texte
+    console.print(f"[{C.WARNING}]Plusieurs terminaux pour «{query}» — précisez :[/{C.WARNING}]")
+    for it in items:
+        meta = f"  [{C.DIM}]{it.meta}[/{C.DIM}]" if it.meta else ""
+        console.print(f"  [{C.UEX}]{it.label}[/{C.UEX}]{meta}")
+    return None
+
+
 def _is_active_buy(r: dict) -> bool:
     return bool(r.get("price_buy")) or int(r.get("status_buy") or 0) >= 1
 
@@ -386,31 +410,21 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
     # Désambigüation origine
     origin_candidates = _find_terminal_candidates(origin_loc, ctx)
     if len(origin_candidates) > 1 and _loc(origin.name).lower() != origin_loc.lower():
-        console.print(
-            f"[{C.WARNING}]Plusieurs terminaux correspondent à «{origin_loc}» — "
-            f"précisez l'origine :[/{C.WARNING}]"
-        )
-        for t in origin_candidates[:20]:
-            sys_tag = f"  [{C.DIM}]{t.star_system_name}[/{C.DIM}]" if t.star_system_name else ""
-            console.print(f"  [cyan]{_loc(t.name)}[/cyan]{sys_tag}")
-        return
+        origin = _pick_terminal(origin_candidates, origin_loc, "Origine", ctx)
+        if not origin:
+            return
 
     dest = _find_terminal(dest_loc, ctx)
     if not dest:
         print_error(f"Terminal de destination introuvable : {dest_loc}")
         return
 
-    # Désambigüation : si la query correspond à plusieurs stations différentes, afficher la liste
+    # Désambigüation destination
     dest_candidates = _find_terminal_candidates(dest_loc, ctx)
     if len(dest_candidates) > 1 and _loc(dest.name).lower() != dest_loc.lower():
-        console.print(
-            f"[{C.WARNING}]Plusieurs terminaux correspondent à «{dest_loc}» — "
-            f"précisez la destination :[/{C.WARNING}]"
-        )
-        for t in dest_candidates[:20]:
-            sys_tag = f"  [{C.DIM}]{t.star_system_name}[/{C.DIM}]" if t.star_system_name else ""
-            console.print(f"  [cyan]{_loc(t.name)}[/cyan]{sys_tag}")
-        return
+        dest = _pick_terminal(dest_candidates, dest_loc, "Destination", ctx)
+        if not dest:
+            return
 
     ship_cargo = _player_cargo(ctx)
     if ship_cargo == 0:
@@ -672,15 +686,13 @@ def _trade_sctrade(args: list[str], ctx) -> None:
     """/trade sctrade [--from <loc>] [--to <dest>] [--ship <ship>] [--budget <N>]
                       [--stops <N>] [--same-system|--ss]
 
-    Utilise sc-trade.tools pour trouver les meilleures routes.
-    Token requis pour le calcul de routes : /config sctrade token <token>
-    Sans token : affiche les données communauté disponibles.
-
+    Utilise les listings publics sc-trade.tools pour trouver les meilleures routes.
     Auto-remplissage : origin ← position joueur, dest ← destination joueur.
     Si origin == dest après auto-remplissage, dest est effacée (même lieu = inutile).
     --same-system / --ss : restreindre les routes au système du joueur.
+    --to <dest> : filtrer les routes dont la vente est proche de la destination.
     """
-    from uexinfo.api.sctrade_client import SCTradeClient, SCTradeError, SCTradeAuthError
+    from uexinfo.api.sctrade_client import SCTradeClient, SCTradeError
     from uexinfo.display.formatter import section
 
     sct_cfg = ctx.cfg.get("sctrade", {})
@@ -688,17 +700,16 @@ def _trade_sctrade(args: list[str], ctx) -> None:
         print_warn("sc-trade.tools désactivé — /config sctrade on")
         return
 
-    token = sct_cfg.get("token", "")
-    client = SCTradeClient(token=token)
+    client = SCTradeClient()
 
     # ── Parsing des arguments ─────────────────────────────────────────────────
     origin      = ""
     ship_name   = ""
     budget      = 0
-    max_stops   = 3
     dest        = ""
+    min_margin  = 0.02   # 2% par défaut
     same_system = False
-    _dest_explicit = False   # --to passé explicitement → pas d'effacement auto
+    _dest_explicit = False
 
     i = 0
     while i < len(args):
@@ -709,8 +720,8 @@ def _trade_sctrade(args: list[str], ctx) -> None:
             ship_name = args[i + 1]; i += 2
         elif a in ("--budget", "-b") and i + 1 < len(args):
             budget = int(args[i + 1].replace(" ", "").replace("k", "000").replace("K", "000")); i += 2
-        elif a in ("--stops", "-n") and i + 1 < len(args):
-            max_stops = int(args[i + 1]); i += 2
+        elif a in ("--margin", "-m") and i + 1 < len(args):
+            min_margin = float(args[i + 1].rstrip("%")) / 100; i += 2
         elif a in ("--to", "-t") and i + 1 < len(args):
             dest = args[i + 1].replace("_", " "); _dest_explicit = True; i += 2
         elif a in ("--same-system", "--ss", "--same", "-ss"):
@@ -724,13 +735,9 @@ def _trade_sctrade(args: list[str], ctx) -> None:
 
     if not _dest_explicit:
         _auto = (ctx.player.destination or "").strip().replace("_", " ")
-        if _auto:
-            # Destination auto : si elle est identique à l'origin, inutile de la garder
-            if _auto.lower() != origin.lower():
-                dest = _auto
-            # sinon dest reste vide (pas de boucle sur soi-même)
+        if _auto and _auto.lower() != origin.lower():
+            dest = _auto
 
-    # Si --to passé manuellement et == origin → effacer dest (c'est dest qui "venait de" l'autre)
     if _dest_explicit and dest and dest.lower() == origin.lower():
         dest = ""
 
@@ -743,69 +750,67 @@ def _trade_sctrade(args: list[str], ctx) -> None:
     cargo_scu  = _player_cargo(ctx) or 32
     player_sys = _player_system(ctx) or ""
 
-    dest_label = f"  →  [{C.UEX}]{dest}[/{C.UEX}]" if dest else ""
-    ss_label   = f"  [{C.DIM}](système : {player_sys})[/{C.DIM}]" if same_system and player_sys else ""
-    section(f"Routes sc-trade.tools{dest_label}{ss_label}  [{C.DIM}]{ship_name or '?'}  {budget:,} aUEC  {cargo_scu} SCU[/{C.DIM}]")
+    section("Routes sc-trade.tools")
 
-    if client.has_token:
-        # Route via API serveur (token Patreon)
+    # ── Bloc paramètres visible ───────────────────────────────────────────────
+    from rich.table import Table as _Table
+    ptbl = _Table(box=None, padding=(0, 2), show_header=False, show_edge=False)
+    ptbl.add_column(style=f"bold {C.DIM}", no_wrap=True)
+    ptbl.add_column(style=C.NEUTRAL, no_wrap=True)
+    ptbl.add_column(style=f"bold {C.DIM}", no_wrap=True)
+    ptbl.add_column(style=C.NEUTRAL, no_wrap=True)
+    ptbl.add_row("Depuis :", origin or "(non défini)",
+                 "Vers :", dest or "(toutes destinations)")
+    ptbl.add_row("Budget :", f"{budget:,} aUEC".replace(",", " "),
+                 "Cargo :", f"{cargo_scu} SCU")
+    ptbl.add_row("Vaisseau :", ship_name or "?",
+                 "Marge min :", f"{min_margin*100:.0f}%")
+    if same_system and player_sys:
+        ptbl.add_row("Système :", player_sys, "", "")
+    console.print(ptbl)
+    console.print()
+
+    console.print(f"[{C.DIM}]Chargement des données communauté sc-trade.tools…[/{C.DIM}]", end="\r")
+    import time
+    CACHE_KEY = "sct_listings"
+    TTL = 15 * 60  # 15 minutes
+
+    cached = ctx._price_cache.get(CACHE_KEY)
+    if cached and (time.time() - cached[0]) < TTL:
+        listings = cached[1]
+    else:
         try:
-            kw: dict = dict(
-                ship        = ship_name or "Freelancer",
-                investment  = budget,
-                max_cargo_scu = cargo_scu,
-                max_stops   = max_stops,
-                origin      = origin,
-            )
-            if same_system and player_sys:
-                kw["star_system"] = player_sys
-            if dest:
-                routes = client.itinerary(destination=dest, **kw)
-            else:
-                routes = client.trades(**kw)
-        except SCTradeAuthError as e:
-            print_error(str(e))
-            return
+            listings = client.crowdsource_listings(max_pages=6)
         except SCTradeError as e:
             print_error(str(e))
             return
-        _display_sctrade_routes(routes)
+        ctx._price_cache[CACHE_KEY] = (time.time(), listings)
+
+    if same_system and player_sys:
+        sys_lower = player_sys.lower()
+        listings = [l for l in listings if sys_lower in l.get("location", "").lower()]
+
+    # Normaliser les noms pour sc-trade.tools : supprimer le préfixe de service UEX
+    # ("Admin - Port Tressler" → "Port Tressler", "Refinery - ARC-L1" → "ARC-L1")
+    origin_sct = _loc(origin) if origin else ""
+    dest_sct   = _loc(dest)   if dest   else ""
+
+    routes, diag = _compute_routes_from_listings(
+        listings, budget=budget, cargo_scu=cargo_scu,
+        origin=origin_sct, dest=dest_sct,
+        same_system=same_system, player_sys=player_sys,
+        min_margin=min_margin,
+    )
+
+    n_total = diag["total_listings"]
+    console.print(f"[{C.DIM}]{n_total} enregistrements · {diag['total_locs']} terminaux · sc-trade.tools[/{C.DIM}]")
+    console.print()
+
+    if not routes:
+        console.print(f"[{C.WARNING}]Aucune route rentable trouvée (marge >{min_margin*100:.0f}%)[/{C.WARNING}]")
+        _diag_no_routes(diag, origin_sct, dest_sct)
     else:
-        # Calcul local depuis les listings publics
-        if dest:
-            console.print(f"[{C.WARNING}]Itinéraire origin→dest nécessite un token Patreon sc-trade.tools.[/{C.WARNING}]")
-            console.print(f"[{C.DIM}]/config sctrade token <token>[/{C.DIM}]")
-            return
-        console.print(f"[{C.DIM}]Chargement des données communauté sc-trade.tools…[/{C.DIM}]")
-        import time
-        CACHE_KEY = "sct_listings"
-        TTL = 15 * 60  # 15 minutes
-
-        cached = ctx._price_cache.get(CACHE_KEY)
-        if cached and (time.time() - cached[0]) < TTL:
-            listings = cached[1]
-        else:
-            try:
-                listings = client.crowdsource_listings(max_pages=6)
-            except SCTradeError as e:
-                print_error(str(e))
-                return
-            ctx._price_cache[CACHE_KEY] = (time.time(), listings)
-
-        # Filtrer par système si --same-system
-        if same_system and player_sys:
-            sys_lower = player_sys.lower()
-            listings = [l for l in listings if sys_lower in l.get("location", "").lower()]
-
-        routes = _compute_routes_from_listings(
-            listings, budget=budget, cargo_scu=cargo_scu,
-            origin=origin, same_system=same_system, player_sys=player_sys,
-        )
         _display_sctrade_routes(routes)
-        console.print(
-            f"[{C.DIM}]Calcul local · {len(listings)} enregistrements · "
-            f"Token Patreon = routes optimisées côté serveur[/{C.DIM}]"
-        )
 
 
 def _display_sctrade_routes(routes: list[dict]) -> None:
@@ -848,21 +853,26 @@ def _compute_routes_from_listings(
     budget: int,
     cargo_scu: int,
     origin: str = "",
+    dest: str = "",
     same_system: bool = False,
     player_sys: str = "",
-) -> list[dict]:
+    min_margin: float = 0.02,
+) -> tuple[list[dict], dict]:
     """Calcul local de routes depuis les listings crowdsource sc-trade.tools.
 
-    Stratégie : pour chaque commodité, meilleur achat + meilleure vente.
-    Si same_system=True, achat ET vente doivent être dans player_sys.
-    Si origin est fourni, le lieu d'achat est scoré comme prioritaire si proche.
+    Retourne (routes, diagnostics).
+    origin et dest sont des filtres réels (pas juste un bonus de tri) :
+    si des correspondances existent dans les données, seules elles sont retenues.
     """
     from collections import defaultdict
 
-    sys_lower = player_sys.lower() if (same_system and player_sys) else ""
+    sys_lower    = player_sys.lower() if (same_system and player_sys) else ""
+    origin_lower = origin.lower()
+    dest_lower   = dest.lower()
 
-    # Index : commodity → {location → {buy/sell: price}}
     prices: dict[str, dict[str, dict]] = defaultdict(lambda: defaultdict(dict))
+    all_locs: set[str] = set()
+
     for r in listings:
         comm = r.get("commodity", "").lower().strip()
         loc  = r.get("location", "").strip()
@@ -870,9 +880,9 @@ def _compute_routes_from_listings(
         tx   = r.get("transaction", "")
         if not comm or not loc or p <= 0:
             continue
-        # Filtre système (déjà appliqué sur listings avant appel, mais double-sécurité)
         if sys_lower and sys_lower not in loc.lower():
             continue
+        all_locs.add(loc)
         if tx == "SELLS":   # terminal vend → joueur achète
             existing = prices[comm][loc].get("buy", 0)
             if p < existing or not existing:
@@ -882,35 +892,83 @@ def _compute_routes_from_listings(
             if p > existing:
                 prices[comm][loc]["sell"] = p
 
-    origin_lower = origin.lower()
+    # Lieux correspondant à origin et dest (pour diagnostic)
+    origin_locs = sorted({loc for loc in all_locs if origin_lower and origin_lower in loc.lower()})
+    dest_locs   = sorted({loc for loc in all_locs if dest_lower   and dest_lower   in loc.lower()})
+
     routes = []
     for comm, locs in prices.items():
         buy_opts  = [(loc, d["buy"])  for loc, d in locs.items() if "buy"  in d]
         sell_opts = [(loc, d["sell"]) for loc, d in locs.items() if "sell" in d]
         if not buy_opts or not sell_opts:
             continue
+
+        # Filtrer achats sur origin (si des correspondances existent)
+        if origin_lower:
+            buy_origin = [(loc, p) for loc, p in buy_opts if origin_lower in loc.lower()]
+            if buy_origin:
+                buy_opts = buy_origin
+
+        # Filtrer ventes sur dest (si des correspondances existent)
+        if dest_lower:
+            sell_dest = [(loc, p) for loc, p in sell_opts if dest_lower in loc.lower()]
+            if sell_dest:
+                sell_opts = sell_dest
+
         buy_loc,  p_buy  = min(buy_opts,  key=lambda x: x[1])
         sell_loc, p_sell = max(sell_opts, key=lambda x: x[1])
         if sell_loc == buy_loc or p_sell <= p_buy:
             continue
         margin = (p_sell - p_buy) / p_buy
-        if margin < 0.05:
+        if margin < min_margin:
             continue
         qty    = min(cargo_scu, budget // max(p_buy, 1))
         profit = int((p_sell - p_buy) * qty)
-        # Bonus de tri si le lieu d'achat est proche de l'origin du joueur
-        origin_bonus = 1 if (origin_lower and origin_lower in buy_loc.lower()) else 0
         routes.append({
-            "commodity":    comm.title(),
-            "origin_loc":   buy_loc,
-            "dest_loc":     sell_loc,
-            "p_buy":        p_buy,
-            "p_sell":       p_sell,
-            "profit":       profit,
-            "qty":          qty,
-            "_origin_bonus": origin_bonus,
+            "commodity": comm.title(),
+            "origin_loc": buy_loc,
+            "dest_loc":   sell_loc,
+            "p_buy":      p_buy,
+            "p_sell":     p_sell,
+            "profit":     profit,
+            "qty":        qty,
         })
 
-    # Tri : profit desc, avec légère préférence pour les achats proches de l'origin
-    routes.sort(key=lambda r: (r["_origin_bonus"], r["profit"]), reverse=True)
-    return routes
+    routes.sort(key=lambda r: r["profit"], reverse=True)
+
+    diag = {
+        "total_listings":   len(listings),
+        "total_locs":       len(all_locs),
+        "total_commodities": len(prices),
+        "origin_locs":      origin_locs,
+        "dest_locs":        dest_locs,
+    }
+    return routes, diag
+
+
+def _diag_no_routes(diag: dict, origin: str, dest: str) -> None:
+    """Affiche des diagnostics utiles quand aucune route n'est trouvée."""
+    console.print()
+    if origin:
+        n = len(diag["origin_locs"])
+        if n:
+            console.print(f"[{C.DIM}]Lieux sc-trade correspondant à «{origin}» ({n} terminaux) :[/{C.DIM}]")
+            for loc in diag["origin_locs"][:6]:
+                console.print(f"  [{C.DIM}]{loc}[/{C.DIM}]")
+        else:
+            console.print(f"[{C.WARNING}]«{origin}» introuvable dans les données sc-trade.tools.[/{C.WARNING}]")
+            console.print(f"  [{C.DIM}]→ Le lieu n'a peut-être pas encore de données communauté[/{C.DIM}]")
+
+    if dest:
+        n = len(diag["dest_locs"])
+        if n:
+            console.print(f"[{C.DIM}]Lieux sc-trade correspondant à «{dest}» ({n} terminaux) :[/{C.DIM}]")
+            for loc in diag["dest_locs"][:6]:
+                console.print(f"  [{C.DIM}]{loc}[/{C.DIM}]")
+        else:
+            console.print(f"[{C.WARNING}]«{dest}» introuvable dans les données sc-trade.tools.[/{C.WARNING}]")
+            console.print(f"  [{C.DIM}]→ Essayez /trade sctrade sans --to pour voir les routes disponibles[/{C.DIM}]")
+
+    if diag["origin_locs"] and diag["dest_locs"]:
+        console.print(f"[{C.DIM}]→ Les deux lieux sont connus mais aucune route rentable ne relie les commodités disponibles.[/{C.DIM}]")
+        console.print(f"  [{C.DIM}]Essayez --margin 1 pour abaisser la marge minimale à 1%[/{C.DIM}]")
