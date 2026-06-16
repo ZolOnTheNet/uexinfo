@@ -2263,16 +2263,25 @@ def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
 
 def _find_commodity(query: str, ctx) -> Commodity | None:
     q = query.replace("_", " ").lower().strip()
+    # Exact (nom ou code)
     for c in ctx.cache.commodities:
         if c.name.lower() == q or c.code.lower() == q:
             return c
-    for c in ctx.cache.commodities:
-        if c.name.lower().startswith(q):
+    # Préfixe — préférer is_buyable=1 parmi les matchs
+    prefix = [c for c in ctx.cache.commodities if c.name.lower().startswith(q)]
+    if prefix:
+        for c in prefix:
+            if c.is_buyable:
+                return c
+        return prefix[0]
+    # Contenu — préférer is_buyable=1 parmi les matchs
+    matches = [c for c in ctx.cache.commodities if q in c.name.lower()]
+    if not matches:
+        return None
+    for c in matches:
+        if c.is_buyable:
             return c
-    for c in ctx.cache.commodities:
-        if q in c.name.lower():
-            return c
-    return None
+    return matches[0]
 
 
 def _find_vehicle(query: str, ctx) -> Vehicle | None:
