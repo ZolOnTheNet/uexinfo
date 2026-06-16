@@ -2013,7 +2013,11 @@ elInput.addEventListener('keydown', e => {
 
   if (e.key === 'Enter') {
     e.preventDefault();
-    closeComps();            // Entrée envoie toujours la saisie brute (Tab = compléter)
+    if (compVisible && compIdx >= 0) {
+      acceptComp();          // applique la complétion sélectionnée (flèches)
+      return;                // ne soumet pas encore, l'utilisateur confirme
+    }
+    closeComps();
     sendCmd(elInput.value);
     return;
   }
