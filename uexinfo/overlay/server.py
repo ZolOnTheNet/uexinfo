@@ -1437,6 +1437,8 @@ class OverlayServer:
             from uexinfo.cache.data_manager import _loc_short as _ls
             q_lower = q.lower().replace("_", " ") if q else ""
             seen_locs: set[str] = set()
+            match_count = 0
+            limit = 40 if q_lower else 80
             for t in (self.ctx.cache.terminals or []):
                 name = t.name or ""
                 if not name:
@@ -1451,7 +1453,8 @@ class OverlayServer:
                     continue
                 system = getattr(t, "star_system_name", "") or ""
                 results.append(self._mk(short, f"terminal · {system}", insert))
-                if len(seen_locs) >= (40 if q_lower else 80):
+                match_count += 1
+                if match_count >= limit:
                     break
 
         # — Commodités ——————————————————————————————————————————————————————
