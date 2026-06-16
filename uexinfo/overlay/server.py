@@ -1266,14 +1266,12 @@ class OverlayServer:
 
         # — Cas 2 : après une commande connue ——————————————————————————————
         elif depth == 1 and before.endswith(" "):
-            # Sous-commandes statiques
             ctx_key = cmd
             for sub, hint in SUBS.get(ctx_key, []):
                 candidates.append(self._mk(sub, hint, sub))
-            # Éléments dynamiques selon NEXT_TYPE
             ntype = NEXT_TYPE.get(ctx_key)
             if ntype:
-                candidates += self._dyn_typed(ntype, "")
+                candidates += self._dyn_typed(ntype, q)
 
         # — Cas 3 : tapé le début de la sous-commande ——————————————————————
         elif depth == 1 and not before.endswith(" "):
@@ -1282,25 +1280,17 @@ class OverlayServer:
                 candidates.append(self._mk(sub, hint, sub))
             ntype = NEXT_TYPE.get(ctx_key)
             if ntype:
-                candidates += self._dyn_typed(ntype, "")
+                candidates += self._dyn_typed(ntype, q)
 
         # — Cas 4 : profondeur 2+ ——————————————————————————————————————————
         else:
-            # Chercher sous-commandes de niveau 2 (ex: "voyage calc")
             ctx_key2 = f"{cmd} {sub1}"
             subs2    = SUBS.get(ctx_key2, [])
-            if before.endswith(" "):
-                for sub, hint in subs2:
-                    candidates.append(self._mk(sub, hint, sub))
-                ntype2 = NEXT_TYPE.get(ctx_key2) or NEXT_TYPE.get(cmd)
-                if ntype2:
-                    candidates += self._dyn_typed(ntype2, "")
-            else:
-                for sub, hint in subs2:
-                    candidates.append(self._mk(sub, hint, sub))
-                ntype2 = NEXT_TYPE.get(ctx_key2) or NEXT_TYPE.get(cmd)
-                if ntype2:
-                    candidates += self._dyn_typed(ntype2, "")
+            ntype2   = NEXT_TYPE.get(ctx_key2) or NEXT_TYPE.get(cmd)
+            for sub, hint in subs2:
+                candidates.append(self._mk(sub, hint, sub))
+            if ntype2:
+                candidates += self._dyn_typed(ntype2, q)
 
         # ── Filtrage et tri : préfixe d'abord, sous-chaîne ensuite ────────
         if q:
