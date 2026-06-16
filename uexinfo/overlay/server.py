@@ -1218,24 +1218,30 @@ class OverlayServer:
 
         # — Cas @ : complétion des lieux (@local, @dest, @NomTerminal) ————————
         if current_word.startswith("@"):
-            loc_q = current_word[1:].lower()
+            from uexinfo.cache.data_manager import _loc_short as _ls
+            loc_q = current_word[1:].lower().replace("_", " ")
             at_items: list[dict] = []
             for shortcut, hint in [("@local", "position courante"),
                                    ("@dest",  "destination joueur")]:
                 if not loc_q or shortcut[1:].startswith(loc_q):
                     at_items.append(self._mk(shortcut, hint, shortcut))
             if self.ctx and self.ctx.cache:
+                seen_shorts: set[str] = set()
                 for t in (self.ctx.cache.terminals or []):
                     name = t.name or ""
                     if not name:
                         continue
-                    if loc_q and not (name.lower().startswith(loc_q)
-                                      or loc_q in name.lower()):
+                    short = _ls(name)          # "Admin - CRU-L5" → "CRU-L5"
+                    if short in seen_shorts:
+                        continue
+                    seen_shorts.add(short)
+                    sl = short.lower()
+                    if loc_q and not (sl.startswith(loc_q) or loc_q in sl):
                         continue
                     system = getattr(t, "star_system_name", "") or ""
                     at_items.append(self._mk(
-                        f"@{name}", f"terminal · {system}",
-                        f"@{name.replace(' ', '_')}",
+                        f"@{short}", f"terminal · {system}",
+                        f"@{short.replace(' ', '_')}",
                     ))
             at_items = at_items[:40]
             cp = self._common_prefix([c["insert"] for c in at_items]) if at_items else ""
@@ -1428,20 +1434,24 @@ class OverlayServer:
 
         # — Terminaux / lieux ——————————————————————————————————————————————
         if do_loc and self.ctx.cache:
-            q_lower = q.lower() if q else ""
-            t_count = 0
-            # Quand q est fourni : scanner TOUS les terminaux filtrés (pas de limite aveugle)
-            # Quand q est vide   : retourner les 80 premiers (liste de contexte)
+            from uexinfo.cache.data_manager import _loc_short as _ls
+            q_lower = q.lower().replace("_", " ") if q else ""
+            seen_locs: set[str] = set()
             for t in (self.ctx.cache.terminals or []):
-                name   = t.name or ""
-                insert = name.replace(" ", "_")
-                if q_lower and not (insert.lower().startswith(q_lower)
-                                    or q_lower in insert.lower()):
+                name = t.name or ""
+                if not name:
+                    continue
+                short = _ls(name)              # "Admin - CRU-L5" → "CRU-L5"
+                if short in seen_locs:
+                    continue
+                seen_locs.add(short)
+                sl = short.lower()
+                insert = short.replace(" ", "_")
+                if q_lower and not (sl.startswith(q_lower) or q_lower in sl):
                     continue
                 system = getattr(t, "star_system_name", "") or ""
-                results.append(self._mk(name or insert, f"terminal · {system}", insert))
-                t_count += 1
-                if t_count >= (40 if q_lower else 80):
+                results.append(self._mk(short, f"terminal · {system}", insert))
+                if len(seen_locs) >= (40 if q_lower else 80):
                     break
 
         # — Commodités ——————————————————————————————————————————————————————
