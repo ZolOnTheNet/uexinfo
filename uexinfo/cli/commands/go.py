@@ -107,18 +107,23 @@ def _resolve(name: str, ctx) -> str | None:
     from uexinfo.cache.data_manager import _loc_short
     q = name.lower().strip().replace("_", " ")
 
-    # Match exact (nom complet, code ou nom court)
+    # Match exact sur code ou nom complet (non ambigu)
     for t in ctx.cache.terminals:
-        if t.code.lower() == q or t.name.lower() == q or _loc_short(t.name).lower() == q:
+        if t.code.lower() == q or t.name.lower() == q:
             return t.name
 
-    # Candidats : loc court préfixe de q, ou q préfixe de loc court,
-    # ou loc court contenu dans q (ex: "seraphim" dans "seraphim station")
+    # Candidats :
+    # - loc court == q  (ex: "orison" → Orison Municipal Services)
+    # - loc_tail == q et loc != q  (ex: "tdd - orison" → tail="orison")
+    # - loc court commence par q  (ex: "seraph" pour "seraphim station")
+    # - q commence par loc court  (ex: q="cru-l5 admin" pour loc="cru-l5")
     candidates = []
     seen_locs: set[str] = set()
     for t in ctx.cache.terminals:
         loc = _loc_short(t.name).lower()
-        if (loc.startswith(q) or q.startswith(loc + " ") or loc == q):
+        loc_tail = loc.rsplit(" - ", 1)[-1]
+        if (loc == q or (loc_tail == q and loc != q)
+                or loc.startswith(q) or q.startswith(loc + " ")):
             if loc not in seen_locs:
                 seen_locs.add(loc)
                 candidates.append(t)
