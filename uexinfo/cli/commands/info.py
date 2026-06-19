@@ -982,18 +982,20 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         id_comm    = int(r.get("id_commodity") or 0)
         if not id_comm:
             id_comm = _comm_name_to_id.get(name.lower(), 0)
-        scu_min    = int(r.get("scu_buy") or 0)
-        scu_max    = int(r.get("scu_buy_max") or scu_min)
+        scu_cur    = int(r.get("scu_buy") or 0)           # stock courant observé (UEX ou scan)
+        scu_cap    = int(r.get("scu_buy_max") or scu_cur)  # capacité max (fallback si scu_cur=0)
+        scu_min    = scu_cur                               # alias pour _scu() / scu_range
+        scu_max    = scu_cap
         price_buy  = float(r.get("price_buy") or 0)
         status_buy = int(r.get("status_buy") or 0)
         _ts_buy  = r.get("_scan_ts") if (r.get("_player_buy") or r.get("_player_stock_buy")) else r.get("date_modified")
         date_buy = _fmt_date(_ts_buy)
 
-        # Cargo disponible : stock observé joueur (exact) > UEX max > estimation statut
-        if r.get("_player_stock_buy") and scu_min > 0:
-            qty_buy = min(ship_cargo, scu_min)   # scu_buy scan = stock réel observé
-        elif scu_max > 0:
-            qty_buy = min(ship_cargo, scu_max)
+        # Quantité chargeable : stock courant (cap réel) > capacité max > estimation statut
+        if scu_cur > 0:
+            qty_buy = min(ship_cargo, scu_cur)   # stock connu → cap réel
+        elif scu_cap > 0:
+            qty_buy = min(ship_cargo, scu_cap)
         elif status_buy == 1:
             qty_buy = 0
         else:
