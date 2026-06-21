@@ -169,14 +169,20 @@ class DataManager:
         rows, source = DataManager.fetch_prices(f"t{t.id}", {"id_terminal": t.id}, ctx)
         if not rows and t.code:
             rows, source = DataManager.fetch_prices(f"tc_{t.code}", {"terminal_code": t.code}, ctx)
-        if not rows:
-            loc_q = _loc_short(t.name).lower()
-            if loc_q:
-                rows, source = DataManager.fetch_prices(f"tl_{loc_q}", {"terminal_name": loc_q}, ctx)
+        loc_q = _loc_short(t.name).lower()
+        if not rows and loc_q:
+            rows, source = DataManager.fetch_prices(f"tl_{loc_q}", {"terminal_name": loc_q}, ctx)
+        # Si loc_q a un préfixe service ("tdd - seraphim station"), l'API UEX ne le reconnaît
+        # pas — réessayer avec le nom de lieu seul ("seraphim station").
+        if not rows and " - " in loc_q:
+            loc_tail = loc_q.rsplit(" - ", 1)[-1].strip()
+            if loc_tail and loc_tail != loc_q:
+                rows, source = DataManager.fetch_prices(
+                    f"tlt_{loc_tail}", {"terminal_name": loc_tail}, ctx
+                )
         if not rows:
             slug = _slug(t.name)
-            loc_q2 = _loc_short(t.name).lower()
-            if slug and slug != loc_q2:
+            if slug and slug != loc_q:
                 rows, source = DataManager.fetch_prices(f"ts_{slug}", {"terminal_name": slug}, ctx)
 
         # Fusionner données scan joueur (prioritaires sur UEX)

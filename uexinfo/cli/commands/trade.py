@@ -407,24 +407,26 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
         print_error(f"Terminal d'origine introuvable : {origin_loc}")
         return
 
-    # Désambigüation origine
-    origin_candidates = _find_terminal_candidates(origin_loc, ctx)
-    if len(origin_candidates) > 1 and _loc(origin.name).lower() != origin_loc.lower():
-        origin = _pick_terminal(origin_candidates, origin_loc, "Origine", ctx)
-        if not origin:
-            return
+    # Désambigüation origine — skip si on a déjà le nom complet UEX (issu de _resolve)
+    if origin.name.lower() != origin_loc.lower():
+        origin_candidates = _find_terminal_candidates(origin_loc, ctx)
+        if len(origin_candidates) > 1 and _loc(origin.name).lower() != origin_loc.lower():
+            origin = _pick_terminal(origin_candidates, origin_loc, "Origine", ctx)
+            if not origin:
+                return
 
     dest = _find_terminal(dest_loc, ctx)
     if not dest:
         print_error(f"Terminal de destination introuvable : {dest_loc}")
         return
 
-    # Désambigüation destination
-    dest_candidates = _find_terminal_candidates(dest_loc, ctx)
-    if len(dest_candidates) > 1 and _loc(dest.name).lower() != dest_loc.lower():
-        dest = _pick_terminal(dest_candidates, dest_loc, "Destination", ctx)
-        if not dest:
-            return
+    # Désambigüation destination — skip si on a déjà le nom complet UEX (issu de _resolve)
+    if dest.name.lower() != dest_loc.lower():
+        dest_candidates = _find_terminal_candidates(dest_loc, ctx)
+        if len(dest_candidates) > 1 and _loc(dest.name).lower() != dest_loc.lower():
+            dest = _pick_terminal(dest_candidates, dest_loc, "Destination", ctx)
+            if not dest:
+                return
 
     ship_cargo = _player_cargo(ctx)
     if ship_cargo == 0:
