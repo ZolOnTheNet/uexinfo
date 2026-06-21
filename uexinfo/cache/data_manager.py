@@ -142,11 +142,13 @@ class DataManager:
         client = UEXClient()
         try:
             data = client.get_prices(**api_kwargs)
-            ctx._price_cache[key] = (time.time(), data)
+            # Ne pas mettre en cache les résultats vides : cela masquerait les
+            # fallbacks suivants (ex: loc_tail après un tl_ infructueux).
+            if data:
+                ctx._price_cache[key] = (time.time(), data)
+                if not ctx._version_notice:
+                    _check_game_version(data[0].get("game_version", ""), ctx)
             ctx._api_offline = False
-            # Détection changement de version SC
-            if data and not ctx._version_notice:
-                _check_game_version(data[0].get("game_version", ""), ctx)
             return data, Source.API
         except UEXError as e:
             stale = ctx._price_cache.get_stale(key)

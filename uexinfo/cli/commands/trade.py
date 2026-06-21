@@ -16,7 +16,6 @@ from uexinfo.cli.commands.info import (
     _fetch_route_distances,
     _find_commodity,
     _find_terminal,
-    _find_terminal_candidates,
     _fmt_date,
     _loc,
     _multi_col_table,
@@ -66,29 +65,6 @@ def cmd_trade(args: list[str], ctx) -> None:
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
-
-def _pick_terminal(candidates: list, query: str, role: str, ctx):
-    """Sélectionneur de terminal ambigu.
-
-    Overlay : panneau de sélection cliquable.
-    CLI     : liste texte + instruction de préciser.
-    Retourne le Terminal choisi ou None si annulé.
-    """
-    from uexinfo.cli.selector import SelectItem, pick
-    from uexinfo.cli.commands.info import _loc
-    items = [
-        SelectItem(label=_loc(t.name), value=t, meta=t.star_system_name or "")
-        for t in candidates[:20]
-    ]
-    chosen = pick(ctx, items, title=f"{role} — «{query}»", mode="single")
-    if chosen:
-        return chosen[0].value
-    # CLI fallback : liste texte
-    console.print(f"[{C.WARNING}]Plusieurs terminaux pour «{query}» — précisez :[/{C.WARNING}]")
-    for it in items:
-        meta = f"  [{C.DIM}]{it.meta}[/{C.DIM}]" if it.meta else ""
-        console.print(f"  [{C.UEX}]{it.label}[/{C.UEX}]{meta}")
-    return None
 
 
 def _is_active_buy(r: dict) -> bool:
@@ -402,31 +378,29 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
         print_warn("Destination non définie — utilisez /go <terminal>.")
         return
 
-    origin = _find_terminal(origin_loc, ctx)
+    # Résolution origine : ID stocké en priorité (évite toute re-désambiguation)
+    origin = None
+    if not origin_override and ctx.player.location_id:
+        origin = next(
+            (t for t in ctx.cache.terminals if t.id == ctx.player.location_id), None
+        )
+    if not origin:
+        origin = _find_terminal(origin_loc, ctx)
     if not origin:
         print_error(f"Terminal d'origine introuvable : {origin_loc}")
         return
 
-    # Désambigüation origine — skip si on a déjà le nom complet UEX (issu de _resolve)
-    if origin.name.lower() != origin_loc.lower():
-        origin_candidates = _find_terminal_candidates(origin_loc, ctx)
-        if len(origin_candidates) > 1 and _loc(origin.name).lower() != origin_loc.lower():
-            origin = _pick_terminal(origin_candidates, origin_loc, "Origine", ctx)
-            if not origin:
-                return
-
-    dest = _find_terminal(dest_loc, ctx)
+    # Résolution destination : ID stocké en priorité
+    dest = None
+    if not dest_override and ctx.player.destination_id:
+        dest = next(
+            (t for t in ctx.cache.terminals if t.id == ctx.player.destination_id), None
+        )
+    if not dest:
+        dest = _find_terminal(dest_loc, ctx)
     if not dest:
         print_error(f"Terminal de destination introuvable : {dest_loc}")
         return
-
-    # Désambigüation destination — skip si on a déjà le nom complet UEX (issu de _resolve)
-    if dest.name.lower() != dest_loc.lower():
-        dest_candidates = _find_terminal_candidates(dest_loc, ctx)
-        if len(dest_candidates) > 1 and _loc(dest.name).lower() != dest_loc.lower():
-            dest = _pick_terminal(dest_candidates, dest_loc, "Destination", ctx)
-            if not dest:
-                return
 
     ship_cargo = _player_cargo(ctx)
     if ship_cargo == 0:

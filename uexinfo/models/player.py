@@ -18,6 +18,8 @@ class Player:
     active_ship: str = ""
     location: str = ""
     destination: str = ""
+    location_id: int = 0
+    destination_id: int = 0
 
     @classmethod
     def from_config(cls, cfg_player: dict) -> "Player":
@@ -37,6 +39,8 @@ class Player:
             active_ship=cfg_player.get("active_ship", ""),
             location=cfg_player.get("location", ""),
             destination=cfg_player.get("destination", ""),
+            location_id=int(cfg_player.get("location_id", 0) or 0),
+            destination_id=int(cfg_player.get("destination_id", 0) or 0),
         )
 
     def to_config(self) -> dict:
@@ -53,4 +57,6 @@ class Player:
             "active_ship": self.active_ship,
             "location": self.location,
             "destination": self.destination,
+            "location_id": self.location_id,
+            "destination_id": self.destination_id,
         }
