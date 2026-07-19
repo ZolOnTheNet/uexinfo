@@ -72,6 +72,21 @@ class UEXClient:
     def get_planets(self) -> list[dict]:
         return self._get("planets")
 
+    def get_moons(self) -> list[dict]:
+        return self._get("moons")
+
+    def get_orbits(self) -> list[dict]:
+        return self._get("orbits")
+
+    def get_space_stations(self) -> list[dict]:
+        return self._get("space_stations")
+
+    def get_outposts(self) -> list[dict]:
+        return self._get("outposts")
+
+    def get_cities(self) -> list[dict]:
+        return self._get("cities")
+
     def get_factions(self) -> list[dict]:
         return self._get("factions")
 

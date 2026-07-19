@@ -47,6 +47,10 @@ DEFAULT: dict = {
         "auto_ocr":         True,   # Lancer l'OCR dès qu'un nouveau screenshot est détecté
         "hour":             2,      # Fenêtre de recherche (heures en arrière) pour /mission scan
         "session_gap":      60,     # Gap en minutes entre deux screenshots = nouvelle session
+        "autopos":          "on",   # Proposer l'auto-position sur tout scan OCR/log (on|off)
+        "log": {
+            "autopos":      "quick",  # Proposer l'auto-position depuis le log Datarunner (on|off|quick)
+        },
     },
     "auto": {
         "log":          True,   # Lire le log SC-Datarunner automatiquement si chemin défini
@@ -85,6 +89,11 @@ DEFAULT: dict = {
         "live":   "",       # Version SC live active (ex: "4.0")
         "ptu":    "",       # Version SC PTU (vide si inactif)
         "active": "live",   # Environnement actif : "live" ou "ptu"
+    },
+    "gamelog": {
+        "install_path_live": "",   # ex: C:\...\StarCitizen\LIVE — dossier contenant Game.log
+        "install_path_ptu":  "",   # idem pour le build PTU, optionnel
+        "enabled": "off",          # activer le tail de Game.log (zone/connexion/spawn) — on|off
     },
     "voyage": {
         "calc": {

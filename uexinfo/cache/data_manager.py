@@ -40,8 +40,30 @@ def _loc_short(name: str) -> str:
 
 
 def _terminal_matches(query: str, terminals: list) -> list:
-    """Retourne les terminaux dont le nom, nom court ou space_station_name correspond à query."""
+    """Retourne les terminaux dont le nom, nom court, ID ou lieu structuré correspond à query."""
     q = query.strip().replace("_", " ").lower()
+    if not q:
+        return []
+
+    # 1. Lieu structuré (station/ville) — insensible aux tirets internes du nom
+    # du terminal. Un terminal comme "INS Jericho - Pyro Gateway" (vaisseau en
+    # vente) n'a pas le suffixe système ("(Stanton)") que portent ses voisins
+    # de service ("Admin - Pyro Gateway (Stanton)") — matcher sur le nom brut
+    # du terminal (nom court = dernier segment après " - ") ferait à tort
+    # gagner "INS Jericho" par égalité de chaîne exacte.
+    station_matches = []
+    for t in terminals:
+        station = (getattr(t, "space_station_name", "") or getattr(t, "city_name", "") or "").lower().strip()
+        if station and (station == q or station.startswith(q + " ")):
+            station_matches.append(t)
+    if station_matches:
+        if len(station_matches) > 1:
+            from uexinfo.location.index import _trading_priority
+            best_prio = min(_trading_priority(t) for t in station_matches)
+            station_matches = [t for t in station_matches if _trading_priority(t) == best_prio]
+        return station_matches
+
+    # 2. Fallback : nom court / nom complet / ID / space_station exact
     result = []
     for t in terminals:
         loc_key  = _loc_short(t.name).lower()

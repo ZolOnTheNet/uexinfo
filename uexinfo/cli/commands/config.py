@@ -17,40 +17,65 @@ def cmd_config(args: list[str], ctx) -> None:
     if not args:
         _show(ctx.cfg, ctx)
         return
-    sub = args[0].lower()
-    rest = args[1:]
+
+    # Équivalence point/espace, y compris les formes mélangées ("scan.log
+    # autopos quick") : le premier token est éclaté sur les points (il ne peut
+    # être qu'une clé, jamais une valeur), les suivants restent tels quels.
+    # On essaie ensuite la correspondance pointée la plus longue d'abord
+    # (jusqu'à 3 segments : section.sous-section.clé), puis le dispatch
+    # espace classique — peu importe comment le point/espace tombe dans ce
+    # que l'utilisateur a tapé, ça retombe sur le même résultat.
+    flat = args[0].split(".") + args[1:]
+
+    for k in range(min(4, len(flat)), 1, -1):
+        dotted = ".".join(p.lower() for p in flat[:k])
+        if dotted in _DOT_KEYS:
+            _set_dotkey(dotted, flat[k:], ctx)
+            return
+
+    if _dispatch_space(flat[0].lower(), flat[1:], ctx) is not False:
+        return
+
+    print_error(f"Sous-commande inconnue : {args[0].lower()}  (/help config)")
+
+
+def _dispatch_space(sub: str, rest: list[str], ctx) -> bool | None:
+    """Dispatch la notation espace classique ("scan logpath …").
+
+    Retourne False si `sub` n'est reconnu par aucune section — permet à
+    l'appelant de retenter en notation pointée. Toute autre valeur (y compris
+    None, la valeur de retour implicite des handlers existants) signifie
+    "pris en charge".
+    """
     if sub == "ship":
-        _ship(rest, ctx)
-    elif sub == "trade":
-        _trade(rest, ctx)
-    elif sub == "cache":
-        _cache(rest, ctx)
-    elif sub == "scan":
-        _scan(rest, ctx)
-    elif sub == "player":
-        _player_config(rest, ctx)
-    elif sub == "close":
-        _overlay_close(rest, ctx)
-    elif sub == "clock":
-        _clock(rest, ctx)
-    elif sub in ("magasins", "restaurants", "services"):
-        _display_toggle(sub, rest, ctx)
-    elif sub == "info":
-        _info_config(rest, ctx)
-    elif sub == "version":
-        _version_config(rest, ctx)
-    elif sub == "uex":
-        _uex_config(rest, ctx)
-    elif sub == "sctrade":
-        _sctrade_config(rest, ctx)
-    elif sub in ("hotkey", "overlay.hotkey"):
-        _hotkey(rest, ctx)
-    elif sub == "cmdhistory":
-        _cmdhistory(rest, ctx)
-    elif "." in sub:
-        _set_dotkey(sub, rest, ctx)
-    else:
-        print_error(f"Sous-commande inconnue : {sub}  (/help config)")
+        return _ship(rest, ctx)
+    if sub == "trade":
+        return _trade(rest, ctx)
+    if sub == "cache":
+        return _cache(rest, ctx)
+    if sub == "scan":
+        return _scan(rest, ctx)
+    if sub == "player":
+        return _player_config(rest, ctx)
+    if sub == "close":
+        return _overlay_close(rest, ctx)
+    if sub == "clock":
+        return _clock(rest, ctx)
+    if sub in ("magasins", "restaurants", "services"):
+        return _display_toggle(sub, rest, ctx)
+    if sub == "info":
+        return _info_config(rest, ctx)
+    if sub == "version":
+        return _version_config(rest, ctx)
+    if sub == "uex":
+        return _uex_config(rest, ctx)
+    if sub == "sctrade":
+        return _sctrade_config(rest, ctx)
+    if sub in ("hotkey", "overlay.hotkey"):
+        return _hotkey(rest, ctx)
+    if sub == "cmdhistory":
+        return _cmdhistory(rest, ctx)
+    return False
 
 
 # ── Affichage ────────────────────────────────────────────────────────────────
@@ -893,7 +918,9 @@ def _scan(args: list[str], ctx) -> None:
             print_error("Valeur entière attendue (minutes)")
 
     else:
-        print_error(f"Sous-clé inconnue : {key}  (mode|tesseract|logpath|screenshots|auto_ocr|hour|session_gap)")
+        # Peut être une clé qui n'existe qu'en notation pointée (scan.autopos,
+        # scan.log.autopos) — laisser cmd_config retenter avant d'échouer.
+        return False
 
 
 # ── Overlay close ────────────────────────────────────────────────────────────
@@ -938,6 +965,9 @@ def _clock(args: list[str], ctx) -> None:
 _DOT_KEYS: dict[str, tuple[type, str]] = {
     "scan.autopos":        (str,   "Mise à jour auto-position depuis tout scan OCR/log (on|off)"),
     "scan.log.autopos":    (str,   "Mise à jour auto-position depuis log Datarunner (on|off|quick)"),
+    "gamelog.enabled":            (str, "Lire Game.log en direct pour la zone/juridiction (on|off)"),
+    "gamelog.install_path_live":  (str, r"Dossier d'install LIVE (ex: C:\...\StarCitizen\LIVE)"),
+    "gamelog.install_path_ptu":   (str, r"Dossier d'install PTU (optionnel)"),
     "voyage.calc.nbsaut":  (int,   "Nb max de missions par proposition"),
     "voyage.calc.prop":    (int,   "Nb de propositions (1=critère seul, ≥2=dist+benef+roi)"),
     "voyage.calc.options": (str,   'Options par défaut (ex: "--boucle --station")'),

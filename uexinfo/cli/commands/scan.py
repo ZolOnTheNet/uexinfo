@@ -397,26 +397,47 @@ def _resolve_autopos_terminal(terminal_name: str, ctx) -> str:
     (ex: "Nyx Gateway" côté Stanton ET côté Nyx), on préfère le terminal
     dont star_system_name correspond au système actuel du joueur.
     """
+    from uexinfo.location.index import _trading_priority
+
     if not terminal_name:
         return ""
     terminals = getattr(ctx.cache, "terminals", None) or []
     name_lo = terminal_name.lower().strip()
 
-    # 1. Correspondance exacte
-    exact = [t for t in terminals if t.name.lower() == name_lo
-             or t.name.lower().endswith(f"- {name_lo}")]
+    # 1. Lieu structuré (station/ville) — insensible aux tirets internes du
+    # nom du terminal. Certains terminaux (ex: vaisseaux en vente) ont un nom
+    # du type "INS Jericho - Pyro Gateway" sans le suffixe système que portent
+    # leurs voisins ("Admin - Pyro Gateway (Stanton)") : matcher sur le nom
+    # brut du terminal ferait à tort gagner "INS Jericho" (correspondance
+    # exacte accidentelle) au lieu du vrai terminal de service.
+    exact = [
+        t for t in terminals
+        if (t.space_station_name or t.city_name or "").lower().startswith(name_lo)
+    ]
 
-    # 2. Correspondance partielle (le terminal contient le nom scanné)
+    # 2. Fallback : correspondance exacte sur le nom du terminal
+    if not exact:
+        exact = [t for t in terminals if t.name.lower() == name_lo
+                 or t.name.lower().endswith(f"- {name_lo}")]
+
+    # 3. Correspondance partielle (le terminal contient le nom scanné)
     if not exact:
         exact = [t for t in terminals if name_lo in t.name.lower()]
 
     if not exact:
         return terminal_name  # inconnu : retourner tel quel
 
+    if len(exact) > 1:
+        # Préférer le terminal de commerce (Admin/TDD/Trade) parmi les
+        # services d'une même station plutôt qu'un candidat arbitraire
+        # (restaurant, vaisseau en vente, etc.).
+        best_prio = min(_trading_priority(t) for t in exact)
+        exact = [t for t in exact if _trading_priority(t) == best_prio]
+
     if len(exact) == 1:
         return exact[0].name
 
-    # Plusieurs résultats : préférer celui du système actuel du joueur
+    # Plusieurs résultats de même priorité : préférer celui du système actuel du joueur
     player_sys = ""
     loc = (ctx.player.location or "").lower()
     if loc:
@@ -443,12 +464,15 @@ def _resolve_autopos_terminal(terminal_name: str, ctx) -> str:
 
 
 def _apply_autopos(terminal_name: str, ctx) -> tuple[str, str] | None:
-    """Applique la mise à jour auto-position.
+    """Propose une mise à jour auto-position (sans l'appliquer).
 
-    Retourne (new_pos, old_pos) si la position a changé, sinon None.
+    Le scan peut être relu après coup (ex: pendant un saut quantique, une
+    fois le joueur déjà parti) — la position n'est donc plus écrasée
+    silencieusement. On émet une proposition [MàJ]/[Ign] côté overlay ;
+    l'application réelle passe par /go (cf. showLocationConfirm côté client).
+
+    Retourne (new_pos, old_pos) si une proposition a été émise, sinon None.
     """
-    import uexinfo.config.settings as _settings
-
     new_pos = _resolve_autopos_terminal(terminal_name, ctx)
     if not new_pos:
         return None
@@ -456,23 +480,20 @@ def _apply_autopos(terminal_name: str, ctx) -> tuple[str, str] | None:
     if new_pos == old_pos:
         return None
 
-    ctx.player.location = new_pos
-    ctx.cfg["player"] = ctx.player.to_config()
-    _settings.save(ctx.cfg)
-
-    # Notification console
+    # Notification console (proposition, pas encore appliquée)
     console.print(
-        f"  [bold]Position auto :[/bold] [{C.UEX}]{new_pos}[/{C.UEX}]"
-        + (f"  [{C.DIM}](ancienne : {old_pos})[/{C.DIM}]" if old_pos else "")
+        f"  [bold]Position détectée :[/bold] [{C.UEX}]{new_pos}[/{C.UEX}]"
+        f"  [{C.DIM}]— en attente de confirmation[/{C.DIM}]"
+        + (f"  [{C.DIM}](actuelle : {old_pos})[/{C.DIM}]" if old_pos else "")
     )
 
-    # Message overlay (boutons [Ancienne position] [Définir dest])
+    # Message overlay (bandeau [MàJ]/[Ign])
     pending = getattr(ctx, "_overlay_msgs", None)
     if pending is None:
         ctx._overlay_msgs = []
         pending = ctx._overlay_msgs
     pending.append({
-        "type": "position_update",
+        "type": "location_confirm",
         "new":  new_pos,
         "old":  old_pos,
     })

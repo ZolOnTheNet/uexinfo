@@ -10,7 +10,10 @@ import appdirs
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
-from uexinfo.cache.models import Commodity, Planet, StarSystem, Terminal, Vehicle
+from uexinfo.cache.models import (
+    City, Commodity, Faction, Moon, Orbit, Outpost, Planet, SpaceStation,
+    StarSystem, Terminal, Vehicle,
+)
 from uexinfo.models.transport_network import TransportGraph
 
 APP_NAME = "uexinfo"
@@ -23,6 +26,12 @@ _STATIC_FILES = {
     "star_systems": "star_systems.json",
     "planets": "planets.json",
     "vehicles": "vehicles.json",
+    "moons": "moons.json",
+    "orbits": "orbits.json",
+    "space_stations": "space_stations.json",
+    "outposts": "outposts.json",
+    "cities": "cities.json",
+    "factions": "factions.json",
 }
 
 _console = Console()
@@ -37,6 +46,12 @@ class CacheManager:
         self.star_systems: list[StarSystem] = []
         self.planets: list[Planet] = []
         self.vehicles: list[Vehicle] = []
+        self.moons: list[Moon] = []
+        self.orbits: list[Orbit] = []
+        self.space_stations: list[SpaceStation] = []
+        self.outposts: list[Outpost] = []
+        self.cities: list[City] = []
+        self.factions: list[Faction] = []
         self.transport_graph: TransportGraph = TransportGraph()
 
     @property
@@ -71,6 +86,12 @@ class CacheManager:
         self.star_systems = []
         self.planets     = []
         self.vehicles    = []
+        self.moons          = []
+        self.orbits         = []
+        self.space_stations = []
+        self.outposts       = []
+        self.cities         = []
+        self.factions       = []
 
     def _is_expired(self, key: str) -> bool:
         path = DATA_DIR / _STATIC_FILES[key]
@@ -90,7 +111,13 @@ class CacheManager:
             ("terminals",   "Terminaux",   client.get_terminals,         self._parse_terminal),
             ("star_systems","Systèmes",    client.get_star_systems,      self._parse_star_system),
             ("planets",     "Planètes",    client.get_planets,           self._parse_planet),
-            ("vehicles",    "Vaisseaux",   client.get_vehicles,          None),  # handled specially
+            ("vehicles",    "Vaisseaux",   client.get_vehicles,          None),  # handled spécialement
+            ("moons",          "Lunes",             client.get_moons,          self._parse_moon),
+            ("orbits",         "Orbites",           client.get_orbits,         self._parse_orbit),
+            ("space_stations", "Stations",          client.get_space_stations, self._parse_space_station),
+            ("outposts",       "Avant-postes",      client.get_outposts,       self._parse_outpost),
+            ("cities",         "Villes",            client.get_cities,         self._parse_city),
+            ("factions",       "Factions",          client.get_factions,       self._parse_faction),
         ]
 
         with Progress(
@@ -104,12 +131,16 @@ class CacheManager:
             task = progress.add_task("Mise à jour cache UEX", total=len(steps), count="")
             for key, label, fetch_fn, parse_fn in steps:
                 progress.update(task, description=label)
+                # Champs secondaires (géographie fine + factions) : un échec ne doit
+                # pas interrompre le chargement du cœur trading (commodités/terminaux).
+                optional = key in ("vehicles", "moons", "orbits", "space_stations",
+                                    "outposts", "cities", "factions")
                 try:
                     raw = fetch_fn()
                 except Exception as e:
                     progress.update(task, advance=1, count="échec")
-                    if key == "vehicles":
-                        _console.print(f"[yellow]⚠ Vaisseaux non disponibles : {e}[/yellow]")
+                    if optional:
+                        _console.print(f"[yellow]⚠ {label} non disponible : {e}[/yellow]")
                         continue
                     raise
 
@@ -126,16 +157,7 @@ class CacheManager:
                     parsed = [parse_fn(d) for d in raw]
 
                 self._save(key, raw)
-                if key == "commodities":
-                    self.commodities = parsed
-                elif key == "terminals":
-                    self.terminals = parsed
-                elif key == "star_systems":
-                    self.star_systems = parsed
-                elif key == "planets":
-                    self.planets = parsed
-                elif key == "vehicles":
-                    self.vehicles = parsed
+                setattr(self, key, parsed)
                 progress.update(task, advance=1, count=f"{len(parsed)} entrées")
 
         _console.print(
@@ -150,6 +172,12 @@ class CacheManager:
             "terminals":   (self._parse_terminal,    "terminals"),
             "star_systems":(self._parse_star_system, "star_systems"),
             "planets":     (self._parse_planet,      "planets"),
+            "moons":          (self._parse_moon,          "moons"),
+            "orbits":         (self._parse_orbit,         "orbits"),
+            "space_stations": (self._parse_space_station, "space_stations"),
+            "outposts":       (self._parse_outpost,       "outposts"),
+            "cities":         (self._parse_city,          "cities"),
+            "factions":       (self._parse_faction,       "factions"),
         }
         for key, (parse_fn, attr) in mapping.items():
             path = DATA_DIR / _STATIC_FILES[key]
@@ -184,9 +212,17 @@ class CacheManager:
                 id=int(d.get("id") or 0),
                 name=name,
                 name_full=name_full,
+                slug=d.get("slug") or "",
+                id_company=int(d.get("id_company") or 0),
                 manufacturer=d.get("company_name") or "",
                 scu=int(d.get("scu") or 0),
                 crew=str(d.get("crew") or "1"),
+                mass=int(d.get("mass") or 0),
+                width=float(d.get("width") or 0),
+                height=float(d.get("height") or 0),
+                length=float(d.get("length") or 0),
+                fuel_quantum=int(d.get("fuel_quantum") or 0),
+                fuel_hydrogen=int(d.get("fuel_hydrogen") or 0),
                 pad_type=d.get("pad_type") or "",
                 container_sizes=d.get("container_sizes") or "",
                 is_cargo=int(d.get("is_cargo") or 0),
@@ -195,6 +231,18 @@ class CacheManager:
                 is_military=int(d.get("is_military") or 0),
                 is_concept=int(d.get("is_concept") or 0),
                 is_ground_vehicle=int(d.get("is_ground_vehicle") or 0),
+                is_spaceship=int(d.get("is_spaceship") or 0),
+                is_exploration=int(d.get("is_exploration") or 0),
+                is_medical=int(d.get("is_medical") or 0),
+                is_refinery=int(d.get("is_refinery") or 0),
+                is_refuel=int(d.get("is_refuel") or 0),
+                is_repair=int(d.get("is_repair") or 0),
+                is_scanning=int(d.get("is_scanning") or 0),
+                is_racing=int(d.get("is_racing") or 0),
+                is_passenger=int(d.get("is_passenger") or 0),
+                is_quantum_capable=int(d.get("is_quantum_capable") or 0),
+                url_photo=d.get("url_photo") or "",
+                url_store=d.get("url_store") or "",
             ))
         return sorted(vehicles, key=lambda v: v.name_full)
 
@@ -205,6 +253,7 @@ class CacheManager:
             name=d.get("name") or "",
             code=d.get("code") or "",
             kind=d.get("kind") or "",
+            id_parent=int(d.get("id_parent") or 0),
             weight_scu=float(d.get("weight_scu") or 1.0),
             price_buy=float(d.get("price_buy") or 0),
             price_sell=float(d.get("price_sell") or 0),
@@ -214,6 +263,16 @@ class CacheManager:
             is_available=int(d.get("is_available") or 1),
             is_refinable=int(d.get("is_refinable") or 0),
             is_extractable=int(d.get("is_extractable") or 0),
+            is_harvestable=int(d.get("is_harvestable") or 0),
+            is_mineral=int(d.get("is_mineral") or 0),
+            is_raw=int(d.get("is_raw") or 0),
+            is_refined=int(d.get("is_refined") or 0),
+            is_volatile_qt=int(d.get("is_volatile_qt") or 0),
+            is_volatile_time=int(d.get("is_volatile_time") or 0),
+            is_inert=int(d.get("is_inert") or 0),
+            is_explosive=int(d.get("is_explosive") or 0),
+            is_fuel=int(d.get("is_fuel") or 0),
+            wiki=d.get("wiki") or "",
         )
 
     @staticmethod
@@ -225,10 +284,18 @@ class CacheManager:
             type=d.get("type") or "",
             id_star_system=int(d.get("id_star_system") or 0),
             star_system_name=d.get("star_system_name") or "",
+            id_planet=int(d.get("id_planet") or 0),
             planet_name=d.get("planet_name") or "",
+            id_orbit=int(d.get("id_orbit") or 0),
             orbit_name=d.get("orbit_name") or "",
+            id_moon=int(d.get("id_moon") or 0),
+            id_city=int(d.get("id_city") or 0),
             city_name=d.get("city_name") or "",
+            id_space_station=int(d.get("id_space_station") or 0),
             space_station_name=d.get("space_station_name") or "",
+            id_outpost=int(d.get("id_outpost") or 0),
+            id_poi=int(d.get("id_poi") or 0),
+            id_faction=int(d.get("id_faction") or 0),
             max_container_size=int(d.get("max_container_size") or 0),
             is_available=int(d.get("is_available") or 1),
             is_player_owned=int(d.get("is_player_owned") or 0),
@@ -266,6 +333,146 @@ class CacheManager:
             name=d.get("name") or "",
             id_star_system=int(d.get("id_star_system") or 0),
             star_system_name=d.get("star_system_name") or "",
+        )
+
+    @staticmethod
+    def _parse_moon(d: dict) -> Moon:
+        return Moon(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            code=d.get("code") or "",
+            id_star_system=int(d.get("id_star_system") or 0),
+            star_system_name=d.get("star_system_name") or "",
+            id_planet=int(d.get("id_planet") or 0),
+            planet_name=d.get("planet_name") or "",
+            id_orbit=int(d.get("id_orbit") or 0),
+            orbit_name=d.get("orbit_name") or "",
+            id_faction=int(d.get("id_faction") or 0),
+            faction_name=d.get("faction_name") or "",
+            is_available=int(d.get("is_available") or 1),
+        )
+
+    @staticmethod
+    def _parse_orbit(d: dict) -> Orbit:
+        return Orbit(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            code=d.get("code") or "",
+            id_star_system=int(d.get("id_star_system") or 0),
+            star_system_name=d.get("star_system_name") or "",
+            is_lagrange=int(d.get("is_lagrange") or 0),
+            is_jump_point=int(d.get("is_jump_point") or 0),
+            is_asteroid=int(d.get("is_asteroid") or 0),
+            is_planet=int(d.get("is_planet") or 0),
+            is_star=int(d.get("is_star") or 0),
+            is_man_made=int(d.get("is_man_made") or 0),
+            is_available=int(d.get("is_available") or 1),
+        )
+
+    @staticmethod
+    def _parse_space_station(d: dict) -> SpaceStation:
+        return SpaceStation(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            nickname=d.get("nickname") or "",
+            id_star_system=int(d.get("id_star_system") or 0),
+            star_system_name=d.get("star_system_name") or "",
+            id_planet=int(d.get("id_planet") or 0),
+            planet_name=d.get("planet_name") or "",
+            id_orbit=int(d.get("id_orbit") or 0),
+            orbit_name=d.get("orbit_name") or "",
+            id_moon=int(d.get("id_moon") or 0),
+            id_faction=int(d.get("id_faction") or 0),
+            faction_name=d.get("faction_name") or "",
+            is_available=int(d.get("is_available") or 1),
+            is_landable=int(d.get("is_landable") or 0),
+            is_decommissioned=int(d.get("is_decommissioned") or 0),
+            is_lagrange=int(d.get("is_lagrange") or 0),
+            is_jump_point=int(d.get("is_jump_point") or 0),
+            has_trade_terminal=int(d.get("has_trade_terminal") or 0),
+            has_habitation=int(d.get("has_habitation") or 0),
+            has_refinery=int(d.get("has_refinery") or 0),
+            has_cargo_center=int(d.get("has_cargo_center") or 0),
+            has_clinic=int(d.get("has_clinic") or 0),
+            has_food=int(d.get("has_food") or 0),
+            has_shops=int(d.get("has_shops") or 0),
+            has_refuel=int(d.get("has_refuel") or 0),
+            has_repair=int(d.get("has_repair") or 0),
+            has_gravity=int(d.get("has_gravity") or 0),
+            pad_types=d.get("pad_types") or "",
+        )
+
+    @staticmethod
+    def _parse_outpost(d: dict) -> Outpost:
+        return Outpost(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            nickname=d.get("nickname") or "",
+            id_star_system=int(d.get("id_star_system") or 0),
+            star_system_name=d.get("star_system_name") or "",
+            id_planet=int(d.get("id_planet") or 0),
+            planet_name=d.get("planet_name") or "",
+            id_orbit=int(d.get("id_orbit") or 0),
+            orbit_name=d.get("orbit_name") or "",
+            id_moon=int(d.get("id_moon") or 0),
+            moon_name=d.get("moon_name") or "",
+            id_faction=int(d.get("id_faction") or 0),
+            faction_name=d.get("faction_name") or "",
+            is_available=int(d.get("is_available") or 1),
+            is_landable=int(d.get("is_landable") or 0),
+            is_decommissioned=int(d.get("is_decommissioned") or 0),
+            has_trade_terminal=int(d.get("has_trade_terminal") or 0),
+            has_habitation=int(d.get("has_habitation") or 0),
+            has_refinery=int(d.get("has_refinery") or 0),
+            has_cargo_center=int(d.get("has_cargo_center") or 0),
+            has_clinic=int(d.get("has_clinic") or 0),
+            has_food=int(d.get("has_food") or 0),
+            has_shops=int(d.get("has_shops") or 0),
+            has_refuel=int(d.get("has_refuel") or 0),
+            has_repair=int(d.get("has_repair") or 0),
+            has_gravity=int(d.get("has_gravity") or 0),
+            pad_types=d.get("pad_types") or "",
+        )
+
+    @staticmethod
+    def _parse_city(d: dict) -> City:
+        return City(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            code=d.get("code") or "",
+            id_star_system=int(d.get("id_star_system") or 0),
+            star_system_name=d.get("star_system_name") or "",
+            id_planet=int(d.get("id_planet") or 0),
+            planet_name=d.get("planet_name") or "",
+            id_orbit=int(d.get("id_orbit") or 0),
+            orbit_name=d.get("orbit_name") or "",
+            id_moon=int(d.get("id_moon") or 0),
+            moon_name=d.get("moon_name") or "",
+            id_faction=int(d.get("id_faction") or 0),
+            faction_name=d.get("faction_name") or "",
+            is_available=int(d.get("is_available") or 1),
+            has_trade_terminal=int(d.get("has_trade_terminal") or 0),
+            has_habitation=int(d.get("has_habitation") or 0),
+            has_refinery=int(d.get("has_refinery") or 0),
+            has_clinic=int(d.get("has_clinic") or 0),
+            has_food=int(d.get("has_food") or 0),
+            has_shops=int(d.get("has_shops") or 0),
+            has_refuel=int(d.get("has_refuel") or 0),
+            has_repair=int(d.get("has_repair") or 0),
+            wiki=d.get("wiki") or "",
+        )
+
+    @staticmethod
+    def _parse_faction(d: dict) -> Faction:
+        return Faction(
+            id=int(d.get("id") or 0),
+            name=d.get("name") or "",
+            wiki=d.get("wiki") or "",
+            is_piracy=int(d.get("is_piracy") or 0),
+            is_bounty_hunting=int(d.get("is_bounty_hunting") or 0),
+            ids_star_systems=d.get("ids_star_systems") or "",
+            ids_factions_friendly=d.get("ids_factions_friendly") or "",
+            ids_factions_hostile=d.get("ids_factions_hostile") or "",
         )
 
     # ── Recherche ────────────────────────────────────────────────────────────

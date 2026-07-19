@@ -67,6 +67,16 @@ _STATUS_CMDS = frozenset({"player", "p", "go", "lieu", "ship", "config", "dest",
 _QUIT_CMDS   = frozenset({"quit", "exit", "bye", "quitter", "/quit", "/exit", "/bye", "/quitter"})
 
 
+def _resolve_game_log_path(cfg: dict) -> Path | None:
+    """Chemin vers Game.log selon l'environnement actif (live/ptu, cf. [version])."""
+    gl_cfg = cfg.get("gamelog", {})
+    env = cfg.get("version", {}).get("active", "live")
+    install_path = gl_cfg.get(f"install_path_{env}", "") or gl_cfg.get("install_path_live", "")
+    if not install_path:
+        return None
+    return Path(install_path) / "Game.log"
+
+
 def _clipboard_win(text: str) -> None:
     """Copie text dans le presse-papiers via PowerShell Set-Clipboard (fallback WS)."""
     import sys
@@ -99,6 +109,7 @@ class OverlayServer:
         self._lock = threading.Lock()
         self._history: list[str] = []
         self.on_quit: callable | None = None  # callback appelé avant os._exit
+        self._arrival_tracker = None  # ArrivalTracker (gamelog), créé à la demande
 
         # ── Sélecteur interactif ──────────────────────────────────────────────
         # Utilisé pour suspendre _exec_sync en attendant la réponse JS.
@@ -582,6 +593,8 @@ class OverlayServer:
             "type":          "status",
             "pos":           p.location    or "",
             "dest":          p.destination or "",
+            "zone":          getattr(p, "zone", "") or "",
+            "zone_status":   getattr(p, "zone_status", "") or "",
             "ship":          p.active_ship or "",
             "cargo":         cargo,
             "dist":          dist,
@@ -597,9 +610,20 @@ class OverlayServer:
 
     async def _send_scan_edit(self, ws, result) -> None:
         """Envoie les données d'un ScanResult pour édition dans l'overlay."""
+        payload = self._scan_edit_payload(result)
+        if payload is not None:
+            await ws.send(json.dumps(payload))
+
+    def _scan_edit_payload(self, result) -> dict | None:
+        """Construit le message scan_log_inline pour un ScanResult (ou None si non applicable).
+
+        Factorisé pour être diffusé à tous les clients (mode quick, hors du
+        cycle requête/réponse d'une commande) sans dupliquer la construction
+        par client.
+        """
         from uexinfo.models.scan_result import ScanResult
         if not isinstance(result, ScanResult):
-            return
+            return None
 
         # Encoder le crop de la région commodités en base64 (scans OCR uniquement)
         # Crop = (58%, 12%, 100%, 100%) — identique aux constantes de engine.py
@@ -667,8 +691,7 @@ class OverlayServer:
             ],
         }
         # Scans log validés → formulaire inline dans l'output (pas de panel plein-écran)
-        msg_type = "scan_log_inline"  # toujours inline, plus de popup modal
-        await ws.send(json.dumps({"type": msg_type, "data": data}))
+        return {"type": "scan_log_inline", "data": data}
 
     async def _handle_scan_confirm(self, ws, data: dict) -> None:
         """Met à jour le ScanResult correspondant avec les valeurs éditées et persiste."""
@@ -679,7 +702,12 @@ class OverlayServer:
             # Stripper le suffixe système "(Stanton)" ajouté pour désambiguïser
             import re as _re
             terminal_bare = _re.sub(r'\s*\([^)]+\)$', '', raw_terminal).strip()
-            terminal_key  = terminal_bare.lower()
+            # orig_terminal = valeur au moment du rendu du formulaire (jamais éditée
+            # par l'utilisateur) — sert de clé de recherche fiable dans scan_history,
+            # contrairement au nom édité qui ne correspondra plus à rien si le
+            # terminal détecté (OCR/log) était erroné et a été corrigé manuellement.
+            orig_terminal = (data.get("orig_terminal") or raw_terminal).strip()
+            terminal_key  = orig_terminal.lower()
             mode_key     = data.get("mode") or ""
             result       = None
             if terminal_key and mode_key:
@@ -774,7 +802,8 @@ class OverlayServer:
             from uexinfo.cli.commands.scan import _terminal_store_key
             term_key_canonical = _terminal_store_key(result.terminal, self.ctx)
             store.save_result(result, terminal_key=term_key_canonical)
-        except Exception:
+        except Exception as e:
+            print(f"[overlay] scan_confirm error: {e}", flush=True)
             return
 
         # Confirmer la sauvegarde sans re-parser le log (évite doublon + saut de formulaire)
@@ -1283,8 +1312,13 @@ class OverlayServer:
                 candidates += self._dyn_typed(ntype, q)
 
         # — Cas 4 : profondeur 2+ ——————————————————————————————————————————
+        # Clé de contexte = tous les tokens déjà complets (pas seulement les 2
+        # premiers) — sinon les entrées à 3+ niveaux de SUBS (ex: "config scan
+        # mode", "config version use") ne sont jamais atteintes.
         else:
-            ctx_key2 = f"{cmd} {sub1}"
+            # tokens[0] garde le "/" d'origine (ex: "/config") — cmd est déjà
+            # nettoyé, on l'utilise pour le premier segment de la clé.
+            ctx_key2 = " ".join([cmd] + tokens[1:depth])
             subs2    = SUBS.get(ctx_key2, [])
             ntype2   = NEXT_TYPE.get(ctx_key2) or NEXT_TYPE.get(cmd)
             for sub, hint in subs2:
@@ -1583,12 +1617,68 @@ class OverlayServer:
             if self.ctx.cfg.get("scan", {}).get("log", {}).get("autopos", "off") == "quick":
                 try:
                     from uexinfo.cli.commands.scan import check_log_auto
+                    prev_history_len = len(getattr(self.ctx, "scan_history", []) or [])
                     check_log_auto(self.ctx)  # déclenche _apply_autopos si terminal détecté
+
+                    # Toujours présenter les scans importés en arrière-plan (formulaire
+                    # éditable) — le mode quick ne doit pas faire confiance en silence
+                    # à ce qu'il lit ; l'utilisateur doit pouvoir vérifier/corriger.
+                    new_scans = getattr(self.ctx, "scan_history", [])[prev_history_len:]
+                    for result in new_scans:
+                        payload = self._scan_edit_payload(result)
+                        if payload is not None:
+                            await self._broadcast_raw(json.dumps(payload))
+
                     pending = getattr(self.ctx, "_overlay_msgs", [])
                     if pending:
                         for msg in pending:
                             await self._broadcast_raw(json.dumps(msg))
                         self.ctx._overlay_msgs = []
+                except Exception:
+                    pass
+
+            # Game.log (lecture seule, jamais d'écriture/hook) : lieu + statut de zone —
+            # signal complémentaire à la position, seul moyen d'avoir de la visibilité
+            # hors trading (en vol, en exploration). Pas de message dédié : la valeur
+            # est relayée via le "status" périodique ci-dessous, au plus 10s de latence.
+            #
+            # "location" (Projected Start Location, calcul de route QT) fait autorité
+            # pour le nom de lieu affiché — nom d'affichage exact du jeu, mis à jour
+            # uniquement lors d'un calcul de route (valeur conservée entre deux calculs).
+            #
+            # "zone" (notification de juridiction/armistice) reste un CONTEXTE distinct,
+            # jamais fusionné avec le nom de lieu — "Crusader Industries" y désigne la
+            # compagnie/juridiction, pas la planète Crusader (même mot, sens différent).
+            if self.ctx.cfg.get("gamelog", {}).get("enabled", "off") == "on":
+                try:
+                    log_path = _resolve_game_log_path(self.ctx.cfg)
+                    if log_path:
+                        from uexinfo.gamelog.reader import GameLogTail
+                        events = GameLogTail(log_path).parse_new()
+                        loc_events = [e for e in events if e.kind == "location"]
+                        if loc_events:
+                            last = loc_events[-1]
+                            self.ctx.player.zone = last.text
+                            self.ctx.player.zone_ts = last.timestamp.timestamp()
+                        zone_events = [e for e in events if e.kind == "zone"]
+                        if zone_events:
+                            last = zone_events[-1]
+                            self.ctx.player.zone_status = last.text
+                            self.ctx.player.zone_status_ts = last.timestamp.timestamp()
+
+                        # Confirmation d'arrivée (cible QT + nom en clair + docking
+                        # corrélés — cf. gamelog/arrival.py) : proposition réelle, jamais
+                        # appliquée directement — même bandeau [MàJ]/[Ign] que l'autopos
+                        # scan existant.
+                        if self._arrival_tracker is None:
+                            from uexinfo.gamelog.arrival import ArrivalTracker
+                            self._arrival_tracker = ArrivalTracker()
+                        for arrival in self._arrival_tracker.feed(events):
+                            await self._broadcast_raw(json.dumps({
+                                "type": "location_confirm",
+                                "new": arrival.text,
+                                "old": self.ctx.player.location or "",
+                            }))
                 except Exception:
                     pass
 

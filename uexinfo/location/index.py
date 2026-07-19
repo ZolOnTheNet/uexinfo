@@ -15,6 +15,17 @@ except ImportError:
     _HAS_RAPIDFUZZ = False
 
 
+_TRADING_SERVICES = {"admin", "tdd", "trade"}
+
+
+def _trading_priority(t) -> int:
+    """0 = terminal de commerce (TDD/Admin/Trade), 1 = autre."""
+    if " - " not in t.name:
+        return 1
+    svc = t.name.split(" - ")[0].strip().lower()
+    return 0 if svc in _TRADING_SERVICES else 1
+
+
 @dataclass
 class LocationEntry:
     name: str
@@ -51,14 +62,20 @@ class LocationIndex:
             ))
 
         # Terminals — dédupliqués par lieu (sans préfixe service "Admin - ", "Shop - "…)
-        seen_locs: set[str] = set()
+        # Quand plusieurs terminaux partagent le même lieu (ex: un Admin et un TDD
+        # à Area 18), on garde le terminal de commerce prioritaire (TDD > Admin/Trade
+        # > autre) au lieu du premier rencontré dans cache.terminals (ordre non
+        # garanti par l'API) — sinon le TDD peut disparaître silencieusement de
+        # l'index (complétion @lieu, /scan, /mission…).
+        winners: dict[str, "Terminal"] = {}
         for t in cache.terminals:
             # "Admin - ARC-L1" → "ARC-L1"   "TDD - Trade … - Area 18" → "Area 18"
             loc_name = t.name.rsplit(" - ", 1)[-1].strip()
-            if loc_name in seen_locs:
-                continue
-            seen_locs.add(loc_name)
+            prev = winners.get(loc_name)
+            if prev is None or _trading_priority(t) < _trading_priority(prev):
+                winners[loc_name] = t
 
+        for loc_name, t in winners.items():
             # Chemin géographique sans le nom du terminal
             geo_raw = [p.strip() for p in [
                 t.star_system_name,

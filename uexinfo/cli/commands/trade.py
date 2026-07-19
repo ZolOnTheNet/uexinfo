@@ -38,6 +38,27 @@ _TERM_MAX     = 14  # largeur max du nom seul (même système)
 _TERM_MAX_SYS = 20  # largeur max avec préfixe système
 
 
+def _resolve_terminal_pick(query: str, ctx, label: str):
+    """Résout un terminal en texte libre, avec picker si plusieurs stations
+    de même priorité de trading correspondent (vraie ambiguïté) — au lieu de
+    trancher silencieusement comme _find_terminal seul (min() sur une liste)."""
+    from uexinfo.cli.commands.info import _find_terminal_candidates, _trading_priority
+    candidates = _find_terminal_candidates(query, ctx)
+    if len(candidates) <= 1:
+        return _find_terminal(query, ctx)
+    best_prio = min(_trading_priority(t) for t in candidates)
+    best = [t for t in candidates if _trading_priority(t) == best_prio]
+    if len(best) == 1:
+        return best[0]
+    from uexinfo.cli.selector import SelectItem, pick
+    items = [
+        SelectItem(label=_loc(t.name), value=t, meta=t.star_system_name or "")
+        for t in best[:20]
+    ]
+    chosen = pick(ctx, items, title=f"{label} — «{query}»", mode="single")
+    return chosen[0].value if chosen else None
+
+
 @register("trade", "t")
 def cmd_trade(args: list[str], ctx) -> None:
     if not args:
@@ -385,7 +406,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
             (t for t in ctx.cache.terminals if t.id == ctx.player.location_id), None
         )
     if not origin:
-        origin = _find_terminal(origin_loc, ctx)
+        origin = _resolve_terminal_pick(origin_loc, ctx, "Origine")
     if not origin:
         print_error(f"Terminal d'origine introuvable : {origin_loc}")
         return
@@ -397,7 +418,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
             (t for t in ctx.cache.terminals if t.id == ctx.player.destination_id), None
         )
     if not dest:
-        dest = _find_terminal(dest_loc, ctx)
+        dest = _resolve_terminal_pick(dest_loc, ctx, "Destination")
     if not dest:
         print_error(f"Terminal de destination introuvable : {dest_loc}")
         return

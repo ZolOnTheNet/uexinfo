@@ -91,6 +91,16 @@ def _abbrev_name(name: str, maxlen: int = _NAME_MAX, code: str = "") -> str:
     suffix = f" [{C.DIM}]\\[{code}][/{C.DIM}]" if code else ""
     if len(name) <= maxlen:
         return name + suffix
+    # Nom à variante ("Ship Ammunition - Size 1") : garder la variante telle
+    # quelle et abréger seulement la base, plutôt que l'heuristique générique
+    # premier+dernier mot qui donnerait "Ship 1" (perte du sens).
+    if " - " in name:
+        base, variant = name.split(" - ", 1)
+        budget = maxlen - len(variant) - 1
+        if budget >= 3:
+            candidate = f"{_abbrev_name(base, maxlen=budget)} {variant}"
+            if len(candidate) <= maxlen:
+                return candidate + suffix
     parts = name.split()
     if len(parts) >= 3:
         candidate = parts[0] + " " + parts[-1]
@@ -912,10 +922,13 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
                 ship_cargo = ship.scu
                 break
 
-    if ship_cargo == 0:
-        console.print(f"[{C.WARNING}]⚠  Vaisseau actif non défini ou cargo = 0 {C.SCU}[/{C.WARNING}]")
-        console.print(f"[{C.DIM}]   Utilisez /ship set <nom> pour définir votre vaisseau[/{C.DIM}]")
-        return
+    has_ship = ship_cargo > 0
+    if not has_ship:
+        ship_cargo = 1   # valeur nominale : affiche des quantités/coûts pour 1 □ plutôt que rien
+        console.print(
+            f"[{C.LOSS}]⚠  Vaisseau actif non défini — quantités/coûts affichés pour 1 {C.SCU}[/{C.LOSS}]"
+            f"  [{C.DIM}](/ship set <nom> pour un calcul réel)[/{C.DIM}]"
+        )
 
     player_dest = (ctx.player.destination or "").lower().strip()
     hint = f"  [{C.DIM}](⭐ = vendable à destination)[/{C.DIM}]" if player_dest else ""
@@ -2254,10 +2267,13 @@ def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
         matches = [t for t in ctx.cache.terminals
                    if q in t.name.lower() or _loc(t.name).lower() in q]
 
-    # Dédupliquer par station : garder le terminal de commerce (Admin/TDD)
-    seen: dict[str, Terminal] = {}
+    # Dédupliquer par station (système + lieu, pas juste le nom du lieu) : garde
+    # le terminal de commerce (Admin/TDD) parmi les services d'une même station,
+    # mais préserve les stations homonymes de systèmes différents (ex: deux
+    # "Nyx Gateway", une côté Stanton et une côté Nyx — vraie ambiguïté).
+    seen: dict[tuple[str, str], Terminal] = {}
     for t in matches:
-        station = _loc(t.name).lower()
+        station = ((t.star_system_name or "").lower(), _loc(t.name).lower())
         if station not in seen or _trading_priority(t) < _trading_priority(seen[station]):
             seen[station] = t
     return sorted(seen.values(), key=lambda t: _loc(t.name).lower())
@@ -2266,9 +2282,22 @@ def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
 def _find_commodity(query: str, ctx) -> Commodity | None:
     q = query.replace("_", " ").lower().strip()
     # Exact (nom ou code)
-    for c in ctx.cache.commodities:
-        if c.name.lower() == q or c.code.lower() == q:
-            return c
+    exact = next(
+        (c for c in ctx.cache.commodities if c.name.lower() == q or c.code.lower() == q),
+        None,
+    )
+    if exact is not None:
+        if not exact.is_buyable:
+            # Fiche "parente" non achetable (ex: "Ship Ammunition", is_buyable=0)
+            # — préférer une variante achetable ("Ship Ammunition - Size 1") si elle existe.
+            variant = next(
+                (c for c in ctx.cache.commodities
+                 if c.name.lower().startswith(q + " - ") and c.is_buyable),
+                None,
+            )
+            if variant is not None:
+                return variant
+        return exact
     # Préfixe — préférer is_buyable=1 parmi les matchs
     prefix = [c for c in ctx.cache.commodities if c.name.lower().startswith(q)]
     if prefix:
@@ -2636,6 +2665,18 @@ def cmd_info(args: list[str], ctx) -> None:
             else:
                 _show_commodity(c, ctx, sys_filter=sys_filter)
         else:
+            # "ship" est aussi le début de noms de commodités ("Ship Ammunition",
+            # "Ship Decoy Countermeasures"…) — vérifier terminal/commodité sur la
+            # requête complète avant de forcer une recherche véhicule.
+            full_query = f"{first} {query}"
+            c = _find_commodity(full_query, ctx)
+            if c is not None:
+                _show_commodity(c, ctx, sys_filter=sys_filter)
+                return
+            t = _find_terminal(full_query, ctx, strong=True)
+            if t is not None:
+                _show_terminal(t, ctx, sys_filter=sys_filter)
+                return
             v = _find_vehicle(query, ctx)
             if v is None:
                 print_warn(f"Vaisseau introuvable : {query}")

@@ -24,6 +24,11 @@ def _show_info(ctx) -> None:
     t.add_row("[bold]Vaisseau actif[/bold]", p.active_ship or "[dim]—[/dim]")
     t.add_row("[bold]Position[/bold]", p.location or "[dim]—[/dim]")
     t.add_row("[bold]Destination[/bold]", p.destination or "[dim]—[/dim]")
+    if p.zone:
+        t.add_row("[bold]Lieu (Game.log)[/bold]", f"[{C.DIM}]{p.zone}[/{C.DIM}]")
+    if p.zone_status:
+        status_display = p.zone_status.rstrip(": ").strip()
+        t.add_row("[bold]Statut[/bold]", f"[{C.DIM}]{status_display}[/{C.DIM}]")
 
     if p.ships:
         ship_list = ", ".join(

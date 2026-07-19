@@ -1071,6 +1071,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 
 <div id="status-bar">
   <span id="sb-pos"   class="sb sb-pos click shrink" title="Clic : changer la position · Double-clic : afficher le terminal">POS: —</span>
+  <span id="sb-zone" class="sb shrink" style="opacity:.55;display:none" title="Dernier lieu calculé par le jeu (Game.log, mis à jour au calcul de route) — /player pour le statut de juridiction"></span>
   <span id="sb-arrow" class="sb sb-sep click"        title="Aller à la destination (◄)"> · </span>
   <span id="sb-swap"    class="sb sb-sep click"      title="Inverser origine et destination"> </span>
   <span id="sb-go-here" class="sb sb-sep click"      title="Fixer la destination au lieu actuel (►)"> </span>
@@ -1674,7 +1675,7 @@ function dispatch(msg) {
     case 'trade_pick':  showTradePick(msg); break;
     case 'terminal_buy_pick': showTerminalBuyPick(msg); break;
     case 'select':      showSelectPanel(msg); break;
-    case 'position_update': showPositionUpdate(msg.new, msg.old); break;
+    case 'location_confirm': showLocationConfirm(msg.new, msg.old); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items, msg.common_prefix || ''); break;
     case 'hint':        elHint.textContent = msg.text; break;
@@ -1748,11 +1749,11 @@ function sendCmd(text) {
 
 // ── Sortie ────────────────────────────────────────────────────────────────────
 
-// ── Notification auto-position ────────────────────────────────────────────────
+// ── Confirmation auto-position ──────────────────────────────────────────────────
 let _posUpdateTimer = null;
 
-function showPositionUpdate(newPos, oldPos) {
-  // Supprimer une éventuelle notification précédente non fermée
+function showLocationConfirm(newPos, oldPos) {
+  // Supprimer une éventuelle proposition précédente non traitée
   const prev = document.getElementById('pos-update-banner');
   if (prev) prev.remove();
   if (_posUpdateTimer) { clearTimeout(_posUpdateTimer); _posUpdateTimer = null; }
@@ -1764,37 +1765,28 @@ function showPositionUpdate(newPos, oldPos) {
   const info = document.createElement('div');
   info.className = 'pos-update-info';
   info.innerHTML =
-    `<span class="pos-new">📍 ${escHtml(newPos)}</span>` +
-    (oldPos ? `  <span class="pos-old">ancienne : ${escHtml(oldPos)}</span>` : '');
+    `Nous semblons vous détecter sur <span class="pos-new">📍 ${escHtml(newPos)}</span>` +
+    (oldPos ? `  <span class="pos-old">actuelle : ${escHtml(oldPos)}</span>` : '');
 
   const btns = document.createElement('div');
   btns.className = 'pos-update-btns';
 
-  const btnDest = document.createElement('button');
-  btnDest.textContent = 'Définir dest';
-  btnDest.onclick = () => { sendCmd(`/go to ${newPos}`); banner.remove(); };
+  const btnUpdate = document.createElement('button');
+  btnUpdate.textContent = 'MàJ';
+  btnUpdate.onclick = () => { sendCmd(`/go ${newPos}`); banner.remove(); };
 
-  const btnOld = document.createElement('button');
-  btnOld.className = 'btn-secondary';
-  btnOld.textContent = oldPos ? `Revenir à ${oldPos}` : 'Annuler';
-  btnOld.onclick = () => {
-    if (oldPos) sendCmd(`/go from ${oldPos}`);
-    banner.remove();
-  };
+  const btnIgnore = document.createElement('button');
+  btnIgnore.className = 'btn-secondary';
+  btnIgnore.textContent = 'Ign';
+  btnIgnore.onclick = () => banner.remove();
 
-  const btnClose = document.createElement('button');
-  btnClose.className = 'btn-close-pos';
-  btnClose.textContent = '✕';
-  btnClose.onclick = () => banner.remove();
-
-  btns.appendChild(btnDest);
-  if (oldPos) btns.appendChild(btnOld);
-  btns.appendChild(btnClose);
+  btns.appendChild(btnUpdate);
+  btns.appendChild(btnIgnore);
   banner.appendChild(info);
   banner.appendChild(btns);
   document.body.appendChild(banner);
 
-  // Auto-fermeture après 30s si pas d'interaction
+  // Auto-fermeture après 30s si pas d'interaction (= ignoré par défaut)
   _posUpdateTimer = setTimeout(() => { banner.remove(); _posUpdateTimer = null; }, 30000);
 }
 
@@ -1878,6 +1870,16 @@ function updateStatus(s) {
   currentShip  = s.ship  || '';
 
   document.getElementById('sb-pos').textContent  = `POS: ${currentPos  || '—'}`;
+
+  const zoneEl = document.getElementById('sb-zone');
+  const zoneText = (s.zone || '').replace(/:\s*$/, '');
+  if (zoneText) {
+    zoneEl.textContent = `(${zoneText})`;
+    zoneEl.style.display = '';
+  } else {
+    zoneEl.style.display = 'none';
+  }
+
   document.getElementById('sb-dest').textContent =
     `DEST: ${currentDest || '—'}${currentDest && s.dist != null ? ` ${s.dist}Gm` : ''}`;
   document.getElementById('sb-ship').textContent =
@@ -2809,7 +2811,9 @@ function submitScanInline(btn) {
   const terminal = div.querySelector('.si-term-input')?.value.trim() || div.dataset.terminal;
   const mode     = div.querySelector('.si-mode-select')?.value || div.dataset.mode;
   const comms    = _siCollectComms(div);
-  send({type: 'scan_confirm', data: {terminal, mode, commodities: comms}});
+  // orig_terminal (jamais modifié par l'édition) sert à retrouver le bon scan
+  // côté serveur, même si l'utilisateur a corrigé un terminal mal détecté.
+  send({type: 'scan_confirm', data: {terminal, orig_terminal: div.dataset.terminal, mode, commodities: comms}});
   btn.textContent = '✓ Envoyé';
   btn.classList.add('done');
   btn.disabled = true;
@@ -2824,7 +2828,7 @@ function submitScanInlineRow(btn, idx) {
   const tr   = btn.closest('tr');
   const realIdx = rows.indexOf(tr);
   const comms = _siCollectComms(div);
-  send({type: 'scan_confirm', data: {terminal, mode, commodities: comms, single_idx: realIdx}});
+  send({type: 'scan_confirm', data: {terminal, orig_terminal: div.dataset.terminal, mode, commodities: comms, single_idx: realIdx}});
   btn.textContent = '✓';
   btn.classList.add('done');
   btn.disabled = true;

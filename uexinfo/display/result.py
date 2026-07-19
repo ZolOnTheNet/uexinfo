@@ -210,7 +210,7 @@ class CommandResult:
     status_update: bool        = False   # demande refresh barre de statut
     vocab_update:  bool        = False   # demande re-envoi du vocab
 
-    # Messages WS additionnels (ex: position_update, trade_pick…)
+    # Messages WS additionnels (ex: location_confirm, trade_pick…)
     overlay_msgs:  list[dict]  = field(default_factory=list)
 
     def to_dict(self) -> dict:
