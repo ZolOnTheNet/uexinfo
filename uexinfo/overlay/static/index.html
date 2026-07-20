@@ -1488,7 +1488,12 @@ function annotateNode(textNode) {
   if (!vocabRe && !vocabFullNames.size) return;
   const text        = textNode.textContent;
   const trimmed     = text.trimEnd();
-  const isTruncated = trimmed.endsWith('\u2026');
+  // L'ellipse peut \u00eatre en fin de cha\u00eene ("TerminalNomLong\u2026") ou au milieu,
+  // suivie d'un suffixe de variante ("Ship Ammu\u2026 Size 1" \u2014 cf. _abbrev_name
+  // c\u00f4t\u00e9 serveur pour les noms "<base> - <variante>"). D\u00e9tecter sa position
+  // r\u00e9elle plut\u00f4t que de supposer qu'elle est forc\u00e9ment en derni\u00e8re position.
+  const ellipsisIdx = trimmed.indexOf('\u2026');
+  const isTruncated = ellipsisIdx !== -1;
 
   // ── Passage 1 : regex normale (fonctionne aussi sur texte tronqué partiel) ──
   if (vocabRe) {
@@ -1521,22 +1526,37 @@ function annotateNode(textNode) {
   // ── Passage 2 : texte tronqué «…» non reconnu par la regex → préfixe-mot ──
   // Couvre "TerminalNomLong…" et "TermName (Sy…" ou "Sys.Station.ty…"
   if (isTruncated && vocabFullNames.size) {
-    const prefix = trimmed.slice(0, -1).trimEnd().toLowerCase();
+    // Un marqueur ("★ " données joueur, etc.) peut précéder le nom dans le
+    // même nœud de texte que le rendu HTML — l'ignorer, sinon le préfixe
+    // calculé ("★ ship amm") ne démarre jamais comme un nom de vocabulaire.
+    const rawPrefix = trimmed.slice(0, ellipsisIdx).replace(/^[^\p{L}\p{N}]+/u, '');
+    const prefix = rawPrefix.trimEnd().toLowerCase();
+    // Suffixe après l'ellipse (ex: "Size 1") — vide si l'ellipse est en fin
+    // de chaîne, présent pour désambiguïser entre plusieurs variantes qui
+    // partagent le même préfixe tronqué (Size 1, Size 2, Size 3…).
+    const suffix = trimmed.slice(ellipsisIdx + 1).trim().toLowerCase();
     if (prefix.length >= 3) {
+      let fallback = null;
       for (const [lc, canonical] of vocabFullNames) {
         // terme vocab commence par le préfixe (nom coupé avant la fin du terme)
         // OU préfixe commence par le terme vocab suivi d'un séparateur
-        if (lc.startsWith(prefix) || _vocabWordPrefix(prefix, lc)) {
-          const type = vocabType(canonical);
-          const span = document.createElement('span');
-          span.className = `cw cw-${type} cw-truncated`;
-          span.dataset.word = canonical;
-          span.dataset.type = type;
-          span.title        = canonical;
-          span.textContent  = text;
-          textNode.parentNode.replaceChild(span, textNode);
-          return;
+        if (!(lc.startsWith(prefix) || _vocabWordPrefix(prefix, lc))) continue;
+        if (!suffix || lc.endsWith(suffix) || lc.includes(' ' + suffix)) {
+          fallback = canonical;
+          break;
         }
+        if (!fallback) fallback = canonical;   // repli si aucune variante ne matche le suffixe
+      }
+      if (fallback) {
+        const type = vocabType(fallback);
+        const span = document.createElement('span');
+        span.className = `cw cw-${type} cw-truncated`;
+        span.dataset.word = fallback;
+        span.dataset.type = type;
+        span.title        = fallback;
+        span.textContent  = text;
+        textNode.parentNode.replaceChild(span, textNode);
+        return;
       }
     }
   }
@@ -3039,21 +3059,32 @@ function _makeTbpWrap(e) {
   return wrap;
 }
 
+// Extrait le code entre crochets d'un texte de cellule rendu (ex: "Ship Amm…
+// Size 1 [SHPA1]" -> "shpa1"). Le code n'est JAMAIS abrégé côté serveur
+// (contrairement au nom, tronqué en "…" pour l'affichage) — c'est la seule
+// valeur fiable présente dans le texte rendu, à utiliser pour retrouver la
+// bonne ligne plutôt que de re-comparer un fragment du nom tronqué.
+function _extractRowCode(text) {
+  const m = /\[([a-z0-9]+)\]/i.exec(text || '');
+  return m ? m[1].toLowerCase() : '';
+}
+
 function showTerminalBuyPick(msg) {
   const entries = msg.entries || [];
   if (!entries.length) return;
 
+  const codesInEntries = new Set(entries.map(e => (e.code || '').toLowerCase()).filter(Boolean));
+
   // Chercher le tableau "Acheter sur place" (_show_buy_detailed → 1 commodité/ligne)
+  // — par code (fiable), jamais par fragment de nom tronqué à l'affichage.
   let targetTable = null;
   for (const d of _lastAnsiDivs) {
     if (d.tagName !== 'TABLE') continue;
     const tBody = d.querySelector('tbody');
     if (!tBody) continue;
-    const tText = tBody.textContent.toLowerCase();
-    if (entries.some(e => {
-      const k = e.name.toLowerCase();
-      return tText.includes(k.length > 8 ? k.slice(0, 8) : k);
-    })) { targetTable = d; break; }
+    const rowCodes = [...tBody.querySelectorAll('tr td:first-child')]
+      .map(td => _extractRowCode(td.textContent));
+    if (rowCodes.some(c => c && codesInEntries.has(c))) { targetTable = d; break; }
   }
 
   if (!targetTable) { _tbpInjectDivs(entries); return; }
@@ -3071,20 +3102,15 @@ function showTerminalBuyPick(msg) {
   const tbody = targetTable.querySelector('tbody');
   if (!tbody) return;
 
+  const entriesByCode = new Map(entries.filter(e => e.code).map(e => [e.code.toLowerCase(), e]));
   const usedEntries = new Set();
 
   for (const tr of tbody.querySelectorAll('tr')) {
-    const firstTd = tr.querySelector('td');
-    const rowTxt  = firstTd ? firstTd.textContent.toLowerCase() : '';
+    const firstTd  = tr.querySelector('td');
+    const rowCode  = _extractRowCode(firstTd ? firstTd.textContent : '');
 
-    let e = null;
-    for (const entry of entries) {
-      if (usedEntries.has(entry)) continue;
-      const k = entry.name.toLowerCase();
-      const prefix  = k.length > 14 ? k.slice(0, 14) : k;
-      const byCode  = entry.code && rowTxt.includes('[' + entry.code.toLowerCase() + ']');
-      if (rowTxt.includes(prefix) || byCode) { e = entry; break; }
-    }
+    let e = rowCode ? entriesByCode.get(rowCode) : null;
+    if (e && usedEntries.has(e)) e = null;
 
     if (e) {
       usedEntries.add(e);

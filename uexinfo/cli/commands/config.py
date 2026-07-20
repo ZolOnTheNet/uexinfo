@@ -21,22 +21,35 @@ def cmd_config(args: list[str], ctx) -> None:
     # Équivalence point/espace, y compris les formes mélangées ("scan.log
     # autopos quick") : le premier token est éclaté sur les points (il ne peut
     # être qu'une clé, jamais une valeur), les suivants restent tels quels.
-    # On essaie ensuite la correspondance pointée la plus longue d'abord
-    # (jusqu'à 3 segments : section.sous-section.clé), puis le dispatch
-    # espace classique — peu importe comment le point/espace tombe dans ce
-    # que l'utilisateur a tapé, ça retombe sur le même résultat.
     flat = args[0].split(".") + args[1:]
 
+    if _try_resolve_config(flat, ctx):
+        return
+
+    # Le "/config" affiche certaines clés préfixées par leur section de
+    # stockage TOML ("overlay.close", "overlay.hotkey"…) même quand la
+    # commande réelle n'a jamais eu ce préfixe (juste "close", "hotkey") —
+    # accepter le préfixe "overlay" comme optionnel plutôt que de forcer à
+    # deviner s'il fait partie de la commande ou non.
+    if flat and flat[0].lower() == "overlay" and len(flat) > 1:
+        if _try_resolve_config(flat[1:], ctx):
+            return
+
+    print_error(f"Sous-commande inconnue : {args[0].lower()}  (/help config)")
+
+
+def _try_resolve_config(flat: list[str], ctx) -> bool:
+    """Tente la clé pointée la plus longue d'abord (jusqu'à 3 segments), puis
+    le dispatch espace classique. Retourne True si pris en charge."""
     for k in range(min(4, len(flat)), 1, -1):
         dotted = ".".join(p.lower() for p in flat[:k])
         if dotted in _DOT_KEYS:
             _set_dotkey(dotted, flat[k:], ctx)
-            return
+            return True
 
-    if _dispatch_space(flat[0].lower(), flat[1:], ctx) is not False:
-        return
-
-    print_error(f"Sous-commande inconnue : {args[0].lower()}  (/help config)")
+    if not flat:
+        return False
+    return _dispatch_space(flat[0].lower(), flat[1:], ctx) is not False
 
 
 def _dispatch_space(sub: str, rest: list[str], ctx) -> bool | None:
@@ -75,7 +88,28 @@ def _dispatch_space(sub: str, rest: list[str], ctx) -> bool | None:
         return _hotkey(rest, ctx)
     if sub == "cmdhistory":
         return _cmdhistory(rest, ctx)
+    if sub == "opacity":
+        return _opacity_config(rest, ctx)
     return False
+
+
+def _opacity_config(args: list[str], ctx) -> None:
+    """/config opacity <0.10-0.99> — transparence de l'overlay (identique au slider)."""
+    ov = ctx.cfg.setdefault("overlay", {})
+    if not args:
+        print_info(f"opacity : {ov.get('opacity', 0.95)}  —  usage : /config opacity <0.10-0.99>")
+        return
+    try:
+        v = round(max(0.10, min(0.99, float(args[0].replace(",", ".")))), 2)
+    except ValueError:
+        print_error("Usage : /config opacity <0.10-0.99>")
+        return
+    ov["opacity"] = v
+    settings.save(ctx.cfg)
+    print_ok(f"Opacité : {v}")
+    send_fn = getattr(ctx, "_overlay_send_fn", None)
+    if send_fn:
+        send_fn({"type": "opacity", "value": v})
 
 
 # ── Affichage ────────────────────────────────────────────────────────────────
@@ -140,6 +174,9 @@ def _show(cfg: dict, ctx=None) -> None:
 
     # Préparer les items pour chaque section
     config_items = []
+    # Valeurs potentiellement longues (chemins…) : cassent l'alignement de la
+    # grille multi-colonnes — affichées séparément, une par ligne, à la fin.
+    long_items = []
 
     # ── Vaisseaux & position (source unique : ctx.player) ─────────────────
     p = ctx.player if ctx else None
@@ -188,12 +225,25 @@ def _show(cfg: dict, ctx=None) -> None:
     config_items.append(config_item("Illégal", "oui" if trade.get('illegal_commodities') else "non"))
     config_items.append(config_item("TTL cache", f"{cache_cfg.get('ttl_static', 86400)}s / {cache_cfg.get('ttl_prices', 300)}s"))
     config_items.append(config_item("scan.mode", scan.get('mode', 'ocr'), "ocr|log|confirm"))
-    config_items.append(config_item("scan.tesseract", scan.get('tesseract_exe') or '(auto)'))
-    config_items.append(config_item("scan.logpath", scan.get('sc_log_path') or '(non défini)'))
-    config_items.append(config_item("scan.screenshots", scan.get('sc_screenshots_dir') or '(non défini)'))
+    long_items.append(config_item("scan.tesseract", scan.get('tesseract_exe') or '(auto)'))
+    long_items.append(config_item("scan.logpath", scan.get('sc_log_path') or '(non défini)'))
+    long_items.append(config_item("scan.screenshots", scan.get('sc_screenshots_dir') or '(non défini)'))
     config_items.append(config_item("scan.auto_ocr", "on" if scan.get('auto_ocr', True) else "off"))
     config_items.append(config_item("scan.hour", f"{scan.get('hour', 2)}h"))
     config_items.append(config_item("scan.session_gap", f"{scan.get('session_gap', 60)} min"))
+
+    # Séparateur
+    config_items.append("")
+
+    # ── Suivi Game.log (zone/juridiction, confirmation d'arrivée) ──────────
+    gl = cfg.get("gamelog", {})
+    gl_enabled_disp = (
+        f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if gl.get("enabled", "off") == "on"
+        else f"[{C.LOSS}]off[/{C.LOSS}]"
+    )
+    config_items.append(config_item("gamelog.enabled", gl_enabled_disp))
+    long_items.append(config_item("gamelog.install_path_live", gl.get("install_path_live") or "(non défini)"))
+    long_items.append(config_item("gamelog.install_path_ptu", gl.get("install_path_ptu") or "(non défini)"))
 
     # Séparateur
     config_items.append("")
@@ -221,6 +271,13 @@ def _show(cfg: dict, ctx=None) -> None:
 
     # Afficher les items en colonnes
     print_columns(config_items)
+
+    # Valeurs longues (chemins…) à part, une par ligne — casseraient l'aligne-
+    # ment si mélangées à la grille multi-colonnes ci-dessus.
+    if long_items:
+        console.print()
+        for item in long_items:
+            console.print(item)
 
 
 # ── Affichage terminal (magasins / restaurants / services) ───────────────────
