@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
@@ -149,6 +150,14 @@ class ScreenshotDB:
     Clé : nom de fichier (basename). La base est chargée en mémoire
     et persistée de façon atomique (write tmp → rename).
     """
+
+    # Verrou de classe (pas d'instance) : le worker OCR (thread dédié) et les
+    # commandes /mission, /scan, /voyage (exécutées sur le ThreadPoolExecutor
+    # de l'overlay) partagent la même instance ctx.screenshot_db mais tournent
+    # sur des threads distincts — deux save() concurrents sur le même fichier
+    # font échouer os.replace() sous Windows (WinError 32, fichier verrouillé
+    # par un handle encore ouvert), ce qui a déjà planté le thread ocr-worker.
+    _save_lock = threading.Lock()
 
     def __init__(self, path: Path | None = None) -> None:
         self._path: Path = path or _DB_PATH
@@ -397,16 +406,34 @@ class ScreenshotDB:
     # ── Persistance ────────────────────────────────────────────────────────────
 
     def save(self) -> None:
-        """Sauvegarde atomique : écriture tmp → rename."""
+        """Sauvegarde atomique : écriture tmp → rename.
+
+        _save_lock sérialise les appels concurrents entre threads de ce
+        process (worker OCR + commandes /mission, /scan, /voyage exécutées
+        sur le ThreadPoolExecutor de l'overlay, même instance partagée).
+        Retries sur os.replace() : sous Windows, un antivirus, l'indexeur ou
+        OneDrive peut verrouiller brièvement le fichier cible — un échec
+        immédiat ne devrait pas planter l'appelant (déjà arrivé : ça a tué
+        le thread ocr-worker de façon permanente jusqu'au redémarrage).
+        """
         self._path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self._path.with_suffix(".tmp")
         payload = {
             "version": _VERSION,
             "entries": {k: v.to_dict() for k, v in self._entries.items()},
         }
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, self._path)
+        with self._save_lock:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            last_exc: PermissionError | None = None
+            for attempt in range(5):
+                try:
+                    os.replace(tmp, self._path)
+                    return
+                except PermissionError as exc:
+                    last_exc = exc
+                    time.sleep(0.05 * (attempt + 1))
+            raise last_exc
 
     def _load(self) -> None:
         if not self._path.exists():

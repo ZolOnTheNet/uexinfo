@@ -341,6 +341,26 @@ def _player_system(ctx) -> str:
     return ""
 
 
+def _default_system_filter(ctx, player_sys: str) -> list[str] | None:
+    """Filtre système par défaut pour /info <commodité> — unifie avec /select.
+
+    Priorité : liste "include" de /select (choix persistant explicite de
+    l'utilisateur, ex: "pyro" configuré via /select system) > système actuel
+    du joueur. La liste "exclude" de /select s'applique ensuite dans tous
+    les cas. N'intervient que sur le filtre implicite (sys_filter=None côté
+    appelant) — --all ou --<Système> explicite sur /info reste une
+    intention utilisateur qui prime sur /select.
+    """
+    sel = ctx.cfg.get("filters", {}).get("system", {})
+    sel_inc = [s.lower() for s in sel.get("include", [])] if isinstance(sel, dict) else []
+    sel_exc = [s.lower() for s in sel.get("exclude", [])] if isinstance(sel, dict) else []
+
+    base = sel_inc if sel_inc else ([player_sys] if player_sys else [])
+    if sel_exc:
+        base = [s for s in base if s not in sel_exc]
+    return base or None
+
+
 # ── Cache prix — délégué au DataManager ────────────────────────────────────────
 
 from uexinfo.cache.data_manager import DataManager as _DM, Source as _Source
@@ -1690,11 +1710,15 @@ def _dist_label(term_name: str, terminal_sys: str, player_sys: str,
 
 
 def _term_sys_cell(r: dict, maxlen: int | None = None,
-                   player_loc: str = "", player_dest: str = "") -> str:
+                   player_loc: str = "", player_dest: str = "",
+                   out_of_filter: bool = False) -> str:
     """'TermCourt  (Sys)' — nom court + système en dim.
     Souligne le nom si le joueur est sur ce terminal.
     Ajoute ⭐ si c'est la destination définie.
     maxlen=None → calculé depuis la largeur de la console.
+    out_of_filter=True : ligne hors du filtre système attendu (repli après
+    un filtre qui n'a produit aucun résultat) — colorée pour ne pas se
+    confondre avec une ligne qui respecte réellement le filtre.
     """
     if maxlen is None:
         maxlen = _term_name_maxlen()
@@ -1708,9 +1732,13 @@ def _term_sys_cell(r: dict, maxlen: int | None = None,
 
     term = _abbrev_terminal(term, maxlen)
 
-    term_part = f"[bold underline]{term}[/bold underline]" if is_here else term
-    suffix    = f" [{C.PROFIT}]⭐[/{C.PROFIT}]" if is_dest else ""
-    sys_part  = f"  [{C.DIM}]({sys})[/{C.DIM}]" if sys else ""
+    if out_of_filter:
+        term_part = f"[{C.WARNING}]{term}[/{C.WARNING}]"
+        sys_part  = f"  [{C.WARNING}]({sys})[/{C.WARNING}]" if sys else ""
+    else:
+        term_part = f"[bold underline]{term}[/bold underline]" if is_here else term
+        sys_part  = f"  [{C.DIM}]({sys})[/{C.DIM}]" if sys else ""
+    suffix = f" [{C.PROFIT}]⭐[/{C.PROFIT}]" if is_dest else ""
     return f"{term_part}{suffix}{sys_part}"
 
 
@@ -1781,7 +1809,7 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
 
     # Résoudre le filtre effectif
     if sys_filter is None:
-        effective_filter = [player_sys] if player_sys else None
+        effective_filter = _default_system_filter(ctx, player_sys)
     elif sys_filter == []:          # --all
         effective_filter = None
     else:
@@ -1811,6 +1839,12 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
 
     all_rows = rows  # sauvegardé avant le filtre système pour le résumé "existe aussi"
 
+    # filter_fallback : le filtre système n'a produit AUCUNE ligne (ex: aucun
+    # prix Silicon connu dans Pyro en cache à cet instant) — on retombe alors
+    # sur toutes les lignes, tous systèmes confondus, plutôt que d'afficher
+    # une liste vide. Sans indication, ça ressemble à un filtre ignoré plutôt
+    # qu'à un repli explicite — d'où les lignes hors-filtre colorées différemment.
+    filter_fallback = False
     if effective_filter:
         rows_filtered = [
             r for r in rows
@@ -1818,6 +1852,12 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
         ]
         if rows_filtered:
             rows = rows_filtered
+        else:
+            filter_fallback = True
+            console.print(
+                f"[{C.WARNING}]⚠ Aucune donnée dans {', '.join(effective_filter)} — "
+                f"tous systèmes affichés ci-dessous (lignes en orange = hors filtre)[/{C.WARNING}]"
+            )
 
     active    = [r for r in rows if r.get("price_buy") or r.get("price_sell")]
     buy_rows  = sorted([r for r in active if r.get("price_buy")],
@@ -1897,8 +1937,11 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
             total_cell = _price_fmt(total) if total else f"[{C.DIM}]—[/{C.DIM}]"
             cargo_cell = (f"×{qty_buy} {C.SCU}" if qty_buy else f"[{C.DIM}]—[/{C.DIM}]")
             sz = _short_sizes(container_map.get(term_name.lower(), "")) or f"[{C.DIM}]—[/{C.DIM}]"
+            row_oof = bool(filter_fallback and effective_filter
+                           and sys.lower() not in effective_filter)
             tbl.add_row(
-                _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
+                _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key,
+                               out_of_filter=row_oof),
                 _price_fmt(price),
                 _fmt_date(r.get("date_modified")) or "—",
                 sz,
@@ -1956,8 +1999,11 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
 
             revenue_cell = _price_fmt(revenue) if revenue else f"[{C.DIM}]—[/{C.DIM}]"
             cargo_cell   = (f"×{qty_sell} {C.SCU}" if qty_sell else f"[{C.DIM}]—[/{C.DIM}]")
+            row_oof = bool(filter_fallback and effective_filter
+                           and sys.lower() not in effective_filter)
             tbl.add_row(
-                _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key),
+                _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key,
+                               out_of_filter=row_oof),
                 _price_fmt(price),
                 _fmt_date(r.get("date_modified")) or "—",
                 _scu_frac(scu_stock, scu_sell_max, status, buy=False),

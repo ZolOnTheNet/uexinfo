@@ -305,20 +305,28 @@ class OcrWorker:
                         pass
             except Exception as exc:
                 log.warning("OcrWorker: erreur traitement %s : %s", path.name, exc)
-                # Mettre à jour l'entrée avec l'erreur
-                err_entry = self._db.get(path.name)
-                if err_entry:
-                    err_entry.type   = "unknown"
-                    err_entry.errors = [str(exc)]
-                    err_entry.processed_at = time.time()
-                    self._db.upsert(err_entry)
-                    self._db.save()
-                    # Notifier les callbacks même en cas d'erreur (arrêt du spinner UI)
-                    for cb in self._callbacks:
-                        try:
-                            cb(err_entry)
-                        except Exception:
-                            pass
+                try:
+                    # Mettre à jour l'entrée avec l'erreur
+                    err_entry = self._db.get(path.name)
+                    if err_entry:
+                        err_entry.type   = "unknown"
+                        err_entry.errors = [str(exc)]
+                        err_entry.processed_at = time.time()
+                        self._db.upsert(err_entry)
+                        self._db.save()
+                        # Notifier les callbacks même en cas d'erreur (arrêt du spinner UI)
+                        for cb in self._callbacks:
+                            try:
+                                cb(err_entry)
+                            except Exception:
+                                pass
+                except Exception as exc2:
+                    # Ne jamais laisser un échec ici (ex: save() encore en échec
+                    # après ses propres retries) tuer le thread définitivement —
+                    # déjà arrivé (WinError 32, fichier verrouillé par un autre
+                    # thread/processus au moment du rename atomique).
+                    log.warning("OcrWorker: échec enregistrement de l'erreur pour %s : %s",
+                                path.name, exc2)
             finally:
                 self._in_queue.discard(path.name)
                 self._queue.task_done()

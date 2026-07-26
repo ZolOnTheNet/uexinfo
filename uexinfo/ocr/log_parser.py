@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
@@ -56,17 +57,21 @@ class LogParser:
         prev_offset: int | None = None,
         last_terminal: str = "",
         last_type: str = "buy",
+        pending_commodities: list[dict] | None = None,
     ) -> None:
         state = self._load_state()
         entry = state.get(str(self.log_path), {})
         if prev_offset is None:
             prev_offset = entry.get("prev_offset", 0)
+        if pending_commodities is None:
+            pending_commodities = entry.get("pending_commodities", [])
         state[str(self.log_path)] = {
-            "offset":        offset,
-            "mtime":         mtime,
-            "prev_offset":   prev_offset,
-            "last_terminal": last_terminal,
-            "last_type":     last_type,
+            "offset":              offset,
+            "mtime":               mtime,
+            "prev_offset":         prev_offset,
+            "last_terminal":       last_terminal,
+            "last_type":           last_type,
+            "pending_commodities": pending_commodities,
         }
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_STATE_FILE, "w", encoding="utf-8") as f:
@@ -77,7 +82,8 @@ class LogParser:
 
     def reset_offset(self) -> None:
         """Remet l'offset à 0 et efface le contexte terminal sauvegardé."""
-        self._save_state(0, 0.0, prev_offset=0, last_terminal="", last_type="buy")
+        self._save_state(0, 0.0, prev_offset=0, last_terminal="", last_type="buy",
+                         pending_commodities=[])
 
     def advance_to_end(self) -> None:
         """Avance l'offset persisté à la fin du fichier sans lire le contenu.
@@ -92,6 +98,7 @@ class LogParser:
             stat.st_size, stat.st_mtime,
             prev_offset=self.get_offset(),
             last_terminal="", last_type="buy",
+            pending_commodities=[],
         )
 
     def undo_offset(self) -> bool:
@@ -110,6 +117,7 @@ class LogParser:
             prev_offset=0,
             last_terminal="",   # on ne peut pas restaurer le contexte terminal pré-undo
             last_type="buy",
+            pending_commodities=[],
         )
         return True
 
@@ -118,9 +126,14 @@ class LogParser:
     def parse_new(self) -> list[ScanResult]:
         """Lit uniquement les nouvelles lignes depuis le dernier offset sauvegardé.
 
-        L'offset et le contexte terminal (last_terminal, last_type) sont persistés
-        dans _STATE_FILE pour que le prochain appel reprenne au bon endroit même si
-        le terminal n'a pas été re-détecté dans ce batch.
+        L'offset, le contexte terminal (last_terminal, last_type) ET les
+        commodités déjà extraites mais pas encore soumises (pending_commodities)
+        sont persistés dans _STATE_FILE. Le report des commodités en attente est
+        indispensable : l'extraction OCR d'un scan et sa ligne de soumission
+        arrivent souvent dans deux appels parse_new() distincts (le temps que
+        l'utilisateur valide dans Datarunner) — sans ce report, la soumission
+        arrive dans un batch sans commodités en mémoire et le scan n'est jamais
+        marqué validé.
 
         Si le fichier a été recréé (taille < offset sauvegardé), repart de 0.
         """
@@ -132,6 +145,7 @@ class LogParser:
         saved_mtime    = state_entry.get("mtime", 0.0)
         last_terminal  = state_entry.get("last_terminal", "")
         last_type      = state_entry.get("last_type", "buy")
+        pending_dicts  = state_entry.get("pending_commodities", []) or []
 
         stat = self.log_path.stat()
         current_mtime = stat.st_mtime
@@ -142,6 +156,7 @@ class LogParser:
             saved_offset  = 0
             last_terminal = ""
             last_type     = "buy"
+            pending_dicts = []
 
         with open(self.log_path, encoding="utf-8", errors="replace") as f:
             f.seek(saved_offset)
@@ -150,13 +165,17 @@ class LogParser:
 
         if not new_lines:
             self._save_state(new_offset, current_mtime, prev_offset=saved_offset,
-                             last_terminal=last_terminal, last_type=last_type)
+                             last_terminal=last_terminal, last_type=last_type,
+                             pending_commodities=pending_dicts)
             return []
 
-        results, final_terminal, final_type = _group_scans(
+        pending_commodities = [ScannedCommodity(**d) for d in pending_dicts]
+
+        results, final_terminal, final_type, final_commodities = _group_scans(
             new_lines,
             initial_terminal=last_terminal,
             initial_type=last_type,
+            initial_commodities=pending_commodities,
         )
 
         self._save_state(
@@ -164,6 +183,7 @@ class LogParser:
             prev_offset=saved_offset,
             last_terminal=final_terminal,
             last_type=final_type,
+            pending_commodities=[asdict(c) for c in final_commodities],
         )
 
         return results
@@ -178,7 +198,7 @@ class LogParser:
         with open(self.log_path, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
-        results, _t, _m = _group_scans(lines)
+        results, _t, _m, _c = _group_scans(lines)
         return results
 
     @staticmethod
@@ -219,19 +239,29 @@ def _group_scans(
     lines: list[str],
     initial_terminal: str = "",
     initial_type: str = "buy",
-) -> tuple[list[ScanResult], str, str]:
+    initial_commodities: list[ScannedCommodity] | None = None,
+) -> tuple[list[ScanResult], str, str, list[ScannedCommodity]]:
     """Groupe les lignes en ScanResult.
 
-    Reprend depuis initial_terminal/initial_type (état persisté entre deux parse_new).
-    Retourne (results, final_terminal, final_type) pour que l'appelant puisse
-    sauvegarder l'état courant et reprendre correctement au prochain appel.
+    Reprend depuis initial_terminal/initial_type/initial_commodities (état
+    persisté entre deux parse_new). Retourne (results, final_terminal,
+    final_type, final_commodities) pour que l'appelant puisse sauvegarder
+    l'état courant et reprendre correctement au prochain appel.
+
+    initial_commodities est indispensable : l'extraction OCR d'un scan et sa
+    ligne de soumission ("Data successfully sent to API") arrivent souvent
+    dans deux appels parse_new() distincts (le temps que l'utilisateur
+    corrige/valide dans Datarunner). Sans le report des commodités en attente
+    d'un appel à l'autre, la ligne de soumission arrive dans un batch où
+    current_commodities repart vide — la condition "if current_commodities"
+    échoue silencieusement et le scan n'est JAMAIS marqué validated=True.
 
     Timestamps : extraits des lignes de log (pas datetime.now()).
     """
     results: list[ScanResult] = []
     current_terminal  = initial_terminal
     current_type      = initial_type
-    current_commodities: list[ScannedCommodity] = []
+    current_commodities: list[ScannedCommodity] = list(initial_commodities or [])
     current_ts: datetime | None = None   # timestamp de la dernière ligne vue
 
     for line in lines:
@@ -306,4 +336,4 @@ def _group_scans(
             seen[key] = i
         r.commodities = [r.commodities[i] for i in sorted(seen.values())]
 
-    return results, current_terminal, current_type
+    return results, current_terminal, current_type, current_commodities
