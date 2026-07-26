@@ -1675,9 +1675,10 @@ class OverlayServer:
                             self._arrival_tracker = ArrivalTracker()
                         for arrival in self._arrival_tracker.feed(events):
                             await self._broadcast_raw(json.dumps({
-                                "type": "location_confirm",
-                                "new": arrival.text,
-                                "old": self.ctx.player.location or "",
+                                "type":   "location_confirm",
+                                "new":    arrival.text,
+                                "old":    self.ctx.player.location or "",
+                                "source": "gamelog",  # Game.log (le jeu) — distingue du scan SC-Datarunner
                             }))
                 except Exception:
                     pass

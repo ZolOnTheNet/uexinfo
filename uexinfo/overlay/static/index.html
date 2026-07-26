@@ -1025,6 +1025,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 .pos-update-info { flex: 1; }
 .pos-new  { color: var(--accent); font-weight: bold; }
 .pos-old  { color: var(--dim); font-size: 0.88em; margin-left: 8px; }
+.pos-source { color: var(--dim); font-size: 0.82em; margin-left: 8px; font-style: italic; }
 .pos-update-btns { display: flex; gap: 6px; flex-shrink: 0; }
 .pos-update-btns button {
   background: rgba(0,180,80,0.18); border: 1px solid var(--accent);
@@ -1695,7 +1696,7 @@ function dispatch(msg) {
     case 'trade_pick':  showTradePick(msg); break;
     case 'terminal_buy_pick': showTerminalBuyPick(msg); break;
     case 'select':      showSelectPanel(msg); break;
-    case 'location_confirm': showLocationConfirm(msg.new, msg.old); break;
+    case 'location_confirm': showLocationConfirm(msg.new, msg.old, msg.source); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items, msg.common_prefix || ''); break;
     case 'hint':        elHint.textContent = msg.text; break;
@@ -1772,7 +1773,7 @@ function sendCmd(text) {
 // ── Confirmation auto-position ──────────────────────────────────────────────────
 let _posUpdateTimer = null;
 
-function showLocationConfirm(newPos, oldPos) {
+function showLocationConfirm(newPos, oldPos, source) {
   // Supprimer une éventuelle proposition précédente non traitée
   const prev = document.getElementById('pos-update-banner');
   if (prev) prev.remove();
@@ -1782,11 +1783,16 @@ function showLocationConfirm(newPos, oldPos) {
   banner.id = 'pos-update-banner';
   banner.className = 'pos-update-banner';
 
+  const sourceLabel = source === 'gamelog' ? 'Game.log'
+    : source === 'scan' ? 'scan SC-Datarunner'
+    : '';
+
   const info = document.createElement('div');
   info.className = 'pos-update-info';
   info.innerHTML =
     `Nous semblons vous détecter sur <span class="pos-new">📍 ${escHtml(newPos)}</span>` +
-    (oldPos ? `  <span class="pos-old">actuelle : ${escHtml(oldPos)}</span>` : '');
+    (oldPos ? `  <span class="pos-old">actuelle : ${escHtml(oldPos)}</span>` : '') +
+    (sourceLabel ? `  <span class="pos-source">(${escHtml(sourceLabel)})</span>` : '');
 
   const btns = document.createElement('div');
   btns.className = 'pos-update-btns';

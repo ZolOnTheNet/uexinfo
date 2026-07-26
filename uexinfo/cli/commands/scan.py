@@ -493,9 +493,10 @@ def _apply_autopos(terminal_name: str, ctx) -> tuple[str, str] | None:
         ctx._overlay_msgs = []
         pending = ctx._overlay_msgs
     pending.append({
-        "type": "location_confirm",
-        "new":  new_pos,
-        "old":  old_pos,
+        "type":   "location_confirm",
+        "new":    new_pos,
+        "old":    old_pos,
+        "source": "scan",  # scan OCR/log SC-Datarunner — distingue de gamelog (Game.log)
     })
 
     return new_pos, old_pos
@@ -537,6 +538,14 @@ def check_log_auto(ctx) -> list[ScanResult]:
         results = LogParser(log_path).parse_new()
     except Exception:
         return []
+
+    # Scans validés (soumis à UEX depuis SC-Datarunner) : les corrections faites
+    # dans l'interface Datarunner avant l'envoi n'apparaissent jamais dans le log
+    # (seul l'OCR brut y est écrit) — on récupère les prix UEX frais, qui les
+    # reflètent déjà (même logique que _scan_log pour le mode manuel).
+    for r in results:
+        if r.validated:
+            _refresh_validated_from_uex(r, ctx)
 
     if auto_cfg.get("log_accept", True):
         for r in results:
@@ -720,18 +729,22 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
     if not result.terminal:
         return False
 
-    name_lower = result.terminal.lower()
     is_sell    = result.mode == "sell"
     price_key  = "price_sell" if is_sell else "price_buy"
 
-    # Trouver l'ID terminal dans le cache
-    matches = [
-        t for t in (ctx.cache.terminals or [])
-        if t.name.rsplit(" - ", 1)[-1].strip().lower() == name_lower
-    ]
-    terminal = matches[0] if len(matches) == 1 else None
+    # Résolution structurée (space_station_name + priorité de trading), comme
+    # _resolve_autopos_terminal — un match par simple nom de lieu ne trouve
+    # parfois qu'un terminal restaurant/boutique sans aucune donnée de prix, si
+    # le terminal Admin/commodité a un nom légèrement différent côté UEX (ex.
+    # "Admin - Starlight Service" sans "Station", alors que le terminal détecté
+    # par l'OCR est "Starlight Service Station").
+    resolved_name = _resolve_autopos_terminal(result.terminal, ctx)
+    name_lower = result.terminal.lower()
+    terminal = next(
+        (t for t in (ctx.cache.terminals or []) if t.name == resolved_name), None
+    )
 
-    cache_key = f"uex_refresh_{name_lower}_{result.mode}"
+    cache_key = f"uex_refresh_{resolved_name.lower()}_{result.mode}"
     cached = ctx._price_cache.get(cache_key)
     if cached:
         _ts, rows = cached
