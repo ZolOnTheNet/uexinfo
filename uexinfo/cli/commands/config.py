@@ -80,8 +80,6 @@ def _dispatch_space(sub: str, rest: list[str], ctx) -> bool | None:
         return _info_config(rest, ctx)
     if sub == "version":
         return _version_config(rest, ctx)
-    if sub == "uex":
-        return _uex_config(rest, ctx)
     if sub == "sctrade":
         return _sctrade_config(rest, ctx)
     if sub in ("hotkey", "overlay.hotkey"):
@@ -222,7 +220,13 @@ def _show(cfg: dict, ctx=None) -> None:
     # ── Trade / cache / scan ───────────────────────────────────────────────
     config_items.append(config_item(f"Profit min/{C.SCU}", f"{trade.get('min_profit_per_scu', 0)} {C.AUEC}"))
     config_items.append(config_item("Marge min", f"{trade.get('min_margin_percent', 0)} %"))
-    config_items.append(config_item("Illégal", "oui" if trade.get('illegal_commodities') else "non"))
+    # "on/off" partout dans /config — jamais "oui/non", pour rester cohérent
+    # avec la commande réelle (/config trade illegal on|off).
+    illegal_disp = (
+        f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if trade.get('illegal_commodities')
+        else f"[{C.LOSS}]off[/{C.LOSS}]"
+    )
+    config_items.append(config_item("trade.illegal", illegal_disp))
     config_items.append(config_item("TTL cache", f"{cache_cfg.get('ttl_static', 86400)}s / {cache_cfg.get('ttl_prices', 300)}s"))
     config_items.append(config_item("scan.mode", scan.get('mode', 'ocr'), "ocr|log|confirm"))
     long_items.append(config_item("scan.tesseract", scan.get('tesseract_exe') or '(auto)'))
@@ -231,6 +235,17 @@ def _show(cfg: dict, ctx=None) -> None:
     config_items.append(config_item("scan.auto_ocr", "on" if scan.get('auto_ocr', True) else "off"))
     config_items.append(config_item("scan.hour", f"{scan.get('hour', 2)}h"))
     config_items.append(config_item("scan.session_gap", f"{scan.get('session_gap', 60)} min"))
+
+    # Séparateur
+    config_items.append("")
+
+    # ── Commodités ───────────────────────────────────────────────────────
+    comm_cfg = cfg.get("commodities", {})
+    shipammun_disp = (
+        f"[{C.SUCCESS}]on[/{C.SUCCESS}]" if comm_cfg.get("shipammun", "on") == "on"
+        else f"[{C.LOSS}]off[/{C.LOSS}]"
+    )
+    config_items.append(config_item("commodities.shipammun", shipammun_disp, "Ship Ammun./Decoy/Noise — ravitailleurs"))
 
     # Séparateur
     config_items.append("")
@@ -257,12 +272,6 @@ def _show(cfg: dict, ctx=None) -> None:
 
     # Séparateur
     config_items.append("")
-
-    # ── API UEX Corp ──────────────────────────────────────────────────────────
-    api_cfg = cfg.get("api", {})
-    uex_key = api_cfg.get("secret_key", "")
-    uex_key_disp = f"[{C.SUCCESS}]définie[/{C.SUCCESS}]" if uex_key else f"[{C.LOSS}]non définie[/{C.LOSS}]"
-    config_items.append(config_item("uex.key", uex_key_disp))
 
     # ── sc-trade.tools ────────────────────────────────────────────────────────
     sct = cfg.get("sctrade", {})
@@ -385,33 +394,6 @@ def _version_config(args: list[str], ctx) -> None:
         print_ok(f"Version {active} : {ver}  ·  cache UEX invalidé — rechargement au prochain accès")
     else:
         print_ok(f"Version {active} : {ver}  ·  anciens scans de version différente ignorés")
-
-
-# ── UEX Corp API config ───────────────────────────────────────────────────────
-
-def _uex_config(args: list[str], ctx) -> None:
-    """Gestion de la clé secrète API UEX Corp.
-
-    Usage :
-      /config uex key <secret_key>   Définit la clé
-      /config uex key                Affiche l'état
-      /config uex                    Affiche l'état
-    """
-    api = ctx.cfg.setdefault("api", {})
-    if not args or args[0].lower() in ("key",) and len(args) < 2:
-        key = api.get("secret_key", "")
-        state = "***défini***" if key else "(non défini)"
-        print_info(f"uex.key: {state}")
-        print_info("Usage: /config uex key <secret_key>")
-        print_info("Clé disponible sur https://uexcorp.space (profil utilisateur)")
-        return
-    sub = args[0].lower()
-    if sub == "key":
-        api["secret_key"] = args[1].strip()
-        settings.save(ctx.cfg)
-        console.print(f"  uex.key → [{C.SUCCESS}]***sauvegardé***[/{C.SUCCESS}]  [{C.DIM}](relancer pour activer)[/{C.DIM}]")
-    else:
-        print_error(f"Sous-commande uex inconnue : {sub}  (key)")
 
 
 # ── sc-trade.tools config ────────────────────────────────────────────────────
@@ -1022,6 +1004,7 @@ def _clock(args: list[str], ctx) -> None:
 _DOT_KEYS: dict[str, tuple[type, str]] = {
     "scan.autopos":        (str,   "Mise à jour auto-position depuis tout scan OCR/log (on|off)"),
     "scan.log.autopos":    (str,   "Mise à jour auto-position depuis log Datarunner (on|off|quick)"),
+    "commodities.shipammun": (str, "Afficher Ship Ammunition/Decoy/Noise Countermeasures — niche ravitailleurs (on|off)"),
     "gamelog.enabled":            (str, "Lire Game.log en direct pour la zone/juridiction (on|off)"),
     "gamelog.install_path_live":  (str, r"Dossier d'install LIVE (ex: C:\...\StarCitizen\LIVE)"),
     "gamelog.install_path_ptu":   (str, r"Dossier d'install PTU (optionnel)"),

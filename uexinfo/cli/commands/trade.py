@@ -14,6 +14,7 @@ from uexinfo.cli.commands.info import (
     _dist_label,
     _fetch_container_sizes,
     _fetch_route_distances,
+    _filter_shipammun_rows,
     _find_commodity,
     _find_terminal,
     _fmt_date,
@@ -428,8 +429,8 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
         print_warn(f"Vaisseau actif non défini ou cargo = 0 {C.SCU}. Utilisez /ship set <nom>.")
         return
 
-    origin_rows = _terminal_prices(origin, ctx)
-    dest_rows   = _terminal_prices(dest, ctx)
+    origin_rows = _filter_shipammun_rows(_terminal_prices(origin, ctx), ctx)
+    dest_rows   = _filter_shipammun_rows(_terminal_prices(dest, ctx), ctx)
 
     buy_rows = [r for r in origin_rows if r.get("price_buy")]
     dest_sell_map = {

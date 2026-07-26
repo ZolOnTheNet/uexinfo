@@ -40,13 +40,21 @@ def _show_info(ctx) -> None:
     console.print(t)
 
 
-def _resolve_location(token: str, ctx) -> str:
-    """Résout un token @lieu en nom canonique."""
+def _resolve_location(token: str, ctx) -> tuple[str, int]:
+    """Résout un token @lieu en (nom canonique, id terminal UEX ou 0).
+
+    L'id n'est renvoyé que pour une entrée de type "terminal" (LocationIndex
+    associe déjà entity_id=terminal.id, avec la priorité de trading TDD >
+    Admin/Trade > autre déjà appliquée dans LocationIndex._build()) — un
+    système/planète/station résolu n'a pas d'id terminal exploitable pour
+    /trade, donc 0 (comme /go clear).
+    """
     query = token.lstrip("@")
     entries = ctx.location_index.search(query, limit=1)
     if entries:
-        return entries[0].name
-    return query  # fallback : utiliser tel quel
+        entry = entries[0]
+        return entry.name, (entry.entity_id if entry.type == "terminal" else 0)
+    return query, 0  # fallback : utiliser tel quel, id inconnu
 
 
 @register("player", "p")
@@ -64,8 +72,8 @@ def cmd_player(args: list[str], ctx) -> None:
 
     # /player @lieu  — définir position (supporte noms avec espaces)
     if sub.startswith("@"):
-        loc = _resolve_location(" ".join(args), ctx)
-        ctx.player.location = loc
+        loc, loc_id = _resolve_location(" ".join(args), ctx)
+        ctx.player.set_location(loc, loc_id)
         _save_player(ctx)
         print_ok(f"Position : {loc}")
         return
@@ -76,8 +84,8 @@ def cmd_player(args: list[str], ctx) -> None:
         if not rest or not rest[0].startswith("@"):
             print_error("Usage : /player dest @<lieu>")
             return
-        loc = _resolve_location(" ".join(rest), ctx)
-        ctx.player.destination = loc
+        loc, loc_id = _resolve_location(" ".join(rest), ctx)
+        ctx.player.set_destination(loc, loc_id)
         _save_player(ctx)
         print_ok(f"Destination : {loc}")
         return

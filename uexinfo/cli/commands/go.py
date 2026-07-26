@@ -70,17 +70,14 @@ def cmd_go(args: list[str], ctx) -> None:
     sub = args[0].lower()
 
     if sub == "clear":
-        ctx.player.location = ""
-        ctx.player.destination = ""
-        ctx.player.location_id = 0
-        ctx.player.destination_id = 0
+        ctx.player.clear_location()
+        ctx.player.clear_destination()
         _save_player(ctx)
         print_ok("Position et destination réinitialisées")
         return
 
     if sub in ("clear-dest", "cleardest", "dest-clear"):
-        ctx.player.destination = ""
-        ctx.player.destination_id = 0
+        ctx.player.clear_destination()
         _save_player(ctx)
         print_ok("Destination effacée")
         return
@@ -93,8 +90,7 @@ def cmd_go(args: list[str], ctx) -> None:
         resolved = _resolve(name, ctx)
         if resolved is None:
             return
-        ctx.player.location = resolved
-        ctx.player.location_id = _lookup_terminal_id(resolved, ctx)
+        ctx.player.set_location(resolved, _lookup_terminal_id(resolved, ctx))
         _save_player(ctx)
         print_ok(f"Position : {resolved}")
 
@@ -106,8 +102,7 @@ def cmd_go(args: list[str], ctx) -> None:
         resolved = _resolve(name, ctx)
         if resolved is None:
             return
-        ctx.player.destination = resolved
-        ctx.player.destination_id = _lookup_terminal_id(resolved, ctx)
+        ctx.player.set_destination(resolved, _lookup_terminal_id(resolved, ctx))
         _save_player(ctx)
         print_ok(f"Destination : {resolved}")
 
@@ -116,8 +111,7 @@ def cmd_go(args: list[str], ctx) -> None:
         resolved = _resolve(name, ctx)
         if resolved is None:
             return
-        ctx.player.location = resolved
-        ctx.player.location_id = _lookup_terminal_id(resolved, ctx)
+        ctx.player.set_location(resolved, _lookup_terminal_id(resolved, ctx))
         _save_player(ctx)
         print_ok(f"Position : {resolved}")
 
@@ -152,16 +146,19 @@ def _resolve(name: str, ctx) -> str | None:
     # - loc_tail == q et loc != q  (ex: "tdd - orison" → tail="orison")
     # - loc court commence par q  (ex: "seraph" pour "seraphim station")
     # - q commence par loc court  (ex: q="cru-l5 admin" pour loc="cru-l5")
-    candidates = []
-    seen_locs: set[str] = set()
+    # Un seul candidat conservé par lieu (loc) — le plus prioritaire pour le
+    # trading (TDD > Admin/Trade > autres), pas le premier rencontré dans
+    # ctx.cache.terminals (ordre API non garanti, donc arbitraire).
+    best_by_loc: dict[str, object] = {}
     for t in ctx.cache.terminals:
         loc = _loc_short(t.name).lower()
         loc_tail = loc.rsplit(" - ", 1)[-1]
         if (loc == q or (loc_tail == q and loc != q)
                 or loc.startswith(q) or q.startswith(loc + " ")):
-            if loc not in seen_locs:
-                seen_locs.add(loc)
-                candidates.append(t)
+            prev = best_by_loc.get(loc)
+            if prev is None or _tp(t) < _tp(prev):
+                best_by_loc[loc] = t
+    candidates = list(best_by_loc.values())
 
     if len(candidates) == 1:
         return candidates[0].name
@@ -213,10 +210,8 @@ def cmd_arriver(args: list[str], ctx) -> None:
     if not dest:
         print_error("Aucune destination définie — utilisez /go to <terminal>.")
         return
-    ctx.player.location = dest
-    ctx.player.location_id = ctx.player.destination_id
-    ctx.player.destination = ""
-    ctx.player.destination_id = 0
+    ctx.player.set_location(dest, ctx.player.destination_id)
+    ctx.player.clear_destination()
     _save_player(ctx)
     print_ok(f"Arrivé à : {dest}")
 
@@ -229,8 +224,7 @@ def cmd_dest(args: list[str], ctx) -> None:
         console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{dest}[/{C.UEX}]")
         return
     if args[0].lower() in ("clear", "effacer", "raz", "reset", "vider"):
-        ctx.player.destination = ""
-        ctx.player.destination_id = 0
+        ctx.player.clear_destination()
         _save_player(ctx)
         print_ok("Destination effacée")
         return
@@ -238,7 +232,6 @@ def cmd_dest(args: list[str], ctx) -> None:
     resolved = _resolve(name, ctx)
     if resolved is None:
         return
-    ctx.player.destination = resolved
-    ctx.player.destination_id = _lookup_terminal_id(resolved, ctx)
+    ctx.player.set_destination(resolved, _lookup_terminal_id(resolved, ctx))
     _save_player(ctx)
     print_ok(f"Destination : {resolved}")

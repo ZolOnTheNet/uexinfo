@@ -36,6 +36,31 @@ class Player:
     zone_status: str = ""
     zone_status_ts: float = 0.0
 
+    def set_location(self, name: str, terminal_id: int = 0) -> None:
+        """Position courante — nom et id terminal toujours écrits ensemble.
+
+        `location_id` (0 si non résolu contre un terminal UEX) fait autorité
+        pour tout calcul (/trade, distances) ; `location` reste nécessaire
+        pour les lieux hors cache UEX (Pyro, lieu perso) où aucun id n'existe.
+        Ne jamais assigner ces deux champs séparément (source historique d'un
+        bug : /player @lieu mettait à jour location sans toucher location_id,
+        qui restait bloqué sur un ancien terminal).
+        """
+        self.location = name
+        self.location_id = terminal_id
+
+    def clear_location(self) -> None:
+        self.location = ""
+        self.location_id = 0
+
+    def set_destination(self, name: str, terminal_id: int = 0) -> None:
+        self.destination = name
+        self.destination_id = terminal_id
+
+    def clear_destination(self) -> None:
+        self.destination = ""
+        self.destination_id = 0
+
     @classmethod
     def from_config(cls, cfg_player: dict) -> "Player":
         ships = []

@@ -71,9 +71,6 @@ DEFAULT: dict = {
         "restaurants": True,   # Afficher la liste des restaurants dans la vue terminal
         "services":    True,   # Afficher la liste des services dans la vue terminal
     },
-    "api": {
-        "secret_key": "",  # Clé secrète personnelle UEX Corp (uexcorp.space → profil)
-    },
     "sctrade": {
         "ttl":     300,    # Cache TTL en secondes
         "enabled": True,   # Activer/désactiver l'intégration sc-trade.tools
@@ -89,6 +86,12 @@ DEFAULT: dict = {
         "live":   "",       # Version SC live active (ex: "4.0")
         "ptu":    "",       # Version SC PTU (vide si inactif)
         "active": "live",   # Environnement actif : "live" ou "ptu"
+    },
+    "commodities": {
+        # Munitions de vaisseau (Ship Ammunition/Decoy/Noise Countermeasures) —
+        # ne concernent que le ravitaillement de gros vaisseaux (ravitailleurs) ;
+        # masquées par défaut ON = affichées, off = masquées des listes/tableaux.
+        "shipammun": "on",
     },
     "gamelog": {
         "install_path_live": "",   # ex: C:\...\StarCitizen\LIVE — dossier contenant Game.log

@@ -17,7 +17,6 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("cache",                  "Gestion du cache"),
         ("scan",                   "Configuration OCR/scan"),
         ("player",                 "Infos joueur"),
-        ("uex",                    "Clé secrète API UEX Corp"),
         ("sctrade",                "Activer/désactiver sc-trade.tools (on|off)"),
         ("hotkey",                 "Hotkey overlay (alt+shift+u, ctrl+f3…)"),
         ("close",                  "Mode fermeture overlay (normal/dblclick)"),
@@ -29,6 +28,7 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("info",                   "Paramètres de la commande /info"),
         ("scan.autopos",           "Auto-position depuis tout scan (on|off)"),
         ("scan.log.autopos",       "Auto-position depuis log Datarunner (on|off|quick)"),
+        ("commodities.shipammun",  "Ship Ammunition/Decoy/Noise Countermeasures — niche ravitailleurs (on|off)"),
         ("gamelog.enabled",        "Lire Game.log (le jeu) en direct pour la zone (on|off)"),
         ("gamelog.install_path_live", "Dossier d'install SC LIVE (contient Game.log)"),
         ("gamelog.install_path_ptu",  "Dossier d'install SC PTU (optionnel)"),
@@ -58,6 +58,7 @@ SUBS: dict[str, list[tuple[str, str]]] = {
     "config info":        [("note", "Afficher les notes personnelles dans la vue terminal (on|off)")],
     "config info note":   [("on", "Activer"), ("off", "Désactiver")],
     "config scan.autopos":     [("on", "Activer"), ("off", "Désactiver")],
+    "config commodities.shipammun": [("on", "Afficher"), ("off", "Masquer")],
     "config scan.log.autopos": [("on", "Activer"), ("off", "Désactiver"), ("quick", "Auto en arrière-plan, sans confirmation manuelle")],
     "config gamelog.enabled":  [("on", "Activer"), ("off", "Désactiver")],
     "ship": [
@@ -95,9 +96,6 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("ocr",     "Reconnaissance optique seule"),
         ("log",     "Lecture du fichier app.log SC-Datarunner seule"),
         ("confirm", "OCR + confirmation log"),
-    ],
-    "config uex": [
-        ("key", "Définit la clé secrète personnelle UEX Corp"),
     ],
     "go": [
         ("from", "Définit votre position actuelle"),

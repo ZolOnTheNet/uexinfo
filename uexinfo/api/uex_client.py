@@ -17,15 +17,7 @@ class UEXError(Exception):
 
 
 class UEXClient:
-    def __init__(self, secret_key: str | None = None, timeout: int = TIMEOUT):
-        # Si aucune clé fournie, lire depuis la config
-        if secret_key is None:
-            try:
-                from uexinfo.config.settings import load as _load_cfg
-                secret_key = _load_cfg().get("api", {}).get("secret_key", "")
-            except Exception:
-                secret_key = ""
-        self._secret_key = secret_key.strip() if secret_key else ""
+    def __init__(self, timeout: int = TIMEOUT):
         self.timeout = timeout
         if _HAS_CLOUDSCRAPER:
             self.session = _cloudscraper.create_scraper(
@@ -36,8 +28,6 @@ class UEXClient:
         self.session.headers.update({
             "Accept": "application/json",
         })
-        if self._secret_key:
-            self.session.headers["secret_key"] = self._secret_key
 
     def _get(self, endpoint: str, params: dict | None = None) -> list:
         url = f"{BASE_URL}/{endpoint.lstrip('/')}"

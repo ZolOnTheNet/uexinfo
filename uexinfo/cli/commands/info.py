@@ -74,6 +74,30 @@ def _ensure_comm_codes(ctx) -> None:
             _comm_codes_by_id[c.id] = c.code
 
 
+def _shipammun_enabled(ctx) -> bool:
+    """/config commodities.shipammun — Ship Ammunition/Decoy/Noise Countermeasures.
+
+    Niche : ne concerne que le ravitaillement de gros vaisseaux (ravitailleurs).
+    ON (défaut) = affichées, off = masquées des tableaux/listes de commodités.
+    """
+    return ctx.cfg.get("commodities", {}).get("shipammun", "on") == "on"
+
+
+def _shipammun_ids(ctx) -> set[int]:
+    """IDs des commodités de munitions de vaisseau — identifiées par kind="Ammunition"
+    (donnée fiable, pas un filtre sur le nom : couvre Ship Ammunition (toutes tailles),
+    Ship Decoy Countermeasures, Ship Noise Countermeasures, et toute variante future)."""
+    return {c.id for c in (ctx.cache.commodities or []) if c.kind == "Ammunition"}
+
+
+def _filter_shipammun_rows(rows: list[dict], ctx) -> list[dict]:
+    """Retire les lignes de prix de munitions de vaisseau si le réglage est off."""
+    if _shipammun_enabled(ctx):
+        return rows
+    excluded = _shipammun_ids(ctx)
+    return [r for r in rows if int(r.get("id_commodity") or 0) not in excluded]
+
+
 def _comm_code(name: str = "", cid: int = 0) -> str:
     """Retourne le code abrégé d'une commodité (ex: 'AGRI')."""
     if cid and cid in _comm_codes_by_id:
@@ -1434,6 +1458,7 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
     _show_site_header(t, ctx)
 
     rows = _terminal_prices(t, ctx)
+    rows = _filter_shipammun_rows(rows, ctx)
 
     if not rows:
         console.print(f"[{C.DIM}]Aucune donnée pour ce terminal.[/{C.DIM}]")
@@ -2392,6 +2417,8 @@ def _show_commodity_list(args: list[str], ctx) -> None:
     q = " ".join(filter_parts).replace("_", " ").lower().strip()
 
     items = [c for c in ctx.cache.commodities if c.is_available]
+    if not _shipammun_enabled(ctx):
+        items = [c for c in items if c.kind != "Ammunition"]
     if q:
         items = [c for c in items if q in c.name.lower()]
 
