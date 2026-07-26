@@ -595,6 +595,7 @@ class OverlayServer:
             "dest":          p.destination or "",
             "zone":          getattr(p, "zone", "") or "",
             "zone_status":   getattr(p, "zone_status", "") or "",
+            "shard":         getattr(p, "shard", "") or "",
             "ship":          p.active_ship or "",
             "cargo":         cargo,
             "dist":          dist,
@@ -1665,6 +1666,24 @@ class OverlayServer:
                             last = zone_events[-1]
                             self.ctx.player.zone_status = last.text
                             self.ctx.player.zone_status_ts = last.timestamp.timestamp()
+
+                        # Shard PU ("<Join PU> ... shard[...]") : un changement en cours
+                        # de session (pas seulement au lancement) signale une reconnexion —
+                        # utile pour repérer un shard HS/instable. Notification simple,
+                        # pas un bandeau [MàJ]/[Ign] (rien à confirmer, c'est un fait).
+                        shard_events = [e for e in events if e.kind == "shard"]
+                        if shard_events:
+                            last = shard_events[-1]
+                            old_shard = self.ctx.player.shard
+                            if last.text and last.text != old_shard:
+                                self.ctx.player.shard = last.text
+                                self.ctx.player.shard_ts = last.timestamp.timestamp()
+                                if old_shard:
+                                    await self._broadcast_raw(json.dumps({
+                                        "type": "shard_changed",
+                                        "new":  last.text,
+                                        "old":  old_shard,
+                                    }))
 
                         # Confirmation d'arrivée (cible QT + nom en clair + docking
                         # corrélés — cf. gamelog/arrival.py) : proposition réelle, jamais

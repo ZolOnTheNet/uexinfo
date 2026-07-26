@@ -716,6 +716,10 @@ def _scan_game_window(ctx) -> ScanResult | None:
         tmp_path.unlink(missing_ok=True)
 
 
+# Anti-doublon (secondes) pour _refresh_validated_from_uex — court exprès, cf. docstring.
+_REFRESH_DEDUP_TTL = 60.0
+
+
 def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
     """Pour un scan log validé, remplace les données OCR brutes par les prix UEX actuels.
 
@@ -744,10 +748,21 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
         (t for t in (ctx.cache.terminals or []) if t.name == resolved_name), None
     )
 
+    # Anti-doublon court (60s), PAS le cache TTL adaptatif de ctx._price_cache
+    # (4h à 3j) : ce dernier renverrait l'ancienne version si le même
+    # terminal/mode est revalidé plus tard (bulk "valider tout" puis correction
+    # ponctuelle sur une ligne, "MàJ", repérée après coup) — mais on veut quand
+    # même éviter d'interroger l'API à chaque appel rapproché (même lot).
     cache_key = f"uex_refresh_{resolved_name.lower()}_{result.mode}"
-    cached = ctx._price_cache.get(cache_key)
-    if cached:
-        _ts, rows = cached
+    dedup = getattr(ctx, "_refresh_dedup", None)
+    if dedup is None:
+        ctx._refresh_dedup = {}
+        dedup = ctx._refresh_dedup
+
+    now = time.time()
+    recent = dedup.get(cache_key)
+    if recent and (now - recent[0]) < _REFRESH_DEDUP_TTL:
+        rows = recent[1]
     else:
         try:
             client = UEXClient()
@@ -755,7 +770,8 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
                 rows = client.get_prices(id_terminal=terminal.id)
             else:
                 rows = client.get_prices(terminal_name=name_lower)
-            ctx._price_cache[cache_key] = (time.time(), rows)
+            dedup[cache_key] = (now, rows)
+            ctx._price_cache[cache_key] = (now, rows)  # secours réseau uniquement (get_stale)
         except UEXError:
             stale = ctx._price_cache.get_stale(cache_key)
             rows = stale[1] if stale else []

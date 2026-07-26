@@ -35,6 +35,12 @@ class Player:
     # ne jamais l'utiliser ni l'afficher comme nom de lieu principal (cf. zone ci-dessus).
     zone_status: str = ""
     zone_status_ts: float = 0.0
+    # Shard PU réel (ex: "pub_euw1b_12269732_050", Game.log "<Join PU> ... shard[...]")
+    # — écrit une fois par connexion/reconnexion à l'univers persistant. Change au
+    # relance du jeu, mais aussi en cours de session si reconnexion après crash/
+    # instabilité serveur — signal important pour repérer un shard HS.
+    shard: str = ""
+    shard_ts: float = 0.0
 
     def set_location(self, name: str, terminal_id: int = 0) -> None:
         """Position courante — nom et id terminal toujours écrits ensemble.
@@ -85,6 +91,8 @@ class Player:
             zone_ts=float(cfg_player.get("zone_ts", 0) or 0),
             zone_status=cfg_player.get("zone_status", ""),
             zone_status_ts=float(cfg_player.get("zone_status_ts", 0) or 0),
+            shard=cfg_player.get("shard", ""),
+            shard_ts=float(cfg_player.get("shard_ts", 0) or 0),
         )
 
     def to_config(self) -> dict:
@@ -107,4 +115,6 @@ class Player:
             "zone_ts": self.zone_ts,
             "zone_status": self.zone_status,
             "zone_status_ts": self.zone_status_ts,
+            "shard": self.shard,
+            "shard_ts": self.shard_ts,
         }

@@ -29,6 +29,8 @@ def _show_info(ctx) -> None:
     if p.zone_status:
         status_display = p.zone_status.rstrip(": ").strip()
         t.add_row("[bold]Statut[/bold]", f"[{C.DIM}]{status_display}[/{C.DIM}]")
+    if p.shard:
+        t.add_row("[bold]Shard[/bold]", f"[{C.DIM}]{p.shard}[/{C.DIM}]")
 
     if p.ships:
         ship_list = ", ".join(

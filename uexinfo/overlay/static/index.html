@@ -141,7 +141,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   font-size: 0.88em;
 }
 .si-maj-btn:hover { background: rgba(0,188,212,0.18); }
-.si-maj-btn.done  { color: #4caf50; border-color: #4caf50; cursor: default; }
+.si-sent-mark { color: #4caf50; font-size: 0.85em; margin-left: 6px; }
 .si-row-btn {
   background: transparent;
   border: 1px solid rgba(0,188,212,0.30);
@@ -154,7 +154,6 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   white-space: nowrap;
 }
 .si-row-btn:hover { background: rgba(0,188,212,0.14); }
-.si-row-btn.done  { color: #4caf50; border-color: #4caf50; cursor: default; }
 .si-del-btn {
   background: transparent;
   border: 1px solid rgba(239,83,80,0.30);
@@ -1073,6 +1072,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 <div id="status-bar">
   <span id="sb-pos"   class="sb sb-pos click shrink" title="Clic : changer la position · Double-clic : afficher le terminal">POS: —</span>
   <span id="sb-zone" class="sb shrink" style="opacity:.55;display:none" title="Dernier lieu calculé par le jeu (Game.log, mis à jour au calcul de route) — /player pour le statut de juridiction"></span>
+  <span id="sb-shard" class="sb shrink" style="opacity:.55;display:none" title="Shard PU actuel (Game.log) — change au lancement du jeu ou en cas de reconnexion (crash/instabilité serveur)"></span>
   <span id="sb-arrow" class="sb sb-sep click"        title="Aller à la destination (◄)"> · </span>
   <span id="sb-swap"    class="sb sb-sep click"      title="Inverser origine et destination"> </span>
   <span id="sb-go-here" class="sb sb-sep click"      title="Fixer la destination au lieu actuel (►)"> </span>
@@ -1697,6 +1697,7 @@ function dispatch(msg) {
     case 'terminal_buy_pick': showTerminalBuyPick(msg); break;
     case 'select':      showSelectPanel(msg); break;
     case 'location_confirm': showLocationConfirm(msg.new, msg.old, msg.source); break;
+    case 'shard_changed': showShardChanged(msg.new, msg.old); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items, msg.common_prefix || ''); break;
     case 'hint':        elHint.textContent = msg.text; break;
@@ -1820,6 +1821,24 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Shard PU brut : "pub_euw1b_12269732_050" → "EUW1B-050" (région + instance,
+// on masque le numéro de build — bruit, pas identifiant de shard).
+function _fmtShard(raw) {
+  if (!raw) return '';
+  const parts = raw.split('_');
+  if (parts.length === 4) return `${parts[1].toUpperCase()}-${parts[3]}`;
+  return raw;
+}
+
+function showShardChanged(newShard, oldShard) {
+  // Simple fait, rien à confirmer/ignorer (contrairement à location_confirm) —
+  // notification informative dans le flux, pas un bandeau d'action.
+  appendSystem(
+    `⚠ Changement de shard : ${_fmtShard(oldShard)} → ${_fmtShard(newShard)}`,
+    'var(--warn, #e5a030)'
+  );
+}
+
 function appendSystem(text, color) {
   const d = document.createElement('div');
   d.className = 'line'; d.style.color = color || 'var(--dim)'; d.textContent = text;
@@ -1904,6 +1923,15 @@ function updateStatus(s) {
     zoneEl.style.display = '';
   } else {
     zoneEl.style.display = 'none';
+  }
+
+  const shardEl = document.getElementById('sb-shard');
+  const shardText = _fmtShard(s.shard || '');
+  if (shardText) {
+    shardEl.textContent = shardText;
+    shardEl.style.display = '';
+  } else {
+    shardEl.style.display = 'none';
   }
 
   document.getElementById('sb-dest').textContent =
@@ -2693,7 +2721,8 @@ function appendScanInline(msg) {
            ` value="${c.price || ''}" min="0" placeholder="—"` +
            `${uex ? ` title="UEX: ${uex.toLocaleString()}"` : ''}>` +
       `</td>` +
-      `<td><button class="si-row-btn" onclick="submitScanInlineRow(this,${i})">MàJ</button></td>` +
+      `<td><button class="si-row-btn" onclick="submitScanInlineRow(this,${i})">MàJ</button>` +
+           `<span class="si-sent-mark"></span></td>` +
       `</tr>`;
   });
 
@@ -2716,6 +2745,7 @@ function appendScanInline(msg) {
     `<div style="margin-top:6px">` +
       `<button class="si-add-btn" onclick="siAddRow(this)">+ Ajouter</button>` +
       `<button class="si-maj-btn" onclick="submitScanInline(this)">✓ Valider tout</button>` +
+      `<span class="si-sent-mark"></span>` +
     `</div>`;
 
   elOutput.appendChild(div);
@@ -2831,8 +2861,18 @@ function _siCollectComms(div) {
   return comms;
 }
 
+function _siStampSentMark(btn) {
+  // Bouton reste toujours cliquable — une correction peut être repérée après
+  // coup (OCR mal lu, etc.) et doit pouvoir être renvoyée autant de fois que
+  // nécessaire. La confirmation d'envoi s'affiche à côté, pas sur le bouton.
+  const mark = btn.nextElementSibling;
+  if (mark && mark.classList.contains('si-sent-mark')) {
+    const hhmm = new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+    mark.textContent = `✓ envoyé ${hhmm}`;
+  }
+}
+
 function submitScanInline(btn) {
-  if (btn.classList.contains('done')) return;
   const div      = btn.closest('.scan-inline');
   const terminal = div.querySelector('.si-term-input')?.value.trim() || div.dataset.terminal;
   const mode     = div.querySelector('.si-mode-select')?.value || div.dataset.mode;
@@ -2840,13 +2880,10 @@ function submitScanInline(btn) {
   // orig_terminal (jamais modifié par l'édition) sert à retrouver le bon scan
   // côté serveur, même si l'utilisateur a corrigé un terminal mal détecté.
   send({type: 'scan_confirm', data: {terminal, orig_terminal: div.dataset.terminal, mode, commodities: comms}});
-  btn.textContent = '✓ Envoyé';
-  btn.classList.add('done');
-  btn.disabled = true;
+  _siStampSentMark(btn);
 }
 
 function submitScanInlineRow(btn, idx) {
-  if (btn.classList.contains('done')) return;
   const div      = btn.closest('.scan-inline');
   const terminal = div.querySelector('.si-term-input')?.value.trim() || div.dataset.terminal;
   const mode     = div.querySelector('.si-mode-select')?.value || div.dataset.mode;
@@ -2855,9 +2892,7 @@ function submitScanInlineRow(btn, idx) {
   const realIdx = rows.indexOf(tr);
   const comms = _siCollectComms(div);
   send({type: 'scan_confirm', data: {terminal, orig_terminal: div.dataset.terminal, mode, commodities: comms, single_idx: realIdx}});
-  btn.textContent = '✓';
-  btn.classList.add('done');
-  btn.disabled = true;
+  _siStampSentMark(btn);
 }
 
 function siDeleteRow(btn) {

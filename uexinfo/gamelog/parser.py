@@ -52,10 +52,19 @@ RE_ROUTING_NAMES = re.compile(
 # QUELLE station. Seul le fait "un docking a eu lieu" est exploité.
 RE_DOCKING = re.compile(r"CDockingAnimatorComponent::OnSetCurrentState>")
 
+# Identifiant de shard PU réel (ex: pub_euw1b_12269732_050) — écrit une fois par
+# connexion/reconnexion à l'univers persistant (login initial, relance du jeu,
+# reconnexion après crash/déconnexion). Vérifié sur 8 sessions réelles distinctes :
+# présent à chaque fois, jamais absent, contrairement à RE_ROUTING_NAMES (rare).
+# Le "shard" affiché en jeu (menu Réseau) correspond à cet identifiant.
+RE_JOIN_PU = re.compile(
+    r"<Join PU> address\[(?P<address>[^\]]*)\] port\[(?P<port>\d+)\] shard\[(?P<shard>[^\]]+)\]"
+)
+
 
 @dataclass
 class GameLogEvent:
-    kind: str        # "login"|"spawn"|"zone"|"location"|"qt_target"|"routing_names"|"docking"
+    kind: str        # "login"|"spawn"|"zone"|"location"|"qt_target"|"routing_names"|"docking"|"shard"
     text: str        # contenu principal (nom, texte de zone, lieu…) ; vide si non pertinent
     timestamp: datetime
     data: dict = field(default_factory=dict)   # champs auxiliaires (loc_id, origin, dest…)
@@ -97,6 +106,11 @@ def parse_lines(lines: list[str]) -> list[GameLogEvent]:
 
         if RE_DOCKING.search(line):
             events.append(GameLogEvent(kind="docking", text="", timestamp=ts))
+            continue
+
+        m = RE_JOIN_PU.search(line)
+        if m:
+            events.append(GameLogEvent(kind="shard", text=m.group("shard"), timestamp=ts))
             continue
 
         m = RE_ZONE.search(line)
