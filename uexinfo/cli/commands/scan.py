@@ -1303,7 +1303,15 @@ def _store_result(ctx, result) -> None:
     if len(ctx.scan_history) > 20:
         ctx.scan_history = ctx.scan_history[-20:]
     from uexinfo.models.scan_result import ScanResult
-    if isinstance(result, ScanResult) and result.commodities:
+    # Un scan "log" (SC-Datarunner) non encore validé (pas de "Data successfully
+    # sent to API" vu) n'est qu'un brouillon OCR — potentiellement corrigé par
+    # l'utilisateur avant envoi (ex: un chiffre mal lu). Ne PAS le persister dans
+    # ScanPriceStore (prioritaire ★ sur UEX dans /info et /trade) tant qu'il n'est
+    # pas confirmé, pour ne jamais faire passer une valeur provisoire/erronée
+    # devant les données communauté UEX. Un scan OCR direct (source="ocr", pas de
+    # Datarunner) n'a pas cette étape de validation externe — inchangé.
+    is_unvalidated_log = result.source == "log" and not result.validated
+    if isinstance(result, ScanResult) and result.commodities and not is_unvalidated_log:
         from uexinfo.cache.scan_prices import ScanPriceStore
         try:
             term_key   = _terminal_store_key(result.terminal, ctx)

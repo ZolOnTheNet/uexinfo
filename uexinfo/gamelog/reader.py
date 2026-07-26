@@ -72,3 +72,18 @@ class GameLogTail:
         if not new_lines:
             return []
         return parse_lines(new_lines)
+
+    def parse_all(self) -> list[GameLogEvent]:
+        """Relit tout le fichier sans toucher l'offset persisté.
+
+        Utilisé pour rattraper un signal qui ne se répète pas souvent (ex: le
+        shard PU, écrit une seule fois par connexion) au (re)démarrage de
+        l'app, quand l'offset incrémental a déjà dépassé sa dernière occurrence
+        — sinon plus aucune valeur n'apparaît tant que le jeu ne se reconnecte
+        pas une nouvelle fois.
+        """
+        if not self.log_path.is_file():
+            return []
+        with open(self.log_path, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        return parse_lines(lines)

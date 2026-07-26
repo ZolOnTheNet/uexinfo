@@ -1655,7 +1655,22 @@ class OverlayServer:
                     log_path = _resolve_game_log_path(self.ctx.cfg)
                     if log_path:
                         from uexinfo.gamelog.reader import GameLogTail
-                        events = GameLogTail(log_path).parse_new()
+                        tail = GameLogTail(log_path)
+                        events = tail.parse_new()
+
+                        # Rattrapage shard uniquement : le shard PU n'est écrit qu'une
+                        # fois par connexion ("<Join PU>") — si l'offset incrémental l'a
+                        # déjà dépassé (log déjà tailé avant que cette fonctionnalité
+                        # existe, ou avant un redémarrage de l'overlay), parse_new() ne le
+                        # revoit plus tant que le jeu ne se reconnecte pas. Ne réinjecter
+                        # que les événements "shard" du replay complet (une fois, tant que
+                        # le shard est inconnu) — pas le reste (zone/qt_target/docking…),
+                        # pour ne pas rejouer de vieux événements dans l'ArrivalTracker.
+                        if not self.ctx.player.shard:
+                            backfill = [e for e in tail.parse_all() if e.kind == "shard"]
+                            if backfill:
+                                events = events + backfill
+
                         loc_events = [e for e in events if e.kind == "location"]
                         if loc_events:
                             last = loc_events[-1]

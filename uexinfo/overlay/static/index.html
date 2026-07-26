@@ -124,6 +124,10 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   font-size: 0.80em; color: var(--yellow, #ffd600); opacity: 0.72;
   margin-bottom: 5px; padding: 2px 0;
 }
+.si-status {
+  font-size: 0.82em; font-weight: bold;
+  margin-bottom: 4px; padding: 2px 0;
+}
 .scan-inline table { border-collapse: collapse; }
 .scan-inline th { color: var(--dim); font-weight: normal; font-size: 0.85em;
                   padding: 0 6px 2px; text-align: right; }
@@ -2366,7 +2370,15 @@ function copyText(text, feedbackEl) {
 // ── Menu contextuel ───────────────────────────────────────────────────────────
 
 function showCtx(word, x, y, type, sel) {
-  const ws = word ? word.replace(/"/g,'\\"') : '';
+  // `word` finit dans un littéral JS entre apostrophes ('/dest ${ws}') lui-même
+  // imbriqué dans un attribut HTML entre guillemets (onclick="..."). Échapper
+  // uniquement " (comme avant) laissait passer les noms avec apostrophe (ex:
+  // "Rod's Fuel 'N Supplies") — casse silencieusement le JS généré : le clic
+  // ne fait rien, sans erreur visible. Échapper aussi \ et ' pour le littéral
+  // JS, puis " en entité HTML pour l'attribut englobant.
+  const ws = word
+    ? word.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;')
+    : '';
   const typeLabel = type === 'commodity' ? '🟡 Commodité'
                   : type === 'location'  ? '🔵 Lieu'
                   : type === 'ship'      ? '🟢 Vaisseau'
@@ -2726,11 +2738,24 @@ function appendScanInline(msg) {
       `</tr>`;
   });
 
+  // Statut validation (scans "log" SC-Datarunner uniquement) : tant que
+  // Datarunner n'a pas envoyé ("Data successfully sent to API" vu dans le
+  // log), ce ne sont que des valeurs OCR provisoires, potentiellement fausses
+  // (chiffre mal lu) — ne pas laisser croire que ce sont des prix confirmés.
+  const statusHtml = data.source === 'log'
+    ? `<div class="si-status" style="color:${data.validated ? 'var(--green,#4caf50)' : 'var(--yellow,#e5a030)'}">` +
+        (data.validated
+          ? '✓ validé — prix rechargés depuis UEX (post-correction Datarunner)'
+          : '⚠ pas encore validé — valeurs OCR provisoires, pas encore envoyées par Datarunner') +
+      `</div>`
+    : '';
+
   div.innerHTML =
     `<div class="si-head">` +
       `<input type="text" class="si-term-input" list="se-terminal-list" value="${esc(data.terminal || '')}" placeholder="Terminal…">` +
       modeHtml +
     `</div>` +
+    statusHtml +
     `<div class="si-warn">` +
       `⚠ Seules les valeurs détectées par le logiciel sont récupérables. ` +
       `Toute correction ici n'est pas tracée dans le log.` +
