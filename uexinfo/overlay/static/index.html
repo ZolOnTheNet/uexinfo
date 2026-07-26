@@ -1076,7 +1076,6 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 <div id="status-bar">
   <span id="sb-pos"   class="sb sb-pos click shrink" title="Clic : changer la position · Double-clic : afficher le terminal">POS: —</span>
   <span id="sb-zone" class="sb shrink" style="opacity:.55;display:none" title="Dernier lieu calculé par le jeu (Game.log, mis à jour au calcul de route) — /player pour le statut de juridiction"></span>
-  <span id="sb-shard" class="sb shrink" style="opacity:.55;display:none" title="Shard PU actuel (Game.log) — change au lancement du jeu ou en cas de reconnexion (crash/instabilité serveur)"></span>
   <span id="sb-arrow" class="sb sb-sep click"        title="Aller à la destination (◄)"> · </span>
   <span id="sb-swap"    class="sb sb-sep click"      title="Inverser origine et destination"> </span>
   <span id="sb-go-here" class="sb sb-sep click"      title="Fixer la destination au lieu actuel (►)"> </span>
@@ -1096,6 +1095,8 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   <span class="sb-sep" id="sb-timer-sep"> │ </span>
   <span id="sb-timer" title="Double-clic pour arrêter" ondblclick="stopTimer()"></span>
   <span class="sb-spacer"></span>
+  <span id="sb-shard" class="sb shrink" style="opacity:.55;display:none" title="Shard PU actuel (Game.log) — change au lancement du jeu ou en cas de reconnexion (crash/instabilité serveur)"></span>
+  <span class="sb-sep"> │ </span>
   <span class="sb-alpha-lbl">opacité</span>
   <span id="sb-alpha-minus" class="sb-btn" title="Moins opaque (−5%)">−</span>
   <span id="sb-alpha-plus"  class="sb-btn" title="Plus opaque (+5%)">+</span>

@@ -1621,11 +1621,20 @@ class OverlayServer:
                     prev_history_len = len(getattr(self.ctx, "scan_history", []) or [])
                     check_log_auto(self.ctx)  # déclenche _apply_autopos si terminal détecté
 
-                    # Toujours présenter les scans importés en arrière-plan (formulaire
-                    # éditable) — le mode quick ne doit pas faire confiance en silence
-                    # à ce qu'il lit ; l'utilisateur doit pouvoir vérifier/corriger.
+                    # Ne PAS présenter un scan "log" (SC-Datarunner) tant qu'il n'est pas
+                    # validé (envoyé à UEX) : l'afficher immédiatement invite à le corriger
+                    # ici, en double de la correction faite dans Datarunner lui-même — deux
+                    # saisies pour la même erreur, source de fautes supplémentaires. Une fois
+                    # validé, les valeurs déjà rechargées depuis UEX (_refresh_validated_from_uex)
+                    # n'ont normalement plus besoin de correction manuelle côté uexinfo.
+                    # Un scan OCR direct (source="ocr", pas d'étape de validation externe)
+                    # reste affiché immédiatement comme avant — c'est la seule occasion de le
+                    # corriger. Le flag "ScanLog" de la barre de statut continue de signaler
+                    # l'activité même quand la table n'est pas affichée.
                     new_scans = getattr(self.ctx, "scan_history", [])[prev_history_len:]
-                    for result in new_scans:
+                    displayable = [r for r in new_scans
+                                   if not (r.source == "log" and not r.validated)]
+                    for result in displayable:
                         payload = self._scan_edit_payload(result)
                         if payload is not None:
                             await self._broadcast_raw(json.dumps(payload))
