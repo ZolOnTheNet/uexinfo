@@ -150,6 +150,7 @@ SUBS: dict[str, list[tuple[str, str]]] = {
     ],
     "scan log": [
         ("all",   "Relire tout le log depuis le début"),
+        ("full",  "Alias de all — relire tout le log depuis le début"),
         ("reset", "Remettre l'offset à 0"),
         ("undo",  "Annuler la dernière lecture et relire"),
     ],

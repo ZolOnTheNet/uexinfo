@@ -21,6 +21,24 @@ _STATE_FILE = Path(appdirs.user_data_dir("uexinfo")) / "log_state.json"
 RE_COMMODITY = re.compile(
     r"image_processing\.data_extractor - INFO - Extracted commodity: (\{.+\})$"
 )
+# Nouveau format SC-Datarunner (chaque champ enrobé d'un score de confiance) :
+# "Extracted commodity: CommodityData(name=StrConfidence(value='Cobalt',
+# confidence=86), id=110, quantity=IntConfidence(value=45, confidence=94),
+# stock=StrConfidence(value='low inventory', confidence=100),
+# stock_status=IntConfidence(value=3, confidence=100),
+# price=IntConfidence(value=10050, confidence=14), examined_words=5)"
+# — ce n'est plus un littéral dict Python (ast.literal_eval échoue), vérifié
+# sur un vrai log après mise à jour de SC-Datarunner (39 occurrences, format
+# stable). RE_COMMODITY (ancien format) reste en repli pour compatibilité.
+RE_COMMODITY_V2 = re.compile(
+    r"Extracted commodity: CommodityData\("
+    r"name=StrConfidence\(value='(?P<name>[^']*)', confidence=(?P<name_conf>\d+)\), "
+    r"id=(?P<id>\d+), "
+    r"quantity=IntConfidence\(value=(?P<quantity>\d+|None), confidence=(?P<quantity_conf>\d+)\), "
+    r"stock=StrConfidence\(value='(?P<stock>[^']*)', confidence=(?P<stock_conf>\d+)\), "
+    r"stock_status=IntConfidence\(value=(?P<stock_status>\d+|None), confidence=(?P<stock_status_conf>\d+)\), "
+    r"price=IntConfidence\(value=(?P<price>\d+|None), confidence=(?P<price_conf>\d+)\)"
+)
 RE_TERMINAL = re.compile(
     r"image_processing\.\w+ - INFO - (?:Matched terminal|terminal_name): ['\"]?([\w][\w\s\-']+)['\"]?"
 )
@@ -207,6 +225,30 @@ class LogParser:
 
 
 def _parse_commodity_line(line: str) -> ScannedCommodity | None:
+    m2 = RE_COMMODITY_V2.search(line)
+    if m2:
+        def _int_or(v, default=0):
+            return default if v == "None" else int(v)
+        # Confiance globale = la plus basse des confiances par champ — un seul
+        # champ mal reconnu (ex: taille "Size 7" au lieu de "Size 1") suffit à
+        # rendre toute la ligne suspecte.
+        confidence = min(
+            int(m2.group("name_conf")),
+            int(m2.group("quantity_conf")),
+            int(m2.group("stock_conf")),
+            int(m2.group("stock_status_conf")),
+            int(m2.group("price_conf")),
+        )
+        return ScannedCommodity(
+            name=m2.group("name") or "",
+            commodity_id=_int_or(m2.group("id")),
+            quantity=_int_or(m2.group("quantity"), None),
+            stock=m2.group("stock") or "",
+            stock_status=_int_or(m2.group("stock_status")),
+            price=_int_or(m2.group("price")),
+            confidence=confidence,
+        )
+
     m = RE_COMMODITY.search(line)
     if not m:
         return None
@@ -264,6 +306,16 @@ def _group_scans(
     current_commodities: list[ScannedCommodity] = list(initial_commodities or [])
     current_ts: datetime | None = None   # timestamp de la dernière ligne vue
 
+    def _flush_pending(ts_for_flush: datetime | None) -> None:
+        if current_terminal and current_commodities:
+            results.append(ScanResult(
+                terminal=current_terminal,
+                commodities=list(current_commodities),
+                source="log",
+                mode=current_type,
+                timestamp=ts_for_flush or datetime.now(),
+            ))
+
     for line in lines:
         # Mise à jour du timestamp courant (extrait de la ligne)
         ts = _parse_log_timestamp(line)
@@ -273,24 +325,32 @@ def _group_scans(
         # Nouveau terminal détecté
         mt = RE_TERMINAL.search(line)
         if mt:
-            # Clore le scan en cours s'il y en a un avec des commodités
-            if current_terminal and current_commodities:
-                results.append(ScanResult(
-                    terminal=current_terminal,
-                    commodities=list(current_commodities),
-                    source="log",
-                    mode=current_type,
-                    timestamp=current_ts or datetime.now(),
-                ))
-            current_terminal = mt.group(1).strip()
-            current_type = "buy"
-            current_commodities = []
+            new_terminal = mt.group(1).strip()
+            if new_terminal.lower() != current_terminal.lower():
+                # Changement réel de terminal — clore le lot en cours.
+                _flush_pending(current_ts)
+                current_terminal = new_terminal
+                current_type = "buy"
+                current_commodities = []
+            # Sinon (même terminal re-détecté — une capture d'écran de plus
+            # dans la même session de scan) : ne rien faire. Vérifié sur un
+            # vrai log : "Matched terminal: X" réapparaît à chaque nouvelle
+            # capture même si X n'a pas changé — le traiter comme une
+            # nouvelle table à chaque fois fragmentait une longue session de
+            # scan en une dizaine de petits lots séparés, dont un seul (le
+            # dernier) recevait la ligne de soumission et finissait validé.
             continue
 
         # Type de terminal (buy/sell)
         mtype = RE_TERMINAL_TYPE.search(line)
         if mtype:
-            current_type = mtype.group(1).lower()
+            new_type = mtype.group(1).lower()
+            if new_type != current_type:
+                # Changement réel de mode (achat<->vente) sur ce terminal —
+                # clore le lot en cours (mode différent = table différente).
+                _flush_pending(current_ts)
+                current_commodities = []
+                current_type = new_type
             continue
 
         # Commodité extraite

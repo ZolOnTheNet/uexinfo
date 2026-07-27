@@ -188,6 +188,10 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   box-shadow: 0 0 4px rgba(255,152,0,0.5);
   background: rgba(255,152,0,0.10) !important;
 }
+/* Confiance OCR SC-Datarunner par ligne (nouveau format de log) — repère les
+   lignes à vérifier avant validation (score de confiance bas/moyen). */
+tr.si-conf-low    { background: rgba(244,67,54,0.14); }
+tr.si-conf-medium { background: rgba(229,160,48,0.12); }
 .cw-commodity { color: #ffd600; }
 .cw-location  { color: #00bcd4; }
 .cw-ship      { color: #69f0ae; }
@@ -2723,8 +2727,15 @@ function appendScanInline(msg) {
     const priceWarn = uex && c.price && (c.price < uex * 0.1 || c.price > uex * 10)
       ? ' si-warn-field' : '';
     const stockWarn = (c.stock_status === 0) ? ' si-warn-field' : '';
+    // Confiance OCR SC-Datarunner (nouveau format de log) — vérifié sur un
+    // vrai scan : prix vide (conf=0), SCU aberrant (conf=55) et prix suspect
+    // (conf=70) correspondaient tous à une confiance basse. 100 = non
+    // disponible (OCR direct uexinfo, ancien format) → pas de couleur.
+    const conf = c.confidence != null ? c.confidence : 100;
+    const confClass = conf < 50 ? ' si-conf-low' : conf < 80 ? ' si-conf-medium' : '';
+    const confTitle  = confClass ? ` title="Confiance OCR : ${conf}% — à vérifier"` : '';
     rows +=
-      `<tr>` +
+      `<tr class="si-conf-row${confClass}"${confTitle}>` +
       `<td><button class="si-del-btn" onclick="siDeleteRow(this)" title="Supprimer">−</button></td>` +
       `<td>${_buildNameSelect(i, c.name || '')}</td>` +
       `<td>${_buildStockSelect(i, c.stock_status, stockWarn)}</td>` +

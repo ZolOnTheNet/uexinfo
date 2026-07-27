@@ -5,11 +5,28 @@ import math
 from pathlib import Path
 
 from uexinfo.cli.commands import register
-from uexinfo.models.scan_result import ScanResult
+from uexinfo.models.scan_result import ScanResult, ScannedCommodity
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, print_info, make_table, section
 from uexinfo.display import colors as C
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
+
+# Seuils de confiance OCR (score SC-Datarunner, nouveau format de log) —
+# vérifiés sur un vrai scan Orbituary : Borase (prix vide, conf=0),
+# Construction Materials (SCU aberrant, conf=55), Processed Food (prix
+# suspect, conf=70) correspondaient tous à une confiance basse.
+_CONF_LOW    = 50   # < 50 : très probablement faux
+_CONF_MEDIUM = 80   # 50-79 : à vérifier
+
+
+def _confidence_color(confidence: int) -> str | None:
+    """Couleur selon le score de confiance OCR (0-100). None = pas de couleur
+    (confiance haute, ou non disponible — vaut 100 par défaut)."""
+    if confidence < _CONF_LOW:
+        return C.LOSS
+    if confidence < _CONF_MEDIUM:
+        return C.WARNING
+    return None
 
 _STOCK_BARS = {
     1: "[dim]▒▒▒▒ Out[/dim]",
@@ -177,6 +194,13 @@ def _display_scan(result: ScanResult, ctx) -> None:
             display_name = f"{uex_c.name}{code_tag}"
         else:
             display_name = sc.name
+
+        # Confiance OCR SC-Datarunner (nouveau format de log uniquement —
+        # vaut 100/aucune couleur pour l'OCR direct d'uexinfo ou l'ancien
+        # format) : signale une ligne à vérifier avant de valider.
+        conf_color = _confidence_color(sc.confidence)
+        if conf_color:
+            display_name = f"[{conf_color}]{display_name} ⚠{sc.confidence}%[/{conf_color}]"
 
         # Prix UEX global (moyenne commodité)
         uex_buy_avg  = (uex_c.price_buy  if uex_c else 0) or 0
@@ -779,8 +803,8 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
     if not rows:
         return False
 
-    # Construire un dict {commodity_name_lower: (price, qty, stock_status)}
-    price_map: dict[str, tuple[int, int, int]] = {}
+    # Construire un dict {commodity_name_lower: (price, qty, status, date_modified, id)}
+    price_map: dict[str, tuple[int, int, int, int, int]] = {}
     for r in rows:
         price = r.get(price_key)
         cname = (r.get("commodity_name") or "").lower()
@@ -791,22 +815,48 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
             else:
                 qty    = int(r.get("scu_buy_max") or r.get("scu_buy") or 0)
                 status = int(r.get("status_buy") or 0)
-            price_map[cname] = (int(price), qty, status)
+            date_mod = int(r.get("date_modified") or 0)
+            id_comm  = int(r.get("id_commodity") or 0)
+            price_map[cname] = (int(price), qty, status, date_mod, id_comm)
 
     if not price_map:
         return False
 
     # Mettre à jour les commodités du scan avec les données UEX fraîches
     updated = 0
+    matched_names: set[str] = set()
     for sc in result.commodities:
         key = sc.name.lower()
         if key in price_map:
-            uex_price, uex_qty, uex_status = price_map[key]
+            uex_price, uex_qty, uex_status, _date_mod, _id = price_map[key]
             sc.price = uex_price
             if uex_qty:
                 sc.quantity = uex_qty
             if uex_status:
                 sc.stock_status = uex_status
+            updated += 1
+            matched_names.add(key)
+
+    # Commodités corrigées de NOM (pas juste de prix) dans Datarunner avant
+    # l'envoi : le log ne contient que le nom OCR d'origine (mal reconnu), donc
+    # aucune entrée locale ne correspond au nom réellement soumis à UEX. On les
+    # ajoute si UEX vient de les mettre à jour dans la fenêtre de cette
+    # soumission (sinon on récupérerait n'importe quelle vieille donnée non
+    # liée à ce scan) — vérifié sur un cas réel (variante de taille corrigée).
+    scan_ts = result.timestamp.timestamp()
+    _RECENT_WINDOW_S = 900  # 15 min — couvre le délai OCR → correction → envoi
+    for cname, (uex_price, uex_qty, uex_status, date_mod, id_comm) in price_map.items():
+        if cname in matched_names:
+            continue
+        if date_mod and abs(scan_ts - date_mod) <= _RECENT_WINDOW_S:
+            result.commodities.append(ScannedCommodity(
+                name=next((r.get("commodity_name") for r in rows
+                           if (r.get("commodity_name") or "").lower() == cname), cname),
+                commodity_id=id_comm,
+                price=uex_price,
+                quantity=uex_qty or None,
+                stock_status=uex_status,
+            ))
             updated += 1
 
     return updated > 0
@@ -1591,11 +1641,14 @@ def cmd_scan(args: list[str], ctx) -> None:
             return
 
         # /scan log new  → incrémental depuis le dernier offset (auto-check)
-        # /scan log [all] → lit TOUT le fichier (défaut) puis avance l'offset à la fin
+        # /scan log [all|full] → lit TOUT le fichier (défaut) puis avance l'offset à la fin
+        # "full" = synonyme de "all" (mot naturel à essayer — sinon traité comme
+        # un nom de fichier littéral et échoue silencieusement en "introuvable").
+        _FULL_KEYWORDS = ("all", "full")
         incremental = (sub2 == "new")
-        full        = not incremental   # "all" ou "" → tout lire
-        raw_args    = args[2:] if sub2 in ("all", "new") else (
-                          args[1:] if sub2 not in ("", "all", "new") else [])
+        full        = not incremental   # "all"/"full" ou "" → tout lire
+        raw_args    = args[2:] if sub2 in (*_FULL_KEYWORDS, "new") else (
+                          args[1:] if sub2 not in ("", *_FULL_KEYWORDS, "new") else [])
         log_path = _resolve_log_path(raw_args, ctx)
         sc_log_configured = bool(ctx.cfg.get("scan", {}).get("sc_log_path", "")) or bool(raw_args)
         if log_path is None and sc_log_configured:

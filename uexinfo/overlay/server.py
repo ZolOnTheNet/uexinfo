@@ -687,6 +687,7 @@ class OverlayServer:
                     "quantity":     c.quantity,
                     "stock_status": c.stock_status,
                     "uex_price":    uex_ref.get(c.name.lower(), {}).get(ref_field, 0),
+                    "confidence":   c.confidence,
                 }
                 for c in commodities_filtered
             ],
@@ -742,7 +743,14 @@ class OverlayServer:
                         target.stock_status = int(cd.get("stock_status") or 0)
                     else:
                         # Nouvelle commodité ajoutée par l'utilisateur
-                        result.commodities.append(self._make_scanned_commodity(cd))
+                        qty = cd.get("quantity")
+                        result.commodities.append(ScannedCommodity(
+                            name=cd.get("name") or "",
+                            commodity_id=0,
+                            price=int(cd.get("price") or 0),
+                            quantity=int(qty) if qty not in (None, "") else None,
+                            stock_status=int(cd.get("stock_status") or 0),
+                        ))
             else:
                 # Valider tout : reconstruire la liste complète depuis les données reçues
                 # Conserver les commodity_id des entrées existantes (match par nom)

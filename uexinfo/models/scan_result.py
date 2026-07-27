@@ -11,9 +11,13 @@ class ScannedCommodity:
     commodity_id: int = 0
     quantity: int | None = None
     stock: str = ""
-    stock_status: int = 0   # 1=out, 2=very low, 3=low, 4=medium, 5=high, 7=max
+    stock_status: int = 0   # 1=out, 2=très bas, 3=bas, 4=moyen, 5=haut, 7=max
     price: int = 0          # aUEC/SCU
     in_demand: bool = False  # True = section INDEMAND (terminal veut mais joueur n'a pas)
+    # Confiance OCR minimale (0-100) parmi les champs extraits par SC-Datarunner
+    # (nom/quantité/stock/prix) — 100 = pas de donnée de confiance disponible
+    # (ancien format de log, ou scan OCR direct d'uexinfo).
+    confidence: int = 100
 
 
 @dataclass
