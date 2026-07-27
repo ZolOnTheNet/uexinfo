@@ -229,16 +229,10 @@ def _parse_commodity_line(line: str) -> ScannedCommodity | None:
     if m2:
         def _int_or(v, default=0):
             return default if v == "None" else int(v)
-        # Confiance globale = la plus basse des confiances par champ — un seul
-        # champ mal reconnu (ex: taille "Size 7" au lieu de "Size 1") suffit à
-        # rendre toute la ligne suspecte.
-        confidence = min(
-            int(m2.group("name_conf")),
-            int(m2.group("quantity_conf")),
-            int(m2.group("stock_conf")),
-            int(m2.group("stock_status_conf")),
-            int(m2.group("price_conf")),
-        )
+        # Le format distingue la confiance du texte "stock" (StrConfidence) de
+        # celle du niveau numérique stock_status (IntConfidence) — un seul champ
+        # affiché côté uexinfo, donc la plus basse des deux.
+        stock_confidence = min(int(m2.group("stock_conf")), int(m2.group("stock_status_conf")))
         return ScannedCommodity(
             name=m2.group("name") or "",
             commodity_id=_int_or(m2.group("id")),
@@ -246,7 +240,10 @@ def _parse_commodity_line(line: str) -> ScannedCommodity | None:
             stock=m2.group("stock") or "",
             stock_status=_int_or(m2.group("stock_status")),
             price=_int_or(m2.group("price")),
-            confidence=confidence,
+            name_confidence=int(m2.group("name_conf")),
+            quantity_confidence=int(m2.group("quantity_conf")),
+            stock_confidence=stock_confidence,
+            price_confidence=int(m2.group("price_conf")),
         )
 
     m = RE_COMMODITY.search(line)

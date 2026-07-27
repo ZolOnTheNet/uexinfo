@@ -688,6 +688,15 @@ class OverlayServer:
                     "stock_status": c.stock_status,
                     "uex_price":    uex_ref.get(c.name.lower(), {}).get(ref_field, 0),
                     "confidence":   c.confidence,
+                    "uex_pending":  c.uex_pending,
+                    "name_confidence":     c.name_confidence,
+                    "quantity_confidence": c.quantity_confidence,
+                    "stock_confidence":    c.stock_confidence,
+                    "price_confidence":    c.price_confidence,
+                    "price_corrected":     c.price_corrected,
+                    "quantity_corrected":  c.quantity_corrected,
+                    "stock_corrected":     c.stock_corrected,
+                    "terminal_mismatch":   c.terminal_mismatch,
                 }
                 for c in commodities_filtered
             ],
@@ -1629,20 +1638,16 @@ class OverlayServer:
                     prev_history_len = len(getattr(self.ctx, "scan_history", []) or [])
                     check_log_auto(self.ctx)  # déclenche _apply_autopos si terminal détecté
 
-                    # Ne PAS présenter un scan "log" (SC-Datarunner) tant qu'il n'est pas
-                    # validé (envoyé à UEX) : l'afficher immédiatement invite à le corriger
-                    # ici, en double de la correction faite dans Datarunner lui-même — deux
-                    # saisies pour la même erreur, source de fautes supplémentaires. Une fois
-                    # validé, les valeurs déjà rechargées depuis UEX (_refresh_validated_from_uex)
-                    # n'ont normalement plus besoin de correction manuelle côté uexinfo.
-                    # Un scan OCR direct (source="ocr", pas d'étape de validation externe)
-                    # reste affiché immédiatement comme avant — c'est la seule occasion de le
-                    # corriger. Le flag "ScanLog" de la barre de statut continue de signaler
-                    # l'activité même quand la table n'est pas affichée.
+                    # Présenter chaque scan "log" dès sa détection, validé ou non
+                    # (comportement d'origine) — les règles de gestion
+                    # (_apply_smart_rules, appelées dans check_log_auto) signalent
+                    # déjà les valeurs douteuses par couleur (confiance OCR par
+                    # champ, corrections auto en violet, commodité absente du
+                    # terminal en rouge), donc afficher tout de suite reste utile
+                    # pour repérer une erreur AVANT l'envoi dans Datarunner, plutôt
+                    # que de bloquer l'affichage jusqu'à validation.
                     new_scans = getattr(self.ctx, "scan_history", [])[prev_history_len:]
-                    displayable = [r for r in new_scans
-                                   if not (r.source == "log" and not r.validated)]
-                    for result in displayable:
+                    for result in new_scans:
                         payload = self._scan_edit_payload(result)
                         if payload is not None:
                             await self._broadcast_raw(json.dumps(payload))

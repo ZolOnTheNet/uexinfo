@@ -195,12 +195,24 @@ def _display_scan(result: ScanResult, ctx) -> None:
         else:
             display_name = sc.name
 
-        # Confiance OCR SC-Datarunner (nouveau format de log uniquement —
-        # vaut 100/aucune couleur pour l'OCR direct d'uexinfo ou l'ancien
-        # format) : signale une ligne à vérifier avant de valider.
-        conf_color = _confidence_color(sc.confidence)
-        if conf_color:
-            display_name = f"[{conf_color}]{display_name} ⚠{sc.confidence}%[/{conf_color}]"
+        # Commodité/mode absent de ce terminal côté UEX (règle de gestion,
+        # _apply_smart_rules) : signal plus grave qu'une simple incertitude
+        # OCR — probablement mauvais terminal, mauvais mode, ou nom erroné.
+        if sc.terminal_mismatch:
+            mode_label = "vente" if is_sell else "achat"
+            display_name = f"[{C.MISMATCH}]{display_name}  ✗ absent en {mode_label} ici[/{C.MISMATCH}]"
+        else:
+            conf_color = _confidence_color(sc.name_confidence)
+            if conf_color:
+                display_name = f"[{conf_color}]{display_name} ⚠{sc.name_confidence}%[/{conf_color}]"
+
+        # Scan validé, mais UEX n'a encore aucune donnée récente pour cette
+        # commodité précise : la valeur affichée reste l'OCR d'origine
+        # (potentiellement corrigée par l'utilisateur dans Datarunner, mais
+        # cette correction n'apparaît jamais dans le log — seule l'API UEX,
+        # une fois à jour, la révèle). Ne pas laisser croire que c'est confirmé.
+        if sc.uex_pending:
+            display_name = f"{display_name}  [{C.SCTRADE}]⏳ UEX pas encore à jour[/{C.SCTRADE}]"
 
         # Prix UEX global (moyenne commodité)
         uex_buy_avg  = (uex_c.price_buy  if uex_c else 0) or 0
@@ -227,8 +239,22 @@ def _display_scan(result: ScanResult, ctx) -> None:
                 if uex_ref * 0.5 <= corrected <= uex_ref * 2:
                     price = corrected
 
-        qty_str   = str(sc.quantity) if sc.quantity is not None else f"[{C.DIM}]—[/{C.DIM}]"
+        # Qté : violet + 🔧 si plafonnée (règle de gestion), sinon coloré par
+        # sa propre confiance OCR, sinon neutre.
+        qty_disp = str(sc.quantity) if sc.quantity is not None else "—"
+        if sc.quantity_corrected:
+            qty_str = f"[{C.CORRECTED}]{qty_disp} 🔧[/{C.CORRECTED}]"
+        else:
+            qc = _confidence_color(sc.quantity_confidence)
+            qty_str = f"[{qc}]{qty_disp}[/{qc}]" if qc else (
+                qty_disp if sc.quantity is not None else f"[{C.DIM}]—[/{C.DIM}]"
+            )
+
+        # Stock : _stock_bar a déjà sa propre couleur sémantique (out/low/high…),
+        # on ajoute juste un repère 🔧 si forcé par la règle "0 SCU = out of stock".
         stock_str = _stock_bar(sc.stock_status, sc.stock)
+        if sc.stock_corrected:
+            stock_str = f"{stock_str} [{C.CORRECTED}]🔧[/{C.CORRECTED}]"
 
         # Prix scanné : si 0 et scan validé → OCR a raté, l'utilisateur a corrigé avant soumission
         # On affiche "corrigé" et on utilise le prix UEX comme référence
@@ -239,10 +265,13 @@ def _display_scan(result: ScanResult, ctx) -> None:
 
         if price:
             raw = f"{price:,} {C.AUEC}".replace(",", "\u202f")
-            price_str = (
-                f"[{C.DIM}]~{raw}[/{C.DIM}]"  # approximatif (corrigé par UEX)
-                if price_corrected else raw
-            )
+            if sc.price_corrected:
+                price_str = f"[{C.CORRECTED}]{raw} 🔧[/{C.CORRECTED}]"
+            elif price_corrected:
+                price_str = f"[{C.DIM}]~{raw}[/{C.DIM}]"  # approximatif (repli d'affichage)
+            else:
+                pc = _confidence_color(sc.price_confidence)
+                price_str = f"[{pc}]{raw}[/{pc}]" if pc else raw
         else:
             price_str = f"[{C.DIM}]?[/{C.DIM}]"  # OCR raté, pas de référence UEX
 
@@ -388,6 +417,11 @@ def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult
                 print_warn(f"Aucun nouveau scan dans le log. (offset: {parser.get_offset()} octets)")
                 console.print(f"[{C.DIM}]Utilisez /scan log pour tout relire depuis le début.[/{C.DIM}]")
             return results
+
+        # Règles de gestion (fourchette prix, plafond SCU, cohérence stock,
+        # commodité/mode absent du terminal) — dès la détection, validé ou non.
+        for r in results:
+            _apply_smart_rules(r, ctx)
 
         # Pour les scans validés (soumis à UEX), remplacer les données OCR brutes
         # par les prix UEX frais qui reflètent les corrections faites dans SC-Datarunner.
@@ -562,6 +596,11 @@ def check_log_auto(ctx) -> list[ScanResult]:
         results = LogParser(log_path).parse_new()
     except Exception:
         return []
+
+    # Règles de gestion (fourchette prix, plafond SCU, cohérence stock,
+    # commodité/mode absent du terminal) — dès la détection, validé ou non.
+    for r in results:
+        _apply_smart_rules(r, ctx)
 
     # Scans validés (soumis à UEX depuis SC-Datarunner) : les corrections faites
     # dans l'interface Datarunner avant l'envoi n'apparaissent jamais dans le log
@@ -740,6 +779,93 @@ def _scan_game_window(ctx) -> ScanResult | None:
         tmp_path.unlink(missing_ok=True)
 
 
+def _apply_smart_rules(result: ScanResult, ctx) -> None:
+    """Règles de gestion appliquées dès la détection d'un scan log (avant même
+    validation) — objectif : repérer/corriger les erreurs OCR évidentes tout
+    de suite plutôt que d'attendre un aller-retour UEX potentiellement lent.
+
+    Pour chaque commodité :
+    - 0 SCU détecté → stock forcé "out of stock" (incohérence sinon).
+    - Quantité plafonnée au plus haut SCU déjà vu par UEX pour cette
+      commodité à ce terminal (au-delà, quasi certainement un chiffre OCR
+      en trop).
+    - Prix hors de la fourchette [min, max] connue d'UEX pour ce terminal :
+      on essaie, dans l'ordre, (1) retirer le chiffre de tête (ex: 218050 →
+      18050 — chiffre parasite en début de nombre), (2) diviser par 10
+      (erreur d'échelle OCR classique) ; la première qui retombe dans la
+      fourchette est gardée. Prix vide/nul → rempli directement avec le
+      prix actuel connu d'UEX.
+    - Commodité absente de ce terminal pour CE mode (achat/vente) précis
+      côté UEX → terminal_mismatch (signale probablement un mauvais
+      terminal, mauvais mode, ou nom OCR erroné).
+
+    Toute correction est marquée (price_corrected/quantity_corrected/
+    stock_corrected) pour un rendu distinct (violet) — jamais silencieuse.
+    """
+    if result.source != "log" or not result.terminal:
+        return
+
+    from uexinfo.cli.commands.info import _terminal_prices
+
+    is_sell     = result.mode == "sell"
+    price_key   = "price_sell" if is_sell else "price_buy"
+    min_key     = f"{price_key}_min"
+    max_key     = f"{price_key}_max"
+    scu_max_key = "scu_sell_max" if is_sell else "scu_buy_max"
+
+    resolved_name = _resolve_autopos_terminal(result.terminal, ctx)
+    terminal = next(
+        (t for t in (ctx.cache.terminals or []) if t.name == resolved_name), None
+    )
+
+    rows = _terminal_prices(terminal, ctx) if terminal else []
+    by_name = {(r.get("commodity_name") or "").lower(): r for r in rows}
+
+    for sc in result.commodities:
+        # Règle : 0 SCU == out of stock (incohérence OCR sinon).
+        if sc.quantity == 0 and sc.stock_status != 1:
+            sc.stock_status = 1
+            sc.stock_corrected = True
+
+        row = by_name.get(sc.name.lower())
+
+        # Règle : ce mode n'existe pas pour cette commodité à ce terminal.
+        sc.terminal_mismatch = not (row and row.get(price_key))
+
+        if not row:
+            continue
+
+        # Règle : plafond de quantité au max SCU déjà vu par UEX ici.
+        scu_max = int(row.get(scu_max_key) or 0)
+        if scu_max and sc.quantity is not None and sc.quantity > scu_max:
+            sc.quantity = scu_max
+            sc.quantity_corrected = True
+
+        current_price = int(row.get(price_key) or 0)
+
+        # Prix vide/nul → rempli directement avec le prix UEX connu.
+        if not sc.price:
+            if current_price:
+                sc.price = current_price
+                sc.price_corrected = True
+            continue
+
+        # Prix hors fourchette UEX → tentatives de correction par priorité.
+        range_min = int(row.get(min_key) or 0)
+        range_max = int(row.get(max_key) or 0)
+        if range_min and range_max and not (range_min <= sc.price <= range_max):
+            digits = str(sc.price)
+            candidates = []
+            if len(digits) > 1:
+                candidates.append(int(digits[1:]))   # sans le chiffre de tête
+            candidates.append(round(sc.price / 10))  # ÷10
+            for cand in candidates:
+                if cand and range_min <= cand <= range_max:
+                    sc.price = cand
+                    sc.price_corrected = True
+                    break
+
+
 # Anti-doublon (secondes) pour _refresh_validated_from_uex — court exprès, cf. docstring.
 _REFRESH_DEDUP_TTL = 60.0
 
@@ -822,20 +948,33 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
     if not price_map:
         return False
 
-    # Mettre à jour les commodités du scan avec les données UEX fraîches
+    # Mettre à jour les commodités du scan avec les données UEX fraîches —
+    # seulement si UEX a une donnée réellement récente (fenêtre de cette
+    # soumission). UEX peut mettre de quelques secondes à plus d'une journée
+    # à traiter un rapport (vérifié plusieurs fois sur de vrais scans) : tant
+    # que ça n'a pas atterri, la ligne trouvée par nom est une ancienne
+    # valeur sans rapport avec CETTE soumission — la remplacer silencieusement
+    # ferait passer une valeur OCR incertaine pour une correction confirmée,
+    # alors que ce n'en est pas une. On marque plutôt la ligne "en attente".
+    scan_ts = result.timestamp.timestamp()
+    _RECENT_WINDOW_S = 900  # 15 min — couvre le délai OCR → correction → envoi
     updated = 0
     matched_names: set[str] = set()
     for sc in result.commodities:
         key = sc.name.lower()
         if key in price_map:
-            uex_price, uex_qty, uex_status, _date_mod, _id = price_map[key]
-            sc.price = uex_price
-            if uex_qty:
-                sc.quantity = uex_qty
-            if uex_status:
-                sc.stock_status = uex_status
-            updated += 1
+            uex_price, uex_qty, uex_status, date_mod, _id = price_map[key]
             matched_names.add(key)
+            if date_mod and abs(scan_ts - date_mod) <= _RECENT_WINDOW_S:
+                sc.price = uex_price
+                if uex_qty:
+                    sc.quantity = uex_qty
+                if uex_status:
+                    sc.stock_status = uex_status
+                sc.uex_pending = False
+                updated += 1
+            else:
+                sc.uex_pending = True
 
     # Commodités corrigées de NOM (pas juste de prix) dans Datarunner avant
     # l'envoi : le log ne contient que le nom OCR d'origine (mal reconnu), donc
@@ -843,8 +982,6 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
     # ajoute si UEX vient de les mettre à jour dans la fenêtre de cette
     # soumission (sinon on récupérerait n'importe quelle vieille donnée non
     # liée à ce scan) — vérifié sur un cas réel (variante de taille corrigée).
-    scan_ts = result.timestamp.timestamp()
-    _RECENT_WINDOW_S = 900  # 15 min — couvre le délai OCR → correction → envoi
     for cname, (uex_price, uex_qty, uex_status, date_mod, id_comm) in price_map.items():
         if cname in matched_names:
             continue

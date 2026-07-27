@@ -24,6 +24,10 @@ LOSS = "bold red"
 NEUTRAL = "white"
 ILLEGAL = "red"
 
+# Scan — règles de gestion (/scan log)
+MISMATCH  = "bold bright_red"  # commodité/mode absent du terminal côté UEX (rouge pétant, distinct de LOSS)
+CORRECTED = "bold magenta"     # valeur auto-corrigée (fourchette prix, plafond SCU, prix rempli depuis UEX)
+
 # Symboles unités (affichage compact)
 SCU  = "□"   # Standard Cargo Unit  (U+25A1 WHITE SQUARE)
 AUEC = "α"   # alpha UEC — monnaie in-game
