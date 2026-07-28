@@ -661,15 +661,30 @@ class OverlayServer:
         is_sell = result.mode == "sell"
         ref_field = "price_sell" if is_sell else "price_buy"
 
+        # Normalise les variantes d'apostrophe (courbe ’, accent grave `…) —
+        # l'OCR peut rendre l'apostrophe de "E'tam" différemment de la vraie
+        # (U+0027) chez UEX. Sans ça, une comparaison exacte échoue, et si en
+        # plus commodity_id/price n'ont pas été détectés (fréquent sur un bien
+        # illégal rare), la ligne disparaît silencieusement du tableau.
+        from uexinfo.cli.commands.scan import _norm_apos
+
         # Filtrer les commodités OCR noise : nom inconnu UEX + prix nul
-        known_names = set(uex_ref.keys())
+        known_names = {_norm_apos(n) for n in uex_ref.keys()}
         def _keep(c):
-            name_lc = c.name.lower().strip()
+            name_lc = _norm_apos(c.name.lower().strip())
             if not name_lc:
                 return False
             in_uex = name_lc in known_names or c.commodity_id > 0
             # Garder si : nom reconnu UEX, OU prix non nul (joueur a un prix même si nom OCR imparfait)
-            return in_uex or c.price > 0
+            if in_uex or c.price > 0:
+                return True
+            # Dernier recours : correspondance floue (l'OCR a pu se tromper
+            # sur autre chose qu'une apostrophe, ex: une lettre).
+            try:
+                from uexinfo.cli.commands.scan import _resolve_uex
+                return _resolve_uex(c.name, cache.commodities if cache else [], c.commodity_id) is not None
+            except Exception:
+                return False
 
         commodities_filtered = [c for c in result.commodities if _keep(c)]
 

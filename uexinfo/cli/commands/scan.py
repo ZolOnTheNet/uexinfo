@@ -11,6 +11,16 @@ from uexinfo.display import colors as C
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
 
+# Normalise les variantes d'apostrophe (courbe ’, accent grave `…) que l'OCR
+# peut produire pour un nom comme "E'tam" — sans ça, une comparaison exacte
+# contre le nom UEX (toujours en apostrophe droite U+0027) échoue et la ligne
+# peut disparaître silencieusement ou être marquée à tort "absente".
+_APOS_MAP = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "`": "'"})
+
+
+def _norm_apos(s: str) -> str:
+    return s.translate(_APOS_MAP)
+
 # Seuils de confiance OCR (score SC-Datarunner, nouveau format de log) —
 # vérifiés sur un vrai scan Orbituary : Borase (prix vide, conf=0),
 # Construction Materials (SCU aberrant, conf=55), Processed Food (prix
@@ -819,7 +829,11 @@ def _apply_smart_rules(result: ScanResult, ctx) -> None:
     )
 
     rows = _terminal_prices(terminal, ctx) if terminal else []
-    by_name = {(r.get("commodity_name") or "").lower(): r for r in rows}
+    # Normalise les variantes d'apostrophe (courbe, accent grave…) — l'OCR
+    # peut rendre celle de "E'tam" différemment de la vraie (U+0027) chez
+    # UEX. Sans ça, une comparaison exacte échoue et la commodité est
+    # marquée à tort "absente du terminal" (terminal_mismatch).
+    by_name = {_norm_apos((r.get("commodity_name") or "").lower()): r for r in rows}
 
     for sc in result.commodities:
         # Règle : 0 SCU == out of stock (incohérence OCR sinon).
@@ -827,7 +841,19 @@ def _apply_smart_rules(result: ScanResult, ctx) -> None:
             sc.stock_status = 1
             sc.stock_corrected = True
 
-        row = by_name.get(sc.name.lower())
+        row = by_name.get(_norm_apos(sc.name.lower()))
+        if row is None and sc.name:
+            # Repli flou : l'OCR a pu se tromper sur autre chose qu'une
+            # apostrophe (une lettre, un caractère omis…) — mêmes seuils que
+            # _resolve_uex (WRatio ≥ 85) pour rester cohérent avec le reste.
+            try:
+                from rapidfuzz import process, fuzz
+                candidates = list(by_name.keys())
+                m = process.extractOne(sc.name.lower(), candidates, scorer=fuzz.WRatio, score_cutoff=85)
+                if m:
+                    row = by_name[m[0]]
+            except ImportError:
+                pass
 
         # Règle : ce mode n'existe pas pour cette commodité à ce terminal.
         sc.terminal_mismatch = not (row and row.get(price_key))

@@ -2836,7 +2836,21 @@ function appendScanInline(msg) {
       `<span class="si-sent-mark"></span>` +
     `</div>`;
 
-  elOutput.appendChild(div);
+  // Un même terminal/mode pas encore soumis continue d'accumuler des
+  // commodités à chaque nouvelle capture d'écran (plusieurs détections
+  // "Matched terminal" avant l'envoi Datarunner) — sans ça, chaque nouvelle
+  // détection empilait un NOUVEAU tableau qui reprenait tout depuis le
+  // début, en plus des précédents (comparaison directe des dataset, pas de
+  // sélecteur CSS avec le nom en brut dedans — un nom avec apostrophe l'a
+  // déjà cassé une fois ailleurs, cf. showCtx).
+  const existing = Array.from(elOutput.querySelectorAll('.scan-inline')).find(
+    el => el.dataset.terminal === (data.terminal || '') && el.dataset.mode === (data.mode || 'buy')
+  );
+  if (existing) {
+    existing.replaceWith(div);
+  } else {
+    elOutput.appendChild(div);
+  }
   elOutput.scrollTop = elOutput.scrollHeight;
 }
 
