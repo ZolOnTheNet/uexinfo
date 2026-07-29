@@ -66,8 +66,15 @@ def cmd_trade(args: list[str], ctx) -> None:
         _trade_bilan(ctx)
         return
     sub = args[0].lower()
+    # /trade <N> : raccourci pour /trade cargo <N> (quantité SCU explicite).
+    if sub.isdigit():
+        _trade_bilan_cargo(args, ctx)
+        return
     if sub in _FROMS or sub in _TOS:
         _trade_bilan_override(args, ctx)
+        return
+    if sub == "cargo":
+        _trade_bilan_cargo(args[1:], ctx)
         return
     if sub == "sctrade":
         _trade_sctrade(args[1:], ctx)
@@ -273,6 +280,19 @@ def _trade_bilan_override(args: list[str], ctx) -> None:
     _trade_bilan(ctx, origin_override=from_str, dest_override=to_str)
 
 
+def _trade_bilan_cargo(args: list[str], ctx) -> None:
+    """/trade cargo <N> (ou /trade <N>) — simule le bilan avec N SCU au lieu
+    du cargo du vaisseau actif configuré. Ne modifie rien de persisté."""
+    if not args or not args[0].isdigit():
+        print_error("Usage : /trade cargo <SCU>  (ex: /trade cargo 500)")
+        return
+    n = int(args[0])
+    if n <= 0:
+        print_error("La quantité SCU doit être positive.")
+        return
+    _trade_bilan(ctx, cargo_override=n)
+
+
 # ── /trade (bilan route) ───────────────────────────────────────────────────────
 
 
@@ -388,8 +408,14 @@ def _fmt_pack(pack_map: dict[int, int]) -> str:
 
 
 
-def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> None:
-    """Bilan achat/vente entre position joueur et destination."""
+def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
+                 cargo_override: int = 0) -> None:
+    """Bilan achat/vente entre position joueur et destination.
+
+    cargo_override : quantité SCU explicite (/trade cargo <N>), remplace le
+    cargo du vaisseau actif pour ce calcul uniquement — ne modifie rien de
+    persisté, juste une simulation ponctuelle ("et si j'avais N SCU ?").
+    """
     origin_loc = origin_override.strip() or (ctx.player.location or "").strip()
     dest_loc   = dest_override.strip()   or (ctx.player.destination or "").strip()
 
@@ -424,9 +450,10 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
         print_error(f"Terminal de destination introuvable : {dest_loc}")
         return
 
-    ship_cargo = _player_cargo(ctx)
+    ship_cargo = cargo_override or _player_cargo(ctx)
     if ship_cargo == 0:
-        print_warn(f"Vaisseau actif non défini ou cargo = 0 {C.SCU}. Utilisez /ship set <nom>.")
+        print_warn(f"Vaisseau actif non défini ou cargo = 0 {C.SCU}. Utilisez /ship set <nom> "
+                   f"ou /trade cargo <N> pour préciser une quantité.")
         return
 
     origin_rows = _filter_shipammun_rows(_terminal_prices(origin, ctx), ctx)
@@ -598,9 +625,10 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "") -> Non
     entries.sort(key=lambda d: -(d["roi"] if d["roi"] is not None else -1e9))
 
     section(f"Trade — {_loc(origin.name)} → {_loc(dest.name)}")
-    dist_note = f"  ·  distance : {dist_str}" if dist_str else ""
+    dist_note   = f"  ·  distance : {dist_str}" if dist_str else ""
+    cargo_note  = "  [dim](simulé — /trade cargo pour changer)[/dim]" if cargo_override else ""
     console.print(
-        f"[{C.DIM}]Cargo : {ship_cargo} {C.SCU}  ·  {len(entries)} commodité(s){dist_note}[/{C.DIM}]"
+        f"[{C.DIM}]Cargo : {ship_cargo} {C.SCU}{cargo_note}  ·  {len(entries)} commodité(s){dist_note}[/{C.DIM}]"
     )
     console.print(
         f"[{C.DIM}]stock achat :[/{C.DIM}]"

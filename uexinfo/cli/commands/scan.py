@@ -191,6 +191,7 @@ def _display_scan(result: ScanResult, ctx) -> None:
         (uex_hdr,            price_color,"right"),
         (delta_hdr,          C.NEUTRAL,  "right"),
         (f"Marge/{C.SCU}",  C.NEUTRAL,  "right"),
+        ("MàJ",              C.SCTRADE,  "center"),
     ]
     t = make_table(*cols)
 
@@ -221,8 +222,7 @@ def _display_scan(result: ScanResult, ctx) -> None:
         # (potentiellement corrigée par l'utilisateur dans Datarunner, mais
         # cette correction n'apparaît jamais dans le log — seule l'API UEX,
         # une fois à jour, la révèle). Ne pas laisser croire que c'est confirmé.
-        if sc.uex_pending:
-            display_name = f"{display_name}  [{C.SCTRADE}]⏳ UEX pas encore à jour[/{C.SCTRADE}]"
+        pending_str = f"[{C.SCTRADE}]⏳[/{C.SCTRADE}]" if sc.uex_pending else ""
 
         # Prix UEX global (moyenne commodité)
         uex_buy_avg  = (uex_c.price_buy  if uex_c else 0) or 0
@@ -320,11 +320,13 @@ def _display_scan(result: ScanResult, ctx) -> None:
         else:
             margin_str = f"[{C.DIM}]—[/{C.DIM}]"
 
-        t.add_row(display_name, stock_str, qty_str, price_str, uex_t_str, delta_str, margin_str)
+        t.add_row(display_name, stock_str, qty_str, price_str, uex_t_str, delta_str, margin_str, pending_str)
 
     console.print(t)
     if has_term:
         console.print(f"[{C.DIM}]  Δ UEX term = vs prix UEX spécifique à ce terminal[/{C.DIM}]")
+    if any(sc.uex_pending for sc in result.commodities):
+        console.print(f"[{C.DIM}]  ⏳ MàJ = UEX pas encore à jour pour cette commodité[/{C.DIM}]")
     console.print(f"[{C.DIM}]  Ctrl+↑ pour éditer[/{C.DIM}]")
 
     missing = sum(1 for sc in result.commodities if not sc.price)

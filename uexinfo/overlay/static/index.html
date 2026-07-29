@@ -211,6 +211,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   color: #ff8a80 !important;
 }
 .si-pending-badge { cursor: help; opacity: 0.85; }
+.si-pending-cell  { width: 1.4em; text-align: center; }
 .cw-commodity { color: #ffd600; }
 .cw-location  { color: #00bcd4; }
 .cw-ship      { color: #69f0ae; }
@@ -665,6 +666,12 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 .sb-flag.blink { opacity: 0.25; }
 .sb-btn { color: var(--text); cursor: pointer; padding: 1px 5px; border-radius: 2px; flex-shrink: 0; }
 .sb-btn:hover { background: rgba(255,255,255,0.10); }
+.sb-cargo-input {
+  width: 52px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text); border-radius: 2px; font-family: var(--font); font-size: 0.85em;
+  padding: 0 3px; flex-shrink: 0; text-align: right;
+}
+.sb-cargo-input:focus { border-color: var(--accent); outline: none; }
 .sb-alpha-lbl { color: var(--dim); font-size: 0.88em; flex-shrink: 0; padding: 0 2px; }
 
 /* ── Barre de titre (mode frameless) ───────────────────────────────────── */
@@ -1106,7 +1113,9 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   <span class="sb-sep"> │ </span>
   <span id="sb-ship"  class="sb sb-ship click"  title="Changer de vaisseau">V: —</span>
   <span class="sb-sep"> │ </span>
-  <span id="sb-trade" class="sb-btn" onclick="sendCmd('/trade')" title="Lancer /trade">Trade</span>
+  <input type="number" id="sb-cargo" class="sb-cargo-input" min="1" placeholder="□"
+         title="Cargo (SCU) pour le calcul /trade — pré-rempli avec le vaisseau actif, modifiable">
+  <span id="sb-trade" class="sb-btn" onclick="sendTradeWithCargo()" title="Lancer /trade avec ce cargo">Trade</span>
   <span class="sb-sep"> │ </span>
   <span id="sb-scan-sc"  class="sb-flag off" title="Scan SC détecté — cliquer pour analyser">ScanSC</span>
   <span class="sb-sep"> </span>
@@ -1386,6 +1395,7 @@ let _blockAnchor  = null;  // nœud DOM marquant le début du bloc courant
 let _intellisense = false; // true quand le dropdown est ouvert en mode IntelliSense
 let currentPos   = '';
 let currentDest  = '';
+let _cargoManuallySet = false;  // true dès que l'utilisateur tape dans sb-cargo
 let overlayAlpha = 0.76;
 
 // ── Vocabulaire & annotation ──────────────────────────────────────────────────
@@ -1967,6 +1977,14 @@ function updateStatus(s) {
   document.getElementById('sb-ship').textContent =
     `V: ${s.ship || '—'} / ${s.cargo ? s.cargo+' □' : '— □'}`;
 
+  // Zone de saisie cargo (/trade cargo <N>) — initialisée au SCU connu du
+  // vaisseau actif, mais jamais écrasée une fois que l'utilisateur y a tapé
+  // quelque chose lui-même (sinon la valeur retape à chaque tick de statut).
+  const cargoEl = document.getElementById('sb-cargo');
+  if (cargoEl && !_cargoManuallySet && s.cargo) {
+    cargoEl.value = s.cargo;
+  }
+
   const arr = document.getElementById('sb-arrow');
   arr.textContent  = currentDest ? '◄' : '·';
   arr.style.cursor = currentDest ? 'pointer' : 'default';
@@ -2053,6 +2071,14 @@ document.getElementById('sb-arrow').addEventListener('click', () => {
 document.getElementById('sb-go-here').addEventListener('click', () => {
   if (currentPos) sendCmd(`/dest ${currentPos}`);
 });
+document.getElementById('sb-cargo').addEventListener('input', () => {
+  _cargoManuallySet = true;
+});
+function sendTradeWithCargo() {
+  const el = document.getElementById('sb-cargo');
+  const v = parseInt(el?.value, 10);
+  sendCmd(v > 0 ? `/trade cargo ${v}` : '/trade');
+}
 document.getElementById('sb-swap').addEventListener('click', () => {
   const p = currentPos, d = currentDest;
   if (p && d) {
@@ -2782,12 +2808,12 @@ function appendScanInline(msg) {
     // éventuelle correction faite dans Datarunner avant l'envoi n'est jamais
     // visible dans le log — seule l'API UEX, une fois à jour, la révèle).
     const pendingBadge = c.uex_pending
-      ? ` <span class="si-pending-badge" title="Scan validé, mais UEX n'a pas encore de donnée récente pour cette commodité — la valeur affichée peut être l'OCR d'origine, pas ta correction">⏳</span>`
+      ? `<span class="si-pending-badge" title="Scan validé, mais UEX n'a pas encore de donnée récente pour cette commodité — la valeur affichée peut être l'OCR d'origine, pas ta correction">⏳</span>`
       : '';
     rows +=
       `<tr>` +
       `<td><button class="si-del-btn" onclick="siDeleteRow(this)" title="Supprimer">−</button></td>` +
-      `<td>${_buildNameSelect(i, c.name || '', nameClass, nameTitle)}${pendingBadge}</td>` +
+      `<td>${_buildNameSelect(i, c.name || '', nameClass, nameTitle)}</td>` +
       `<td>${_buildStockSelect(i, c.stock_status, stockClass, fieldTitle(stkConf, c.stock_corrected, 'stock'))}</td>` +
       `<td><input type="number" class="num se-inline${qtyClass}" data-i="${i}" data-f="quantity"` +
            ` value="${c.quantity != null ? c.quantity : ''}" min="0" placeholder="—"` +
@@ -2796,6 +2822,7 @@ function appendScanInline(msg) {
            ` value="${c.price || ''}" min="0" placeholder="—"` +
            ` title="${esc(priceTitle)}">` +
       `</td>` +
+      `<td class="si-pending-cell">${pendingBadge}</td>` +
       `<td><button class="si-row-btn" onclick="submitScanInlineRow(this,${i})">MàJ</button>` +
            `<span class="si-sent-mark"></span></td>` +
       `</tr>`;
@@ -2826,7 +2853,8 @@ function appendScanInline(msg) {
     `<table>` +
       `<thead><tr>` +
         `<th></th><th style="text-align:left">Commodité</th>` +
-        `<th>Stock</th><th>Qté</th><th>Prix</th><th></th>` +
+        `<th>Stock</th><th>Qté</th><th>Prix</th>` +
+        `<th title="UEX pas encore à jour pour cette commodité">⏳</th><th></th>` +
       `</tr></thead>` +
       `<tbody>${rows}</tbody>` +
     `</table>` +
@@ -3014,6 +3042,7 @@ function siAddRow(btn) {
     `<td>${_buildStockSelect(i, 0)}</td>` +
     `<td><input type="number" class="num se-inline" data-i="${i}" data-f="quantity" value="" min="0" placeholder="—"></td>` +
     `<td><input type="number" class="num se-inline" data-i="${i}" data-f="price" value="" min="0" placeholder="—"></td>` +
+    `<td class="si-pending-cell"></td>` +
     `<td><button class="si-row-btn" onclick="submitScanInlineRow(this,${i})">MàJ</button></td>`;
   tbody.appendChild(tr);
   // Focus sur le select de commodité de la nouvelle ligne
