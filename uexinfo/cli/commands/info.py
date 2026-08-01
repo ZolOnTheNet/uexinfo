@@ -332,12 +332,24 @@ def _player_system(ctx) -> str:
     loc = ctx.player.location or ""
     if not loc:
         return ""
-    entries = ctx.location_index.search(loc, limit=1) if ctx.location_index else []
+    # player.location est toujours un nom de terminal complet (posé par /go via
+    # _find_terminal) — comparer directement contre les terminaux AVANT tout
+    # fuzzy search : LocationIndex.search() indexe les terminaux sous leur nom
+    # court (sans préfixe "Admin - "/"TDD - "), donc lui passer le nom complet
+    # ne matche jamais ni en préfixe ni en sous-chaîne, et retombe sur un
+    # fuzzy match n'importe quoi (des SYSTÈMES sans rapport, ex: "Odin" pour
+    # "Admin - CRU-L1") — bug vérifié en vrai, faussait le tri "système du
+    # joueur en tête" de /trade.
+    loc_lower = loc.lower()
+    for t in ctx.cache.terminals:
+        if t.name.lower() == loc_lower or _loc(t.name).lower() == _loc(loc).lower():
+            return t.star_system_name.lower()
+    entries = (
+        ctx.location_index.search(loc, limit=1, types={"terminal"})
+        if ctx.location_index else []
+    )
     if entries:
         return entries[0].full_path.split(".")[0].lower()
-    for t in ctx.cache.terminals:
-        if _loc(t.name).lower() == loc.lower():
-            return t.star_system_name.lower()
     return ""
 
 
@@ -635,8 +647,20 @@ def _fetch_terminal_container_sizes(terminal_id: int, ctx) -> dict:
         }
         result[cname]["routes"].append(rdict)
         prev = result[cname]["best_route"]
-        if prev is None or score > prev.get("_score", 0):
+        if prev is None:
             result[cname]["best_route"] = rdict
+        else:
+            # Le "score" renvoyé par l'API UEX ne suit pas forcément le prix
+            # de vente ni la distance — vérifié en vrai : pour Methane depuis
+            # CRU-L1, UEX proposait New Babbage (prix identique à Orison,
+            # mais 56 Gm au lieu de 2 Gm) comme "meilleure" route. On préfère
+            # donc explicitement le meilleur prix de vente, et à prix égal la
+            # destination la plus proche, plutôt que de suivre le score brut.
+            cur_dist  = rdict["distance"] if rdict["distance"] > 0 else float("inf")
+            prev_dist = prev["distance"] if prev["distance"] > 0 else float("inf")
+            if (rdict["price_sell"] > prev["price_sell"]
+                    or (rdict["price_sell"] == prev["price_sell"] and cur_dist < prev_dist)):
+                result[cname]["best_route"] = rdict
 
     ctx._price_cache[cache_key] = (_time.time(), result)
     return result

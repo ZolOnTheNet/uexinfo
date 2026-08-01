@@ -47,3 +47,17 @@ réputation/faction) plutôt qu'un simple run d'achat/revente de commodités —
 bien qu'un trade classique". Nécessite d'abord de voir ce que scmdb.net expose
 (structure des données, types de missions, disponibilité par système) avant de savoir
 si c'est exploitable automatiquement ou juste consultable manuellement.
+
+## [2026-08-01] Bouton "Choisir → créer mission" du bilan /trade à refaire
+En ajoutant le champ SCU éditable par ligne au bilan /trade (achat/vente/bénéfice
+recalculés en live), j'ai dû réécrire `showTradePick` (index.html) : l'ancienne version
+cherchait des lignes commençant par "▶" pour y accrocher un bouton "Choisir" (crée une
+mission via trade_chosen/_handle_trade_chosen), mais AUCUNE ligne du bilan /trade n'a
+jamais commencé par "▶" — ce bouton n'est donc jamais apparu, probablement depuis son
+ajout (code mort découvert, pas une régression de ce correctif). Je ne l'ai pas remis :
+la nouvelle version fait un matching par code commodité (fiable, déjà utilisé par
+showTerminalBuyPick) mais ne recrée pas le bouton. Si la fonctionnalité "transformer une
+ligne de bilan en mission" est encore voulue, il faudra : (1) un bouton Choisir dans le
+nouveau bloc injecté, (2) faire remonter le SCU édité au clic (`_handle_trade_chosen` ne
+lit aujourd'hui que la quantité par défaut stockée côté serveur, pas une valeur éditée
+côté client).

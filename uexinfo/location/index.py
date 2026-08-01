@@ -1,6 +1,7 @@
 """LocationIndex — résolution fuzzy de noms de lieux Star Citizen."""
 from __future__ import annotations
 
+import re as _re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -16,6 +17,29 @@ except ImportError:
 
 
 _TRADING_SERVICES = {"admin", "tdd", "trade"}
+
+# Duplique display.formatter.shorten_terminal_name() pour éviter l'import
+# circulaire (même convention que cache.data_manager._loc_short — voir son
+# docstring). Doit rester STRICTEMENT identique : sinon un terminal TDD
+# ("TDD - Trade and Development Division - Cloudview Center - Orison") perd
+# son préfixe ici mais pas dans _loc()/_loc_short(), et se retrouve regroupé
+# sous le même nom court générique ("Orison") que les dizaines de boutiques
+# non-commerciales du même lieu — la position du joueur, une fois stockée
+# sous ce nom générique, se re-résout alors vers une boutique arbitraire au
+# lieu du terminal de commerce visé (bug vérifié en vrai : /player @TDD_-_
+# Cloudview_Center_-_Orison finissait par pointer vers "Orison Municipal
+# Services", pas le TDD).
+_TDD_RE = _re.compile(
+    r"^TDD\s*-\s*Trade and Development(?:\s+Division)?\s*-\s*(.+)$",
+    _re.IGNORECASE,
+)
+
+
+def _short_terminal_name(name: str) -> str:
+    m = _TDD_RE.match(name)
+    if m:
+        return f"TDD - {m.group(1).strip()}"
+    return name.rsplit(" - ", 1)[-1].strip()
 
 
 def _trading_priority(t) -> int:
@@ -69,8 +93,8 @@ class LocationIndex:
         # l'index (complétion @lieu, /scan, /mission…).
         winners: dict[str, "Terminal"] = {}
         for t in cache.terminals:
-            # "Admin - ARC-L1" → "ARC-L1"   "TDD - Trade … - Area 18" → "Area 18"
-            loc_name = t.name.rsplit(" - ", 1)[-1].strip()
+            # "Admin - ARC-L1" → "ARC-L1"   "TDD - Trade … - Area 18" → "TDD - Area 18"
+            loc_name = _short_terminal_name(t.name)
             prev = winners.get(loc_name)
             if prev is None or _trading_priority(t) < _trading_priority(prev):
                 winners[loc_name] = t

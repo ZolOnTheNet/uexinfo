@@ -166,6 +166,8 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("compare",  "Compare les prix"),
         ("from",     "Bilan depuis un terminal spécifique"),
         ("to",       "Bilan vers un terminal spécifique"),
+        ("cargo",    "Simule le bilan avec N SCU (au lieu du vaisseau actif)"),
+        ("vendre",   "Formulaire de vente multi-commodités (cargo mixte)"),
         ("sctrade",  "Routes via sc-trade.tools"),
     ],
     "trade sctrade": [

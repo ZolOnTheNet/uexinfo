@@ -212,6 +212,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 }
 .si-pending-badge { cursor: help; opacity: 0.85; }
 .si-pending-cell  { width: 1.4em; text-align: center; }
+.sell-tie-badge   { cursor: help; color: #e5a030; }
 .cw-commodity { color: #ffd600; }
 .cw-location  { color: #00bcd4; }
 .cw-ship      { color: #69f0ae; }
@@ -1721,6 +1722,8 @@ function dispatch(msg) {
     case 'scan_edit':       enqueueScanEditor(msg.data); break;
     case 'scan_log_inline':     appendScanInline(msg); break;
     case 'scan_edit_existing':  appendScanEditExisting(msg); break;
+    case 'sell_form_open':      appendSellForm(msg); break;
+    case 'sell_calc_result':    updateSellResult(msg); break;
     case 'mission_scan_list':   showMissionScanList(msg); break;
     case 'mission_edit':        showMissionEdit(msg); break;
     case 'voyage_calc_result':    appendVoyageCalcButtons(msg); break;
@@ -2882,6 +2885,123 @@ function appendScanInline(msg) {
   elOutput.scrollTop = elOutput.scrollHeight;
 }
 
+// ── Formulaire vente multi-commodités (/trade vendre) ───────────────────────
+// Comme le tableau de scan log : lignes commodité + SCU, "+ Ajouter", et un
+// bouton Valider qu'on peut recliquer après avoir ajouté/corrigé une ligne
+// (le formulaire reste ouvert, seul le bloc résultat en dessous est remplacé).
+
+function _sellRowHtml(i) {
+  return `<tr>` +
+    `<td><button class="si-del-btn" onclick="sellDeleteRow(this)" title="Supprimer">−</button></td>` +
+    `<td>${_buildNameSelect(i, '')}</td>` +
+    `<td><input type="number" class="num se-inline" data-f="qty" min="1" placeholder="SCU"></td>` +
+    `</tr>`;
+}
+
+function appendSellForm(msg) {
+  // Un seul formulaire de vente actif à la fois.
+  elOutput.querySelector('.sell-form')?.remove();
+
+  const div = document.createElement('div');
+  div.className = 'scan-inline sell-form';
+  div.innerHTML =
+    `<div class="si-head"><span class="si-term">Vente multi-commodités</span></div>` +
+    `<table>` +
+      `<thead><tr><th></th><th style="text-align:left">Commodité</th><th>SCU</th></tr></thead>` +
+      `<tbody>${_sellRowHtml(0)}</tbody>` +
+    `</table>` +
+    `<div style="margin-top:6px">` +
+      `<button class="si-add-btn" onclick="sellAddRow(this)">+ Ajouter</button>` +
+      `<button class="si-maj-btn" onclick="submitSellForm(this)">✓ Valider</button>` +
+    `</div>` +
+    `<div class="sell-result"></div>`;
+
+  elOutput.appendChild(div);
+  elOutput.scrollTop = elOutput.scrollHeight;
+  div.querySelector('select[data-f="name"]')?.focus();
+}
+
+function sellAddRow(btn) {
+  const tbody = btn.closest('.sell-form').querySelector('tbody');
+  const i     = tbody.querySelectorAll('tr').length;
+  const tr    = document.createElement('tr');
+  tr.innerHTML = _sellRowHtml(i);
+  tbody.appendChild(tr);
+  tr.querySelector('select[data-f="name"]')?.focus();
+}
+
+function sellDeleteRow(btn) {
+  const tr    = btn.closest('tr');
+  const tbody = tr.closest('tbody');
+  if (tbody.querySelectorAll('tr').length > 1) tr.remove();
+}
+
+function submitSellForm(btn) {
+  const div   = btn.closest('.sell-form');
+  const items = [];
+  div.querySelectorAll('tbody tr').forEach(tr => {
+    const name = tr.querySelector('select[data-f="name"]')?.value || '';
+    const qty  = parseInt(tr.querySelector('input[data-f="qty"]')?.value, 10);
+    if (name && qty > 0) items.push({ name, qty });
+  });
+  if (!items.length) return;
+  send({ type: 'sell_calc', data: { items } });
+}
+
+function updateSellResult(msg) {
+  // Le formulaire reste affiché — seul ce bloc résultat est (re)construit,
+  // que ce soit le premier Valider ou un suivant après ajout/correction.
+  const target = elOutput.querySelector('.sell-form .sell-result');
+  if (!target) return;
+
+  const hasDest = !!msg.dest_terminal;
+  let rows = '';
+  (msg.rows || []).forEach(r => {
+    if (r.error) {
+      rows += `<tr><td>${esc(r.name)}</td><td colspan="4" style="color:#f44336">${esc(r.error)}</td></tr>`;
+      return;
+    }
+    const destCell = hasDest
+      ? (r.dest_price
+          ? `${r.dest_price.toLocaleString()} <span style="color:var(--dim)">(${r.dest_total.toLocaleString()})</span>`
+          : `<span style="color:#f44336">—</span>`)
+      : '—';
+    // Égalité de prix entre plusieurs terminaux : ✦ (différent du ★ "scan
+    // confirmé" utilisé ailleurs) — le terminal affiché est le plus proche,
+    // le survol liste les autres à ce même prix.
+    const tieBadge = (r.tied_terminals && r.tied_terminals.length > 1)
+      ? ` <span class="sell-tie-badge" title="Même prix aussi à :\n${r.tied_terminals.filter(t => t !== r.best_terminal).map(esc).join('\n')}">✦</span>`
+      : '';
+    rows +=
+      `<tr>` +
+      `<td>${esc(r.name)}</td>` +
+      `<td style="text-align:right">${r.qty}</td>` +
+      `<td style="text-align:right">${r.best_price.toLocaleString()} <span style="color:var(--dim)">(${r.best_total.toLocaleString()})</span></td>` +
+      `<td style="color:var(--dim);font-size:0.85em">${esc(r.best_terminal || '')}${tieBadge}${r.best_system ? ' · ' + esc(r.best_system) : ''}</td>` +
+      `<td style="text-align:right">${destCell}</td>` +
+      `</tr>`;
+  });
+
+  const destTotal = hasDest
+    ? `<div>Total à ${esc(msg.dest_terminal)} : <b>${Math.round(msg.total_dest).toLocaleString()} aUEC</b>` +
+        (msg.dest_covers_all
+          ? ` <span style="color:#4caf50">✓ tout vendable en un arrêt</span>`
+          : ` <span style="color:#e5a030">⚠ incomplet à ce terminal</span>`) +
+      `</div>`
+    : `<div style="color:var(--dim)">Aucune destination configurée (/dest) — pas de comparaison "un seul arrêt".</div>`;
+
+  target.innerHTML =
+    `<table style="margin-top:8px">` +
+      `<thead><tr><th style="text-align:left">Commodité</th><th>SCU</th><th>Meilleur prix (total)</th>` +
+      `<th>Terminal</th><th>À la destination</th></tr></thead>` +
+      `<tbody>${rows}</tbody>` +
+    `</table>` +
+    `<div style="margin-top:4px">Total au meilleur prix (mix multi-terminaux) : ` +
+    `<b>${Math.round(msg.total_best).toLocaleString()} aUEC</b></div>${destTotal}`;
+
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
 // ── Éditeur scan existant (scan_edit_existing) ───────────────────────────────
 
 function appendScanEditExisting(msg) {
@@ -3172,19 +3292,96 @@ function showTradePick(msg) {
   const entries = msg.entries || [];
   if (!entries.length) return;
 
-  // Parcourir les lignes du dernier output pour trouver les lignes «▶»
-  let eIdx = 0;
-  for (const d of _lastAnsiDivs) {
-    if (eIdx >= entries.length) break;
-    const t = d.textContent.trimStart();
-    if (!t.startsWith('\u25b6')) continue;   // ▶
+  const codesInEntries = new Set(entries.map(e => (e.code || '').toLowerCase()).filter(Boolean));
 
-    const e = entries[eIdx++];
-    const btn = document.createElement('button');
-    btn.className = 'tp-btn';
-    btn.textContent = 'Choisir';
-    btn.onclick = () => chooseTrade(e.idx, btn);
-    d.appendChild(btn);
+  // Trouver la table du bilan /trade par code commodité (même technique que
+  // showTerminalBuyPick — le code entre crochets est la seule valeur fiable
+  // dans le texte rendu, le nom pouvant être abrégé/tronqué à l'affichage).
+  let targetTable = null;
+  for (const d of _lastAnsiDivs) {
+    if (d.tagName !== 'TABLE') continue;
+    const tBody = d.querySelector('tbody');
+    if (!tBody) continue;
+    const rowCodes = [...tBody.querySelectorAll('tr td:first-child')]
+      .map(td => _extractRowCode(td.textContent));
+    if (rowCodes.some(c => c && codesInEntries.has(c))) { targetTable = d; break; }
+  }
+  if (!targetTable) return;
+
+  // Repérer la colonne "SCU" : elle devient le champ éditable, et Achat/
+  // Vente/Bénéfice s'insèrent juste après (Cargo, en dernière colonne,
+  // se retrouve ainsi repoussé en fin de ligne une fois le bloc inséré).
+  const headRow  = targetTable.querySelector('thead tr');
+  const headCells = headRow ? [...headRow.children] : [];
+  const scuIdx = headCells.findIndex(th => th.textContent.trim() === 'SCU');
+  if (!headRow || scuIdx < 0) return;
+
+  const refHead = headCells[scuIdx + 1] || null;
+  ['Achat', 'Vente', 'Bénéfice'].forEach(txt => {
+    const th = document.createElement('th');
+    th.textContent = txt;
+    headRow.insertBefore(th, refHead);
+  });
+
+  const tbody = targetTable.querySelector('tbody');
+  if (!tbody) return;
+
+  const entriesByCode = new Map(entries.filter(e => e.code).map(e => [e.code.toLowerCase(), e]));
+  const usedEntries = new Set();
+
+  for (const tr of tbody.querySelectorAll('tr')) {
+    const firstTd = tr.querySelector('td');
+    const rowCode = _extractRowCode(firstTd ? firstTd.textContent : '');
+    let e = rowCode ? entriesByCode.get(rowCode) : null;
+    if (e && usedEntries.has(e)) e = null;
+    if (!e) continue;
+    usedEntries.add(e);
+
+    const scuTd = tr.children[scuIdx];
+    if (!scuTd) continue;
+    scuTd.dataset.priceBuy  = e.price_buy;
+    scuTd.dataset.priceSell = e.price_sell;
+    scuTd.innerHTML = '';
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.className = 'tbp-scu'; inp.value = e.qty; inp.min = 1;
+    inp.title = 'SCU à charger — recalcule achat/vente/bénéfice';
+    inp.oninput = () => _tpRecalcRow(tr, scuIdx);
+    scuTd.appendChild(inp);
+
+    const tdBuy  = document.createElement('td');
+    const tdSell = document.createElement('td');
+    const tdProf = document.createElement('td');
+    const prof = document.createElement('span');
+    prof.className = 'tbp-profit';
+    tdProf.appendChild(prof);
+    const refCell = scuTd.nextSibling;
+    tr.insertBefore(tdBuy,  refCell);
+    tr.insertBefore(tdSell, refCell);
+    tr.insertBefore(tdProf, refCell);
+
+    _tpRecalcRow(tr, scuIdx);
+  }
+}
+
+function _tpRecalcRow(tr, scuIdx) {
+  const scuTd = tr.children[scuIdx];
+  if (!scuTd) return;
+  const inp  = scuTd.querySelector('input');
+  const qty  = parseInt(inp ? inp.value : 0, 10) || 0;
+  const buy  = parseFloat(scuTd.dataset.priceBuy)  || 0;
+  const sell = parseFloat(scuTd.dataset.priceSell) || 0;
+  const tdBuy  = tr.children[scuIdx + 1];
+  const tdSell = tr.children[scuIdx + 2];
+  const tdProf = tr.children[scuIdx + 3];
+  if (tdBuy)  tdBuy.textContent  = _fmtAuec(buy  * qty).replace(/^\+/, '');
+  if (tdSell) tdSell.textContent = _fmtAuec(sell * qty).replace(/^\+/, '');
+  if (tdProf) {
+    const span = tdProf.querySelector('.tbp-profit');
+    const val  = (sell - buy) * qty;
+    if (span) {
+      span.textContent = _fmtAuec(val);
+      span.classList.toggle('loss', val < 0);
+    }
   }
 }
 

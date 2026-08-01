@@ -51,7 +51,13 @@ def _resolve_location(token: str, ctx) -> tuple[str, int]:
     système/planète/station résolu n'a pas d'id terminal exploitable pour
     /trade, donc 0 (comme /go clear).
     """
-    query = token.lstrip("@")
+    # Les underscores viennent de la complétion @lieu ("@TDD_-_Area_18") et
+    # doivent redevenir des espaces avant la recherche — sinon le fuzzy
+    # search de LocationIndex opère sur une chaîne truffée d'underscores et
+    # peut renvoyer un tout autre lieu au score plus élevé (vérifié en vrai :
+    # "@TDD_-_Cloudview_Center_-_Orison" résolvait vers une boutique sans
+    # rapport plutôt que le terminal TDD visé).
+    query = token.lstrip("@").replace("_", " ")
     entries = ctx.location_index.search(query, limit=1)
     if entries:
         entry = entries[0]

@@ -314,6 +314,8 @@ class OverlayServer:
             await self._handle_scan_confirm(ws, msg.get("data", {}))
         elif t == "scan_existing_save":
             await self._handle_scan_existing_save(ws, msg.get("data", {}))
+        elif t == "sell_calc":
+            await self._handle_sell_calc(ws, msg.get("data", {}))
         elif t == "trade_chosen":
             await self._handle_trade_chosen(msg.get("idx"))
         elif t == "terminal_buy_chosen":
@@ -718,6 +720,101 @@ class OverlayServer:
         }
         # Scans log validés → formulaire inline dans l'output (pas de panel plein-écran)
         return {"type": "scan_log_inline", "data": data}
+
+    async def _handle_sell_calc(self, ws, data: dict) -> None:
+        """Calcule, pour une liste libre (commodité, SCU) saisie dans le
+        formulaire /trade vendre, le meilleur terminal de vente pour chaque
+        commodité ainsi que le total si tout est vendu à la destination
+        actuelle du joueur (souvent le meilleur compromis sans détour)."""
+        from uexinfo.cli.commands.info import _find_commodity, _commodity_prices, _player_system
+        from uexinfo.cli.commands.trade import _is_active_sell
+        from uexinfo.cli.commands.nav import _resolve_node
+
+        ctx = self.ctx
+        dest_name = (ctx.player.destination or "").strip()
+
+        # Distances locales (graphe Dijkstra en mémoire — pas d'appel réseau,
+        # sûr à faire dans ce handler async) pour départager les égalités de
+        # prix par la proximité plutôt qu'un ordre arbitraire.
+        player_sys = _player_system(ctx)
+        graph = ctx.cache.transport_graph
+        origin_node = _resolve_node(ctx.player.location, graph) if ctx.player.location else None
+        dist_map = graph.find_all_distances(origin_node) if origin_node else {}
+
+        def _proximity_key(r: dict) -> tuple:
+            node = _resolve_node(r.get("terminal_name") or "", graph)
+            if node and node in dist_map:
+                return (0, dist_map[node])
+            same_sys = (r.get("star_system_name") or "").lower() == player_sys
+            return (1, 0.0) if same_sys else (2, 0.0)
+
+        rows_out: list[dict] = []
+        total_best = 0.0
+        total_dest = 0.0
+        dest_covers_all = bool(dest_name)
+
+        for item in data.get("items", []):
+            name = (item.get("name") or "").strip()
+            try:
+                qty = int(item.get("qty") or 0)
+            except (TypeError, ValueError):
+                qty = 0
+            if not name or qty <= 0:
+                continue
+
+            c = _find_commodity(name, ctx)
+            if not c:
+                rows_out.append({"name": name, "qty": qty, "error": "commodité introuvable"})
+                dest_covers_all = False
+                continue
+
+            sell_rows = [r for r in _commodity_prices(c.id, ctx) if _is_active_sell(r)]
+            if not sell_rows:
+                rows_out.append({"name": c.name, "qty": qty, "error": "aucun acheteur"})
+                dest_covers_all = False
+                continue
+            sell_rows.sort(key=lambda r: -(r.get("price_sell") or 0))
+
+            # Égalité de prix entre plusieurs terminaux : celui affiché en
+            # priorité est le plus proche du joueur (graphe local), pas le
+            # premier rencontré — les autres restent listés pour le survol.
+            best_price = sell_rows[0].get("price_sell") or 0
+            tied = [r for r in sell_rows if (r.get("price_sell") or 0) == best_price]
+            best = min(tied, key=_proximity_key) if len(tied) > 1 else tied[0]
+            tied_terminals = (
+                [r.get("terminal_name") for r in sorted(tied, key=_proximity_key)]
+                if len(tied) > 1 else None
+            )
+            best_total = best_price * qty
+            total_best += best_total
+
+            dest_row = next(
+                (r for r in sell_rows if (r.get("terminal_name") or "").lower() == dest_name.lower()),
+                None,
+            ) if dest_name else None
+            dest_price = dest_row.get("price_sell") if dest_row else 0
+            dest_total = (dest_price or 0) * qty
+            total_dest += dest_total
+            if not dest_row:
+                dest_covers_all = False
+
+            rows_out.append({
+                "name": c.name, "qty": qty,
+                "best_price": best_price, "best_total": best_total,
+                "best_terminal": best.get("terminal_name"),
+                "best_system": best.get("star_system_name"),
+                "tied_terminals": tied_terminals,
+                "dest_price": dest_price, "dest_total": dest_total,
+            })
+
+        await ws.send(json.dumps({
+            "type": "sell_calc_result",
+            "rows": rows_out,
+            "total_best": total_best,
+            "total_dest": total_dest if dest_name else None,
+            "dest_terminal": dest_name,
+            "dest_covers_all": dest_covers_all,
+        }))
 
     async def _handle_scan_confirm(self, ws, data: dict) -> None:
         """Met à jour le ScanResult correspondant avec les valeurs éditées et persiste."""

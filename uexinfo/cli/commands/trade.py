@@ -76,6 +76,9 @@ def cmd_trade(args: list[str], ctx) -> None:
     if sub == "cargo":
         _trade_bilan_cargo(args[1:], ctx)
         return
+    if sub == "vendre":
+        _trade_vendre_form(ctx)
+        return
     if sub == "sctrade":
         _trade_sctrade(args[1:], ctx)
         return
@@ -291,6 +294,19 @@ def _trade_bilan_cargo(args: list[str], ctx) -> None:
         print_error("La quantité SCU doit être positive.")
         return
     _trade_bilan(ctx, cargo_override=n)
+
+
+def _trade_vendre_form(ctx) -> None:
+    """/trade vendre — ouvre dans l'overlay le formulaire de vente multi-
+    commodités (cargo mixte : plusieurs commodités, tailles différentes).
+    Le calcul lui-même se fait côté serveur overlay (_handle_sell_calc),
+    déclenché par le bouton Valider du formulaire, pas par cette commande."""
+    send = getattr(ctx, "_overlay_send_fn", None)
+    if send is None:
+        print_warn("Formulaire de vente disponible uniquement dans l'overlay.")
+        return
+    send({"type": "sell_form_open", "data": {}})
+    console.print(f"[{C.DIM}]Formulaire de vente ouvert.[/{C.DIM}]")
 
 
 # ── /trade (bilan route) ───────────────────────────────────────────────────────
@@ -643,13 +659,19 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
     from rich.table import Table
     tbl = Table(box=None, padding=(0, 1), show_header=True, show_edge=False,
                 header_style=f"bold {C.DIM}")
+    # La colonne SCU reste affichée en texte simple ici (repli CLI) mais
+    # l'overlay la convertit en champ éditable et insère juste après trois
+    # cellules recalculées en live (Achat/Vente/Bénéfice) — voir
+    # trade_bilan_pick côté JS, apparié par code commodité comme
+    # showTerminalBuyPick. Gain disparaît de la table statique : il devient
+    # le Bénéfice interactif. Cargo reste la dernière colonne, donc poussée
+    # après le nouveau bloc une fois celui-ci inséré.
     tbl.add_column("Commodité",    no_wrap=True, min_width=14)
     tbl.add_column(f"A/{C.SCU}",  justify="right", no_wrap=True)
     tbl.add_column(f"V/{C.SCU}",  justify="right", no_wrap=True)
     tbl.add_column("Âge",          justify="right", no_wrap=True)
     tbl.add_column("Stock",         justify="center", no_wrap=True)
     tbl.add_column("SCU",           justify="right", no_wrap=True)
-    tbl.add_column("Gain",          justify="right", no_wrap=True)
     tbl.add_column("ROI",           justify="right", no_wrap=True)
     tbl.add_column("⚠",            justify="right", no_wrap=True)
     tbl.add_column("Cargo",         no_wrap=True)
@@ -665,10 +687,6 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
             qty_cell = f"[{C.DIM}]{d['qty_sell']}[/{C.DIM}]/{d['qty']}"
         else:
             qty_cell = str(d["qty"])
-        profit     = d["profit"]
-        p_sign     = "+" if profit > 0 else ""
-        p_color    = C.PROFIT if profit > 0 else (C.LOSS if profit < 0 else C.DIM)
-        gain_cell  = f"[{p_color}]{p_sign}{_price_short(profit)}[/{p_color}]"
         roi = d.get("roi")
         if roi is not None:
             r_sign   = "+" if roi >= 0 else ""
@@ -683,11 +701,12 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         if d["remainder"]:
             cargo_cell += f" [{C.DIM}]+{d['remainder']}[/{C.DIM}]"
         tbl.add_row(name_cell, buy_cell, sell_cell, age_cell, stock_cell,
-                    qty_cell, gain_cell, roi_cell, risk_cell, cargo_cell)
+                    qty_cell, roi_cell, risk_cell, cargo_cell)
 
     console.print(tbl)
 
-    # Stocker les entrées pour le panneau "Choisir" de l'overlay
+    # Entrées pour l'overlay : champ SCU éditable par ligne (trade_bilan_pick,
+    # apparié par code commodité comme showTerminalBuyPick) + panneau "Choisir".
     ctx.last_trade_entries = {
         "origin":  _loc(origin.name),
         "dest":    _loc(dest.name),
@@ -695,11 +714,12 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
             {
                 "idx":        i,
                 "name":       d["name"],
+                "code":       d.get("code", ""),
                 "profit":     int(d["profit"]),
                 "qty":        d["qty"],
                 "packing":    re.sub(r'\[/?[^\]]*\]', '', d["packing"]).strip(),
-                "price_buy":  int(d["price_buy"]),
-                "price_sell": int(d["price_sell"]),
+                "price_buy":  d["price_buy"],
+                "price_sell": d["price_sell"],
             }
             for i, d in enumerate(entries)
         ],
