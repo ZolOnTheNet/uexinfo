@@ -348,7 +348,7 @@ def _cmd_show(voyage: Voyage, ctx) -> None:
                 result = graph.find_shortest_path(m.all_sources[0], m.all_destinations[0])
                 if result is not None and result.total_distance is not None:
                     d = result.total_distance
-                    dist_str = f"{d:.1f}Gm" if d >= 1 else f"{d*1000:.0f}Mm"
+                    dist_str = _fmt_dist(d)
             except Exception:
                 pass
 
@@ -1349,9 +1349,9 @@ def _save_proposal_by_index(idx: int, proposals: list, ctx, force_new: bool = Fa
 # ── Analyse TSP + distances ───────────────────────────────────────────────────
 
 def _fmt_dist(d: float | None) -> str:
-    if d is None:
-        return "?"
-    return f"{d:.1f}Gm" if d >= 1 else f"{d*1000:.0f}Mm"
+    """Alias de display.formatter.fmt_distance_gm — seule implémentation."""
+    from uexinfo.display.formatter import fmt_distance_gm
+    return fmt_distance_gm(d)
 
 
 def _path_dist(graph, a: str | None, b: str | None) -> float | None:
@@ -2154,15 +2154,6 @@ def _parse_departure(args: list[str]) -> str | None:
     return None
 
 
-def _fmt_dist_short(d: float | None) -> str:
-    """Formate une distance de façon compacte."""
-    if d is None:
-        return "?"
-    if d >= 1.0:
-        return f"{d:.1f}Gm"
-    return f"{d * 1000:.0f}Mm"
-
-
 def _dashboard_main(voyage: "Voyage", step_num: int, departure_override: str | None, ctx) -> None:
     """Affichage principal : missions groupées par destination pour une étape."""
     from collections import defaultdict
@@ -2236,7 +2227,7 @@ def _dashboard_main(voyage: "Voyage", step_num: int, departure_override: str | N
                 dst_dist = dist_cache[m.id]
                 break
 
-        dist_label = f"  [{C.DIM}]({_fmt_dist_short(dst_dist)})[/{C.DIM}]" if dst_dist else ""
+        dist_label = f"  [{C.DIM}]({_fmt_dist(dst_dist)})[/{C.DIM}]" if dst_dist else ""
         console.print(f"\n[bold {C.UEX}]── Destination : {dst}{dist_label}[/bold {C.UEX}]")
 
         tbl = Table(show_header=True, box=None, padding=(0, 1))
@@ -2254,7 +2245,7 @@ def _dashboard_main(voyage: "Voyage", step_num: int, departure_override: str | N
             scu_s  = f"{m.total_scu:.0f}" if m.total_scu else "—"
             rew_s  = f"{m.reward_uec:,}α".replace(",", " ") if m.reward_uec else "—"
             d = dist_cache.get(m.id)
-            dist_s = _fmt_dist_short(d)
+            dist_s = _fmt_dist(d)
             roi_s  = f"{m.reward_uec / d:,.0f}".replace(",", " ") if d and m.reward_uec else "—"
             tbl.add_row(add_btn, str(m.id), m.name, scu_s, rew_s, roi_s, dist_s)
 
@@ -2468,7 +2459,7 @@ def _dashboard_graph(voyage: "Voyage", ctx, show_scu: bool = False, show_benef: 
                 rew_s = f"{rew_total:,}α".replace(",", " ")
                 trait_val = f"[{C.PROFIT}]{rew_s}[/{C.PROFIT}]"
             else:
-                trait_val = f"[{C.DIM}]{_fmt_dist_short(d)}[/{C.DIM}]"
+                trait_val = f"[{C.DIM}]{_fmt_dist(d)}[/{C.DIM}]"
 
             dst_node = step_node.add(f"──[{trait_val}]── [{C.UEX}]{dst}[/{C.UEX}]")
 

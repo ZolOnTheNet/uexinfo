@@ -61,3 +61,29 @@ ligne de bilan en mission" est encore voulue, il faudra : (1) un bouton Choisir 
 nouveau bloc injecté, (2) faire remonter le SCU édité au clic (`_handle_trade_chosen` ne
 lit aujourd'hui que la quantité par défaut stockée côté serveur, pas une valeur éditée
 côté client).
+
+## [2026-08-01] Dédup ciblée : à généraliser à l'occasion, pas fait de façon exhaustive
+Suite au bug ARC-L1/Nitrogen, j'ai cherché et fusionné les cas de logique dupliquée les
+plus dangereux (ceux qui avaient déjà causé un bug réel ou pouvaient facilement en
+recauser un) :
+- nom court de terminal : 3 réimplémentations (info._loc, data_manager._loc_short,
+  location.index._short_terminal_name) → 1 seule (formatter.terminal_short_name),
+  les autres ne sont plus que des alias d'une ligne.
+- choix de la "meilleure route" de vente pour une commodité : 3 réimplémentations dans
+  info.py (_fetch_terminal_container_sizes, _pick_best_allowed_route,
+  _find_best_allowed_from_prices), certaines se fiant au score brut UEX → 1 seule règle
+  (info._route_rank_key : prix d'abord, distance à égalité).
+- formatage de distance Gm/Mm : 6 réimplémentations (nav.py ×2, trade.py,
+  voyage.py ×3) → 1 seule (formatter.fmt_distance_gm).
+- côté overlay (index.html) : showTradePick et showTerminalBuyPick réimplémentaient
+  chacune la recherche du tableau rendu par code commodité → factorisé dans
+  _findTableByCodes ; _tbpRecalc/_tbpRecalcRow et _tbpChoose/_tbpChooseRow
+  (deux fonctions identiques à un nom de paramètre près, avec une divergence — l'une
+  plantait si le champ SCU était absent, l'autre non) → fusionnées en une seule.
+
+Je n'ai PAS fait un audit ligne à ligne de tout le projet (index.html fait ~20 000
+lignes) — juste une recherche ciblée (grep sur les patterns suspects : "score",
+formules de distance, noms de fonctions très proches). Si un autre bug de ce genre
+(résultat différent selon l'endroit du code qui fait le même calcul) réapparaît,
+regarder d'abord s'il existe déjà une fonction équivalente ailleurs avant d'en écrire
+une nouvelle.

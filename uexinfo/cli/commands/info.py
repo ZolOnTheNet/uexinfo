@@ -275,12 +275,11 @@ def _multi_col_table(
 def _loc(full_name: str) -> str:
     """Retire le préfixe service ('Admin - ', 'Shop - ', …).
     Exception TDD : retourne 'TDD - <lieu>' pour garder le contexte.
+    Alias de terminal_short_name (display.formatter) — seule implémentation,
+    ne pas la réécrire ici ni ailleurs.
     """
-    from uexinfo.display.formatter import shorten_terminal_name
-    short = shorten_terminal_name(full_name)
-    if short != full_name:
-        return short  # ex. "TDD - Area 18"
-    return full_name.rsplit(" - ", 1)[-1].strip()
+    from uexinfo.display.formatter import terminal_short_name
+    return terminal_short_name(full_name)
 
 
 def _dot_name(
@@ -593,6 +592,23 @@ def _short_sizes(s: str) -> str:
     return str(vals[0]) if len(vals) == 1 else f"{vals[0]}-{vals[-1]}"
 
 
+def _route_rank_key(price_sell: float, distance: float) -> tuple:
+    """Clé de tri UNIQUE pour classer des routes de vente candidates pour une
+    commodité : meilleur prix de vente d'abord, puis distance la plus courte
+    en cas d'égalité (ou quasi-égalité de prix côté UEX).
+
+    Ne jamais classer sur le champ "score" brut renvoyé par l'API UEX : il ne
+    suit ni le prix ni la distance de façon fiable — vérifié en vrai sur
+    plusieurs commodités (Methane, Nitrogen depuis CRU-L1) où une destination
+    bien plus loin, à prix identique ou même inférieur, gagnait quand même à
+    cause du score. Utilisée par TOUS les sélecteurs de "meilleure route" de
+    ce module pour que la règle soit systématique, pas ré-implémentée (et
+    donc parfois oubliée) à chaque nouvel endroit.
+    """
+    dist = distance if distance and distance > 0 else float("inf")
+    return (-(price_sell or 0), dist)
+
+
 def _fetch_terminal_container_sizes(terminal_id: int, ctx) -> dict:
     """Retourne les données de routes depuis un terminal (un seul appel API).
 
@@ -647,20 +663,9 @@ def _fetch_terminal_container_sizes(terminal_id: int, ctx) -> dict:
         }
         result[cname]["routes"].append(rdict)
         prev = result[cname]["best_route"]
-        if prev is None:
+        if prev is None or (_route_rank_key(rdict["price_sell"], rdict["distance"])
+                             < _route_rank_key(prev["price_sell"], prev["distance"])):
             result[cname]["best_route"] = rdict
-        else:
-            # Le "score" renvoyé par l'API UEX ne suit pas forcément le prix
-            # de vente ni la distance — vérifié en vrai : pour Methane depuis
-            # CRU-L1, UEX proposait New Babbage (prix identique à Orison,
-            # mais 56 Gm au lieu de 2 Gm) comme "meilleure" route. On préfère
-            # donc explicitement le meilleur prix de vente, et à prix égal la
-            # destination la plus proche, plutôt que de suivre le score brut.
-            cur_dist  = rdict["distance"] if rdict["distance"] > 0 else float("inf")
-            prev_dist = prev["distance"] if prev["distance"] > 0 else float("inf")
-            if (rdict["price_sell"] > prev["price_sell"]
-                    or (rdict["price_sell"] == prev["price_sell"] and cur_dist < prev_dist)):
-                result[cname]["best_route"] = rdict
 
     ctx._price_cache[cache_key] = (_time.time(), result)
     return result
@@ -877,7 +882,7 @@ def _pick_best_allowed_route(routes: list, filters: dict, ctx) -> dict | None:
             allowed.append(r)
     if not allowed:
         return None
-    best = max(allowed, key=lambda r: r.get("_score", 0))
+    best = min(allowed, key=lambda r: _route_rank_key(r.get("price_sell", 0), r.get("distance", 0)))
     return {k: v for k, v in best.items() if k != "_score"}
 
 
@@ -908,7 +913,7 @@ def _find_best_allowed_from_prices(id_commodity: int, buy_price: float,
 
     term_by_name = {t.name.lower(): t for t in (ctx.cache.terminals or [])}
     best: dict | None = None
-    best_roi = -1.0
+    best_key: tuple | None = None
 
     for p in all_prices:
         sell = float(p.get("price_sell") or 0)
@@ -920,12 +925,15 @@ def _find_best_allowed_from_prices(id_commodity: int, buy_price: float,
             continue  # Terminal hors cache → on ne peut pas évaluer les filtres
         if not is_destination_allowed(t_obj, filters):
             continue
-        roi = (sell - buy_price) / buy_price
-        if roi > best_roi:
-            best_roi = roi
-            # Distance depuis le graphe nav
-            dest_node = alias_map.get(_site_key(t_obj).lower()) if dist_map_graph else None
-            dist_gm   = dist_map_graph.get(dest_node, 0.0) if dest_node else 0.0
+        # Distance depuis le graphe nav
+        dest_node = alias_map.get(_site_key(t_obj).lower()) if dist_map_graph else None
+        dist_gm   = dist_map_graph.get(dest_node, 0.0) if dest_node else 0.0
+        # Meilleur prix d'abord, distance la plus courte à égalité (même règle
+        # que _fetch_terminal_container_sizes/_pick_best_allowed_route — ROI
+        # seul ne départageait jamais deux prix de vente identiques).
+        key = _route_rank_key(sell, dist_gm)
+        if best is None or key < best_key:
+            best_key = key
             best = {
                 "dest_name":    p.get("terminal_name") or "",
                 "dest_system":  t_obj.star_system_name or "",

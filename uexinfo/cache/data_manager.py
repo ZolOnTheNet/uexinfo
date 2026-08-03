@@ -28,15 +28,11 @@ from uexinfo.display.formatter import console
 
 def _loc_short(name: str) -> str:
     """Extrait le nom court d'un terminal UEX ('Admin - ARC-L4' → 'ARC-L4').
-
-    Duplique la logique de info._loc pour éviter l'import circulaire.
-    TDD : laisse le préfixe ('TDD - Area 18') pour garder l'ambiguïté.
+    Alias de terminal_short_name (display.formatter) — seule implémentation,
+    ne pas la réécrire ici ni ailleurs. TDD : préserve le préfixe.
     """
-    from uexinfo.display.formatter import shorten_terminal_name
-    short = shorten_terminal_name(name)
-    if short != name:
-        return short
-    return name.rsplit(" - ", 1)[-1].strip()
+    from uexinfo.display.formatter import terminal_short_name
+    return terminal_short_name(name)
 
 
 def _terminal_matches(query: str, terminals: list) -> list:

@@ -29,7 +29,7 @@ from uexinfo.cli.commands.info import (
     _terminal_prices,
 )
 from uexinfo.display import colors as C
-from uexinfo.display.formatter import console, print_error, print_warn, section
+from uexinfo.display.formatter import console, fmt_distance_gm, print_error, print_warn, section
 
 _SUBS  = {"buy", "sell", "best", "compare"}
 _FROMS = {"from", "de"}
@@ -487,7 +487,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
     dest_dist  = dist_map.get(dest.name.lower()) or dist_map.get(dest_name_lo)
     # Afficher la distance en Gm (même si "local") — utile pour planifier le trajet
     if dest_dist and dest_dist > 0:
-        dist_str = f"{dest_dist:.1f}Gm" if dest_dist >= 1 else f"{dest_dist*1000:.0f}Mm"
+        dist_str = fmt_distance_gm(dest_dist)
     else:
         dist_str = _dist_label(dest.name, dest.star_system_name, player_sys, dist_map)
         if re.sub(r'\[/?[^\]]*\]', '', dist_str).strip() == "local":

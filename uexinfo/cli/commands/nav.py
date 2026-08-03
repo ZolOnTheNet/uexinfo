@@ -5,7 +5,7 @@ from rich.table import Table
 
 from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
-from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
+from uexinfo.display.formatter import console, fmt_distance_gm, print_error, print_ok, print_warn, section
 from uexinfo.models.transport_network import EdgeType, JumpPoint, LocationNode, NodeType, RouteEdge
 
 # Sous-commandes explicites — tout le reste est interprété comme une route
@@ -188,7 +188,7 @@ def _list_edges(args: list[str], ctx) -> None:
 
     from uexinfo.display.loc import loc_display as _ld
     for edge in sorted(unique_edges, key=lambda e: e.from_node):
-        dist_str = f"{edge.distance_gm:.1f} Gm" if edge.distance_gm >= 1 else f"{edge.distance_gm * 1000:.0f} Mm"
+        dist_str = fmt_distance_gm(edge.distance_gm, space=True)
         tbl.add_row(_ld(edge.from_node, max_chars=35, short=False), "↔",
                     _ld(edge.to_node, max_chars=35, short=False), dist_str, edge.edge_type.value)
 
@@ -466,7 +466,7 @@ def _display_multi_route(from_node: str, to_nodes: list[str], graph) -> None:
     tbl.add_column("JP",          style=C.WARNING,  justify="center")
 
     for dest, dist, dur, jp_count in rows:
-        dist_str = f"{dist:.1f} Gm" if dist >= 1 else f"{dist * 1000:.0f} Mm"
+        dist_str = fmt_distance_gm(dist, space=True)
         jp_str   = str(jp_count) if jp_count else "—"
         tbl.add_row(dest, dist_str, dur, jp_str)
 

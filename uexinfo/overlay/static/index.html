@@ -3293,19 +3293,7 @@ function showTradePick(msg) {
   if (!entries.length) return;
 
   const codesInEntries = new Set(entries.map(e => (e.code || '').toLowerCase()).filter(Boolean));
-
-  // Trouver la table du bilan /trade par code commodité (même technique que
-  // showTerminalBuyPick — le code entre crochets est la seule valeur fiable
-  // dans le texte rendu, le nom pouvant être abrégé/tronqué à l'affichage).
-  let targetTable = null;
-  for (const d of _lastAnsiDivs) {
-    if (d.tagName !== 'TABLE') continue;
-    const tBody = d.querySelector('tbody');
-    if (!tBody) continue;
-    const rowCodes = [...tBody.querySelectorAll('tr td:first-child')]
-      .map(td => _extractRowCode(td.textContent));
-    if (rowCodes.some(c => c && codesInEntries.has(c))) { targetTable = d; break; }
-  }
+  const targetTable = _findTableByCodes(codesInEntries);
   if (!targetTable) return;
 
   // Repérer la colonne "SCU" : elle devient le champ éditable, et Achat/
@@ -3404,15 +3392,13 @@ function _makeTbpWrap(e) {
   // Utilisé uniquement par le fallback div (legacy ANSI)
   const wrap = document.createElement('span');
   wrap.className = 'tbp-wrap';
-  wrap.dataset.idx       = e.idx;
   wrap.dataset.priceBuy  = e.price_buy;
   wrap.dataset.priceSell = e.price_sell;
-  wrap.dataset.qtyOrig   = e.qty;
 
   const inp = document.createElement('input');
   inp.type = 'number'; inp.className = 'tbp-scu'; inp.value = e.qty; inp.min = 1;
   inp.title = 'SCU à charger';
-  inp.oninput = () => _tbpRecalc(wrap);
+  inp.oninput = () => _tbpRecalcRow(wrap);
 
   const prof = document.createElement('span');
   prof.className = 'tbp-profit';
@@ -3422,7 +3408,11 @@ function _makeTbpWrap(e) {
 
   const btn = document.createElement('button');
   btn.className = 'tbp-btn'; btn.textContent = '→ Voyage';
-  btn.onclick = () => _tbpChoose(wrap, btn);
+  // idx/qtyOrig sur le bouton (pas sur wrap) : même convention que
+  // showTerminalBuyPick, qu'utilise _tbpChooseRow pour les deux affichages.
+  btn.dataset.idx     = e.idx;
+  btn.dataset.qtyOrig = e.qty;
+  btn.onclick = () => _tbpChooseRow(wrap, btn);
 
   wrap.append(inp, prof, btn);
   return wrap;
@@ -3438,24 +3428,28 @@ function _extractRowCode(text) {
   return m ? m[1].toLowerCase() : '';
 }
 
-function showTerminalBuyPick(msg) {
-  const entries = msg.entries || [];
-  if (!entries.length) return;
-
-  const codesInEntries = new Set(entries.map(e => (e.code || '').toLowerCase()).filter(Boolean));
-
-  // Chercher le tableau "Acheter sur place" (_show_buy_detailed → 1 commodité/ligne)
-  // — par code (fiable), jamais par fragment de nom tronqué à l'affichage.
-  let targetTable = null;
+// Trouve, parmi les derniers tableaux rendus, celui qui contient au moins
+// une ligne de commodité dont le code (entre crochets) est dans codesSet.
+// SEULE implémentation de cette recherche — utilisée par showTradePick et
+// showTerminalBuyPick, qui la réimplémentaient chacune à l'identique.
+function _findTableByCodes(codesSet) {
   for (const d of _lastAnsiDivs) {
     if (d.tagName !== 'TABLE') continue;
     const tBody = d.querySelector('tbody');
     if (!tBody) continue;
     const rowCodes = [...tBody.querySelectorAll('tr td:first-child')]
       .map(td => _extractRowCode(td.textContent));
-    if (rowCodes.some(c => c && codesInEntries.has(c))) { targetTable = d; break; }
+    if (rowCodes.some(c => c && codesSet.has(c))) return d;
   }
+  return null;
+}
 
+function showTerminalBuyPick(msg) {
+  const entries = msg.entries || [];
+  if (!entries.length) return;
+
+  const codesInEntries = new Set(entries.map(e => (e.code || '').toLowerCase()).filter(Boolean));
+  const targetTable = _findTableByCodes(codesInEntries);
   if (!targetTable) { _tbpInjectDivs(entries); return; }
 
   // Ajouter 3 colonnes d'en-tête : SCU □ | Bénéfice | (bouton)
@@ -3518,21 +3512,26 @@ function showTerminalBuyPick(msg) {
   }
 }
 
-function _tbpRecalcRow(tr) {
-  const inp  = tr.querySelector('.tbp-scu');
-  const prof = tr.querySelector('.tbp-profit');
+// _tbpRecalcRow/_tbpChooseRow servent aux DEUX affichages "Acheter sur
+// place" (lignes <tr> de showTerminalBuyPick ET <span class="tbp-wrap"> du
+// repli ANSI legacy _tbpInjectDivs) — un seul conteneur générique, jamais
+// deux implémentations séparées pour ces deux cas (elles avaient dérivé :
+// l'une gérait input/profit absents, l'autre plantait dessus).
+function _tbpRecalcRow(container) {
+  const inp  = container.querySelector('.tbp-scu');
+  const prof = container.querySelector('.tbp-profit');
   if (!inp || !prof) return;
   const qty = parseInt(inp.value) || 0;
-  const pb  = parseFloat(tr.dataset.priceBuy)  || 0;
-  const ps  = parseFloat(tr.dataset.priceSell) || 0;
+  const pb  = parseFloat(container.dataset.priceBuy)  || 0;
+  const ps  = parseFloat(container.dataset.priceSell) || 0;
   const val = (ps - pb) * qty;
   prof.textContent = _fmtAuec(val);
   prof.classList.toggle('loss', val < 0);
 }
 
-function _tbpChooseRow(tr, btn) {
+function _tbpChooseRow(container, btn) {
   if (btn.classList.contains('chosen')) return;
-  const inp = tr.querySelector('.tbp-scu');
+  const inp = container.querySelector('.tbp-scu');
   const qty = parseInt(inp ? inp.value : 0) || parseInt(btn.dataset.qtyOrig) || 0;
   send({type: 'terminal_buy_chosen', data: {idx: parseInt(btn.dataset.idx), qty}});
   btn.textContent = '✓';
@@ -3558,28 +3557,6 @@ function _tbpInjectDivs(entries) {
       break;
     }
   }
-}
-
-function _tbpRecalc(wrap) {
-  const inp  = wrap.querySelector('.tbp-scu');
-  const prof = wrap.querySelector('.tbp-profit');
-  const qty  = parseInt(inp.value) || 0;
-  const pb   = parseFloat(wrap.dataset.priceBuy)  || 0;
-  const ps   = parseFloat(wrap.dataset.priceSell) || 0;
-  const val  = (ps - pb) * qty;
-  prof.textContent = _fmtAuec(val);
-  prof.classList.toggle('loss', val < 0);
-}
-
-function _tbpChoose(wrap, btn) {
-  if (btn.classList.contains('chosen')) return;
-  const inp = wrap.querySelector('.tbp-scu');
-  const qty = parseInt(inp.value) || parseInt(wrap.dataset.qtyOrig) || 0;
-  send({type: 'terminal_buy_chosen', data: {idx: parseInt(wrap.dataset.idx), qty}});
-  btn.textContent = '✓';
-  btn.classList.add('chosen');
-  btn.disabled = true;
-  startTimer();
 }
 
 function _fmtAuec(v) {
