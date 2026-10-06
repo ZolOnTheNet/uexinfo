@@ -227,7 +227,7 @@ def _show(cfg: dict, ctx=None) -> None:
         else f"[{C.LOSS}]off[/{C.LOSS}]"
     )
     config_items.append(config_item("trade.illegal", illegal_disp))
-    config_items.append(config_item("TTL cache", f"{cache_cfg.get('ttl_static', 86400)}s / {cache_cfg.get('ttl_prices', 300)}s"))
+    config_items.append(config_item("TTL cache", f"{cache_cfg.get('ttl_static', 86400)}s statique / prix adaptatif 4h-72h"))
     config_items.append(config_item("scan.mode", scan.get('mode', 'ocr'), "ocr|log|confirm"))
     long_items.append(config_item("scan.tesseract", scan.get('tesseract_exe') or '(auto)'))
     long_items.append(config_item("scan.logpath", scan.get('sc_log_path') or '(non défini)'))
