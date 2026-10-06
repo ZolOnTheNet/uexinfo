@@ -28,6 +28,7 @@ from uexinfo.cli.commands.info import (
     _stock_bar,
     _terminal_prices,
 )
+from uexinfo.rules.stock import buy_quantity, sell_quantity
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, fmt_distance_gm, print_error, print_warn, section
 
@@ -493,9 +494,6 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         if re.sub(r'\[/?[^\]]*\]', '', dist_str).strip() == "local":
             dist_str = ""
 
-    stock_mult = {1: 0, 2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
-    inv_mult   = {1: 1.0, 2: 0.8, 3: 0.6, 4: 0.4, 5: 0.2, 7: 0}
-
     orig_lo      = origin.name.lower()
     orig_loc_lo  = _loc(origin.name).lower()
     ship_grid    = _ship_slot_grid(ctx)          # {slot_size: nb_slots} ou {}
@@ -562,11 +560,9 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         price_sell  = float(dest_row.get("price_sell") or 0)
         status_sell = int(dest_row.get("status_sell") or 0)
 
-        qty = int(ship_cargo * stock_mult.get(status_buy, 0.5))
-        if qty == 0:
-            qty = ship_cargo
+        qty = buy_quantity(ship_cargo, status_buy)
 
-        qty_sell   = int(qty * inv_mult.get(status_sell, 0.5))
+        qty_sell   = sell_quantity(qty, status_sell)
         qty_unsold = qty - qty_sell
 
         total_buy  = qty * price_buy
