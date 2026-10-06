@@ -35,7 +35,7 @@
 | Résolution terminal (la complète) | `cli/commands/info.py:_find_terminal` (l.~2284) |
 | Classement des routes de vente | `info._route_rank_key` (prix puis distance) |
 | Prix fusionnés UEX + scans | `cache/data_manager.py:terminal_prices`, `fetch_prices` (fallback : cache → API → périmé → vide) |
-| TTL prix / version SC | `cache/price_cache.py` (`SC_VERSION`) |
+| TTL prix / version SC | `cache/price_cache.py` ; versions et univers : `cache/evolution.py`, `/evolution` |
 | Graphe de transport | `uexinfo/data/transport_network.json` + `models/transport_network.py` |
 | Logs Datarunner / Game.log | `ocr/log_parser.py`, `gamelog/{reader,parser,arrival}.py` |
 | Données utilisateur | `~/.uexinfo/` (JSON caches, `config.toml`, `scan_prices.json`, `missions.json`, `voyages.json`) |
@@ -64,14 +64,13 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 - **B2** : `trade.py`, `explore.py`, `scan.py` importent des fonctions privées de `info.py`. **Pas fait.**
 - **B3** : `UEXClient()` créé sans cache à 10 endroits (`info`, `nav`, `scan`, `sync`, `voyage`). **Pas fait.**
 - Fait (commit `fd5089e`) : dédup du nom court de terminal, du classement de routes et de la distance Gm.
-- `pytest` à la racine collecte aussi `scripts/test_*.py`, qui plantent. Utiliser `pytest tests`.
-- Scripts isolés à la racine : `check_*.py`, `fix_iron_price.py`, `debug_help.py`, `output.txt`.
-- Code mort : `api/uex_scraper.py`, `screens/`, `widgets/`, `SCTradeClient.commodity_items/ships`.
+- Fait : nettoyage (`scripts/dev/`, code mort retiré), A2 (`PriceCache.delete_keys`).
+- Reste en code mort : `select_editor.py` et le formulaire de `note.py` (prompt_toolkit, reliquat REPL).
 
 ## 5. Environnement de test (session cloud)
 
 ```bash
 pip install rich requests appdirs tomli-w rapidfuzz websockets   # pywebview ne s'installe pas ici
-python -m pytest -q tests        # 93 tests OK au 2026-10-06
+python -m pytest -q tests        # 109 tests OK au 2026-10-06 (pytest seul suffit : testpaths)
 ```
 Impossible de lancer l'overlay graphique dans le conteneur. Valider par les tests et l'import des modules.

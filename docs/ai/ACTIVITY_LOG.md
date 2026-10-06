@@ -3,6 +3,32 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-06 (suite 5) — `/evolution` codé, début du refactoring
+
+**Décisions reçues :** spécification de `/evolution` validée ; les réponses sont mémorisées par majeur.mineur ; les choix proposés pour D2 sont acceptés (pas de facteur cargaison, pas de colonne côté achat) ; feu vert pour le refactoring.
+
+**Fait :**
+- `/evolution` (`/scevolution`) :
+  - `cache/evolution.py` : mémoire des versions et surveillance ;
+  - la question s'affiche dans le runner, une fois par session ;
+  - branchement dans le serveur (au démarrage : référence des ID et contrôle si la surveillance est active) ;
+  - aide et complétion.
+- `PriceCache` : la constante `SC_VERSION = "4.6"` est supprimée. Une entrée liée à l'univers reste valable sauf après un changement d'univers déclaré.
+- Nettoyage :
+  - scripts de debug déplacés dans `scripts/dev/` ;
+  - `testpaths = tests` ;
+  - `uex_scraper.py` et les méthodes mortes de sc-trade supprimés ;
+  - `requirements.txt` aligné sur `pyproject.toml`.
+- A2 : `PriceCache.delete_keys`, que `sync.py` utilise désormais (plus d'accès à `_mem`).
+
+**Valeurs modifiées (signalées) :**
+- La question n'est posée qu'en **montée** de version majeur.mineur. Un retour à une version plus ancienne (bascule PTU vers LIVE) ne la déclenche pas : choix de ma part, à confirmer.
+- Les entrées de cache déjà taguées « 4.6 » restent valables tant qu'aucun changement d'univers n'est déclaré.
+
+**Tests :** 109 réussis.
+
+**Suite :** D6, le résolveur de noms unique (règles a, b, c à confirmer), puis B1/B2 (découpage d'`info.py`) et B3 (`UEXClient` derrière le cache).
+
 ## 2026-10-06 (suite 4) — D2 codé, règles D3
 
 **Décisions reçues :** H = 1 h ; N = 7 jours ; option c ; un patch ne déclenche pas la question ; commande `/evolution` (`/scevolution`) à prévoir.
