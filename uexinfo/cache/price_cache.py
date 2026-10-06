@@ -23,10 +23,13 @@ from pathlib import Path
 
 import appdirs
 
+from uexinfo.rules.version import entry_valid_for_universe
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 # Version du jeu Star Citizen — données version-spécifiques ne périment qu'ici
-SC_VERSION = "4.6"
+# Version SC des données liées à l'univers : voir uexinfo/cache/evolution.py (D3).
+# PriceCache.current_version / universe_version sont renseignés par /evolution.
 
 _CACHE_FILE = Path(appdirs.user_data_dir("uexinfo")) / "price_cache.json"
 
@@ -64,6 +67,8 @@ class PriceCache:
     """Cache de prix UEX persistant, remplace ctx._price_cache."""
 
     def __init__(self):
+        self.current_version: str = ""          # version SC observée (tag des écritures)
+        self.universe_version: str | None = None  # dernier changement d'univers déclaré
         self._mem: dict = {}   # clé → {data, fetched_at, game_version, query_times}
         self._dirty = False
         self._loaded = False
@@ -105,7 +110,7 @@ class PriceCache:
             return False
         fetched_at = entry.get("fetched_at", 0)
         if _is_version_tagged(key):
-            return entry.get("game_version") == SC_VERSION
+            return entry_valid_for_universe(entry.get("game_version"), self.universe_version)
         return (time.time() - fetched_at) < _adaptive_ttl(entry)
 
     # ── Interface dict-compatible ─────────────────────────────────────────────
@@ -144,7 +149,7 @@ class PriceCache:
         entry.update({
             "data": data,
             "fetched_at": time.time(),   # toujours time.time() pour la persistance
-            "game_version": SC_VERSION,
+            "game_version": self.current_version,
             "query_times": entry.get("query_times", []),
         })
         self._mem[key] = entry
@@ -230,7 +235,7 @@ class PriceCache:
         if not entry:
             return ""
         if _is_version_tagged(key):
-            return f"v{SC_VERSION} (permanent)"
+            return f"v{entry.get('game_version') or '?'} (permanent)"
         fetched_at = entry.get("fetched_at", 0)
         ttl = _adaptive_ttl(entry)
         remaining = ttl - (time.time() - fetched_at)

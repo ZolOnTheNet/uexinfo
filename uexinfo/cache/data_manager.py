@@ -131,6 +131,10 @@ def _check_game_version(api_ver: str, ctx) -> None:
     """Compare la version détectée depuis l'API avec la config ; notifie si différente."""
     if not api_ver:
         return
+    store = getattr(ctx, "evolution", None)
+    if store is not None:
+        store.observe_version(api_ver)
+        ctx._price_cache.current_version = store.current_version
     ver_cfg = ctx.cfg.get("version", {})
     active  = ver_cfg.get("active", "live")
     stored  = ver_cfg.get(active, "")

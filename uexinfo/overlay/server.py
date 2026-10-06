@@ -44,6 +44,7 @@ import uexinfo.cli.commands.voyage       # noqa: F401
 import uexinfo.cli.commands.calc         # noqa: F401
 import uexinfo.cli.commands.sync         # noqa: F401
 import uexinfo.cli.commands.note         # noqa: F401
+import uexinfo.cli.commands.evolution    # noqa: F401
 
 from uexinfo.cli.runner import run_command
 from uexinfo.cli.context import AppContext
@@ -142,6 +143,18 @@ class OverlayServer:
             pass
         self.ctx = AppContext(cfg=cfg, cache=cache)
         self.ctx.location_index = LocationIndex(cache)
+        # Versions SC / changements d'univers (D3)
+        try:
+            from uexinfo.cache.evolution import EvolutionStore
+            from uexinfo.cli.commands.evolution import run_check, sync_price_cache
+            self.ctx.evolution = EvolutionStore()
+            _vc = cfg.get("version", {})
+            self.ctx.evolution.observe_version(_vc.get(_vc.get("active", "live"), ""))
+            if not self.ctx.evolution.state["known_ids"] or self.ctx.evolution.watching():
+                run_check(self.ctx)
+            sync_price_cache(self.ctx)
+        except Exception as _e:
+            print(f"[overlay] evolution: {_e}", flush=True)
         self.ctx.player = Player.from_config(cfg.get("player", {}))
         # Migration clés terminaux → str(id) dans scan_prices.json
         try:

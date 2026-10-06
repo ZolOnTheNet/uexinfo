@@ -20,6 +20,7 @@ def test_parse_version(text, expected):
     ("4.9", "4.10", True),         # 4.9 → 4.10 n'est pas un tri alphabétique
     ("4.10", "5.0", True),
     (None, "4.10", False),
+    ("4.11", "4.10", False),       # retour en arrière (PTU → LIVE) : pas de question
 ])
 def test_universe_question_needed(old, new, expected):
     assert universe_question_needed(old, new) is expected
@@ -47,3 +48,28 @@ def test_watch_lasts_7_days_after_last_change():
     assert watch_active(0, None, 6 * day) is True
     assert watch_active(0, None, 7 * day) is False
     assert watch_active(0, 5 * day, 11 * day) is True   # un changement relance les 7 jours
+
+
+from uexinfo.rules.version import diff_ids, entry_valid_for_universe, minor_key
+
+
+def test_minor_key():
+    assert minor_key("4.10.1") == "4.10"
+    assert minor_key(None) == ""
+
+
+@pytest.mark.parametrize("entry,universe,expected", [
+    ("4.6", None, True),        # aucun changement déclaré : tout reste valable
+    ("4.6", "4.10.1", False),   # produit avant le changement d'univers
+    ("4.10.1", "4.10.1", True),
+    ("4.11", "4.10.1", True),
+    ("", "4.10", False),        # version inconnue après un changement : re-télécharger
+])
+def test_entry_valid_for_universe(entry, universe, expected):
+    assert entry_valid_for_universe(entry, universe) is expected
+
+
+def test_diff_ids():
+    old = {"terminals": [1, 2, 3]}
+    new = {"terminals": [2, 3, 4], "cities": [9]}
+    assert diff_ids(old, new) == {"added": {"terminals": [4]}, "removed": {"terminals": [1]}}

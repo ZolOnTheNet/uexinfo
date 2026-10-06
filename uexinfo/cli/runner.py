@@ -120,4 +120,14 @@ def run_command(line: str, ctx) -> set[str]:
             f"  [dim]/config version ptu {detected}[/dim]      → si c'est le PTU"
         )
 
+    # Question de changement d'univers (D3) — une fois par session tant que sans réponse
+    store = getattr(ctx, "evolution", None)
+    if store is not None and store.pending and not getattr(ctx, "_evolution_asked", False):
+        ctx._evolution_asked = True
+        console.print(
+            f"\n[bold yellow]🌌 Nouvelle version {store.pending} — l'univers a-t-il changé"
+            f" (nouveaux lieux) ?[/bold yellow]\n"
+            f"  [dim]/evolution oui[/dim]   (ou je ne sais pas)   ·   [dim]/evolution non[/dim]"
+        )
+
     return set()

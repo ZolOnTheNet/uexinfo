@@ -30,10 +30,20 @@ _COMMANDS = {
     "dest":    "Définir ou effacer la destination  (/dest clear pour effacer)",
     "=":       "Calculatrice  (/calc — ex: = 16x6  = 100/3  = (12+8)*5)",
     "note":    "Notes personnelles par lieu",
+    "evolution": "Changement de version / d'univers SC  (/scevolution aussi)",
     "exit":    "Quitter l'application  (/quit et /bye aussi)",
 }
 
 _DETAILS = {
+    "evolution": (
+        "/evolution            État : version détectée, surveillance, lieux ajoutés/retirés\n"
+        "/evolution oui        L'univers a changé (aussi si vous ne savez pas)\n"
+        "/evolution non        Rien n'a changé : distances et graphe conservés\n"
+        "/evolution check      Comparer tout de suite les lieux UEX à la référence\n\n"
+        "La question est posée automatiquement à chaque changement de version majeur.mineur\n"
+        "(4.10 → 4.11, pas 4.10.0 → 4.10.1), une seule fois par version.\n"
+        "Après « oui » : surveillance 7 jours, distances et tailles de conteneurs re-téléchargées."
+    ),
     "player": (
         "/player info                      État joueur (vaisseau, position, dest)\n"
         "/player ship add <nom> [scu]      Ajouter un vaisseau\n"

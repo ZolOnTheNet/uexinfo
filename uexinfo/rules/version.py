@@ -25,11 +25,12 @@ def parse_version(text: str | None) -> tuple[int, int, int] | None:
 
 
 def universe_question_needed(old: str | None, new: str | None) -> bool:
-    """True si majeur.mineur diffère (patch ignoré). Version illisible ⇒ False."""
+    """True si majeur.mineur augmente (patch ignoré). Retour à une version
+    plus ancienne (bascule PTU/LIVE) ou version illisible ⇒ False."""
     a, b = parse_version(old), parse_version(new)
     if a is None or b is None:
         return False
-    return a[:2] != b[:2]
+    return b[:2] > a[:2]
 
 
 def version_marker(data_version: str | None, current: str | None) -> str:
@@ -51,3 +52,40 @@ def watch_active(started_at: float, last_change_at: float | None, now: float) ->
     """Surveillance active tant que < WATCH_DAYS jours depuis le dernier événement."""
     ref = max(started_at, last_change_at or 0.0)
     return now - ref < WATCH_DAYS * 86400
+
+
+def minor_key(text: str | None) -> str:
+    """'4.10.1' → '4.10' (clé de mémorisation des réponses) ; illisible → ''."""
+    v = parse_version(text)
+    return f"{v[0]}.{v[1]}" if v else ""
+
+
+def entry_valid_for_universe(entry_version: str | None, universe_version: str | None) -> bool:
+    """Donnée liée à l'univers (distances, conteneurs…) encore valable ?
+
+    Valable si aucun changement d'univers n'a été déclaré, ou si elle a été
+    produite à partir de la version où l'univers a changé (ou après).
+    """
+    u = parse_version(universe_version)
+    if u is None:
+        return True
+    e = parse_version(entry_version)
+    return e is not None and e >= u
+
+
+def diff_ids(old: dict[str, list[int]], new: dict[str, list[int]]) -> dict[str, dict[str, list[int]]]:
+    """Compare des listes d'ID UEX par catégorie → {'added': {cat: [...]}, 'removed': {...}}.
+
+    Une catégorie absente de `old` est une première observation, pas un ajout.
+    """
+    added: dict[str, list[int]] = {}
+    removed: dict[str, list[int]] = {}
+    for cat, ids in new.items():
+        if cat not in old:
+            continue
+        a, b = set(old[cat]), set(ids)
+        if b - a:
+            added[cat] = sorted(b - a)
+        if a - b:
+            removed[cat] = sorted(a - b)
+    return {"added": added, "removed": removed}
