@@ -1,0 +1,342 @@
+[
+{
+"id": 1,
+"name": "Agricium",
+"code": "AGRI",
+"kind": "Metal",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 2,
+"name": "Agricium (Ore)",
+"code": "AGRI",
+"kind": "Metal",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 5,
+"name": "Aluminum",
+"code": "ALUM",
+"kind": "Metal",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 6,
+"name": "Aluminum (Ore)",
+"code": "ALUM",
+"kind": "Metal",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 20,
+"name": "Copper",
+"code": "COPP",
+"kind": "Metal",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 21,
+"name": "Copper (Ore)",
+"code": "COPP",
+"kind": "Metal",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 22,
+"name": "Corundum",
+"code": "CORU",
+"kind": "Mineral",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 23,
+"name": "Corundum (Raw)",
+"code": "CORU",
+"kind": "Mineral",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 27,
+"name": "Distilled Spirits",
+"code": "DIST",
+"kind": "Vice",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 29,
+"name": "E'tam",
+"code": "ETAM",
+"kind": "Drug",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 1
+},
+{
+"id": 33,
+"name": "Gold",
+"code": "GOLD",
+"kind": "Metal",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 34,
+"name": "Gold (Ore)",
+"code": "GOLD",
+"kind": "Metal",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 35,
+"name": "Golden Medmon",
+"code": "GOLM",
+"kind": "Natural",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 43,
+"name": "Iodine",
+"code": "IODI",
+"kind": "Halogen",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 47,
+"name": "Laranite",
+"code": "LARA",
+"kind": "Metal",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 48,
+"name": "Laranite (Raw)",
+"code": "LARA",
+"kind": "Metal",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 51,
+"name": "Medical Supplies",
+"code": "MEDS",
+"kind": "Medical",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 60,
+"name": "Quartz",
+"code": "QUAR",
+"kind": "Metal",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 61,
+"name": "Quartz (Raw)",
+"code": "QUAR",
+"kind": "Metal",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 67,
+"name": "Scrap",
+"code": "SCRA",
+"kind": "Scrap",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 75,
+"name": "Titanium",
+"code": "TITA",
+"kind": "Metal",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 76,
+"name": "Titanium (Ore)",
+"code": "TITA",
+"kind": "Metal",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 79,
+"name": "Waste",
+"code": "WAST",
+"kind": "Waste",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 104,
+"name": "Hydrogen Fuel",
+"code": "HYDF",
+"kind": "Fuel",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 106,
+"name": "Nitrogen",
+"code": "NITR",
+"kind": "Gas",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 114,
+"name": "Methane",
+"code": "METH",
+"kind": "Gas",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 128,
+"name": "Ship Ammunition",
+"code": "SHPA",
+"kind": "Ammunition",
+"is_buyable": 0,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 201,
+"name": "Ship Ammunition - Size 1",
+"code": "SHPA1",
+"kind": "Ammunition",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 202,
+"name": "Ship Ammunition - Size 2",
+"code": "SHPA2",
+"kind": "Ammunition",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 203,
+"name": "Ship Ammunition - Size 3",
+"code": "SHPA3",
+"kind": "Ammunition",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 204,
+"name": "Ship Ammunition - Size 4",
+"code": "SHPA4",
+"kind": "Ammunition",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 205,
+"name": "Ship Ammunition - Size 5",
+"code": "SHPA5",
+"kind": "Ammunition",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 206,
+"name": "Ship Ammunition - Size 6",
+"code": "SHPA6",
+"kind": "Ammunition",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+},
+{
+"id": 207,
+"name": "Ship Ammunition - Size 7",
+"code": "SHPA7",
+"kind": "Ammunition",
+"is_buyable": 1,
+"is_sellable": 1,
+"is_available": 1,
+"is_illegal": 0
+}
+]

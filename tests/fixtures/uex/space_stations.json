@@ -1,0 +1,114 @@
+[
+{
+"id": 1,
+"name": "ARC-L1 Wide Forest Station",
+"nickname": "ARC-L1",
+"star_system_name": "Stanton",
+"planet_name": "ArcCorp"
+},
+{
+"id": 6,
+"name": "Baijini Point",
+"nickname": "Baijini",
+"star_system_name": "Stanton",
+"planet_name": "ArcCorp"
+},
+{
+"id": 9,
+"name": "CRU-L5 Beautiful Glen Station",
+"nickname": "CRU-L5",
+"star_system_name": "Stanton",
+"planet_name": "Crusader"
+},
+{
+"id": 10,
+"name": "Everus Harbor",
+"nickname": "Everus",
+"star_system_name": "Stanton",
+"planet_name": "Hurston"
+},
+{
+"id": 23,
+"name": "Port Tressler",
+"nickname": "Tressler",
+"star_system_name": "Stanton",
+"planet_name": "MicroTech"
+},
+{
+"id": 24,
+"name": "Pyro Gateway (Stanton)",
+"nickname": "Pyro Gateway (Stanton)",
+"star_system_name": "Stanton",
+"planet_name": null
+},
+{
+"id": 25,
+"name": "Nyx Gateway (Stanton)",
+"nickname": "Nyx Gateway (Stanton)",
+"star_system_name": "Stanton",
+"planet_name": null
+},
+{
+"id": 26,
+"name": "Terra Gateway (Stanton)",
+"nickname": "Terra Gateway (Stanton)",
+"star_system_name": "Stanton",
+"planet_name": null
+},
+{
+"id": 27,
+"name": "Seraphim Station",
+"nickname": "Seraphim",
+"star_system_name": "Stanton",
+"planet_name": "Crusader"
+},
+{
+"id": 31,
+"name": "Checkmate Station",
+"nickname": "Checkmate",
+"star_system_name": "Pyro",
+"planet_name": "Monox"
+},
+{
+"id": 45,
+"name": "Ruin Station",
+"nickname": "Ruin Station",
+"star_system_name": "Pyro",
+"planet_name": "Terminus"
+},
+{
+"id": 46,
+"name": "Gaslight",
+"nickname": "Gaslight",
+"star_system_name": "Pyro",
+"planet_name": "Pyro V"
+},
+{
+"id": 50,
+"name": "Stanton Gateway (Pyro)",
+"nickname": "Stanton Gateway (Pyro)",
+"star_system_name": "Pyro",
+"planet_name": null
+},
+{
+"id": 55,
+"name": "Nyx Gateway (Pyro)",
+"nickname": "Nyx Gateway (Pyro)",
+"star_system_name": "Pyro",
+"planet_name": null
+},
+{
+"id": 56,
+"name": "Stanton Gateway (Nyx)",
+"nickname": "Stanton Gateway (Nyx)",
+"star_system_name": "Nyx",
+"planet_name": null
+},
+{
+"id": 57,
+"name": "Pyro Gateway (Nyx)",
+"nickname": "Pyro Gateway (Nyx)",
+"star_system_name": "Nyx",
+"planet_name": null
+}
+]

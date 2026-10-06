@@ -1,0 +1,191 @@
+[
+{
+"id": 26,
+"name": "Avenger Stalker",
+"name_full": "Aegis Avenger Stalker",
+"company_name": "Aegis Dynamics",
+"scu": 0
+},
+{
+"id": 27,
+"name": "Avenger Titan",
+"name_full": "Aegis Avenger Titan",
+"company_name": "Aegis Dynamics",
+"scu": 8
+},
+{
+"id": 28,
+"name": "Avenger Titan Renegade",
+"name_full": "Aegis Avenger Titan Renegade",
+"company_name": "Aegis Dynamics",
+"scu": 8
+},
+{
+"id": 29,
+"name": "Avenger Warlock",
+"name_full": "Aegis Avenger Warlock",
+"company_name": "Aegis Dynamics",
+"scu": 0
+},
+{
+"id": 35,
+"name": "C2 Hercules Starlifter",
+"name_full": "Crusader C2 Hercules Starlifter",
+"company_name": "Crusader Industries",
+"scu": 696
+},
+{
+"id": 41,
+"name": "Caterpillar",
+"name_full": "Drake Caterpillar",
+"company_name": "Drake Interplanetary",
+"scu": 576
+},
+{
+"id": 42,
+"name": "Caterpillar Best In Show Edition",
+"name_full": "Drake Caterpillar Best In Show Edition",
+"company_name": "Drake Interplanetary",
+"scu": 576
+},
+{
+"id": 43,
+"name": "Caterpillar Pirate Edition",
+"name_full": "Drake Caterpillar Pirate Edition",
+"company_name": "Drake Interplanetary",
+"scu": 576
+},
+{
+"id": 45,
+"name": "Constellation Andromeda",
+"name_full": "RSI Constellation Andromeda",
+"company_name": "Roberts Space Industries",
+"scu": 96
+},
+{
+"id": 46,
+"name": "Constellation Aquila",
+"name_full": "RSI Constellation Aquila",
+"company_name": "Roberts Space Industries",
+"scu": 96
+},
+{
+"id": 47,
+"name": "Constellation Phoenix",
+"name_full": "RSI Constellation Phoenix",
+"company_name": "Roberts Space Industries",
+"scu": 80
+},
+{
+"id": 48,
+"name": "Constellation Phoenix Emerald",
+"name_full": "RSI Constellation Phoenix Emerald",
+"company_name": "Roberts Space Industries",
+"scu": 80
+},
+{
+"id": 49,
+"name": "Constellation Taurus",
+"name_full": "RSI Constellation Taurus",
+"company_name": "Roberts Space Industries",
+"scu": 174
+},
+{
+"id": 52,
+"name": "Cutlass Black",
+"name_full": "Drake Cutlass Black",
+"company_name": "Drake Interplanetary",
+"scu": 46
+},
+{
+"id": 53,
+"name": "Cutlass Black Best In Show Edition",
+"name_full": "Drake Cutlass Black Best In Show Edition",
+"company_name": "Drake Interplanetary",
+"scu": 46
+},
+{
+"id": 54,
+"name": "Cutlass Blue",
+"name_full": "Drake Cutlass Blue",
+"company_name": "Drake Interplanetary",
+"scu": 12
+},
+{
+"id": 55,
+"name": "Cutlass Red",
+"name_full": "Drake Cutlass Red",
+"company_name": "Drake Interplanetary",
+"scu": 12
+},
+{
+"id": 56,
+"name": "Cutlass Steel",
+"name_full": "Drake Cutlass Steel",
+"company_name": "Drake Interplanetary",
+"scu": 0
+},
+{
+"id": 80,
+"name": "Freelancer",
+"name_full": "MISC Freelancer",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 66
+},
+{
+"id": 81,
+"name": "Freelancer DUR",
+"name_full": "MISC Freelancer DUR",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 36
+},
+{
+"id": 82,
+"name": "Freelancer MAX",
+"name_full": "MISC Freelancer MAX",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 120
+},
+{
+"id": 83,
+"name": "Freelancer MIS",
+"name_full": "MISC Freelancer MIS",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 36
+},
+{
+"id": 102,
+"name": "Hull A",
+"name_full": "MISC Hull A",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 64
+},
+{
+"id": 103,
+"name": "Hull B",
+"name_full": "MISC Hull B",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 512
+},
+{
+"id": 104,
+"name": "Hull C",
+"name_full": "MISC Hull C",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 4608
+},
+{
+"id": 105,
+"name": "Hull D",
+"name_full": "MISC Hull D",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 6912
+},
+{
+"id": 106,
+"name": "Hull E",
+"name_full": "MISC Hull E",
+"company_name": "Musashi Industrial and Starflight Concern",
+"scu": 12288
+}
+]

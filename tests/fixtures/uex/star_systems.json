@@ -1,0 +1,20 @@
+[
+{
+"id": 55,
+"name": "Nyx",
+"code": "NX",
+"is_available": 1
+},
+{
+"id": 64,
+"name": "Pyro",
+"code": "PY",
+"is_available": 1
+},
+{
+"id": 68,
+"name": "Stanton",
+"code": "ST",
+"is_available": 1
+}
+]

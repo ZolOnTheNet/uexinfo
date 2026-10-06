@@ -1,0 +1,86 @@
+[
+{
+"id": 4,
+"name": "ArcCorp",
+"star_system_name": "Stanton",
+"id_star_system": 68
+},
+{
+"id": 59,
+"name": "Crusader",
+"star_system_name": "Stanton",
+"id_star_system": 68
+},
+{
+"id": 116,
+"name": "Hurston",
+"star_system_name": "Stanton",
+"id_star_system": 68
+},
+{
+"id": 190,
+"name": "MicroTech",
+"star_system_name": "Stanton",
+"id_star_system": 68
+},
+{
+"id": 204,
+"name": "Nyx I",
+"star_system_name": "Nyx",
+"id_star_system": 55
+},
+{
+"id": 205,
+"name": "Nyx II",
+"star_system_name": "Nyx",
+"id_star_system": 55
+},
+{
+"id": 206,
+"name": "Nyx III",
+"star_system_name": "Nyx",
+"id_star_system": 55
+},
+{
+"id": 240,
+"name": "Pyro I",
+"star_system_name": "Pyro",
+"id_star_system": 64
+},
+{
+"id": 241,
+"name": "Monox",
+"star_system_name": "Pyro",
+"id_star_system": 64
+},
+{
+"id": 242,
+"name": "Bloom",
+"star_system_name": "Pyro",
+"id_star_system": 64
+},
+{
+"id": 243,
+"name": "Pyro IV",
+"star_system_name": "Pyro",
+"id_star_system": 64
+},
+{
+"id": 244,
+"name": "Pyro V",
+"star_system_name": "Pyro",
+"id_star_system": 64
+},
+{
+"id": 245,
+"name": "Terminus",
+"star_system_name": "Pyro",
+"id_star_system": 64
+},
+{
+"id": 325,
+"name": "Delamar",
+"star_system_name": "Nyx",
+"id_star_system": 55
+}
+]

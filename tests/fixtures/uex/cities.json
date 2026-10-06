@@ -1,0 +1,32 @@
+[
+{
+"id": 1,
+"name": "Area 18",
+"star_system_name": "Stanton",
+"planet_name": "ArcCorp"
+},
+{
+"id": 2,
+"name": "Levski",
+"star_system_name": "Nyx",
+"planet_name": null
+},
+{
+"id": 3,
+"name": "Lorville",
+"star_system_name": "Stanton",
+"planet_name": "Hurston"
+},
+{
+"id": 4,
+"name": "New Babbage",
+"star_system_name": "Stanton",
+"planet_name": "MicroTech"
+},
+{
+"id": 5,
+"name": "Orison",
+"star_system_name": "Stanton",
+"planet_name": "Crusader"
+}
+]
