@@ -53,7 +53,8 @@ L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessu
 | Données modèles | `uexinfo/cache/models.py` | Dataclasses : `StarSystem`, `Planet`, `Moon`, `Orbit`, `SpaceStation`, `Outpost`, `City`, `Terminal`, `Vehicle`, `Commodity`, `Faction` |
 | Config | `uexinfo/config/settings.py` | Lecture/écriture `config.toml` (dossier config utilisateur) |
 | Réseau de transport | `uexinfo/models/transport_network.py` | Graphe Dijkstra (nœuds/arêtes), `uexinfo/data/transport_network.json` |
-| Location | `uexinfo/location/index.py` | `LocationIndex` — résolution fuzzy de lieux, complétion `@lieu` |
+| Noms | `uexinfo/names/` | **Résolveur unique** (lieux, terminaux, commodités, vaisseaux, nœuds) — toute recherche par nom passe par `names.resolve` |
+| Location | `uexinfo/location/index.py` | `LocationIndex` — complétion `@lieu` (chemins pointés) |
 | OCR / logs | `uexinfo/ocr/` | `engine.py` (Tesseract sur screenshots), `log_parser.py` (log SC-Datarunner) |
 | Modèles métier | `uexinfo/models/` | `player.py`, `scan_result.py`, `mission.py`, `voyage.py` |
 | Display | `uexinfo/display/` | Console Rich partagée (`capturing_console.py` — capture les renderables pour rendu HTML, pas de vrai TTY), couleurs, formatters |
@@ -88,6 +89,10 @@ Pour les prix (dynamiques), `DataManager.terminal_prices()` (`cache/data_manager
 - **★** — donnée confirmée par un scan joueur (prioritaire sur UEX/sc-trade)
 
 Toujours utiliser les constantes de `uexinfo/display/colors.py`, jamais de couleurs brutes.
+
+## Règles métier
+
+Règles pures et testées dans `uexinfo/rules/` (quantités, risque, versions). Décisions validées : `docs/ai/DECISIONS.md`. Ne jamais changer une valeur métier sans le signaler.
 
 ## Ajouter une nouvelle commande
 

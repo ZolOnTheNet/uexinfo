@@ -3,6 +3,42 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-06 (suite 6) — D4 supprimé, D6 résolveur unique
+
+**Décisions reçues :**
+- La question `/evolution` ne se pose qu'en montée de version (le PTU préfigure le LIVE).
+- Il faudrait idéalement des jeux de données séparés pour LIVE et PTU (D7, à étudier).
+- D6 : règles a, b et c acceptées.
+- `ttl_prices` peut être supprimé.
+
+**Fait :**
+- D4 : `ttl_prices` supprimé de la configuration et de l'affichage.
+- D6 : création de `uexinfo/names/`.
+  - `norm` : une seule normalisation.
+  - `NameIndex` : cascade exact > préfixe > contient > flou ; codes UEX en correspondance exacte seulement ; notation pointée ; abréviations de fabricants.
+  - Règles a, b et c appliquées.
+  - Fixtures de vraies données UEX dans `tests/fixtures/uex/`.
+- Fonctions branchées sur le résolveur : `/info`, `/trade` (picker), `/go`, `/sync`, la clé canonique des scans, l'autopos des scans et `LocationIndex`.
+- `CacheManager.find_*` (inutilisés) supprimés.
+
+**Valeurs modifiées (signalées) :**
+- **Priorité de terminal unique** : Admin > TDD > centre cargo > autre commerce > autre.
+  - Avant, `/go` appliquait TDD > Admin, `info`/`location` mettaient Admin = TDD = Trade, et `data_manager` faisait Admin > TDD > cargo.
+  - Aucun lieu UEX actuel n'a à la fois un Admin et un TDD, donc aucun effet visible aujourd'hui.
+- **Seuils de ressemblance** : saisie 70, OCR 60.
+  - `_find_vehicle` passe de 65 à 70.
+  - Les modules OCR ne sont pas encore migrés.
+- **Commodités** : « ship ammunition » donne maintenant une liste ambiguë (Size 1 à Size N) au lieu de Size 1 d'office. `_find_commodity` renvoie toujours la première.
+- **`/go`** : terminaux, planètes et systèmes sont résolus ensemble (« hurston » donne la planète).
+- **Lorville** : le terminal principal est « Admin - L19 Residences » (règle c), pas « CBD - Central Business District ». C'est inchangé par rapport à avant, mais à vérifier.
+
+**Tests :** 142 réussis.
+
+**Reste à migrer vers `names` :**
+- `nav._resolve_node` et `_find_candidates`, `mission._resolve_graph_node`, `voyage._resolve_locs` ;
+- `scan._resolve_uex` (OCR) et `ocr/engine` (fuzzy) ;
+- `explore._match`, `config._find_vehicle`, `player._resolve_location`, `route._resolve_at`.
+
 ## 2026-10-06 (suite 5) — `/evolution` codé, début du refactoring
 
 **Décisions reçues :** spécification de `/evolution` validée ; les réponses sont mémorisées par majeur.mineur ; les choix proposés pour D2 sont acceptés (pas de facteur cargaison, pas de colonne côté achat) ; feu vert pour le refactoring.

@@ -32,7 +32,7 @@
 | Rendu Rich → HTML | `display/capturing_console.py`, `display/render_html.py`, `display/result.py` |
 | Règles métier pures (testées) | `uexinfo/rules/` (`stock.py` quantités, `risk.py` risque D2, `version.py` versions D3) — décisions dans `docs/ai/DECISIONS.md` |
 | Formatage (prix, SCU, distance, nom court terminal) | `display/formatter.py` (`fmt_distance_gm`, `terminal_short_name`) — **réutiliser** |
-| Résolution terminal (la complète) | `cli/commands/info.py:_find_terminal` (l.~2284) |
+| **Reconnaissance de noms (UNIQUE)** | `uexinfo/names/` : `resolve(ctx, query, kinds, profile, min_level)` → `.best`, `.ambiguous`, `.candidates`. Ne jamais réécrire de recherche floue ailleurs |
 | Classement des routes de vente | `info._route_rank_key` (prix puis distance) |
 | Prix fusionnés UEX + scans | `cache/data_manager.py:terminal_prices`, `fetch_prices` (fallback : cache → API → périmé → vide) |
 | TTL prix / version SC | `cache/price_cache.py` ; versions et univers : `cache/evolution.py`, `/evolution` |
@@ -71,6 +71,6 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 
 ```bash
 pip install rich requests appdirs tomli-w rapidfuzz websockets   # pywebview ne s'installe pas ici
-python -m pytest -q tests        # 109 tests OK au 2026-10-06 (pytest seul suffit : testpaths)
+python -m pytest -q tests        # 142 tests OK au 2026-10-06 (pytest seul suffit : testpaths)
 ```
 Impossible de lancer l'overlay graphique dans le conteneur. Valider par les tests et l'import des modules.
