@@ -14,10 +14,15 @@ def test_buy_quantity_by_status(status, expected):
     assert buy_quantity(96, status) == expected
 
 
-def test_buy_unknown_status_uses_default():
-    # Statut 6 non encore tranché (D5) : comportement inchangé = 0.5
-    assert buy_quantity(96, 6) == 48
+def test_status_6_very_high():
+    # D5 : Very High (72-85 %) = 85 % achetable, 15 % vendable
+    assert buy_quantity(100, 6) == 85
+    assert sell_quantity(100, 6) == 15
+
+
+def test_unknown_status_uses_default():
     assert buy_quantity(96, 0) == 48
+    assert sell_quantity(96, 9) == 48
 
 
 def test_sell_out_of_stock_sells_everything():

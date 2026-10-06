@@ -11,6 +11,7 @@ from uexinfo.api.uex_client import UEXClient, UEXError
 from uexinfo.cache.models import Commodity, Terminal, Vehicle
 from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
+from uexinfo.rules.stock import buy_quantity
 from uexinfo.display.formatter import console, print_warn, section
 from uexinfo.models.scan_result import ScanResult
 from uexinfo.models.transport_network import EdgeType
@@ -178,12 +179,12 @@ def _term_name_maxlen() -> int:
     return max(16, w // 3)
 
 
-_STATUS_LABEL = {1: "Out", 2: "T.Bas", 3: "Bas", 4: "Moy", 5: "Haut", 7: "Max"}
+_STATUS_LABEL = {1: "Out", 2: "T.Bas", 3: "Bas", 4: "Moy", 5: "Haut", 6: "T.Haut", 7: "Max"}
 
 # Achat : Max = blanc (abondant) → Out = rouge (épuisé)
-_BUY_STATUS_COLOR  = {7: "bright_white", 5: "white", 4: "yellow", 3: "orange1", 2: "red1", 1: "red"}
+_BUY_STATUS_COLOR  = {7: "bright_white", 6: "bright_white", 5: "white", 4: "yellow", 3: "orange1", 2: "red1", 1: "red"}
 # Vente : Out = blanc (terminal demandeur) → Max = rouge (terminal plein = bloquant)
-_SELL_STATUS_COLOR = {1: "bright_white", 2: "white", 3: "yellow", 4: "orange1", 5: "red1", 7: "red"}
+_SELL_STATUS_COLOR = {1: "bright_white", 2: "white", 3: "yellow", 4: "orange1", 5: "red1", 6: "red", 7: "red"}
 
 
 def _fmt_date(date_modified) -> str:
@@ -673,8 +674,8 @@ def _fetch_terminal_container_sizes(terminal_id: int, ctx) -> dict:
 
 # ── Données scan ───────────────────────────────────────────────────────────────
 
-_STOCK_LABELS = {1: "Out", 2: "Très bas", 3: "Bas", 4: "Moyen", 5: "Haut", 7: "Max"}
-_STOCK_COLORS = {1: C.DIM, 2: "red", 3: "yellow", 4: C.UEX, 5: C.PROFIT, 7: C.PROFIT}
+_STOCK_LABELS = {1: "Out", 2: "Très bas", 3: "Bas", 4: "Moyen", 5: "Haut", 6: "Très haut", 7: "Max"}
+_STOCK_COLORS = {1: C.DIM, 2: "red", 3: "yellow", 4: C.UEX, 5: C.PROFIT, 6: C.PROFIT, 7: C.PROFIT}
 
 
 def _find_scan(loc_name: str, ctx) -> ScanResult | None:
@@ -801,7 +802,7 @@ def _stock_bar(status: int, sell: bool) -> str:
         return f"[{C.DIM}]○○○○[/{C.DIM}]"
 
     # Mapping du status (1-7) vers le nb de symboles pleins (0-4)
-    levels = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 4}
+    levels = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 4, 7: 4}
     filled = levels.get(status, 0)
 
     # Pour la vente : Out=vert (forte demande), Max=rouge (terminal plein)
@@ -1067,11 +1068,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             qty_buy = min(ship_cargo, scu_cur)   # stock connu → cap réel
         elif scu_cap > 0:
             qty_buy = min(ship_cargo, scu_cap)
-        elif status_buy == 1:
-            qty_buy = 0
         else:
-            _sm = {2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
-            qty_buy = int(ship_cargo * _sm.get(status_buy, 0.5))
+            qty_buy = buy_quantity(ship_cargo, status_buy)   # règle unique (rules/stock.py)
         total_buy = qty_buy * price_buy
 
         # ── Destination : meilleure route filtrée par les filtres /select catégorie
@@ -1655,6 +1653,7 @@ _BUY_STATUS_BAR: dict[int, str] = {
     3: "[yellow]▓▓░░[/yellow]",
     4: "[cyan]▓▓▓░[/cyan]",
     5: "[green]▓▓▓▓[/green]",
+    6: "[green]▓▓▓▓[/green]",
     7: "[bold green]████[/bold green]",
 }
 
@@ -1664,6 +1663,7 @@ _SELL_STATUS_BAR: dict[int, str] = {
     3: "[yellow]▓▓░░[/yellow]",
     4: "[orange1]▓▓▓░[/orange1]",
     5: "[red]▓▓▓▓[/red]",
+    6: "[red]▓▓▓▓[/red]",
     7: "[bold red]████[/bold red]",
 }
 
