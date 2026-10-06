@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Notes de travail Claude
+
+Avant toute tâche, lire `docs/ai/NOTES.md` (objectifs, carte du code, dette vérifiée). Ajouter une entrée dans `docs/ai/ACTIVITY_LOG.md` à chaque étape notable.
+
 ## Project
 
 **uexinfo** — Overlay Star Citizen pour le trading, les missions et la navigation. Interroge l'API UEX Corp 2.0 et sc-trade.tools (données communauté), lit les logs de SC-Datarunner et fait de l'OCR sur les captures d'écran du jeu pour suivre automatiquement les prix, le stock, la position du joueur et les missions.
@@ -19,15 +23,15 @@ python -m uexinfo
 # ou après install :
 uexinfo
 
-# Lancer les tests
-pytest
+# Lancer les tests (pas `pytest` nu : il collecte scripts/test_*.py, qui plantent)
+pytest tests
 ```
 
 Pas de Makefile ni de CI configurée.
 
 ## Architecture
 
-L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessus pilotée par un serveur WebSocket local, avec un frontend HTML/JS unique (`static/index.html`, ~20 000 lignes). Il n'y a plus de boucle REPL terminal ni d'UI Textual — les deux ont été supprimées.
+L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessus pilotée par un serveur WebSocket local, avec un frontend HTML/JS unique (`static/index.html`, ~4 400 lignes). Il n'y a plus de boucle REPL terminal ni d'UI Textual — les deux ont été supprimées.
 
 ### Layer map
 
