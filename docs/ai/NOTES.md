@@ -55,6 +55,7 @@ Total Python : ~28 000 lignes.
 
 ## 4. Dette connue (état vérifié)
 
+Mission en cours : `docs/ai/MISSION_STELLIVERSE.md` · Audit complet : `docs/ai/AUDIT_2026-10-06.md`.
 Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 - **A1** : 3 `find_terminal` différents (`cache/manager.py:491`, `info.py:2284`, `sync.py:18`). **Pas fait.**
 - **A2** : `sync.py:43` accède à `ctx._price_cache._mem`. **Pas fait.**

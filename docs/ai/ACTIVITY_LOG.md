@@ -3,6 +3,24 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-06 (suite) — mission Stelliverse, étape 1 : audit
+
+**Demande :** mission « améliorer uexinfo en s'inspirant de Stelliverse » (consignes dans `docs/ai/MISSION_STELLIVERSE.md`).
+
+**Fait :** audit en lecture seule, dans `docs/ai/AUDIT_2026-10-06.md`. Aucun code modifié.
+
+**Points saillants :**
+- Deux formules de risque divergentes (`trade.py` et `info.py`).
+- `qty == 0 → cargo complet` dans `/trade` : un stock « Out » donne un cargo plein.
+- `SC_VERSION = "4.6"` est probablement périmée.
+- `ttl_prices` est affiché mais jamais utilisé.
+- Les seuils de correspondance floue diffèrent selon les modules.
+- Les tests ne couvrent que les voyages. Aucune fixture `Game.log`.
+
+**Tests :** `pytest tests` donne 45 réussis.
+
+**En attente :** validation de l'audit par l'utilisateur avant l'étape 2. GitLab Stelliverse est accessible.
+
 ## 2026-10-06 — `claude/github-cloud-session-link-lq35n2`
 
 **Demande :** refactoriser le projet selon ses objectifs principaux. Étape 1 : formuler les objectifs, créer des notes de navigation et ce journal.
