@@ -3,6 +3,20 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-06 (suite 3) — D1 corrigé, études D2 et D3
+
+**Fait :**
+- **D1 :** création de `uexinfo/rules/` (règles métier pures). `stock.py` contient `buy_quantity` et `sell_quantity`. `trade.py` les utilise, et le repli « qty = 0 → cargo plein » est supprimé. 13 tests ajoutés.
+- **D2 :** recherche web sur les cycles de stock (paliers de 8-10 min environ, réassort lent et variable, aucun chiffre officiel). Proposition d'une formule à demi-vie.
+- **D3 :** étude version et univers (détection automatique, version sur chaque donnée, question au joueur, mode surveillance par comparaison des ID UEX).
+- Le tout dans `docs/ai/ETUDES_RISQUE_VERSION.md`.
+
+**Valeurs modifiées :** stock d'achat « Out » donne maintenant 0 SCU au lieu du cargo complet (validé par l'utilisateur). Aucun autre coefficient n'a changé.
+
+**Tests :** 58 réussis.
+
+**En attente :** H, cargo et côté achat (D2) ; N, option (c) et niveau de patch (D3) ; D4, D5, D6.
+
 ## 2026-10-06 (suite 2) — réponses de l'utilisateur sur l'audit
 
 **Fait :**
