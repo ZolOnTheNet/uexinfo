@@ -964,28 +964,10 @@ def _dest_sell_info(id_commodity: int, dest_name: str, ctx) -> tuple[int, float 
     return 0, None
 
 
-def _compute_risk(buy_ts, dest_status_sell: int, dest_ts) -> int:
-    """Risque = 30% fraîcheur achat + 70% saturation destination pondérée par âge.
-
-    La saturation converge vers 50% (incertitude max) au bout de 48h —
-    un état « Haut » vieux de 3 jours vaut ~55%, pas 80%.
-    """
-    import time as _t
-    now = _t.time()
-
-    buy_age_h = (now - float(buy_ts)) / 3600 if buy_ts else 48.0
-    if buy_age_h < 2:    buy_risk = 5
-    elif buy_age_h < 6:  buy_risk = 10
-    elif buy_age_h < 24: buy_risk = 25
-    else:                buy_risk = 50
-
-    # status_sell : Out=5% (destination vide, veut acheter), Max=95% (saturée)
-    sat_base = {0: 50, 1: 5, 2: 20, 3: 40, 4: 60, 5: 80, 7: 95}.get(dest_status_sell, 50)
-    dest_age_h  = (now - float(dest_ts)) / 3600 if dest_ts else 48.0
-    age_weight  = max(0.0, 1.0 - dest_age_h / 48.0)
-    sat_risk    = age_weight * sat_base + (1.0 - age_weight) * 50.0
-
-    return int(0.30 * buy_risk + 0.70 * sat_risk)
+def _compute_risk(dest_status_sell: int, dest_ts) -> int:
+    """Risque de saturation à la destination — règle unique, voir uexinfo/rules/risk.py (D2)."""
+    from uexinfo.rules.risk import age_hours, sell_risk
+    return sell_risk(dest_status_sell, age_hours(dest_ts))
 
 
 def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys_filter=None) -> None:
@@ -1114,7 +1096,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             dest_tag     = f"{dest_style} {C.LABEL}".strip()
             distance_str = _dist_label(dest_name, dest_system, player_sys, dist_map)
             dest_status_sell, dest_ts = _dest_sell_info(id_comm, dest_name, ctx)
-            risk_pct = _compute_risk(_ts_buy, dest_status_sell, dest_ts)
+            risk_pct = _compute_risk(dest_status_sell, dest_ts)
         else:
             # Pas de route connue → afficher sans destination, zéro appel API
             dest_name        = ""

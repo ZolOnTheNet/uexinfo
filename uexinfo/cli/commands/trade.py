@@ -28,6 +28,7 @@ from uexinfo.cli.commands.info import (
     _stock_bar,
     _terminal_prices,
 )
+from uexinfo.rules.risk import age_hours, sell_risk
 from uexinfo.rules.stock import buy_quantity, sell_quantity
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, fmt_distance_gm, print_error, print_warn, section
@@ -569,13 +570,8 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         total_sell = qty * price_sell      # optimiste (tout vendu)
         profit     = total_sell - total_buy
 
-        # Risque = saturation destination (70%) + ancienneté données (30%)
-        import time as _time
-        sat_risk  = qty_unsold / qty if qty > 0 else 0
-        dest_ts   = dest_row.get("date_modified") or 0
-        age_hours = (_time.time() - dest_ts) / 3600 if dest_ts else 24
-        age_risk  = min(1.0, age_hours / 12)
-        risk_pct  = int((sat_risk * 0.7 + age_risk * 0.3) * 100)
+        # Risque de saturation à la destination — règle unique (D2)
+        risk_pct  = sell_risk(status_sell, age_hours(dest_row.get("date_modified")))
 
         container_map = _fetch_container_sizes(id_comm, ctx)
         orig_raw  = container_map.get(orig_lo) or container_map.get(orig_loc_lo) or "—"
