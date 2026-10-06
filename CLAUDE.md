@@ -66,7 +66,8 @@ Trading & marché : `/trade`, `/info`, `/select`
 Position & déplacement : `/go` (`lieu`), `/dest`, `/arriver`, `@<lieu>`
 Navigation & routes : `/nav` (`navigation`, `qt`), `/route` (délègue à `/nav route`)
 Missions & voyages : `/mission`, `/voyage`
-Scan & suivi terrain : `/scan`, `/sync`, `/player`, `/auto`
+Scan & suivi terrain : `/scan`, `/sync`, `/player`, `/auto`, `/game` (lecteur Game.log)
+Versions : `/evolution` (`/scevolution`)
 Divers : `/note`, `/explore`, `/history`, `/undo`, `/calc` (`=`), `/ship`, `/config`, `/refresh`, `/help`, `/debug`
 
 `/plan` (annoncé dans une ancienne roadmap) n'existe pas. `/trade best` (tri global des meilleures routes toutes commodités) n'est pas implémenté.

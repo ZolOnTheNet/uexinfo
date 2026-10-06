@@ -37,7 +37,8 @@
 | Prix fusionnés UEX + scans | `cache/data_manager.py:terminal_prices`, `fetch_prices` (fallback : cache → API → périmé → vide) |
 | TTL prix / version SC | `cache/price_cache.py` ; versions et univers : `cache/evolution.py`, `/evolution` |
 | Graphe de transport | `uexinfo/data/transport_network.json` + `models/transport_network.py` |
-| Logs Datarunner / Game.log | `ocr/log_parser.py`, `gamelog/{reader,parser,arrival}.py` |
+| Logs Datarunner | `ocr/log_parser.py` |
+| **Game.log** | `gamelog/` : `lines.py` + `events.py` (parseur pur), `state.py`, `follow.py` (tail), `/game`, `python -m uexinfo.gamelog` ; spec `docs/ai/GAMELOG_SPEC.md` ; ancien `parser.py`/`reader.py`/`arrival.py` (auto-position) |
 | Données utilisateur | `~/.uexinfo/` (JSON caches, `config.toml`, `scan_prices.json`, `missions.json`, `voyages.json`) |
 
 ## 3. Taille des fichiers (points chauds du refactoring)
@@ -71,6 +72,6 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 
 ```bash
 pip install rich requests appdirs tomli-w rapidfuzz websockets   # pywebview ne s'installe pas ici
-python -m pytest -q tests        # 142 tests OK au 2026-10-06 (pytest seul suffit : testpaths)
+python -m pytest -q tests        # 160 tests OK au 2026-10-06 (pytest seul suffit : testpaths)
 ```
 Impossible de lancer l'overlay graphique dans le conteneur. Valider par les tests et l'import des modules.

@@ -3,6 +3,35 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-06 (suite 7) — statut 6, `/game`, migration des noms
+
+**Décisions reçues :**
+- Statut 6 : 85 % à l'achat, 15 % à la vente.
+- Continuer la migration des noms.
+- Le scan via log Datarunner n'est pas prioritaire (Datarunner lui-même a beaucoup de trous).
+- Envie d'un lecteur de Game.log (`/game`) avec une touche ou un bouton pour sortir du suivi en direct.
+
+**Fait :**
+- **D5 :** statut 6 pris en compte partout : quantités, libellés, couleurs, barres. Avant, `/trade` affichait le niveau 6 comme une rupture (○○○○). La quantité de `/info` passe aussi par `rules/stock.buy_quantity`.
+- **`/game` :**
+  - `gamelog/lines.py`, `events.py` (parseur pur, pré-filtre puis regex), `state.py`, `follow.py` (tail incrémental) ;
+  - `python -m uexinfo.gamelog <fichier> [--debug] [--all]` pour rejouer un log ;
+  - `/game live` : panneau dans l'overlay, bouton ■ Arrêter, Échap ;
+  - spécification clean-room dans `docs/ai/GAMELOG_SPEC.md` (faits relevés dans Stelliverse, aucun code repris) ;
+  - fixture **synthétique** en attendant de vrais extraits.
+- **Migration des noms (D6)** : `/nav`, `/route`, `/voyage`, missions, `/explore`, `/config`, `/player`. Ajout de `prefer_system`.
+
+**Valeurs modifiées (signalées) :**
+- `/nav` et les missions : en cas d'égalité, c'est maintenant le nom le plus court qui l'emporte, et le système du joueur en priorité. Avant, c'était le plus long ou le premier trouvé.
+  - Exemples : « new » donne New Babbage (avant : HDMS-Pinewood) ; « area » donne Area 18.
+  - « nyx gateway » donne la gateway du système du joueur.
+  - « terra » donne Terra Mills Hydrofarm (avant : Terra Gateway).
+- Les fautes de frappe dans les noms de mission sont mieux résolues (« Rayari Cantwell … Outposx » donne Cantwell, avant Anvik).
+
+**Tests :** 160 réussis.
+
+**Reste :** `scan._resolve_uex` et `ocr/engine` (OCR, non prioritaire), `LocationIndex.search` (complétion), puis vrais extraits de Game.log.
+
 ## 2026-10-06 (suite 6) — D4 supprimé, D6 résolveur unique
 
 **Décisions reçues :**
