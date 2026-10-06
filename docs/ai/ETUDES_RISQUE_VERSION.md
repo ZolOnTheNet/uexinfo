@@ -90,3 +90,5 @@ Elle permet de déclarer un changement d'univers **sans attendre la détection a
 | `/evolution check` | Force une comparaison UEX maintenant, sans changer l'état de la surveillance |
 
 La même question (Oui / Non / Je ne sais pas) apparaît automatiquement à chaque changement majeur.mineur. « Je ne sais pas » équivaut à `oui`.
+
+**Précision (2026-10-06)** : la réponse est mémorisée **par version majeur.mineur**. Après `non` (ou `oui`), la question n'est plus reposée pour cette version ; elle revient seulement au changement suivant (ex. 4.10 → 4.11). Pas d'option « ne plus jamais demander » pour l'instant (à confirmer).
