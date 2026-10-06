@@ -5,7 +5,7 @@ import os
 import json
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 # Chemin vers le fichier de cache des prix
 CACHE_DIR = Path("C:/Users/garrigues/AppData/Local/uexinfo/uexinfo")

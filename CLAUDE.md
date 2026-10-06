@@ -23,8 +23,8 @@ python -m uexinfo
 # ou après install :
 uexinfo
 
-# Lancer les tests (pas `pytest` nu : il collecte scripts/test_*.py, qui plantent)
-pytest tests
+# Lancer les tests (testpaths = tests dans pyproject.toml)
+pytest
 ```
 
 Pas de Makefile ni de CI configurée.
@@ -58,7 +58,6 @@ L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessu
 | Modèles métier | `uexinfo/models/` | `player.py`, `scan_result.py`, `mission.py`, `voyage.py` |
 | Display | `uexinfo/display/` | Console Rich partagée (`capturing_console.py` — capture les renderables pour rendu HTML, pas de vrai TTY), couleurs, formatters |
 
-**Dossiers orphelins** : `uexinfo/screens/` et `uexinfo/widgets/` ne contiennent plus que du bytecode `__pycache__` — reliquat de la migration Textual abandonnée, plus aucun fichier source, plus aucune référence dans le code.
 
 ### Commandes réelles (23, via `@register`)
 
@@ -100,9 +99,8 @@ Toujours utiliser les constantes de `uexinfo/display/colors.py`, jamais de coule
 
 ## Code mort connu (à supprimer ou implémenter, pas à imiter)
 
-- `uexinfo/api/uex_scraper.py` — scraper du site uexcorp.space (missions, distances, raffinerie, grilles cargo), stub intégral (`NotImplementedError` partout), jamais importé.
-- `SCTradeClient.commodity_items()` / `.ships()` — définies, jamais appelées (seuls `crowdsource_listings`/`crowdsource_for_commodity` sont utilisés).
-- `uexinfo/screens/`, `uexinfo/widgets/` — vides (reliquat Textual), ne rien y ajouter.
+- `cli/commands/select_editor.py` et le formulaire plein écran de `note.py` utilisent `prompt_toolkit` (reliquat REPL terminal) : inutilisables dans l'overlay.
+- Scripts de debug ponctuels : `scripts/dev/` (hors package, non testés).
 
 ## Known issues
 

@@ -2,7 +2,7 @@
 """Script pour vérifier les prix de Terra Gateway dans le cache local."""
 import sys
 import os
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from uexinfo.cache.manager import CacheManager
 from uexinfo.api.uex_client import UEXClient
