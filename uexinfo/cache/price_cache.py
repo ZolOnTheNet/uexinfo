@@ -177,6 +177,17 @@ class PriceCache:
             return True
         return False
 
+    def delete_keys(self, keys) -> int:
+        """Supprime plusieurs entrées en une écriture disque. Retourne le nombre supprimé."""
+        self._ensure_loaded()
+        n = 0
+        for k in keys:
+            if self._mem.pop(k, None) is not None:
+                n += 1
+        if n:
+            self._save()
+        return n
+
     def clear(self) -> None:
         """Vide le cache mémoire ET disque (utilisé par /refresh prices)."""
         self._ensure_loaded()

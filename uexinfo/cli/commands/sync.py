@@ -39,18 +39,10 @@ def _find_terminal(q: str, ctx):
 
 def _invalidate_terminal(t, ctx) -> None:
     """Supprime toutes les entrées de prix liées à ce terminal dans le cache."""
-    keys_to_del = []
-    for key in list(ctx._price_cache._mem.keys()):
-        if (key == f"t{t.id}"
-                or (t.code and key == f"tc_{t.code}")
-                or key == f"tl_{t.name.lower()}"
-                or key == f"tn_{t.name.lower()}"):
-            keys_to_del.append(key)
-    for k in keys_to_del:
-        del ctx._price_cache._mem[k]
-    if keys_to_del:
-        ctx._price_cache._dirty = True
-        ctx._price_cache.flush()
+    keys = {f"t{t.id}", f"tl_{t.name.lower()}", f"tn_{t.name.lower()}"}
+    if t.code:
+        keys.add(f"tc_{t.code}")
+    ctx._price_cache.delete_keys(keys)
 
 
 def _fetch_fresh(t, ctx) -> list[dict]:

@@ -72,3 +72,13 @@ def test_price_cache_respects_universe_version(tmp_path, monkeypatch):
     cache.current_version = "4.11.0"
     cache["rd_1"] = (0, [{"d": 2}])
     assert cache.get("rd_1")[1] == [{"d": 2}]
+
+
+def test_price_cache_delete_keys(tmp_path):
+    from uexinfo.cache import price_cache as pc
+    cache = pc.PriceCache()
+    cache._loaded = True
+    cache._save = lambda: None
+    cache._mem = {"t1": {"data": []}, "tl_x": {"data": []}, "t2": {"data": []}}
+    assert cache.delete_keys({"t1", "tl_x", "absent"}) == 2
+    assert list(cache._mem) == ["t2"]
