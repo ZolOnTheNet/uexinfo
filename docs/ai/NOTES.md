@@ -30,7 +30,7 @@
 | Complétion côté serveur | `server._complete_impl`, `_dyn_typed`, `_complete_dotted` + `cli/completer_data.py` |
 | État global | `cli/context.py:AppContext` (`_price_cache`, `_overlay_send_fn`, `select_fn` injectés par le serveur) |
 | Rendu Rich → HTML | `display/capturing_console.py`, `display/render_html.py`, `display/result.py` |
-| Règles métier pures (testées) | `uexinfo/rules/` (`stock.py` : quantités selon statut) — décisions dans `docs/ai/DECISIONS.md` |
+| Règles métier pures (testées) | `uexinfo/rules/` (`stock.py` quantités, `risk.py` risque D2, `version.py` versions D3) — décisions dans `docs/ai/DECISIONS.md` |
 | Formatage (prix, SCU, distance, nom court terminal) | `display/formatter.py` (`fmt_distance_gm`, `terminal_short_name`) — **réutiliser** |
 | Résolution terminal (la complète) | `cli/commands/info.py:_find_terminal` (l.~2284) |
 | Classement des routes de vente | `info._route_rank_key` (prix puis distance) |
@@ -72,6 +72,6 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 
 ```bash
 pip install rich requests appdirs tomli-w rapidfuzz websockets   # pywebview ne s'installe pas ici
-python -m pytest -q tests        # 58 tests OK au 2026-10-06
+python -m pytest -q tests        # 93 tests OK au 2026-10-06
 ```
 Impossible de lancer l'overlay graphique dans le conteneur. Valider par les tests et l'import des modules.

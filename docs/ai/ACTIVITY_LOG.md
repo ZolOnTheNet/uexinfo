@@ -3,6 +3,25 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-06 (suite 4) — D2 codé, règles D3
+
+**Décisions reçues :** H = 1 h ; N = 7 jours ; option c ; un patch ne déclenche pas la question ; commande `/evolution` (`/scevolution`) à prévoir.
+
+**Fait :**
+- `uexinfo/rules/risk.py` : `sell_risk` remplace les deux anciennes formules. `/trade` et `/info` l'utilisent.
+- `uexinfo/rules/version.py` : parsing de version, question au changement majeur.mineur, marqueur vX.Y, choix de la donnée la plus récente, surveillance de 7 jours. Ces règles ne sont pas encore branchées.
+- Spécification de `/evolution` dans `ETUDES_RISQUE_VERSION.md` §C.
+
+**Valeurs modifiées (signalées) :**
+- Le risque affiché par `/trade` et `/info` change : formule unique à demi-vie.
+- `/info` ne tient plus compte de la fraîcheur du prix d'achat (avant, elle pesait 30 %).
+- `/trade` ne tient plus compte de la part de cargaison invendable (avant, elle pesait 70 %).
+- Statut 6 : il donne maintenant 83 dans le risque (interpolation linéaire). Les quantités restent au défaut 0,5.
+
+**Tests :** 93 réussis.
+
+**En attente :** prise en compte de la cargaison et colonne côté achat (D2) ; spécification de `/evolution` (D3) ; D4, D5, D6.
+
 ## 2026-10-06 (suite 3) — D1 corrigé, études D2 et D3
 
 **Fait :**

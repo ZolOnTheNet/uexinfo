@@ -77,3 +77,16 @@ Avec **H = 1 h** (proposition) :
 - Durée **N** du mode surveillance : 7 jours ?
 - Confirmes-tu l'option (c) pour les anciennes données ?
 - Un **changement de patch mineur** (4.10.0 → 4.10.1) doit-il aussi déclencher la question, ou seulement un changement majeur ou mineur (4.10 → 4.11) ?
+
+## C. Commande `/evolution` (alias `/scevolution`) — proposition
+
+Elle permet de déclarer un changement d'univers **sans attendre la détection automatique** (hotfix, ajout de lieux en cours de version, doute).
+
+| Commande | Effet |
+|---|---|
+| `/evolution` | État : version détectée, version des données (graphe, distances, scans), surveillance active ou non (jours restants), derniers lieux ajoutés ou retirés constatés |
+| `/evolution oui` | L'univers a changé : démarre ou relance la surveillance (7 j), compare tout de suite les ID UEX, recalcule les distances des nouveaux lieux |
+| `/evolution non` | Rien n'a changé : rattache distances et graphe à la version courante, arrête la surveillance |
+| `/evolution check` | Force une comparaison UEX maintenant, sans changer l'état de la surveillance |
+
+La même question (Oui / Non / Je ne sais pas) apparaît automatiquement à chaque changement majeur.mineur. « Je ne sais pas » équivaut à `oui`.
