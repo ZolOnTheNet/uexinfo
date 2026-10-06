@@ -137,7 +137,9 @@ class NameIndex:
 
     # ── Recherche ─────────────────────────────────────────────────────────────
     def resolve(self, query: str, kinds: set[str] | None = None, profile: str = "input",
-                min_level: int = FUZZY, limit: int = 20) -> Resolution:
+                min_level: int = FUZZY, limit: int = 20, prefer_system: str = "") -> Resolution:
+        """`prefer_system` : à égalité, les entités de ce système passent devant
+        (ex. « nyx gateway » vu depuis Stanton → Nyx Gateway (Stanton))."""
         q = norm(query)
         pool = [e for e in self.entities if not kinds or e.kind in kinds]
         if not q or not pool:
@@ -169,7 +171,9 @@ class NameIndex:
                     best[id(e)] = Match(e, FUZZY, score, via_location=bool(e.loc_keys) and loc >= own)
 
         matches = _collapse_locations(list(best.values()))
+        ps = norm(prefer_system)
         matches.sort(key=lambda m: (-m.level, -round(m.score, 1), m.via_location,
+                                    bool(ps) and ps not in m.entity.tokens,
                                     m.entity.priority, len(m.entity.name)))
         return Resolution(matches[:limit])
 
@@ -303,5 +307,30 @@ def get_index(ctx) -> NameIndex:
 
 
 def resolve(ctx, query: str, kinds: set[str] | None = None, profile: str = "input",
-            min_level: int = FUZZY, limit: int = 20) -> Resolution:
-    return get_index(ctx).resolve(query, kinds=kinds, profile=profile, min_level=min_level, limit=limit)
+            min_level: int = FUZZY, limit: int = 20, prefer_system: str = "") -> Resolution:
+    return get_index(ctx).resolve(query, kinds=kinds, profile=profile, min_level=min_level,
+                                  limit=limit, prefer_system=prefer_system)
+
+
+_GRAPH_INDEXES: dict[int, tuple[int, NameIndex]] = {}
+
+
+def graph_index(graph) -> NameIndex:
+    """Index des seuls nœuds d'un graphe de navigation (réutilisé tant que le graphe ne change pas)."""
+    nodes = getattr(graph, "nodes", None) or {}
+    cached = _GRAPH_INDEXES.get(id(graph))
+    if cached and cached[0] == len(nodes):
+        return cached[1]
+    idx = NameIndex(
+        Entity("node", name, name, node, keys=_uniq([name]),
+               tokens=_uniq([getattr(node, "system", ""), name]))
+        for name, node in nodes.items()
+    )
+    _GRAPH_INDEXES[id(graph)] = (len(nodes), idx)
+    return idx
+
+
+def match_text(query: str, values: Iterable[str], min_level: int = PREFIX) -> str | None:
+    """Même procédure appliquée à une simple liste de libellés (ex : arbre /explore)."""
+    idx = NameIndex(Entity("text", v, v, v, keys=_uniq([v])) for v in values)
+    return idx.resolve(query, min_level=min_level).best

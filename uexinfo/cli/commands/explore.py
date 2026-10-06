@@ -18,12 +18,9 @@ def _loc(name: str) -> str:
 
 
 def _match(query: str, values) -> str | None:
-    """Retourne la première valeur dont le nom (lowercase) commence par query."""
-    q = query.lower()
-    for v in values:
-        if v.lower().startswith(q):
-            return v
-    return None
+    """Libellé de `values` désigné par `query` (exact puis préfixe) — résolveur unique."""
+    from uexinfo.names import match_text
+    return match_text(query, list(values))
 
 
 # ── Arbre géographique ─────────────────────────────────────────────────────────

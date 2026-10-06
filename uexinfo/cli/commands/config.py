@@ -440,21 +440,9 @@ def _cmdhistory(args: list[str], ctx) -> None:
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _find_vehicle(name: str, ctx):
-    """Cherche un vaisseau dans le cache par nom (flexible, ignore casse et underscores)."""
-    q = name.replace("_", " ").lower().strip()
-    vehicles = ctx.cache.vehicles or []
-    for v in vehicles:
-        if v.name_full.lower() == q or v.name.lower() == q:
-            return v
-    for v in vehicles:
-        if v.name_full.lower().startswith(q):
-            return v
-    q_words = q.split()
-    for v in vehicles:
-        full = v.name_full.lower()
-        if all(w in full for w in q_words):
-            return v
-    return None
+    """Vaisseau par nom — résolveur unique (uexinfo/names)."""
+    from uexinfo.cli.commands.info import _find_vehicle as _fv
+    return _fv(name, ctx)
 
 
 def _save_player(ctx) -> None:
