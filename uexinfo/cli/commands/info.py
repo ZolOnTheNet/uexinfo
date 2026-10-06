@@ -2252,204 +2252,35 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
 
 # ── Recherche ──────────────────────────────────────────────────────────────────
 
-_TRADING_SERVICES = {"admin", "tdd", "trade"}   # priorité commerce
+# ── Recherche — délègue au résolveur unique (uexinfo/names, décision D6) ──────
 
-
-def _trading_priority(t: Terminal) -> int:
-    """0 = terminal de commerce (Admin/TDD), 1 = autre."""
-    if " - " not in t.name:
-        return 1
-    svc = t.name.split(" - ")[0].strip().lower()
-    return 0 if svc in _TRADING_SERVICES else 1
+from uexinfo.names import PREFIX as _PREFIX, SUBSTRING as _SUBSTRING
+from uexinfo.names import resolve as _resolve_name, terminal_priority as _trading_priority
 
 
 def _find_terminal(query: str, ctx, strong: bool = False) -> Terminal | None:
-    """Recherche un terminal avec priorités :
-    1. Notation pointée  station.service  ou  système.station.service
-    2. Nom/code exact
-    3. Nom court exact   → préfère Admin/TDD
-    4. Préfixe           → préfère Admin/TDD
-    5. Contient          → préfère Admin/TDD  (ignoré si strong=True)
-
-    strong=True : seulement les étapes 1-4 (pas de match "contient").
-    Utilisé en recherche libre pour ne pas écraser une commodité homonyme.
-    """
-    q = query.replace("_", " ").lower().strip()
-
-    # ── 1. Notation pointée ──────────────────────────────────────────────
-    if "." in q:
-        parts = q.rsplit(".", 1)          # ["system.station", "service"]  ou  ["station", "service"]
-        service_q = parts[1].strip()
-        station_q = parts[0].rsplit(".", 1)[-1].strip()  # dernier segment avant le service
-        # Correspondance exacte service + station
-        for t in ctx.cache.terminals:
-            if " - " not in t.name:
-                continue
-            svc, loc = t.name.lower().split(" - ", 1)
-            if svc.strip() == service_q and loc.strip() == station_q:
-                return t
-        # Correspondance partielle
-        for t in ctx.cache.terminals:
-            if " - " not in t.name:
-                continue
-            svc, loc = t.name.lower().split(" - ", 1)
-            if service_q in svc and station_q in loc:
-                return t
-        # Fallback : chercher sans le service (juste la station)
-        q = station_q
-
-    # ── 2. Nom ou code exact ─────────────────────────────────────────────
-    for t in ctx.cache.terminals:
-        if t.name.lower() == q or t.code.lower() == q:
-            return t
-
-    # ── 3. Nom court ou espace-station exact, ou query = nom court + suffixe ─
-    # ex: "seraphim station" → loc="seraphim" → q.startswith("seraphim ")
-    matches = [t for t in ctx.cache.terminals
-               if _loc(t.name).lower() == q
-               or q.startswith(_loc(t.name).lower() + " ")
-               or t.space_station_name.lower() == q]
-    if matches:
-        return min(matches, key=_trading_priority)
-
-    # ── 4. Préfixe du nom court / espace-station → préfère Admin/TDD ─────
-    matches = [t for t in ctx.cache.terminals
-               if _loc(t.name).lower().startswith(q)
-               or t.space_station_name.lower().startswith(q)]
-    if matches:
-        return min(matches, key=_trading_priority)
-
-    if strong:
-        return None
-
-    # ── 5. Contient (nom, espace-station, ou nom court contenu dans la query)
-    # ex: "seraphim" contenu dans "seraphim station above crusader"
-    matches = [t for t in ctx.cache.terminals
-               if q in t.name.lower()
-               or q in t.space_station_name.lower()
-               or _loc(t.name).lower() in q]
-    if matches:
-        return min(matches, key=_trading_priority)
-
-    return None
+    """Terminal le plus proche de `query` (notation pointée, nom, code, lieu → terminal
+    principal). strong=True : exact ou préfixe seulement — utilisé en recherche libre
+    pour ne pas écraser une commodité homonyme (« scrap » vs « Devlin Scrap … »)."""
+    r = _resolve_name(ctx, query, kinds={"terminal"},
+                      min_level=_PREFIX if strong else _SUBSTRING)
+    return r.best
 
 
 def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
-    """Retourne tous les terminaux correspondant à query (préfixe du nom court).
-
-    Utile pour désambigüer quand la query est trop courte.
-    Déduplique par station (garde le meilleur service Admin/TDD par station).
-    """
-    q = query.replace("_", " ").lower().strip()
-    if not q:
-        return []
-
-    # Préfixe exact, extension (query commence par loc + espace), ou contient
-    matches = [t for t in ctx.cache.terminals
-               if _loc(t.name).lower().startswith(q)
-               or q.startswith(_loc(t.name).lower() + " ")]
-    if not matches:
-        matches = [t for t in ctx.cache.terminals
-                   if q in t.name.lower() or _loc(t.name).lower() in q]
-
-    # Dédupliquer par station (système + lieu, pas juste le nom du lieu) : garde
-    # le terminal de commerce (Admin/TDD) parmi les services d'une même station,
-    # mais préserve les stations homonymes de systèmes différents (ex: deux
-    # "Nyx Gateway", une côté Stanton et une côté Nyx — vraie ambiguïté).
-    seen: dict[tuple[str, str], Terminal] = {}
-    for t in matches:
-        station = ((t.star_system_name or "").lower(), _loc(t.name).lower())
-        if station not in seen or _trading_priority(t) < _trading_priority(seen[station]):
-            seen[station] = t
-    return sorted(seen.values(), key=lambda t: _loc(t.name).lower())
+    """Candidats à égalité pour `query` (un terminal principal par lieu)."""
+    r = _resolve_name(ctx, query, kinds={"terminal"}, min_level=_SUBSTRING)
+    return r.candidates
 
 
 def _find_commodity(query: str, ctx) -> Commodity | None:
-    q = query.replace("_", " ").lower().strip()
-    # Exact (nom ou code)
-    exact = next(
-        (c for c in ctx.cache.commodities if c.name.lower() == q or c.code.lower() == q),
-        None,
-    )
-    if exact is not None:
-        if not exact.is_buyable:
-            # Fiche "parente" non achetable (ex: "Ship Ammunition", is_buyable=0)
-            # — préférer une variante achetable ("Ship Ammunition - Size 1") si elle existe.
-            variant = next(
-                (c for c in ctx.cache.commodities
-                 if c.name.lower().startswith(q + " - ") and c.is_buyable),
-                None,
-            )
-            if variant is not None:
-                return variant
-        return exact
-    # Préfixe — préférer is_buyable=1 parmi les matchs
-    prefix = [c for c in ctx.cache.commodities if c.name.lower().startswith(q)]
-    if prefix:
-        for c in prefix:
-            if c.is_buyable:
-                return c
-        return prefix[0]
-    # Contenu — préférer is_buyable=1 parmi les matchs
-    matches = [c for c in ctx.cache.commodities if q in c.name.lower()]
-    if not matches:
-        return None
-    for c in matches:
-        if c.is_buyable:
-            return c
-    return matches[0]
+    """Commodité la plus proche (achetable préférée à une fiche parente)."""
+    return _resolve_name(ctx, query, kinds={"commodity"}, min_level=_SUBSTRING).best
 
 
 def _find_vehicle(query: str, ctx) -> Vehicle | None:
-    from uexinfo.cli.completer_data import MFR_ABBREV
-    q = query.replace("_", " ").lower().strip()
-    vehicles = ctx.cache.vehicles or []
-
-    # ── Notation pointée : <mfr_abbrev>.<nom>  ou  ship.<nom> ────────────
-    mfr_prefix: str | None = None
-    name_q = q
-    if "." in q:
-        pfx, rest = q.split(".", 1)
-        pfx  = pfx.strip()
-        rest = rest.strip()
-        mfr_full = MFR_ABBREV.get(pfx)
-        if mfr_full is not None or pfx == "ship":
-            mfr_prefix = mfr_full   # None pour "ship" = pas de filtre fabricant
-            name_q = rest
-        # Si préfixe non reconnu, on laisse q inchangé (ex: "port.tressler")
-
-    # ── Recherche avec filtre fabricant éventuel ──────────────────────────
-    def _mfr_ok(v) -> bool:
-        return not mfr_prefix or (v.manufacturer or "").lower().startswith(mfr_prefix)
-
-    for v in vehicles:
-        if _mfr_ok(v) and (v.name_full.lower() == name_q or v.name.lower() == name_q):
-            return v
-    for v in vehicles:
-        if _mfr_ok(v) and v.name_full.lower().startswith(name_q):
-            return v
-    for v in vehicles:
-        if _mfr_ok(v) and name_q in v.name_full.lower():
-            return v
-
-    # Si la notation pointée n'a rien donné, ne pas tomber sur la recherche floue
-    # pour éviter les faux positifs avec le point dans q.
-    if name_q != q:
-        return None
-
-    try:
-        from rapidfuzz import process, fuzz
-        names_lower = [v.name_full.lower() for v in vehicles]
-        r = process.extractOne(q, names_lower, scorer=fuzz.WRatio, score_cutoff=65)
-        if r:
-            return vehicles[names_lower.index(r[0])]
-    except ImportError:
-        import difflib
-        names_lower = [v.name_full.lower() for v in vehicles]
-        m = difflib.get_close_matches(q, names_lower, n=1, cutoff=0.6)
-        if m:
-            return vehicles[names_lower.index(m[0])]
-    return None
+    """Vaisseau (nom court, nom complet, « drak.cutlass », flou en dernier recours)."""
+    return _resolve_name(ctx, query, kinds={"vehicle"}).best
 
 
 def _show_commodity_list(args: list[str], ctx) -> None:

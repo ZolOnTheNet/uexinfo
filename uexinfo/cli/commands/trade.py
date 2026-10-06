@@ -42,21 +42,16 @@ _TERM_MAX_SYS = 20  # largeur max avec préfixe système
 
 
 def _resolve_terminal_pick(query: str, ctx, label: str):
-    """Résout un terminal en texte libre, avec picker si plusieurs stations
-    de même priorité de trading correspondent (vraie ambiguïté) — au lieu de
-    trancher silencieusement comme _find_terminal seul (min() sur une liste)."""
-    from uexinfo.cli.commands.info import _find_terminal_candidates, _trading_priority
-    candidates = _find_terminal_candidates(query, ctx)
-    if len(candidates) <= 1:
-        return _find_terminal(query, ctx)
-    best_prio = min(_trading_priority(t) for t in candidates)
-    best = [t for t in candidates if _trading_priority(t) == best_prio]
-    if len(best) == 1:
-        return best[0]
+    """Résout un terminal en texte libre ; liste au joueur si plusieurs candidats
+    sont aussi proches (règle b du résolveur unique, uexinfo/names)."""
+    from uexinfo.names import SUBSTRING, resolve
+    r = resolve(ctx, query, kinds={"terminal"}, min_level=SUBSTRING)
+    if not r.ambiguous:
+        return r.best
     from uexinfo.cli.selector import SelectItem, pick
     items = [
         SelectItem(label=_loc(t.name), value=t, meta=t.star_system_name or "")
-        for t in best[:20]
+        for t in r.candidates[:20]
     ]
     chosen = pick(ctx, items, title=f"{label} — «{query}»", mode="single")
     return chosen[0].value if chosen else None

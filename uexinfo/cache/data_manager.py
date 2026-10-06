@@ -54,7 +54,7 @@ def _terminal_matches(query: str, terminals: list) -> list:
             station_matches.append(t)
     if station_matches:
         if len(station_matches) > 1:
-            from uexinfo.location.index import _trading_priority
+            from uexinfo.names import terminal_priority as _trading_priority
             best_prio = min(_trading_priority(t) for t in station_matches)
             station_matches = [t for t in station_matches if _trading_priority(t) == best_prio]
         return station_matches

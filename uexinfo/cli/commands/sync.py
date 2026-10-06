@@ -16,25 +16,9 @@ from uexinfo.display.formatter import console, print_error, print_ok, print_warn
 
 
 def _find_terminal(q: str, ctx):
-    """Recherche floue d'un terminal par nom."""
-    q_lo = q.lower().replace("_", " ")
-    # Exact d'abord
-    for t in ctx.cache.terminals:
-        if t.name.lower() == q_lo:
-            return t
-    # Fuzzy via LocationIndex
-    if ctx.location_index:
-        entries = ctx.location_index.search(q, limit=1, types={"terminal"})
-        if entries:
-            name = entries[0].name
-            for t in ctx.cache.terminals:
-                if t.name.lower() == name.lower():
-                    return t
-    # Sous-chaîne
-    for t in ctx.cache.terminals:
-        if q_lo in t.name.lower():
-            return t
-    return None
+    """Terminal par nom — résolveur unique (uexinfo/names)."""
+    from uexinfo.names import resolve
+    return resolve(ctx, q, kinds={"terminal"}).best
 
 
 def _invalidate_terminal(t, ctx) -> None:

@@ -17,15 +17,7 @@ except ImportError:
     _HAS_RAPIDFUZZ = False
 
 
-_TRADING_SERVICES = {"admin", "tdd", "trade"}
-
-
-def _trading_priority(t) -> int:
-    """0 = terminal de commerce (TDD/Admin/Trade), 1 = autre."""
-    if " - " not in t.name:
-        return 1
-    svc = t.name.split(" - ")[0].strip().lower()
-    return 0 if svc in _TRADING_SERVICES else 1
+from uexinfo.names import terminal_priority as _trading_priority  # règle unique (D6)
 
 
 @dataclass

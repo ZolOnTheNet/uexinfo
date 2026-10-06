@@ -467,7 +467,7 @@ def _resolve_autopos_terminal(terminal_name: str, ctx) -> str:
     (ex: "Nyx Gateway" côté Stanton ET côté Nyx), on préfère le terminal
     dont star_system_name correspond au système actuel du joueur.
     """
-    from uexinfo.location.index import _trading_priority
+    from uexinfo.names import terminal_priority as _trading_priority
 
     if not terminal_name:
         return ""
