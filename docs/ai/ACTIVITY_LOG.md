@@ -3,6 +3,17 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-06 (suite 2) — réponses de l'utilisateur sur l'audit
+
+**Fait :**
+- Créé `docs/ai/DECISIONS.md`, le registre des décisions métier (D1 à D6).
+- Vérifié auprès de l'API UEX (`commodities_status`) : il y a 7 statuts de stock, et le 6 vaut « Very High » (72-85 %).
+- Les prix UEX portent `game_version = 4.10.1`.
+- `ttl_prices` n'a jamais été branché.
+- Recensé une vingtaine de procédures de reconnaissance de noms.
+
+**En attente :** réponses sur D2, D3, D4, D5 et D6. Aucun code modifié.
+
 ## 2026-10-06 (suite) — mission Stelliverse, étape 1 : audit
 
 **Demande :** mission « améliorer uexinfo en s'inspirant de Stelliverse » (consignes dans `docs/ai/MISSION_STELLIVERSE.md`).
