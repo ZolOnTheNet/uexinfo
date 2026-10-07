@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+from pathlib import Path
 import signal
 import sys
 import threading
@@ -242,6 +243,34 @@ def _port_in_use(host: str, port: int) -> bool:
         return sock.connect_ex((host, port)) == 0
 
 
+def _replace_previous_instance(port: int, wait_s: float = 6.0) -> bool:
+    """Demande à une instance uexinfo déjà lancée (souvent masquée, Alt+A) de se fermer.
+
+    Sans ça, relancer après un git pull laisse tourner l'ANCIENNE version : la
+    nouvelle s'arrête faute de port, et Alt+A réaffiche l'ancienne fenêtre.
+    Renvoie True si le port s'est libéré.
+    """
+    import json as _json
+    try:
+        from websockets.sync.client import connect
+        with connect(f"ws://127.0.0.1:{port}", open_timeout=2, close_timeout=1) as ws:
+            print(f"[overlay] Une instance tourne déjà sur le port {port} — demande de fermeture…", flush=True)
+            ws.send(_json.dumps({"type": "cmd", "text": "/quit"}))
+            try:
+                while True:
+                    ws.recv(timeout=2)
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[overlay] Instance existante injoignable : {e}", flush=True)
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        if not _port_in_use("127.0.0.1", port):
+            return True
+        time.sleep(0.2)
+    return False
+
+
 def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     """Point d'entrée de l'overlay (appelé par __main__.py)."""
 
@@ -284,6 +313,10 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     # ── 0. Port déjà pris = une autre instance tourne (souvent l'ancienne version) ──
     # Sans ce contrôle, le serveur échoue en silence et la nouvelle fenêtre se
     # connecte au serveur de l'ANCIENNE instance : on croit tester le nouveau code.
+    from uexinfo import build_id
+    print(f"[overlay] Version : {build_id() or '?'}  ({Path(__file__).resolve().parent.parent})", flush=True)
+    if _port_in_use("127.0.0.1", port) and _replace_previous_instance(port):
+        print("[overlay] Ancienne instance fermée — cette version prend le relais.", flush=True)
     if _port_in_use("127.0.0.1", port):
         print(f"[overlay] ✗ Le port {port} est déjà utilisé — uexinfo semble déjà lancé.")
         print("  Fermez l'autre fenêtre uexinfo (ou le processus python.exe correspondant)")

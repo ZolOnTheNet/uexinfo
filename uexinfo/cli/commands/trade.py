@@ -635,6 +635,10 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
             f"[{C.WARNING}]Aucune commodité commune entre "
             f"{_loc(origin.name)} et {_loc(dest.name)}.[/{C.WARNING}]"
         )
+        console.print(
+            f"[{C.DIM}]  origine : {origin.name} (id {origin.id}, {len(buy_rows)} achat(s))  ·  "
+            f"destination : {dest.name} (id {dest.id}, {len(dest_sell_map)} vente(s))[/{C.DIM}]"
+        )
         return
 
     entries.sort(key=lambda d: -(d["roi"] if d["roi"] is not None else -1e9))
