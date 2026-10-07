@@ -188,7 +188,8 @@ class OverlayServer:
             # Séquence d'initialisation : status → vocab → history → blocs écho → banner
             # Le banner est envoyé EN DERNIER pour appliquer l'opacité
             # seulement une fois le contenu chargé (évite le flash opaque au démarrage).
-            from uexinfo import __version__
+            from uexinfo import __version__, build_id
+            _BUILD = f" ({build_id()})" if build_id() else ""
             ov_cfg     = self.ctx.cfg.get("overlay", {})
             opacity    = ov_cfg.get("opacity", 0.76)
             close_mode = ov_cfg.get("close", "normal")
@@ -213,7 +214,7 @@ class OverlayServer:
             # Banner EN DERNIER → déclenche setAlpha → overlay devient visible
             await websocket.send(json.dumps({
                 "type":       "banner",
-                "text":       f"UEXInfo v{__version__} — /help pour l'aide",
+                "text":       f"UEXInfo v{__version__}{_BUILD} — /help pour l'aide",
                 "opacity":    opacity,
                 "close_mode": close_mode,
                 "clock":      clock,
