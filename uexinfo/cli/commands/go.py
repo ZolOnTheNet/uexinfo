@@ -121,6 +121,9 @@ def _resolve(name: str, ctx) -> str | None:
     # départage (« hurston » = la planète, pas « Hurston Dynamics Showcase »).
     r = resolve(ctx, name, kinds={"terminal", "planet", "system"}, min_level=SUBSTRING)
     if r.matches and not r.ambiguous:
+        if r.matches[0].entity.kind == "terminal":
+            from uexinfo.names import trading_terminal
+            return trading_terminal(ctx.cache.terminals, r.best).name
         return r.best.name
     if r.ambiguous:
         from uexinfo.cli.selector import SelectItem, pick

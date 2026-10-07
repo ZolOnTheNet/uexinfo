@@ -39,3 +39,29 @@ def test_go_resolve(ctx):
     from uexinfo.cli.commands.go import _resolve
     assert _resolve("arc-l1", ctx) == "Admin - ARC-L1"
     assert _resolve("hurston", ctx) == "Hurston"
+
+
+# ── Signalé : « je choisis Seraphim Station, il doit comprendre » ──────────────
+@pytest.mark.parametrize("query", ["Seraphim Station", "seraphim_station", "@Seraphim_Station", "Seraphim"])
+def test_place_always_gives_trading_terminal(ctx, query):
+    from uexinfo.cli.commands.go import _resolve
+    from uexinfo.cli.commands.player import _resolve_location
+    assert _resolve(query.lstrip("@"), ctx) == "Admin - Seraphim"
+    name, tid = _resolve_location(query, ctx)
+    assert tid == 259
+
+
+def test_shop_terminal_maps_to_trading_terminal(uex_cache):
+    from uexinfo.names import trading_terminal
+    shop = next(t for t in uex_cache.terminals if t.name == "Landing Services - Seraphim Station")
+    assert trading_terminal(uex_cache.terminals, shop).name == "Admin - Seraphim"
+    admin = next(t for t in uex_cache.terminals if t.name == "Admin - Seraphim")
+    assert trading_terminal(uex_cache.terminals, admin) is admin
+
+
+def test_location_index_one_entry_per_station(uex_cache):
+    from uexinfo.location.index import LocationIndex
+    idx = LocationIndex(uex_cache)
+    seraphim = [e for e in idx.search("seraphim", limit=20, types={"terminal"})
+                if "seraphim" in e.full_path.lower()]
+    assert [e.entity_id for e in seraphim] == [259]       # plus de « Seraphim Station » boutique

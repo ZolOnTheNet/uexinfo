@@ -11,11 +11,11 @@ from uexinfo.names.normalize import norm
 from uexinfo.names.resolver import (
     EXACT, FUZZY, PREFIX, SUBSTRING, THRESHOLDS,
     Entity, Match, NameIndex, Resolution, build_index, get_index, graph_index, match_text,
-    resolve, terminal_priority,
+    resolve, terminal_group, terminal_priority, trading_terminal,
 )
 
 __all__ = [
     "norm", "EXACT", "PREFIX", "SUBSTRING", "FUZZY", "THRESHOLDS",
     "Entity", "Match", "NameIndex", "Resolution", "build_index", "get_index",
-    "resolve", "terminal_priority", "graph_index", "match_text",
+    "resolve", "terminal_priority", "terminal_group", "trading_terminal", "graph_index", "match_text",
 ]

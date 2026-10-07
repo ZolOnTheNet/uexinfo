@@ -55,19 +55,21 @@ class LocationIndex:
                 entity_id=planet.id,
             ))
 
-        # Terminals — dédupliqués par lieu (sans préfixe service "Admin - ", "Shop - "…)
-        # Quand plusieurs terminaux partagent le même lieu (ex: un Admin et un TDD
-        # à Area 18), on garde le terminal de commerce prioritaire (TDD > Admin/Trade
-        # > autre) au lieu du premier rencontré dans cache.terminals (ordre non
-        # garanti par l'API) — sinon le TDD peut disparaître silencieusement de
-        # l'index (complétion @lieu, /scan, /mission…).
-        winners: dict[str, "Terminal"] = {}
+        # Terminals — UNE entrée par lieu (station, ville…), portée par le terminal
+        # de commerce principal (règle c : Admin > TDD > centre cargo > autre commerce
+        # > boutique). Avant, le regroupement se faisait par nom court : « Seraphim »
+        # (Admin) et « Seraphim Station » (Landing Services, Hot Dogs…) devenaient deux
+        # lieux distincts et choisir le second enregistrait une boutique sans prix.
+        from uexinfo.names import terminal_group
+        by_place: dict[str, "Terminal"] = {}
         for t in cache.terminals:
-            # "Admin - ARC-L1" → "ARC-L1"   "TDD - Trade … - Area 18" → "TDD - Area 18"
-            loc_name = _short_terminal_name(t.name)
-            prev = winners.get(loc_name)
+            key = terminal_group(t)
+            prev = by_place.get(key)
             if prev is None or _trading_priority(t) < _trading_priority(prev):
-                winners[loc_name] = t
+                by_place[key] = t
+        winners: dict[str, "Terminal"] = {}
+        for t in by_place.values():
+            winners.setdefault(_short_terminal_name(t.name), t)
 
         for loc_name, t in winners.items():
             # Chemin géographique sans le nom du terminal
