@@ -1745,6 +1745,9 @@ def _term_sys_cell(r: dict, maxlen: int | None = None,
     is_dest = bool(player_dest and (term_lo in player_dest or player_dest in term_lo))
 
     term = _abbrev_terminal(term, maxlen)
+    # « Pyro Gateway (Stanton) » porte déjà son système : ne pas le répéter.
+    if sys and term_lo.endswith(f"({sys.lower()})"):
+        sys = ""
 
     if out_of_filter:
         term_part = f"[{C.WARNING}]{term}[/{C.WARNING}]"
