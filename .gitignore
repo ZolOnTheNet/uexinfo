@@ -94,3 +94,7 @@ extprg/SC-images/
 # installé localement dans extprg/, jamais versionné.
 extprg/SC-Datarunner-UEX/
 extprg/applog*_SC-DataRunner.txt
+# Archives et dossiers de versions de SC-Datarunner-UEX, quels qu'ils soient
+extprg/SC-Datarunner-UEX*
+# Worktrees locaux de Claude Code
+.claude/worktrees/
