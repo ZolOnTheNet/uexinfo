@@ -422,6 +422,11 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
 
     def _shutdown():
         print("[overlay] _shutdown() — sauvegarde + os._exit(0)", flush=True)
+        # Filet de sécurité : quoi qu'il arrive pendant la sauvegarde (fenêtre
+        # déjà détruite, écriture bloquée…), le processus se termine en 3 s.
+        _watchdog = threading.Timer(3.0, lambda: os._exit(0))
+        _watchdog.daemon = True
+        _watchdog.start()
         _save_geometry()   # ← EN PREMIER, pendant que la fenêtre existe encore
         if listener is not None:
             listener.stop()
