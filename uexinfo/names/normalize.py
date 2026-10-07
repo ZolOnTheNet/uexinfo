@@ -6,12 +6,15 @@ import unicodedata
 
 _APOS = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "`": "'", "´": "'"})
 _SPACES = re.compile(r"\s+")
+_PAREN_OPEN = re.compile(r"\s*\(\s*")
+_PAREN_CLOSE = re.compile(r"\s*\)")
 
 
 def norm(text: str | None) -> str:
     """Minuscules, sans accents, apostrophes unifiées, `_` → espace, espaces réduits.
 
-    'E’tam' → "e'tam" ; 'New_Babbage' → 'new babbage' ; '  Área  18 ' → 'area 18'.
+    'E’tam' → "e'tam" ; 'New_Babbage' → 'new babbage' ; '  Área  18 ' → 'area 18' ;
+    'Pyro Gateway(Nyx)' → 'pyro gateway (nyx)'.
     Les tirets et points sont conservés (ARC-L1, notation pointée).
     """
     if not text:
@@ -19,4 +22,5 @@ def norm(text: str | None) -> str:
     s = unicodedata.normalize("NFKD", str(text))
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
     s = s.translate(_APOS).replace("_", " ").lower()
+    s = _PAREN_CLOSE.sub(")", _PAREN_OPEN.sub(" (", s))
     return _SPACES.sub(" ", s).strip()

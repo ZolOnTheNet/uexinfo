@@ -3,6 +3,21 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-07 — PR #1 fusionnée, port occupé, « aucun trade Seraphim → Pyro Gateway (Nyx) »
+
+**Fait :**
+- PR [ZolOnTheNet/uexinfo#1](https://github.com/ZolOnTheNet/uexinfo/pull/1) fusionnée dans `main`. La branche est repartie de `main`.
+- **Port 8090 occupé** (`OSError 10048`) : l'overlay s'arrête maintenant avec un message clair. Avant, la nouvelle fenêtre se connectait à l'ancienne instance.
+- **Trade Seraphim → Pyro Gateway (Nyx)** :
+  - avec le nom correct, `/trade` trouve bien Waste (+87 %) et RMC (−6 %) ;
+  - cause : « Pyro Gateway(Nyx) », sans espace avant la parenthèse, n'était reconnu nulle part ;
+  - correction : `norm` remet un espace avant `(` ;
+  - « pyro gateway » seul : ambiguïté entre Stanton et Nyx (le système du joueur est préféré), au lieu du terminal fermé « INS Jericho ».
+
+**Valeurs modifiées (signalées) :** un terminal fermé chez UEX (`is_available=0`) passe après tous les terminaux ouverts dans la règle c.
+
+**Tests :** 164 réussis.
+
 ## 2026-10-06 (suite 7) — statut 6, `/game`, migration des noms
 
 **Décisions reçues :**

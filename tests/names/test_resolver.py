@@ -17,6 +17,7 @@ def name(o):
 @pytest.mark.parametrize("raw,expected", [
     ("New_Babbage", "new babbage"), ("E’tam", "e'tam"), ("  Área   18 ", "area 18"),
     ("ARC-L1", "arc-l1"), (None, ""),
+    ("Pyro Gateway(Nyx)", "pyro gateway (nyx)"), ("Pyro Gateway ( Nyx )", "pyro gateway (nyx)"),
 ])
 def test_norm(raw, expected):
     assert norm(raw) == expected
@@ -111,3 +112,19 @@ def test_min_level_disables_fuzzy(idx):
 
 def test_unknown(idx):
     assert idx.resolve("zzzzqqq").best is None
+
+
+def test_paren_without_space(idx):
+    # Signalé par l'utilisateur : « Pyro Gateway(Nyx) » ne trouvait aucun terminal.
+    r = idx.resolve("Pyro Gateway(Nyx)", kinds={"terminal"})
+    assert name(r.best) == "Admin - Pyro Gateway (Nyx)" and not r.ambiguous
+
+
+def test_gateway_base_name_is_ambiguous_and_closed_terminals_last(idx):
+    # « pyro gateway » : les deux gateways homonymes (Stanton, Nyx) — pas le terminal
+    # fermé « INS Jericho - Pyro Gateway » (is_available=0).
+    r = idx.resolve("pyro gateway", kinds={"terminal"})
+    assert r.ambiguous
+    assert {name(o) for o in r.candidates} == {"Admin - Pyro Gateway (Nyx)", "Admin - Pyro Gateway (Stanton)"}
+    r = idx.resolve("pyro gateway", kinds={"terminal"}, prefer_system="Stanton")
+    assert name(r.best) == "Admin - Pyro Gateway (Stanton)"
