@@ -52,3 +52,12 @@ class ScanResult:
     mode: str = "buy"       # "buy" = IN STOCK (achat) | "sell" = IN DEMAND / SELLABLE CARGO (vente)
     validated: bool = False  # True = soumis à l'API UEX par l'utilisateur (données confirmées)
     image_path: str = ""     # Chemin absolu du screenshot source (source="ocr" uniquement)
+    resolved_terminal: str = ""  # nom UEX canonique, résolu une fois (homonymes départagés)
+    # Nombre de lignes réellement envoyées à UEX par Datarunner (ids_reports des
+    # réponses). Différent du nombre de marchandises lues dans le log ⇒ le joueur a
+    # corrigé/complété dans Datarunner, et ces corrections ne sont PAS journalisées.
+    reported_count: int = 0
+
+    @property
+    def log_incomplete(self) -> bool:
+        return bool(self.reported_count) and self.reported_count != len(self.commodities)
