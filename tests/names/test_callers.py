@@ -75,3 +75,13 @@ def test_overlay_completion_one_line_per_place_with_trading_terminal(uex_cache):
     srv.ctx = SimpleNamespace(cache=uex_cache, player=SimpleNamespace(ships=[]))
     items = srv._dyn_typed("terminal", "seraph")
     assert [(c["value"], c["hint"]) for c in items] == [("Seraphim Station", "Admin - Seraphim · Stanton")]
+
+
+def test_term_sys_cell_no_duplicate_system():
+    import re
+    from uexinfo.cli.commands.info import _term_sys_cell
+    strip = lambda x: re.sub(r"\[/?[^\]]*\]", "", x)  # noqa: E731
+    assert strip(_term_sys_cell({"terminal_name": "Admin - Pyro Gateway (Stanton)",
+                                 "star_system_name": "Stanton"}, maxlen=40)) == "Pyro Gateway (Stanton)"
+    assert strip(_term_sys_cell({"terminal_name": "Admin - Seraphim",
+                                 "star_system_name": "Stanton"}, maxlen=40)) == "Seraphim  (Stanton)"
