@@ -4,7 +4,7 @@
   /game events [n]         Derniers événements reconnus   (-d : avec la ligne brute)
   /game tail [n] [texte]   Dernières lignes brutes (hors spam), interprétées si possible
   /game find <texte>       Lignes contenant <texte>
-  /game stats              Catégories <…> présentes dans le log (découverte)
+  /game stats              Reconnaisseurs (formats changés ?) + catégories <…> du log
   /game live [texte]       Suivi en direct (bouton ■ Arrêter ou Échap)
   /game stop               Arrêter le suivi en direct
   /game replay <fichier>   Rejouer un autre fichier (ex: logbackups\\…)
@@ -21,7 +21,7 @@ from pathlib import Path
 from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
-from uexinfo.gamelog.events import recognize
+from uexinfo.gamelog.events import audit, recognize
 from uexinfo.gamelog.follow import game_log_path, read_lines, tail_lines
 from uexinfo.gamelog.lines import is_spam, parse_line
 from uexinfo.gamelog.state import GameState
@@ -104,6 +104,18 @@ def _show_lines(lines: list[str], n: int, needle: str = "") -> None:
 
 
 def _show_stats(lines: list[str]) -> None:
+    rows = audit(lines)
+    section("Reconnaisseurs (marqueur vu / reconnu)")
+    for r in rows:
+        if not r.marker_lines:
+            continue
+        tag = "V" if r.verified else "?"
+        color = C.LOSS if r.suspect else (C.DIM if r.recognized < r.marker_lines else C.PROFIT)
+        console.print(f"  [{color}]{r.kind:<18} {r.marker_lines:>5} / {r.recognized:<5} ({tag})[/{color}]")
+        for smp in r.samples:
+            console.print(f"    [{C.DIM}]{smp[:200]}[/{C.DIM}]")
+    if any(r.suspect for r in rows):
+        print_warn("Marqueur présent mais jamais reconnu : le format a probablement changé (mise à jour du jeu).")
     cats = Counter(parse_line(l).category or "(sans catégorie)" for l in lines if l.strip())
     section(f"Catégories du log ({len(lines)} lignes)")
     for cat, n in cats.most_common(60):

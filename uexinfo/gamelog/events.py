@@ -27,10 +27,15 @@ class GameEvent:
 @dataclass(frozen=True)
 class Recognizer:
     kind: str
-    marker: str                      # pré-filtre (sous-chaîne)
+    marker: str | tuple[str, ...]    # pré-filtre : une sous-chaîne ou plusieurs variantes
     regex: re.Pattern
     build: Callable[[re.Match], tuple[str, dict]]
     verified: bool = False
+    strict: bool = True              # marqueur présent ⇒ la regex doit réussir (sinon : format changé ?)
+
+    def seen(self, raw: str) -> bool:
+        markers = (self.marker,) if isinstance(self.marker, str) else self.marker
+        return any(m in raw for m in markers)
 
 
 def _vehicle_model(code: str) -> str:
@@ -39,6 +44,16 @@ def _vehicle_model(code: str) -> str:
     if parts and parts[-1].isdigit():
         parts = parts[:-1]
     return " ".join(parts)
+
+
+# Segment « | MODELE_id[id] | » des lignes de navigation (vérifié 4.10) — cherché à part,
+# pour que l'absence ou le déplacement du segment ne fasse pas échouer l'événement.
+_RE_VEH_SEGMENT = re.compile(r"\|\s*(?P<veh>[A-Za-z][A-Za-z0-9_]*?)\[\d+\]\s*\|")
+
+
+def _vehicle_in(raw: str) -> dict:
+    m = _RE_VEH_SEGMENT.search(raw)
+    return {"vehicle": _vehicle_model(m["veh"])} if m else {}
 
 
 def _num(text: str) -> float:
@@ -92,34 +107,42 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
                           {"origin": m["origin"].strip(), "dest": m["dest"].strip()}), True),
     Recognizer("docking", "CDockingAnimatorComponent", _verified.RE_DOCKING,
                lambda m: ("Docking", {}), True),
-    # ── À confirmer (formats relevés, voir GAMELOG_SPEC.md) ──────────────────
+    Recognizer("handle", "Legacy login response", re.compile(r"Handle\[(?P<name>[^\]]+)\]"),
+               lambda m: (f"Pseudo : {m['name']}", {"name": m["name"]}), True),
+    # En-tête du fichier (vérifié 4.10) : version de l'exécutable et environnement.
+    Recognizer("game_version", "FileVersion:", re.compile(r"FileVersion:\s*(?P<v>\d+(?:\.\d+)+)"),
+               lambda m: (f"Version du jeu : {m['v']}", {"version": m["v"]}), True),
+    Recognizer("build", "BackupNameAttachment", re.compile(r"Build\((?P<b>\d+)\)"),
+               lambda m: (f"Build {m['b']}", {"build": m["b"]}), True),
+    Recognizer("environment", "Environment:", re.compile(r"\]\s*Environment:\s*(?P<env>\w+)"),
+               lambda m: (f"Environnement : {m['env']}", {"env": m["env"]}), True),
+    Recognizer("ship_leave", "ClearDriver",
+               re.compile(r"releasing control token for '(?P<veh>[^']+)'"),
+               lambda m: (f"Quitte les commandes de {_vehicle_model(m['veh'])}", {"vehicle": _vehicle_model(m["veh"])}), True),
+    Recognizer("near_location", "RequestLocationInventory",
+               re.compile(r"Location\[(?P<loc>[^\]]+)\]"),
+               lambda m: (f"Lieu proche (inventaire) : {m['loc']}", {"loc_code": m["loc"]}), True),
+    Recognizer("session_end", "<SystemQuit>", re.compile(r"<SystemQuit>"),
+               lambda m: ("Fin de session", {}), True),
     Recognizer("qt_target", "as their destination",
-               re.compile(r"\|\s*(?P<veh>[A-Za-z0-9_]+?)\[\d+\]\|.*?Player has selected point (?P<loc_id>\S+) as their destination"
-                          r"|Player has selected point (?P<loc_id2>\S+) as their destination"),
-               lambda m: (f"Cible QT : {m['loc_id'] or m['loc_id2']}"
-                          + (f" (vaisseau {_vehicle_model(m['veh'])})" if m['veh'] else ""),
-                          {"loc_id": m["loc_id"] or m["loc_id2"],
-                           **({"vehicle": _vehicle_model(m["veh"])} if m["veh"] else {})})),
-    Recognizer("qt_arrived", "Quantum Drive Arrived",
-               re.compile(r"(?:\|\s*(?P<veh>[A-Za-z0-9_]+?)\[\d+\]\|)?.*arrived at final destination", re.I),
-               lambda m: ("Arrivée du saut quantique"
-                          + (f" ({_vehicle_model(m['veh'])})" if m["veh"] else ""),
-                          {"vehicle": _vehicle_model(m["veh"])} if m["veh"] else {})),
+               re.compile(r"selected point (?P<loc_id>\S+) as their destination"),
+               lambda m: (lambda v: (f"Cible QT : {m['loc_id']}"
+                                     + (f" (vaisseau {v['vehicle']})" if v else ""),
+                                     {"loc_id": m["loc_id"], **v}))(_vehicle_in(m.string)), True),
+    Recognizer("qt_arrived", ("Quantum Drive Arrived", "OnQuantumDriveArrived"),
+               re.compile(r"arrived at final destination", re.I),
+               lambda m: (lambda v: ("Arrivée du saut quantique"
+                                     + (f" ({v['vehicle']})" if v else ""), v))(_vehicle_in(m.string)), True),
+    # ── À confirmer (formats relevés, voir GAMELOG_SPEC.md) ──────────────────
     Recognizer("system_change", "Changing Solar System",
                re.compile(r"changing system from (?P<a>\S+) to (?P<b>\S+)"),
                lambda m: (f"Changement de système : {m['a']} → {m['b']}", {"from": m["a"], "to": m["b"]})),
     Recognizer("ship_enter", "SetDriver",
                re.compile(r"requesting control token for '(?P<veh>[^']+)'"),
                lambda m: (f"Aux commandes de {_vehicle_model(m['veh'])}", {"vehicle": _vehicle_model(m["veh"]), "code": m["veh"]})),
-    Recognizer("ship_leave", "ClearDriver",
-               re.compile(r"releasing control token for '(?P<veh>[^']+)'"),
-               lambda m: (f"Quitte les commandes de {_vehicle_model(m['veh'])}", {"vehicle": _vehicle_model(m["veh"])})),
     Recognizer("ship_spawn", "OnVehicleSpawned",
                re.compile(r"OnVehicleSpawned \d+ \((?P<veh>[^)]+)\) by player (?P<geid>\d+)"),
                lambda m: (f"Vaisseau sorti : {_vehicle_model(m['veh'])}", {"vehicle": _vehicle_model(m["veh"]), "geid": m["geid"]})),
-    Recognizer("near_location", "RequestLocationInventory",
-               re.compile(r"Location\[(?P<loc>[^\]]+)\]"),
-               lambda m: (f"Lieu proche (inventaire) : {m['loc']}", {"loc_code": m["loc"]})),
     Recognizer("commodity_buy", "SendCommodityBuyRequest", re.compile(r"SendCommodityBuyRequest"),
                _trade("Achat de")),
     Recognizer("commodity_sell", "SendCommoditySellRequest", re.compile(r"SendCommoditySellRequest"),
@@ -132,9 +155,9 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
     Recognizer("mission_end", "<EndMission>",
                re.compile(r"MissionId\[(?P<id>[^\]]*)\].*?CompletionType\[(?P<type>[^\]]*)\]"),
                lambda m: (f"Fin de mission ({m['type']})", {"mission_id": m["id"], "completion": m["type"]})),
-    Recognizer("notification", "notification",
+    Recognizer("notification", "Added notification",
                re.compile(r'Added notification "(?P<text>(?:Contract Accepted|New Objective|Nouvelle mission|Nouvel objectif|Contract Complete|Contrat)[^"]*)"', re.I),
-               lambda m: (f"Mission : {m['text'].strip()}", {"text": m["text"].strip()})),
+               lambda m: (f"Mission : {m['text'].strip()}", {"text": m["text"].strip()}), strict=False),
     Recognizer("death", "<Actor Death>",
                re.compile(r"CActor::Kill: '(?P<victim>[^']+)'.*?killed by '(?P<killer>[^']+)'.*?damage type '(?P<dmg>[^']+)'"),
                lambda m: (f"Mort : {m['victim']} tué par {m['killer']} ({m['dmg']})",
@@ -143,8 +166,6 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
                re.compile(r"Vehicle '(?P<veh>[^']+)'.*?destroy level (?P<a>\d+) to (?P<b>\d+)"),
                lambda m: (f"Vaisseau endommagé : {_vehicle_model(m['veh'])} niveau {m['a']} → {m['b']}",
                           {"vehicle": _vehicle_model(m["veh"]), "level": int(m["b"])})),
-    Recognizer("session_end", "SystemQuit", re.compile(r"<SystemQuit>"),
-               lambda m: ("Fin de session", {})),
 )
 
 
@@ -155,7 +176,7 @@ def recognize(line: str | LogLine, debug: Callable[[str], None] | None = None) -
     if not raw or is_spam(raw):
         return None
     for r in RECOGNIZERS:
-        if r.marker not in raw:
+        if not r.seen(raw):
             continue
         m = r.regex.search(raw)
         if not m:
@@ -178,3 +199,44 @@ def recognize(line: str | LogLine, debug: Callable[[str], None] | None = None) -
 
 def recognize_all(lines: Iterable[str], debug=None) -> list[GameEvent]:
     return [ev for ev in (recognize(l, debug) for l in lines) if ev]
+
+
+@dataclass
+class AuditRow:
+    kind: str
+    verified: bool
+    marker_lines: int = 0            # lignes contenant le marqueur
+    recognized: int = 0              # lignes dont la regex a réussi
+    samples: list[str] = field(default_factory=list)   # lignes marquées mais non reconnues
+
+    @property
+    def suspect(self) -> bool:
+        """Marqueur vu mais jamais reconnu : le format a probablement changé."""
+        return self.marker_lines > 0 and self.recognized == 0
+
+
+def audit(lines: Iterable[str], max_samples: int = 2) -> list[AuditRow]:
+    """Pour chaque reconnaisseur : combien de lignes portent son marqueur, combien sont reconnues.
+
+    Sert à détecter qu'une mise à jour du jeu a changé un format (marqueur présent,
+    regex en échec), au lieu de perdre l'information en silence.
+    """
+    rows = {r.kind: AuditRow(r.kind, r.verified) for r in RECOGNIZERS}
+    for raw in lines:
+        if not raw or is_spam(raw):
+            continue
+        for r in RECOGNIZERS:
+            if not r.seen(raw):
+                continue
+            row = rows[r.kind]
+            row.marker_lines += 1
+            if r.regex.search(raw):
+                row.recognized += 1
+            elif r.strict and len(row.samples) < max_samples:
+                row.samples.append(raw)
+    for r in RECOGNIZERS:
+        if not r.strict:
+            rows[r.kind].samples.clear()
+            if rows[r.kind].recognized == 0:
+                rows[r.kind].marker_lines = 0
+    return list(rows.values())
