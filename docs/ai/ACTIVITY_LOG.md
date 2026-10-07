@@ -3,6 +3,16 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-07 (suite) — sortie : « Déconnecté — reconnexion dans 2s »
+
+**Cause :** à la sortie (`/quit`, double-clic ✕), le serveur s'arrête, ce qui ferme le WebSocket. La page ne savait pas que la fermeture était voulue : elle affichait « Déconnecté » et tentait de se reconnecter.
+
+**Fait :**
+- `_quitting`, mis à vrai dès qu'une sortie est demandée ou que le message `quit` arrive : plus d'annonce ni de reconnexion.
+- `_shutdown` : un minuteur de 3 s garantit `os._exit` même si la sauvegarde bloque.
+
+**Non vérifié en vrai :** l'overlay graphique ne peut pas être lancé dans le cloud.
+
 ## 2026-10-07 — PR #1 fusionnée, port occupé, « aucun trade Seraphim → Pyro Gateway (Nyx) »
 
 **Fait :**

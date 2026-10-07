@@ -1706,11 +1706,17 @@ const elCtx    = document.getElementById('ctx-menu');
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 
+let _quitting = false;   // true dès qu'une sortie est demandée (/quit, ✕)
+const _QUIT_RE = /^\/?(quit|exit|bye|quitter)\b/i;
+
 function connect() {
   ws = new WebSocket(`ws://localhost:${WS_PORT}`);
   ws.onopen    = () => { /* le serveur envoie status + vocab + history + banner au connect */ };
   ws.onmessage = e  => dispatch(JSON.parse(e.data));
   ws.onclose   = () => {
+    // Fermeture voulue (/quit, double-clic ✕) : le serveur s'arrête, ne pas
+    // annoncer une déconnexion ni tenter de se reconnecter.
+    if (_quitting) { appendSystem('✓ uexinfo fermé.', 'var(--dim)'); return; }
     appendSystem('⬤ Déconnecté — reconnexion dans 2s…');
     setTimeout(connect, 2000);
   };
@@ -1770,6 +1776,7 @@ function dispatch(msg) {
     case 'hint':        elHint.textContent = msg.text; break;
     case 'history':     history = msg.items || []; break;
     case 'quit':
+      _quitting = true;
       appendSystem('✓ Fermeture…', '#ff9900');
       setTimeout(() => window.close(), 400);
       break;
@@ -1869,6 +1876,7 @@ function handleCloseClick() {
 function sendCmd(text) {
   text = text.trim();
   if (!text) return;
+  if (_QUIT_RE.test(text)) _quitting = true;
   send({type:'cmd', text});
   if (!history.length || history[0] !== text) history.unshift(text);
   if (history.length > 500) history.pop();
