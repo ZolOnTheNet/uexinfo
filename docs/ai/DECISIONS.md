@@ -19,3 +19,4 @@
 | D7 | LIVE et PTU | « Techniquement, on devrait avoir deux jeux de données différents » (LIVE et PTU). | ❓ à étudier |
 **D6** `uexinfo/names/` (`tests/names/`), branché sur `/info`, `/trade`, `/go`, `/sync`, scans, `LocationIndex`.
 | D8 | `/game` | Lecteur du Game.log avec suivi en direct (bouton ■ Arrêter / Échap). Formats « S » à confirmer sur de vrais extraits (`/game extract`). | ✅ 🔧 |
+| D9 🔧 | Filtre système de `/info` | **Vient uniquement de `/select`**. Sans `/select system`, tous les systèmes sont affichés. Avant, le système du joueur filtrait par défaut, même après `/select clear`. | ✅ 🔧 |

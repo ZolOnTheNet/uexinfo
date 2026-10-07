@@ -3,6 +3,16 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-07 (suite 3) — pull refusé, instance masquée, filtre de `/info`
+
+- Le `git pull` de l'utilisateur échouait à cause de modifications locales non commitées. Il tournait donc toujours sur `fd5089e` : d'où « Seraphim Station » et l'absence de trade. Je lui ai indiqué `git stash` puis `git pull`.
+- PR #5 : une nouvelle instance ferme l'ancienne, restée masquée en arrière-plan. La version (commit) est affichée.
+- PR #6 : plus de « Pyro Gateway (Stanton) (Stanton) ».
+- **D9** : le filtre système de `/info` ne vient plus que de `/select`. Avant, le système du joueur servait de filtre par défaut. Vérifié sur données réelles : `/info RMC` montre Pyro Gateway (Nyx).
+- À arbitrer : les terminaux fermés chez UEX (`is_available=0`, Platinum Bay / Dumper's Depot) apparaissent dans `/info` avec des prix vieux de plusieurs mois.
+
+**Tests :** 173 réussis.
+
 ## 2026-10-07 (suite 2) — « je choisis Seraphim Station, il doit comprendre »
 
 **Cause :**
