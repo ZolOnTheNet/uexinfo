@@ -3,6 +3,18 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-08 — Game.log réel (LIVE 4.10) : formats confirmés, robustesse
+
+**Entrée :** Game.log du 2026-10-07 (Seraphim Station → Stanton Gateway → Pyro Gateway, Nyx). Extrait anonymisé : `tests/fixtures/gamelog/live_4.10_seraphim_nyx.log`.
+
+- Confirmés (V) : pseudo `Handle[…]`, cible QT + vaisseau, arrivée QT, `ClearDriver`, `RequestLocationInventory`, `<SystemQuit>`.
+- **Bug corrigé** : l'arrivée QT ne capturait jamais le vaisseau (groupe optionnel avalé par `.*`). Le vaisseau est maintenant lu à part (`_vehicle_in`).
+- Nouveaux : version (`FileVersion`), build, environnement (`PUB`) depuis l'en-tête, dans `GameState`. Aucune décision métier dessus (D3/D7 à discuter).
+- Encodage : lignes cp1252 dans le log ; lecture UTF-8 puis repli cp1252 (`follow.decode`).
+- Résistance : marqueurs multiples par reconnaisseur, `events.audit` + `/game stats` signalent un marqueur vu mais jamais reconnu.
+- **Fixtures `.log` jamais versionnées** (règle `*.log*`) : exception `!tests/fixtures/**/*.log` ajoutée.
+- Non observés : achats/ventes, missions, changement de système. Attendu : log du 2026-10-06 (achat d'aluminium).
+
 ## 2026-10-08 — .gitignore : versions de SC-Datarunner-UEX et worktrees
 
 Ajout de `extprg/SC-Datarunner-UEX*` (archives `.7z` et dossiers `-vX.Y.Z/`) et `.claude/worktrees/`. Aucun fichier supprimé ni désuivi : seules des règles d'exclusion sont ajoutées. Tests : inchangés.

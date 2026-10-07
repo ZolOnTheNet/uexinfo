@@ -1,0 +1,16 @@
+<2026-10-01T18:00:00.100Z> [Notice] <AccountLoginCharacterStatus_Character> Character: geid 111111111111 - accountId 1 - name TestPilot - state STATE_CURRENT
+<2026-10-01T18:00:05.000Z> [Notice] <Join PU> address[10.0.0.1] port[64300] shard[pub_euw1b_00000001_010] locationId[0]
+<2026-10-01T18:01:00.000Z> [CSessionManager::OnClientSpawned] Spawned!
+<2026-10-01T18:01:10.000Z> [Notice] <OnEntityEnterZone> spam spam spam
+<2026-10-01T18:02:00.000Z> [Notice] <RequestLocationInventory> Player[TestPilot] requested inventory for Location[Stanton2_Orison] [Team_X][Inventory]
+<2026-10-01T18:05:00.000Z> [Notice] <Vehicle Control Flow> CVehicleMovementBase::SetDriver: Local client node [111111111111] requesting control token for 'DRAK_Cutlass_Black_222222222222' [222222222222] [Team_X][Vehicle]
+<2026-10-01T18:06:00.000Z> [Notice] <Player Selected Quantum Target - Local> [ItemNavigation][CL][1] | NOT AUTH | DRAK_Cutlass_Black_222222222222[222222222222]|CSCItemNavigation::OnPlayerSelectedQuantumTarget|Player has selected point ObjectContainer_CRU_L5 as their destination, routing locally [Team_X][QuantumTravel]
+<2026-10-01T18:12:00.000Z> [Notice] <Quantum Drive Arrived - Arrived at Final Destination> [ItemNavigation][CL][1] | NOT AUTH | DRAK_Cutlass_Black_222222222222[222222222222]|CSCItemNavigation::OnQuantumDriveArrived|Quantum Drive has arrived at final destination [Team_X][QuantumTravel]
+<2026-10-01T18:20:00.000Z> [Notice] <CEntityComponentCommodityUIProvider::SendCommodityBuyRequest> Sending SShopCommodityBuyRequest - playerId[111111111111] shopId[5] shopName[CRU_L5_SCShop-001] price[24000.000000] shopPricePerCentiSCU[12.000000] resourceGUID[00000000-0000-0000-0000-000000000001] quantity[2000 cSCU] boxSize[2] [Team_X][Shops]
+<2026-10-01T18:40:00.000Z> [Notice] <CEntityComponentCommodityUIProvider::SendCommoditySellRequest> Sending SShopCommoditySellRequest - playerId[111111111111] shopId[6] shopName[Baijini_SCShop-001] price[30000.000000] resourceGUID[00000000-0000-0000-0000-000000000001] quantity[2000 cSCU] [Team_X][Shops]
+<2026-10-01T18:50:00.000Z> [Notice] <Changing Solar System> CEntityComponentJumpTunnelHost::RmChangeSolarSystem | NOT AUTH | Stanton | JumpTunnelHost_1 [1] | Client entity TestPilot was found in tunnel zone JumpTunnelHost_1, changing system from Stanton to Pyro [Team_X][Jump]
+<2026-10-01T19:00:00.000Z> [Notice] <SHUDEvent_OnNotification> Added notification "Contract Accepted: Haul cargo to Checkmate" [Team_X]
+<2026-10-01T19:00:01.000Z> [Notice] <SHUDEvent_OnNotification> Added notification "Entered Pyro jurisdiction" [Team_X]
+<2026-10-01T19:30:00.000Z> [Notice] <EndMission> Ending mission for player. MissionId[aaaa-bbbb] Player[TestPilot] PlayerId[111111111111] CompletionType[Complete] Reason[ObjectiveCompleted] [Team_X][Missions]
+<2026-10-01T19:45:00.000Z> [Notice] <Actor Death> CActor::Kill: 'TestPilot' [111111111111] in zone 'pyro' killed by 'Pirate_1' [3] using 'gun' [Class x] with damage type 'Ballistic' from direction x: 0, y: 0, z: 0 [Team_X][Actor]
+<2026-10-01T19:50:00.000Z> [Notice] <SystemQuit> quitting

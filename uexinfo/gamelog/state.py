@@ -10,6 +10,9 @@ from uexinfo.gamelog.events import GameEvent
 @dataclass
 class GameState:
     player: str = ""
+    game_version: str = ""        # FileVersion de l'en-tête (ex. 4.10.193.11644)
+    build: str = ""
+    environment: str = ""         # valeur brute de l'en-tête (ex. PUB)
     shard: str = ""
     session_start: datetime | None = None
     system: str = ""
@@ -32,6 +35,14 @@ class GameState:
         k = ev.kind
         if k == "login":
             self.player = d["name"]
+        elif k == "handle":
+            self.player = self.player or d["name"]
+        elif k == "game_version":
+            self.game_version = d["version"]
+        elif k == "build":
+            self.build = d["build"]
+        elif k == "environment":
+            self.environment = d["env"]
         elif k == "spawn":
             self.session_start = ev.ts
         elif k == "shard":

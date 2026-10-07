@@ -83,6 +83,7 @@ $RECYCLE.BIN/
 .claude/settings.local.json
 
 *.log*
+!tests/fixtures/**/*.log
 extprg/SC-Datarunner-UEX/screenshots/
 extprg/SC-Datarunner-UEX/app.log.20*
 extprg/SC-Datarunner-UEX/debug_matches.jpg

@@ -1,0 +1,70 @@
+2026-10-07 23:54:28,838 - root - INFO - Asset loading complete, launching application...
+2026-10-07 23:54:29,110 - data_management.localization_maps - INFO - Localization maps loaded: 204 commodities, 105 terminals, 22 static strings
+2026-10-07 23:54:31,298 - data_management.api - INFO - Primary API connection successful: https://api.uexcorp.space/2.0
+2026-10-07 23:54:34,924 - data_management.commodity_index - WARNING - 1 UEX commodity names have no map entry (English names will be used): Construction Material Pebbles
+2026-10-07 23:55:37,976 - ui.datarunner_tab - INFO - Watching LIVE screenshot folder: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots
+2026-10-07 23:55:45,245 - utils.file_watcher - INFO - New screenshot detected: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-10-07_23-55-45-7C9.jpg
+2026-10-07 23:55:47,779 - image_processing.data_extractor - DEBUG - Starting full data extraction
+2026-10-07 23:56:23,714 - image_processing.data_extractor - DEBUG - Filtered terminal words: ['PYRO', 'GATEWAY']
+2026-10-07 23:56:23,714 - image_processing.data_extractor - DEBUG - Fuzzy match for terminal: 'Pyro Gateway' with score 100
+2026-10-07 23:56:23,714 - image_processing.data_extractor - INFO - Matched terminal: 'Pyro Gateway' -> Pyro Gateway
+2026-10-07 23:56:31,642 - image_processing.data_extractor - INFO - Removed 4 shop quantity header instances
+2026-10-07 23:56:31,642 - image_processing.data_extractor - INFO - Determined terminal type: buy
+2026-10-07 23:56:31,665 - image_processing.data_extractor - INFO - Extracting commodity starting at index 0 with name: Ship Ammunition - Size 1 (confidence: 96)
+2026-10-07 23:56:31,666 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Ship Ammunition - Size 1', confidence=96), id=201, uex_name='Ship Ammunition - Size 1', quantity=IntConfidence(value=12000, confidence=99), stock=StrConfidence(value='max inventory', confidence=100), stock_status=IntConfidence(value=7, confidence=100), price=IntConfidence(value=6868, confidence=95), examined_words=5)
+2026-10-07 23:56:31,666 - image_processing.data_extractor - INFO - Extracted commodity: Ship Ammunition - Size 1
+2026-10-07 23:56:31,668 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Ship Ammunition - Size 2', confidence=96), id=202, uex_name='Ship Ammunition - Size 2', quantity=IntConfidence(value=12000, confidence=98), stock=StrConfidence(value='max inventory', confidence=100), stock_status=IntConfidence(value=7, confidence=100), price=IntConfidence(value=7126, confidence=97), examined_words=5)
+2026-10-07 23:56:31,668 - image_processing.data_extractor - INFO - Extracted commodity: Ship Ammunition - Size 2
+2026-10-07 23:56:31,670 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Ship Ammunition - Size 3', confidence=96), id=203, uex_name='Ship Ammunition - Size 3', quantity=IntConfidence(value=12000, confidence=99), stock=StrConfidence(value='max inventory', confidence=100), stock_status=IntConfidence(value=7, confidence=100), price=IntConfidence(value=7384, confidence=100), examined_words=5)
+2026-10-07 23:56:31,670 - image_processing.data_extractor - INFO - Extracted commodity: Ship Ammunition - Size 3
+2026-10-07 23:56:31,671 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Ship Ammunition - Size 4', confidence=96), id=204, uex_name='Ship Ammunition - Size 4', quantity=IntConfidence(value=12000, confidence=99), stock=StrConfidence(value='max inventory', confidence=100), stock_status=IntConfidence(value=7, confidence=100), price=IntConfidence(value=7641, confidence=97), examined_words=5)
+2026-10-07 23:56:31,671 - image_processing.data_extractor - INFO - Extracted commodity: Ship Ammunition - Size 4
+2026-10-07 23:56:31,672 - image_processing.data_extractor - DEBUG - Total commodities extracted: 4
+2026-10-07 23:56:50,936 - utils.file_watcher - INFO - New screenshot detected: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-10-07_23-56-50-864.jpg
+2026-10-07 23:56:53,208 - image_processing.data_extractor - DEBUG - Starting full data extraction
+2026-10-07 23:56:53,913 - image_processing.data_extractor - INFO - Matched terminal: 'Pyro Gateway' -> Pyro Gateway
+2026-10-07 23:57:03,441 - image_processing.data_extractor - INFO - Removed 4 shop quantity header instances
+2026-10-07 23:57:03,441 - image_processing.data_extractor - INFO - Determined terminal type: buy
+2026-10-07 23:57:03,458 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Ship Decoy Countermeasures', confidence=100), id=208, uex_name='Ship Decoy Countermeasures', quantity=IntConfidence(value=12000, confidence=100), stock=StrConfidence(value='max inventory', confidence=100), stock_status=IntConfidence(value=7, confidence=100), price=IntConfidence(value=4293, confidence=99), examined_words=5)
+2026-10-07 23:57:03,458 - image_processing.data_extractor - INFO - Extracted commodity: Ship Decoy Countermeasures
+2026-10-07 23:57:03,459 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Ship Noise Countermeasures', confidence=100), id=209, uex_name='Ship Noise Countermeasures', quantity=IntConfidence(value=12000, confidence=99), stock=StrConfidence(value='max inventory', confidence=100), stock_status=IntConfidence(value=7, confidence=100), price=IntConfidence(value=8585, confidence=100), examined_words=5)
+2026-10-07 23:57:03,459 - image_processing.data_extractor - INFO - Extracted commodity: Ship Noise Countermeasures
+2026-10-07 23:57:03,460 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Hydrogen Fuel', confidence=100), id=104, uex_name='Hydrogen Fuel', quantity=IntConfidence(value=12000, confidence=100), stock=StrConfidence(value='max inventory', confidence=100), stock_status=IntConfidence(value=7, confidence=100), price=IntConfidence(value=782, confidence=100), examined_words=5)
+2026-10-07 23:57:03,460 - image_processing.data_extractor - INFO - Extracted commodity: Hydrogen Fuel
+2026-10-07 23:57:03,461 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Quantum Fuel', confidence=100), id=87, uex_name='Quantum Fuel', quantity=IntConfidence(value=12000, confidence=99), stock=StrConfidence(value='max inventory', confidence=100), stock_status=IntConfidence(value=7, confidence=100), price=IntConfidence(value=1760, confidence=95), examined_words=5)
+2026-10-07 23:57:03,461 - image_processing.data_extractor - INFO - Extracted commodity: Quantum Fuel
+2026-10-07 23:57:03,462 - image_processing.data_extractor - DEBUG - Total commodities extracted: 4
+2026-10-07 23:57:45,941 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["1036535","1036536","1036537","1036538"],"date_added":"1791410147","username":"JOUEUR"},"message":""}
+2026-10-07 23:57:45,946 - ui.datarunner_tab - DEBUG - Deleted 4 transient images of 20261007_235547_ugsw
+2026-10-07 23:57:45,972 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["1036539","1036540","1036541","1036542"],"date_added":"1791410213","username":"JOUEUR"},"message":""}
+2026-10-07 23:57:45,976 - ui.datarunner_tab - DEBUG - Deleted 4 transient images of 20261007_235653_72ha
+2026-10-07 23:58:39,396 - utils.file_watcher - INFO - New screenshot detected: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-10-07_23-58-39-011.jpg
+2026-10-07 23:58:41,654 - image_processing.data_extractor - DEBUG - Starting full data extraction
+2026-10-07 23:58:42,529 - image_processing.data_extractor - INFO - Matched terminal: 'Pyro Gateway' -> Pyro Gateway
+2026-10-07 23:58:50,822 - image_processing.data_extractor - INFO - Removed 0 shop quantity header instances
+2026-10-07 23:58:50,822 - image_processing.data_extractor - INFO - Determined terminal type: sell
+2026-10-07 23:58:50,846 - image_processing.data_extractor - INFO - Found quantity without its SCU unit: IntConfidence(value=123, confidence=10)
+2026-10-07 23:58:50,846 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Distilled Spirits', confidence=69), id=27, uex_name='Distilled Spirits', quantity=IntConfidence(value=123, confidence=10), stock=StrConfidence(value='out of stock', confidence=100), stock_status=IntConfidence(value=1, confidence=100), price=IntConfidence(value=1900, confidence=97), examined_words=5)
+2026-10-07 23:58:50,846 - image_processing.data_extractor - INFO - Extracted commodity: Distilled Spirits
+2026-10-07 23:58:50,851 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Recycled Material Composite', confidence=90), id=63, uex_name='Recycled Material Composite', quantity=IntConfidence(value=1248, confidence=10), stock=StrConfidence(value='out of stock', confidence=100), stock_status=IntConfidence(value=1, confidence=100), price=IntConfidence(value=7100, confidence=97), examined_words=5)
+2026-10-07 23:58:50,851 - image_processing.data_extractor - INFO - Extracted commodity: Recycled Material Composite
+2026-10-07 23:58:50,852 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Construction Materials', confidence=100), id=19, uex_name='Construction Materials', quantity=IntConfidence(value=61, confidence=100), stock=StrConfidence(value='out of stock', confidence=100), stock_status=IntConfidence(value=1, confidence=100), price=IntConfidence(value=12000, confidence=98), examined_words=4)
+2026-10-07 23:58:50,852 - image_processing.data_extractor - INFO - Extracted commodity: Construction Materials
+2026-10-07 23:58:50,853 - image_processing.data_extractor - DEBUG - Total commodities extracted: 3
+2026-10-07 23:58:55,677 - utils.file_watcher - INFO - New screenshot detected: C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/screenshots\ScreenShot-2026-10-07_23-58-55-FA7.jpg
+2026-10-07 23:58:57,731 - image_processing.data_extractor - DEBUG - Starting full data extraction
+2026-10-07 23:58:58,545 - image_processing.data_extractor - INFO - Matched terminal: 'Pyro Gateway' -> Pyro Gateway
+2026-10-07 23:59:06,185 - image_processing.data_extractor - INFO - Removed 0 shop quantity header instances
+2026-10-07 23:59:06,185 - image_processing.data_extractor - INFO - Determined terminal type: sell
+2026-10-07 23:59:06,196 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Construction Materials', confidence=100), id=19, uex_name='Construction Materials', quantity=IntConfidence(value=61, confidence=100), stock=StrConfidence(value='out of stock', confidence=100), stock_status=IntConfidence(value=1, confidence=100), price=IntConfidence(value=12000, confidence=99), examined_words=5)
+2026-10-07 23:59:06,196 - image_processing.data_extractor - INFO - Extracted commodity: Construction Materials
+2026-10-07 23:59:06,198 - image_processing.data_extractor - INFO - Found quantity without its SCU unit: IntConfidence(value=1248, confidence=10)
+2026-10-07 23:59:06,198 - image_processing.data_extractor - INFO - Extracted commodity: CommodityData(name=StrConfidence(value='Ship Ammunition - Size 1', confidence=71), id=201, uex_name='Ship Ammunition - Size 1', quantity=IntConfidence(value=1248, confidence=10), stock=StrConfidence(value='out of stock', confidence=100), stock_status=IntConfidence(value=1, confidence=100), price=IntConfidence(value=11, confidence=100), examined_words=5)
+2026-10-07 23:59:06,198 - image_processing.data_extractor - INFO - Extracted commodity: Ship Ammunition - Size 1
+2026-10-07 23:59:06,201 - image_processing.data_extractor - DEBUG - Total commodities extracted: 2
+2026-10-07 23:59:06,204 - data_management.dedup - INFO - Found duplicate commodity 'Ship Ammunition - Size 1' in submission submitted 189 seconds ago. Removing from current submission.
+2026-10-07 23:59:06,204 - data_management.dedup - INFO - Found duplicate commodity 'Construction Materials' in submission submitted 16 seconds ago. Removing from current submission.
+2026-10-07 23:59:06,204 - ui.datarunner_tab - INFO - Removed duplicates: Ship Ammunition - Size 1, Construction Materials
+2026-10-08 00:02:47,233 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["1036543","1036545","1036547"],"date_added":"1791410337","username":"JOUEUR"},"message":""}
+2026-10-08 00:02:47,237 - data_management.api - INFO - Data successfully sent to API. Response: {"status":"ok","http_code":200,"data":{"ids_reports":["1036544","1036546","1036548","1036549","1036550"],"date_added":"1791410321","username":"JOUEUR"},"message":""}
+2026-10-08 00:02:47,239 - ui.datarunner_tab - DEBUG - Deleted 4 transient images of 20261007_235857_rliy
