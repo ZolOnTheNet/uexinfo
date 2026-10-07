@@ -103,7 +103,13 @@ class Resolution:
 # ── Règle c : terminal principal d'un lieu ───────────────────────────────────
 
 def terminal_priority(t) -> int:
-    """Admin=0 > TDD=1 > centre cargo=2 > autre terminal de commerce=3 > autre=4."""
+    """Admin=0 > TDD=1 > centre cargo=2 > autre terminal de commerce=3 > autre=4.
+    Un terminal fermé (is_available=0 chez UEX) passe après tous les terminaux ouverts (+10)."""
+    closed = 10 if getattr(t, "is_available", 1) == 0 else 0
+    return closed + _service_priority(t)
+
+
+def _service_priority(t) -> int:
     name = (getattr(t, "name", "") or "").lower()
     service = name.split(" - ", 1)[0].strip() if " - " in name else ""
     if service == "admin":
@@ -200,6 +206,12 @@ class NameIndex:
         return found
 
 
+def _strip_qualifier(name: str) -> str:
+    """'Pyro Gateway (Nyx)' → 'Pyro Gateway' : le nom seul désigne aussi le lieu
+    (homonymes départagés ensuite par la règle b ou le système du joueur)."""
+    return name.split("(", 1)[0].strip() if "(" in name else ""
+
+
 def _expand_filter(f: str) -> str:
     """Abréviations de fabricants (« drak » → « drake ») pour la notation pointée."""
     try:
@@ -260,7 +272,8 @@ def build_index(cache, graph=None) -> NameIndex:
         idx.add(Entity(
             "terminal", t.id, t.name, t,
             keys=_uniq([t.name, *own_short]), codes=_uniq([g(t, "code")]),
-            loc_keys=_uniq([loc, place, *([] if own_short else [short])]),
+            loc_keys=_uniq([loc, place, *([] if own_short else [short]),
+                            *(_strip_qualifier(x) for x in (loc, place) if x)]),
             tokens=_uniq([g(t, "star_system_name"), g(t, "planet_name"), g(t, "orbit_name"),
                           place, loc, service]),
             dot_keys=_uniq([service]),
