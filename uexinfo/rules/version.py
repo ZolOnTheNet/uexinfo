@@ -89,3 +89,34 @@ def diff_ids(old: dict[str, list[int]], new: dict[str, list[int]]) -> dict[str, 
         if a - b:
             removed[cat] = sorted(a - b)
     return {"added": added, "removed": removed}
+
+
+def _mm(text: str | None) -> tuple[int, int] | None:
+    v = parse_version(text)
+    return v[:2] if v else None
+
+
+def kept_versions(current: str | None, present) -> set[tuple[int, int]]:
+    """Versions majeur.mineur conservées (décision D10) : la courante et, au pire,
+    la précédente PRÉSENTE dans les données — jamais de trou au changement de version,
+    jamais plus vieux que la version d'avant.
+
+    `current` illisible ⇒ la plus récente présente sert de version courante.
+    """
+    have = {m for m in (_mm(p) for p in present) if m}
+    cur = _mm(current) or (max(have) if have else None)
+    if cur is None:
+        return set()
+    older = [m for m in have if m < cur]
+    return {cur, max(older)} if older else {cur}
+
+
+def keep_recent_rows(rows: list[dict], current: str | None, key: str = "game_version") -> list[dict]:
+    """Retire les lignes plus vieilles que la version précédente (D10).
+
+    Une ligne sans version lisible est gardée (on ne peut pas la juger).
+    """
+    keep = kept_versions(current, (r.get(key) for r in rows))
+    if not keep:
+        return list(rows)
+    return [r for r in rows if _mm(r.get(key)) is None or _mm(r.get(key)) in keep]

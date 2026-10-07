@@ -147,6 +147,23 @@ def _check_game_version(api_ver: str, ctx) -> None:
         ctx._version_notice = (stored, api_ver, active)
 
 
+def clean_price_rows(rows: list[dict], ctx) -> list[dict]:
+    """Nettoyage UNIQUE des prix UEX avant tout affichage ou calcul (décision D10) :
+    - lignes des terminaux fermés chez UEX retirées ;
+    - version du jeu : la courante ou, au pire, la précédente — jamais de trou au
+      changement de version, jamais plus ancien que la version d'avant.
+    """
+    if not rows:
+        return rows
+    from uexinfo.rules.version import keep_recent_rows
+    closed = {t.id for t in (getattr(ctx.cache, "closed_terminals", None) or [])}
+    if closed:
+        rows = [r for r in rows if int(r.get("id_terminal") or 0) not in closed]
+    store = getattr(ctx, "evolution", None)
+    current = getattr(store, "current_version", "") if store is not None else ""
+    return keep_recent_rows(rows, current)
+
+
 class DataManager:
 
     @staticmethod
@@ -155,6 +172,11 @@ class DataManager:
 
         Retourne (data, source).  Met à jour ctx._api_offline.
         """
+        data, source = DataManager._fetch_raw(key, api_kwargs, ctx)
+        return clean_price_rows(data, ctx), source
+
+    @staticmethod
+    def _fetch_raw(key: str, api_kwargs: dict, ctx) -> tuple[list[dict], str]:
         cached = ctx._price_cache.get(key)
         if cached:
             _ts, data = cached

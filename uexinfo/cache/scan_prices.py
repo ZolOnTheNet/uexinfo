@@ -92,18 +92,22 @@ class ScanPriceStore:
                  sc_version: str = "", sc_env: str = "live") -> list[dict]:
         """Retourne les enregistrements de prix scannés pour un terminal.
 
-        Si sc_version est fourni, les entrées taguées avec une version différente
-        sont ignorées. Les entrées sans tag de version (legacy) passent toujours.
+        Si sc_version est fourni, seules les entrées de cette version ou de la
+        précédente sont gardées (D10). Les entrées sans tag (legacy) passent toujours.
         """
         data = self._load()
         entries = data.get(terminal_key, {})
         cutoff = time.time() - (_MAX_AGE_DAYS * 86400)
         rows = [e for e in entries.values() if e.get("timestamp", 0) >= cutoff]
         if sc_version:
+            # D10 : version courante ou, au pire, la précédente — un scan ne
+            # disparaît pas le jour où la version du jeu change.
+            from uexinfo.rules.version import kept_versions, parse_version
+            keep = kept_versions(sc_version, [r.get("sc_version") for r in rows] + [sc_version])
             rows = [
                 r for r in rows
                 if not r.get("sc_version")                               # legacy sans tag → OK
-                or (r["sc_version"] == sc_version
+                or ((parse_version(r["sc_version"]) or (0, 0, 0))[:2] in keep
                     and r.get("sc_env", "live") == sc_env)
             ]
         return rows

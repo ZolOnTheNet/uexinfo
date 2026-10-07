@@ -73,3 +73,23 @@ def test_diff_ids():
     old = {"terminals": [1, 2, 3]}
     new = {"terminals": [2, 3, 4], "cities": [9]}
     assert diff_ids(old, new) == {"added": {"terminals": [4]}, "removed": {"terminals": [1]}}
+
+
+# ── D10 : nettoyer sans trou — version courante ou, au pire, la précédente ────
+from uexinfo.rules.version import kept_versions, keep_recent_rows
+
+
+def test_kept_versions_current_and_previous_present():
+    assert kept_versions("4.10.1", ["4.10.1", "4.9.2", "4.8.3"]) == {(4, 10), (4, 9)}
+    # la « précédente » est la plus récente présente sous la courante (ici 4.8)
+    assert kept_versions("4.10.1", ["4.10.1", "4.8.3"]) == {(4, 10), (4, 8)}
+    # jour du patch : UEX n'a encore que des 4.10 → on garde 4.10 (pas de trou)
+    assert kept_versions("4.11.0", ["4.10.1", "4.9.2"]) == {(4, 11), (4, 10)}
+    assert kept_versions(None, ["4.9", "4.10.1"]) == {(4, 10), (4, 9)}
+
+
+def test_keep_recent_rows():
+    rows = [{"p": 1, "game_version": "4.10.1"}, {"p": 2, "game_version": "4.9.0"},
+            {"p": 3, "game_version": "4.8.3"}, {"p": 4}]
+    assert [r["p"] for r in keep_recent_rows(rows, "4.10.1")] == [1, 2, 4]
+    assert keep_recent_rows([], "4.10") == []
