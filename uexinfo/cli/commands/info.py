@@ -11,6 +11,7 @@ from uexinfo.api.uex_client import UEXClient, UEXError
 from uexinfo.cache.models import Commodity, Terminal, Vehicle
 from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
+from uexinfo.rules.stock import buy_quantity
 from uexinfo.display.formatter import console, print_warn, section
 from uexinfo.models.scan_result import ScanResult
 from uexinfo.models.transport_network import EdgeType
@@ -178,12 +179,12 @@ def _term_name_maxlen() -> int:
     return max(16, w // 3)
 
 
-_STATUS_LABEL = {1: "Out", 2: "T.Bas", 3: "Bas", 4: "Moy", 5: "Haut", 7: "Max"}
+_STATUS_LABEL = {1: "Out", 2: "T.Bas", 3: "Bas", 4: "Moy", 5: "Haut", 6: "T.Haut", 7: "Max"}
 
 # Achat : Max = blanc (abondant) → Out = rouge (épuisé)
-_BUY_STATUS_COLOR  = {7: "bright_white", 5: "white", 4: "yellow", 3: "orange1", 2: "red1", 1: "red"}
+_BUY_STATUS_COLOR  = {7: "bright_white", 6: "bright_white", 5: "white", 4: "yellow", 3: "orange1", 2: "red1", 1: "red"}
 # Vente : Out = blanc (terminal demandeur) → Max = rouge (terminal plein = bloquant)
-_SELL_STATUS_COLOR = {1: "bright_white", 2: "white", 3: "yellow", 4: "orange1", 5: "red1", 7: "red"}
+_SELL_STATUS_COLOR = {1: "bright_white", 2: "white", 3: "yellow", 4: "orange1", 5: "red1", 6: "red", 7: "red"}
 
 
 def _fmt_date(date_modified) -> str:
@@ -673,8 +674,8 @@ def _fetch_terminal_container_sizes(terminal_id: int, ctx) -> dict:
 
 # ── Données scan ───────────────────────────────────────────────────────────────
 
-_STOCK_LABELS = {1: "Out", 2: "Très bas", 3: "Bas", 4: "Moyen", 5: "Haut", 7: "Max"}
-_STOCK_COLORS = {1: C.DIM, 2: "red", 3: "yellow", 4: C.UEX, 5: C.PROFIT, 7: C.PROFIT}
+_STOCK_LABELS = {1: "Out", 2: "Très bas", 3: "Bas", 4: "Moyen", 5: "Haut", 6: "Très haut", 7: "Max"}
+_STOCK_COLORS = {1: C.DIM, 2: "red", 3: "yellow", 4: C.UEX, 5: C.PROFIT, 6: C.PROFIT, 7: C.PROFIT}
 
 
 def _find_scan(loc_name: str, ctx) -> ScanResult | None:
@@ -801,7 +802,7 @@ def _stock_bar(status: int, sell: bool) -> str:
         return f"[{C.DIM}]○○○○[/{C.DIM}]"
 
     # Mapping du status (1-7) vers le nb de symboles pleins (0-4)
-    levels = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 4}
+    levels = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 4, 7: 4}
     filled = levels.get(status, 0)
 
     # Pour la vente : Out=vert (forte demande), Max=rouge (terminal plein)
@@ -964,28 +965,10 @@ def _dest_sell_info(id_commodity: int, dest_name: str, ctx) -> tuple[int, float 
     return 0, None
 
 
-def _compute_risk(buy_ts, dest_status_sell: int, dest_ts) -> int:
-    """Risque = 30% fraîcheur achat + 70% saturation destination pondérée par âge.
-
-    La saturation converge vers 50% (incertitude max) au bout de 48h —
-    un état « Haut » vieux de 3 jours vaut ~55%, pas 80%.
-    """
-    import time as _t
-    now = _t.time()
-
-    buy_age_h = (now - float(buy_ts)) / 3600 if buy_ts else 48.0
-    if buy_age_h < 2:    buy_risk = 5
-    elif buy_age_h < 6:  buy_risk = 10
-    elif buy_age_h < 24: buy_risk = 25
-    else:                buy_risk = 50
-
-    # status_sell : Out=5% (destination vide, veut acheter), Max=95% (saturée)
-    sat_base = {0: 50, 1: 5, 2: 20, 3: 40, 4: 60, 5: 80, 7: 95}.get(dest_status_sell, 50)
-    dest_age_h  = (now - float(dest_ts)) / 3600 if dest_ts else 48.0
-    age_weight  = max(0.0, 1.0 - dest_age_h / 48.0)
-    sat_risk    = age_weight * sat_base + (1.0 - age_weight) * 50.0
-
-    return int(0.30 * buy_risk + 0.70 * sat_risk)
+def _compute_risk(dest_status_sell: int, dest_ts) -> int:
+    """Risque de saturation à la destination — règle unique, voir uexinfo/rules/risk.py (D2)."""
+    from uexinfo.rules.risk import age_hours, sell_risk
+    return sell_risk(dest_status_sell, age_hours(dest_ts))
 
 
 def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys_filter=None) -> None:
@@ -1085,11 +1068,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             qty_buy = min(ship_cargo, scu_cur)   # stock connu → cap réel
         elif scu_cap > 0:
             qty_buy = min(ship_cargo, scu_cap)
-        elif status_buy == 1:
-            qty_buy = 0
         else:
-            _sm = {2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
-            qty_buy = int(ship_cargo * _sm.get(status_buy, 0.5))
+            qty_buy = buy_quantity(ship_cargo, status_buy)   # règle unique (rules/stock.py)
         total_buy = qty_buy * price_buy
 
         # ── Destination : meilleure route filtrée par les filtres /select catégorie
@@ -1114,7 +1094,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             dest_tag     = f"{dest_style} {C.LABEL}".strip()
             distance_str = _dist_label(dest_name, dest_system, player_sys, dist_map)
             dest_status_sell, dest_ts = _dest_sell_info(id_comm, dest_name, ctx)
-            risk_pct = _compute_risk(_ts_buy, dest_status_sell, dest_ts)
+            risk_pct = _compute_risk(dest_status_sell, dest_ts)
         else:
             # Pas de route connue → afficher sans destination, zéro appel API
             dest_name        = ""
@@ -1673,6 +1653,7 @@ _BUY_STATUS_BAR: dict[int, str] = {
     3: "[yellow]▓▓░░[/yellow]",
     4: "[cyan]▓▓▓░[/cyan]",
     5: "[green]▓▓▓▓[/green]",
+    6: "[green]▓▓▓▓[/green]",
     7: "[bold green]████[/bold green]",
 }
 
@@ -1682,6 +1663,7 @@ _SELL_STATUS_BAR: dict[int, str] = {
     3: "[yellow]▓▓░░[/yellow]",
     4: "[orange1]▓▓▓░[/orange1]",
     5: "[red]▓▓▓▓[/red]",
+    6: "[red]▓▓▓▓[/red]",
     7: "[bold red]████[/bold red]",
 }
 
@@ -2270,204 +2252,35 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
 
 # ── Recherche ──────────────────────────────────────────────────────────────────
 
-_TRADING_SERVICES = {"admin", "tdd", "trade"}   # priorité commerce
+# ── Recherche — délègue au résolveur unique (uexinfo/names, décision D6) ──────
 
-
-def _trading_priority(t: Terminal) -> int:
-    """0 = terminal de commerce (Admin/TDD), 1 = autre."""
-    if " - " not in t.name:
-        return 1
-    svc = t.name.split(" - ")[0].strip().lower()
-    return 0 if svc in _TRADING_SERVICES else 1
+from uexinfo.names import PREFIX as _PREFIX, SUBSTRING as _SUBSTRING
+from uexinfo.names import resolve as _resolve_name, terminal_priority as _trading_priority
 
 
 def _find_terminal(query: str, ctx, strong: bool = False) -> Terminal | None:
-    """Recherche un terminal avec priorités :
-    1. Notation pointée  station.service  ou  système.station.service
-    2. Nom/code exact
-    3. Nom court exact   → préfère Admin/TDD
-    4. Préfixe           → préfère Admin/TDD
-    5. Contient          → préfère Admin/TDD  (ignoré si strong=True)
-
-    strong=True : seulement les étapes 1-4 (pas de match "contient").
-    Utilisé en recherche libre pour ne pas écraser une commodité homonyme.
-    """
-    q = query.replace("_", " ").lower().strip()
-
-    # ── 1. Notation pointée ──────────────────────────────────────────────
-    if "." in q:
-        parts = q.rsplit(".", 1)          # ["system.station", "service"]  ou  ["station", "service"]
-        service_q = parts[1].strip()
-        station_q = parts[0].rsplit(".", 1)[-1].strip()  # dernier segment avant le service
-        # Correspondance exacte service + station
-        for t in ctx.cache.terminals:
-            if " - " not in t.name:
-                continue
-            svc, loc = t.name.lower().split(" - ", 1)
-            if svc.strip() == service_q and loc.strip() == station_q:
-                return t
-        # Correspondance partielle
-        for t in ctx.cache.terminals:
-            if " - " not in t.name:
-                continue
-            svc, loc = t.name.lower().split(" - ", 1)
-            if service_q in svc and station_q in loc:
-                return t
-        # Fallback : chercher sans le service (juste la station)
-        q = station_q
-
-    # ── 2. Nom ou code exact ─────────────────────────────────────────────
-    for t in ctx.cache.terminals:
-        if t.name.lower() == q or t.code.lower() == q:
-            return t
-
-    # ── 3. Nom court ou espace-station exact, ou query = nom court + suffixe ─
-    # ex: "seraphim station" → loc="seraphim" → q.startswith("seraphim ")
-    matches = [t for t in ctx.cache.terminals
-               if _loc(t.name).lower() == q
-               or q.startswith(_loc(t.name).lower() + " ")
-               or t.space_station_name.lower() == q]
-    if matches:
-        return min(matches, key=_trading_priority)
-
-    # ── 4. Préfixe du nom court / espace-station → préfère Admin/TDD ─────
-    matches = [t for t in ctx.cache.terminals
-               if _loc(t.name).lower().startswith(q)
-               or t.space_station_name.lower().startswith(q)]
-    if matches:
-        return min(matches, key=_trading_priority)
-
-    if strong:
-        return None
-
-    # ── 5. Contient (nom, espace-station, ou nom court contenu dans la query)
-    # ex: "seraphim" contenu dans "seraphim station above crusader"
-    matches = [t for t in ctx.cache.terminals
-               if q in t.name.lower()
-               or q in t.space_station_name.lower()
-               or _loc(t.name).lower() in q]
-    if matches:
-        return min(matches, key=_trading_priority)
-
-    return None
+    """Terminal le plus proche de `query` (notation pointée, nom, code, lieu → terminal
+    principal). strong=True : exact ou préfixe seulement — utilisé en recherche libre
+    pour ne pas écraser une commodité homonyme (« scrap » vs « Devlin Scrap … »)."""
+    r = _resolve_name(ctx, query, kinds={"terminal"},
+                      min_level=_PREFIX if strong else _SUBSTRING)
+    return r.best
 
 
 def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
-    """Retourne tous les terminaux correspondant à query (préfixe du nom court).
-
-    Utile pour désambigüer quand la query est trop courte.
-    Déduplique par station (garde le meilleur service Admin/TDD par station).
-    """
-    q = query.replace("_", " ").lower().strip()
-    if not q:
-        return []
-
-    # Préfixe exact, extension (query commence par loc + espace), ou contient
-    matches = [t for t in ctx.cache.terminals
-               if _loc(t.name).lower().startswith(q)
-               or q.startswith(_loc(t.name).lower() + " ")]
-    if not matches:
-        matches = [t for t in ctx.cache.terminals
-                   if q in t.name.lower() or _loc(t.name).lower() in q]
-
-    # Dédupliquer par station (système + lieu, pas juste le nom du lieu) : garde
-    # le terminal de commerce (Admin/TDD) parmi les services d'une même station,
-    # mais préserve les stations homonymes de systèmes différents (ex: deux
-    # "Nyx Gateway", une côté Stanton et une côté Nyx — vraie ambiguïté).
-    seen: dict[tuple[str, str], Terminal] = {}
-    for t in matches:
-        station = ((t.star_system_name or "").lower(), _loc(t.name).lower())
-        if station not in seen or _trading_priority(t) < _trading_priority(seen[station]):
-            seen[station] = t
-    return sorted(seen.values(), key=lambda t: _loc(t.name).lower())
+    """Candidats à égalité pour `query` (un terminal principal par lieu)."""
+    r = _resolve_name(ctx, query, kinds={"terminal"}, min_level=_SUBSTRING)
+    return r.candidates
 
 
 def _find_commodity(query: str, ctx) -> Commodity | None:
-    q = query.replace("_", " ").lower().strip()
-    # Exact (nom ou code)
-    exact = next(
-        (c for c in ctx.cache.commodities if c.name.lower() == q or c.code.lower() == q),
-        None,
-    )
-    if exact is not None:
-        if not exact.is_buyable:
-            # Fiche "parente" non achetable (ex: "Ship Ammunition", is_buyable=0)
-            # — préférer une variante achetable ("Ship Ammunition - Size 1") si elle existe.
-            variant = next(
-                (c for c in ctx.cache.commodities
-                 if c.name.lower().startswith(q + " - ") and c.is_buyable),
-                None,
-            )
-            if variant is not None:
-                return variant
-        return exact
-    # Préfixe — préférer is_buyable=1 parmi les matchs
-    prefix = [c for c in ctx.cache.commodities if c.name.lower().startswith(q)]
-    if prefix:
-        for c in prefix:
-            if c.is_buyable:
-                return c
-        return prefix[0]
-    # Contenu — préférer is_buyable=1 parmi les matchs
-    matches = [c for c in ctx.cache.commodities if q in c.name.lower()]
-    if not matches:
-        return None
-    for c in matches:
-        if c.is_buyable:
-            return c
-    return matches[0]
+    """Commodité la plus proche (achetable préférée à une fiche parente)."""
+    return _resolve_name(ctx, query, kinds={"commodity"}, min_level=_SUBSTRING).best
 
 
 def _find_vehicle(query: str, ctx) -> Vehicle | None:
-    from uexinfo.cli.completer_data import MFR_ABBREV
-    q = query.replace("_", " ").lower().strip()
-    vehicles = ctx.cache.vehicles or []
-
-    # ── Notation pointée : <mfr_abbrev>.<nom>  ou  ship.<nom> ────────────
-    mfr_prefix: str | None = None
-    name_q = q
-    if "." in q:
-        pfx, rest = q.split(".", 1)
-        pfx  = pfx.strip()
-        rest = rest.strip()
-        mfr_full = MFR_ABBREV.get(pfx)
-        if mfr_full is not None or pfx == "ship":
-            mfr_prefix = mfr_full   # None pour "ship" = pas de filtre fabricant
-            name_q = rest
-        # Si préfixe non reconnu, on laisse q inchangé (ex: "port.tressler")
-
-    # ── Recherche avec filtre fabricant éventuel ──────────────────────────
-    def _mfr_ok(v) -> bool:
-        return not mfr_prefix or (v.manufacturer or "").lower().startswith(mfr_prefix)
-
-    for v in vehicles:
-        if _mfr_ok(v) and (v.name_full.lower() == name_q or v.name.lower() == name_q):
-            return v
-    for v in vehicles:
-        if _mfr_ok(v) and v.name_full.lower().startswith(name_q):
-            return v
-    for v in vehicles:
-        if _mfr_ok(v) and name_q in v.name_full.lower():
-            return v
-
-    # Si la notation pointée n'a rien donné, ne pas tomber sur la recherche floue
-    # pour éviter les faux positifs avec le point dans q.
-    if name_q != q:
-        return None
-
-    try:
-        from rapidfuzz import process, fuzz
-        names_lower = [v.name_full.lower() for v in vehicles]
-        r = process.extractOne(q, names_lower, scorer=fuzz.WRatio, score_cutoff=65)
-        if r:
-            return vehicles[names_lower.index(r[0])]
-    except ImportError:
-        import difflib
-        names_lower = [v.name_full.lower() for v in vehicles]
-        m = difflib.get_close_matches(q, names_lower, n=1, cutoff=0.6)
-        if m:
-            return vehicles[names_lower.index(m[0])]
-    return None
+    """Vaisseau (nom court, nom complet, « drak.cutlass », flou en dernier recours)."""
+    return _resolve_name(ctx, query, kinds={"vehicle"}).best
 
 
 def _show_commodity_list(args: list[str], ctx) -> None:

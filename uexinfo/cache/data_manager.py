@@ -54,7 +54,7 @@ def _terminal_matches(query: str, terminals: list) -> list:
             station_matches.append(t)
     if station_matches:
         if len(station_matches) > 1:
-            from uexinfo.location.index import _trading_priority
+            from uexinfo.names import terminal_priority as _trading_priority
             best_prio = min(_trading_priority(t) for t in station_matches)
             station_matches = [t for t in station_matches if _trading_priority(t) == best_prio]
         return station_matches
@@ -131,6 +131,10 @@ def _check_game_version(api_ver: str, ctx) -> None:
     """Compare la version détectée depuis l'API avec la config ; notifie si différente."""
     if not api_ver:
         return
+    store = getattr(ctx, "evolution", None)
+    if store is not None:
+        store.observe_version(api_ver)
+        ctx._price_cache.current_version = store.current_version
     ver_cfg = ctx.cfg.get("version", {})
     active  = ver_cfg.get("active", "live")
     stored  = ver_cfg.get(active, "")

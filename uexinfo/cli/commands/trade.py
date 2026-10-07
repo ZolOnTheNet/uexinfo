@@ -28,6 +28,8 @@ from uexinfo.cli.commands.info import (
     _stock_bar,
     _terminal_prices,
 )
+from uexinfo.rules.risk import age_hours, sell_risk
+from uexinfo.rules.stock import buy_quantity, sell_quantity
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, fmt_distance_gm, print_error, print_warn, section
 
@@ -40,21 +42,16 @@ _TERM_MAX_SYS = 20  # largeur max avec préfixe système
 
 
 def _resolve_terminal_pick(query: str, ctx, label: str):
-    """Résout un terminal en texte libre, avec picker si plusieurs stations
-    de même priorité de trading correspondent (vraie ambiguïté) — au lieu de
-    trancher silencieusement comme _find_terminal seul (min() sur une liste)."""
-    from uexinfo.cli.commands.info import _find_terminal_candidates, _trading_priority
-    candidates = _find_terminal_candidates(query, ctx)
-    if len(candidates) <= 1:
-        return _find_terminal(query, ctx)
-    best_prio = min(_trading_priority(t) for t in candidates)
-    best = [t for t in candidates if _trading_priority(t) == best_prio]
-    if len(best) == 1:
-        return best[0]
+    """Résout un terminal en texte libre ; liste au joueur si plusieurs candidats
+    sont aussi proches (règle b du résolveur unique, uexinfo/names)."""
+    from uexinfo.names import SUBSTRING, resolve
+    r = resolve(ctx, query, kinds={"terminal"}, min_level=SUBSTRING)
+    if not r.ambiguous:
+        return r.best
     from uexinfo.cli.selector import SelectItem, pick
     items = [
         SelectItem(label=_loc(t.name), value=t, meta=t.star_system_name or "")
-        for t in best[:20]
+        for t in r.candidates[:20]
     ]
     chosen = pick(ctx, items, title=f"{label} — «{query}»", mode="single")
     return chosen[0].value if chosen else None
@@ -493,9 +490,6 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         if re.sub(r'\[/?[^\]]*\]', '', dist_str).strip() == "local":
             dist_str = ""
 
-    stock_mult = {1: 0, 2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8, 7: 1.0}
-    inv_mult   = {1: 1.0, 2: 0.8, 3: 0.6, 4: 0.4, 5: 0.2, 7: 0}
-
     orig_lo      = origin.name.lower()
     orig_loc_lo  = _loc(origin.name).lower()
     ship_grid    = _ship_slot_grid(ctx)          # {slot_size: nb_slots} ou {}
@@ -562,24 +556,17 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         price_sell  = float(dest_row.get("price_sell") or 0)
         status_sell = int(dest_row.get("status_sell") or 0)
 
-        qty = int(ship_cargo * stock_mult.get(status_buy, 0.5))
-        if qty == 0:
-            qty = ship_cargo
+        qty = buy_quantity(ship_cargo, status_buy)
 
-        qty_sell   = int(qty * inv_mult.get(status_sell, 0.5))
+        qty_sell   = sell_quantity(qty, status_sell)
         qty_unsold = qty - qty_sell
 
         total_buy  = qty * price_buy
         total_sell = qty * price_sell      # optimiste (tout vendu)
         profit     = total_sell - total_buy
 
-        # Risque = saturation destination (70%) + ancienneté données (30%)
-        import time as _time
-        sat_risk  = qty_unsold / qty if qty > 0 else 0
-        dest_ts   = dest_row.get("date_modified") or 0
-        age_hours = (_time.time() - dest_ts) / 3600 if dest_ts else 24
-        age_risk  = min(1.0, age_hours / 12)
-        risk_pct  = int((sat_risk * 0.7 + age_risk * 0.3) * 100)
+        # Risque de saturation à la destination — règle unique (D2)
+        risk_pct  = sell_risk(status_sell, age_hours(dest_row.get("date_modified")))
 
         container_map = _fetch_container_sizes(id_comm, ctx)
         orig_raw  = container_map.get(orig_lo) or container_map.get(orig_loc_lo) or "—"

@@ -11,7 +11,7 @@ class ScannedCommodity:
     commodity_id: int = 0
     quantity: int | None = None
     stock: str = ""
-    stock_status: int = 0   # 1=out, 2=très bas, 3=bas, 4=moyen, 5=haut, 7=max
+    stock_status: int = 0   # 1=out, 2=très bas, 3=bas, 4=moyen, 5=haut, 6=très haut, 7=max
     price: int = 0          # aUEC/SCU
     in_demand: bool = False  # True = section INDEMAND (terminal veut mais joueur n'a pas)
     # Confiance OCR par champ (0-100), capturée depuis le nouveau format de

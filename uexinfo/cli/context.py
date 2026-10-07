@@ -28,6 +28,9 @@ class AppContext:
     voyage_manager: VoyageManager = field(default_factory=VoyageManager)
     screenshot_db: object | None = None   # ScreenshotDB (injecté par overlay)
     _api_offline: bool = False   # True quand UEX Corp API inaccessible → cache local
+    _game_live: dict | None = None        # demande /game live|stop pour le serveur overlay
+    evolution: object | None = None       # EvolutionStore (injecté par overlay)
+    _evolution_asked: bool = False        # question /evolution déjà affichée cette session
     _version_notice: tuple | None = None  # (stored, detected, env) → bannière à afficher
     debug_level: int = 0
     log_last_mtime: float = 0.0           # mtime du log lors du dernier check auto

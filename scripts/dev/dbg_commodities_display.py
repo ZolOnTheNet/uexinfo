@@ -2,7 +2,7 @@
 """Script pour tester l'affichage des commodités avec price_buy à 0."""
 import sys
 import os
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from uexinfo.cache.manager import CacheManager
 from uexinfo.cli.commands.info import _show_terminal

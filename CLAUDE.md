@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Notes de travail Claude
+
+Avant toute tâche, lire `docs/ai/NOTES.md` (objectifs, carte du code, dette vérifiée). Ajouter une entrée dans `docs/ai/ACTIVITY_LOG.md` à chaque étape notable.
+
 ## Project
 
 **uexinfo** — Overlay Star Citizen pour le trading, les missions et la navigation. Interroge l'API UEX Corp 2.0 et sc-trade.tools (données communauté), lit les logs de SC-Datarunner et fait de l'OCR sur les captures d'écran du jeu pour suivre automatiquement les prix, le stock, la position du joueur et les missions.
@@ -19,7 +23,7 @@ python -m uexinfo
 # ou après install :
 uexinfo
 
-# Lancer les tests
+# Lancer les tests (testpaths = tests dans pyproject.toml)
 pytest
 ```
 
@@ -27,7 +31,7 @@ Pas de Makefile ni de CI configurée.
 
 ## Architecture
 
-L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessus pilotée par un serveur WebSocket local, avec un frontend HTML/JS unique (`static/index.html`, ~20 000 lignes). Il n'y a plus de boucle REPL terminal ni d'UI Textual — les deux ont été supprimées.
+L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessus pilotée par un serveur WebSocket local, avec un frontend HTML/JS unique (`static/index.html`, ~4 400 lignes). Il n'y a plus de boucle REPL terminal ni d'UI Textual — les deux ont été supprimées.
 
 ### Layer map
 
@@ -49,12 +53,12 @@ L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessu
 | Données modèles | `uexinfo/cache/models.py` | Dataclasses : `StarSystem`, `Planet`, `Moon`, `Orbit`, `SpaceStation`, `Outpost`, `City`, `Terminal`, `Vehicle`, `Commodity`, `Faction` |
 | Config | `uexinfo/config/settings.py` | Lecture/écriture `config.toml` (dossier config utilisateur) |
 | Réseau de transport | `uexinfo/models/transport_network.py` | Graphe Dijkstra (nœuds/arêtes), `uexinfo/data/transport_network.json` |
-| Location | `uexinfo/location/index.py` | `LocationIndex` — résolution fuzzy de lieux, complétion `@lieu` |
+| Noms | `uexinfo/names/` | **Résolveur unique** (lieux, terminaux, commodités, vaisseaux, nœuds) — toute recherche par nom passe par `names.resolve` |
+| Location | `uexinfo/location/index.py` | `LocationIndex` — complétion `@lieu` (chemins pointés) |
 | OCR / logs | `uexinfo/ocr/` | `engine.py` (Tesseract sur screenshots), `log_parser.py` (log SC-Datarunner) |
 | Modèles métier | `uexinfo/models/` | `player.py`, `scan_result.py`, `mission.py`, `voyage.py` |
 | Display | `uexinfo/display/` | Console Rich partagée (`capturing_console.py` — capture les renderables pour rendu HTML, pas de vrai TTY), couleurs, formatters |
 
-**Dossiers orphelins** : `uexinfo/screens/` et `uexinfo/widgets/` ne contiennent plus que du bytecode `__pycache__` — reliquat de la migration Textual abandonnée, plus aucun fichier source, plus aucune référence dans le code.
 
 ### Commandes réelles (23, via `@register`)
 
@@ -62,7 +66,8 @@ Trading & marché : `/trade`, `/info`, `/select`
 Position & déplacement : `/go` (`lieu`), `/dest`, `/arriver`, `@<lieu>`
 Navigation & routes : `/nav` (`navigation`, `qt`), `/route` (délègue à `/nav route`)
 Missions & voyages : `/mission`, `/voyage`
-Scan & suivi terrain : `/scan`, `/sync`, `/player`, `/auto`
+Scan & suivi terrain : `/scan`, `/sync`, `/player`, `/auto`, `/game` (lecteur Game.log)
+Versions : `/evolution` (`/scevolution`)
 Divers : `/note`, `/explore`, `/history`, `/undo`, `/calc` (`=`), `/ship`, `/config`, `/refresh`, `/help`, `/debug`
 
 `/plan` (annoncé dans une ancienne roadmap) n'existe pas. `/trade best` (tri global des meilleures routes toutes commodités) n'est pas implémenté.
@@ -86,6 +91,10 @@ Pour les prix (dynamiques), `DataManager.terminal_prices()` (`cache/data_manager
 
 Toujours utiliser les constantes de `uexinfo/display/colors.py`, jamais de couleurs brutes.
 
+## Règles métier
+
+Règles pures et testées dans `uexinfo/rules/` (quantités, risque, versions). Décisions validées : `docs/ai/DECISIONS.md`. Ne jamais changer une valeur métier sans le signaler.
+
 ## Ajouter une nouvelle commande
 
 1. Créer `uexinfo/cli/commands/macommande.py`
@@ -96,9 +105,8 @@ Toujours utiliser les constantes de `uexinfo/display/colors.py`, jamais de coule
 
 ## Code mort connu (à supprimer ou implémenter, pas à imiter)
 
-- `uexinfo/api/uex_scraper.py` — scraper du site uexcorp.space (missions, distances, raffinerie, grilles cargo), stub intégral (`NotImplementedError` partout), jamais importé.
-- `SCTradeClient.commodity_items()` / `.ships()` — définies, jamais appelées (seuls `crowdsource_listings`/`crowdsource_for_commodity` sont utilisés).
-- `uexinfo/screens/`, `uexinfo/widgets/` — vides (reliquat Textual), ne rien y ajouter.
+- `cli/commands/select_editor.py` et le formulaire plein écran de `note.py` utilisent `prompt_toolkit` (reliquat REPL terminal) : inutilisables dans l'overlay.
+- Scripts de debug ponctuels : `scripts/dev/` (hors package, non testés).
 
 ## Known issues
 

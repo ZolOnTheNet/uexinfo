@@ -16,41 +16,17 @@ from uexinfo.display.formatter import console, print_error, print_ok, print_warn
 
 
 def _find_terminal(q: str, ctx):
-    """Recherche floue d'un terminal par nom."""
-    q_lo = q.lower().replace("_", " ")
-    # Exact d'abord
-    for t in ctx.cache.terminals:
-        if t.name.lower() == q_lo:
-            return t
-    # Fuzzy via LocationIndex
-    if ctx.location_index:
-        entries = ctx.location_index.search(q, limit=1, types={"terminal"})
-        if entries:
-            name = entries[0].name
-            for t in ctx.cache.terminals:
-                if t.name.lower() == name.lower():
-                    return t
-    # Sous-chaîne
-    for t in ctx.cache.terminals:
-        if q_lo in t.name.lower():
-            return t
-    return None
+    """Terminal par nom — résolveur unique (uexinfo/names)."""
+    from uexinfo.names import resolve
+    return resolve(ctx, q, kinds={"terminal"}).best
 
 
 def _invalidate_terminal(t, ctx) -> None:
     """Supprime toutes les entrées de prix liées à ce terminal dans le cache."""
-    keys_to_del = []
-    for key in list(ctx._price_cache._mem.keys()):
-        if (key == f"t{t.id}"
-                or (t.code and key == f"tc_{t.code}")
-                or key == f"tl_{t.name.lower()}"
-                or key == f"tn_{t.name.lower()}"):
-            keys_to_del.append(key)
-    for k in keys_to_del:
-        del ctx._price_cache._mem[k]
-    if keys_to_del:
-        ctx._price_cache._dirty = True
-        ctx._price_cache.flush()
+    keys = {f"t{t.id}", f"tl_{t.name.lower()}", f"tn_{t.name.lower()}"}
+    if t.code:
+        keys.add(f"tc_{t.code}")
+    ctx._price_cache.delete_keys(keys)
 
 
 def _fetch_fresh(t, ctx) -> list[dict]:

@@ -244,6 +244,8 @@ def _find_route(args: list[str], ctx) -> None:
     args = [a for a in args if a != "--req"]
 
     graph = ctx.cache.transport_graph
+    from uexinfo.cli.commands.info import _player_system
+    _sys = _player_system(ctx)      # préféré à égalité (gateways homonymes)
 
     # ── Cas 0 : aucun argument → toutes destinations depuis @local ────────────
     if not args:
@@ -254,7 +256,7 @@ def _find_route(args: list[str], ctx) -> None:
             console.print(f"[{C.DIM}]💡 Conseil : /go <lieu> pour définir votre position, puis /nav[/{C.DIM}]")
             return
 
-        from_node = _resolve_node(loc, graph)
+        from_node = _resolve_node(loc, graph, _sys)
         if not from_node and force_req:
             from_node = _auto_add_from_uex(loc, graph, ctx)
         if not from_node:
@@ -284,7 +286,7 @@ def _find_route(args: list[str], ctx) -> None:
                 return
             loc = (getattr(ctx.player, "location", None) or "").strip()
             from_loc = loc
-            from_node = _resolve_node(loc, graph) if loc else None
+            from_node = _resolve_node(loc, graph, _sys) if loc else None
             if not from_node:
                 from_node = _auto_add_from_uex(loc, graph, ctx) if loc else None
             if not from_node:
@@ -301,7 +303,7 @@ def _find_route(args: list[str], ctx) -> None:
             return
 
         to_loc   = to_raw
-        to_node  = _resolve_node(to_loc, graph)
+        to_node  = _resolve_node(to_loc, graph, _sys)
 
         # Si le lieu saisi ne résout pas en nœud → chercher des candidats
         if not to_node:
@@ -318,7 +320,7 @@ def _find_route(args: list[str], ctx) -> None:
 
         # Si to_node correspond à @local → mode "toutes destinations depuis ce nœud"
         loc = (getattr(ctx.player, "location", None) or "").strip()
-        from_node_local = _resolve_node(loc, graph) if loc else None
+        from_node_local = _resolve_node(loc, graph, _sys) if loc else None
 
         if to_node == from_node_local or not loc:
             # L'utilisateur a tapé son propre lieu, ou pas de position définie
@@ -350,7 +352,7 @@ def _find_route(args: list[str], ctx) -> None:
                 print_error("Position courante non définie — utilisez /go <lieu>")
                 return
 
-            from_node = _resolve_node(from_loc, graph)
+            from_node = _resolve_node(from_loc, graph, _sys)
 
             # Résoudre destination(s) — virgules + wildcards
             dest_nodes = _parse_destinations(to_raw, graph, ctx)
@@ -378,8 +380,8 @@ def _find_route(args: list[str], ctx) -> None:
             for split in range(len(args_exp) - 1, 0, -1):
                 fl = " ".join(args_exp[:split]).strip()
                 tl = " ".join(args_exp[split:]).strip()
-                fn = _resolve_node(fl, graph)
-                tn = _resolve_node(tl, graph)
+                fn = _resolve_node(fl, graph, _sys)
+                tn = _resolve_node(tl, graph, _sys)
                 if fn and tn:
                     from_node, to_node = fn, tn
                     from_loc, to_loc = fl, tl
@@ -389,8 +391,8 @@ def _find_route(args: list[str], ctx) -> None:
                 for split in range(1, len(args_exp)):
                     fl = " ".join(args_exp[:split]).strip()
                     tl = " ".join(args_exp[split:]).strip()
-                    fn = _resolve_node(fl, graph)
-                    tn = _resolve_node(tl, graph)
+                    fn = _resolve_node(fl, graph, _sys)
+                    tn = _resolve_node(tl, graph, _sys)
                     if fn and tn:
                         from_node, to_node = fn, tn
                         from_loc, to_loc = fl, tl
@@ -400,8 +402,8 @@ def _find_route(args: list[str], ctx) -> None:
                 mid = len(args_exp) // 2
                 from_loc = " ".join(args_exp[:mid]).strip()
                 to_loc   = " ".join(args_exp[mid:]).strip()
-                from_node = _resolve_node(from_loc, graph)
-                to_node   = _resolve_node(to_loc, graph)
+                from_node = _resolve_node(from_loc, graph, _sys)
+                to_node   = _resolve_node(to_loc, graph, _sys)
 
     # ── Auto-enrichissement UEX si nœuds introuvables ─────────────────────────
     if not from_node:
@@ -1365,55 +1367,12 @@ def _expand_alias(query: str, ctx) -> str:
     return query
 
 
-def _resolve_node(query: str, graph) -> str | None:
-    """Résout un nom de nœud — insensible à la casse, underscores, fuzzy.
-
-    En cas de multiples correspondances, retourne le nom le plus long
-    (plus spécifique) : "ArcCorp Mining Area 048" avant "ArcCorp".
-    """
-    q = query.lower().replace("_", " ").strip()
-    if not q:
-        return None
-
-    node_names = list(graph.nodes.keys())
-
-    # 1. Match exact
-    for name in node_names:
-        if name.lower() == q:
-            return name
-
-    # 2. Préfixe — plus long (plus spécifique) en premier
-    matches = sorted(
-        [n for n in node_names if n.lower().startswith(q)],
-        key=len, reverse=True,
-    )
-    if matches:
-        return matches[0]
-
-    # 3. Sous-chaîne — plus long en premier
-    matches = sorted(
-        [n for n in node_names if q in n.lower()],
-        key=len, reverse=True,
-    )
-    if matches:
-        return matches[0]
-
-    # 4. Fuzzy — préférer les candidats plus longs si scores proches
-    try:
-        from rapidfuzz import process, fuzz
-        results = process.extract(q, [n.lower() for n in node_names],
-                                  scorer=fuzz.WRatio, limit=5, score_cutoff=70)
-        if results:
-            # Parmi les proches, prendre le plus long
-            best_name, best_score, _ = max(results, key=lambda r: (r[1], len(r[0])))
-            return node_names[[n.lower() for n in node_names].index(best_name)]
-    except ImportError:
-        import difflib
-        m = difflib.get_close_matches(q, [n.lower() for n in node_names], n=1, cutoff=0.65)
-        if m:
-            return node_names[[n.lower() for n in node_names].index(m[0])]
-
-    return None
+def _resolve_node(query: str, graph, system: str = "") -> str | None:
+    """Nœud du graphe le plus proche de `query` — résolveur unique (uexinfo/names).
+    `system` : système du joueur, préféré en cas d'égalité (gateways homonymes)."""
+    from uexinfo.names import graph_index
+    r = graph_index(graph).resolve(query, kinds={"node"}, prefer_system=system)
+    return r.matches[0].entity.id if r.matches else None
 
 
 def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
@@ -1425,21 +1384,8 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
     if not q:
         return None
 
-    terminal = None
-    best_score = 0
-
-    try:
-        from rapidfuzz import fuzz
-        for t in ctx.cache.terminals:
-            score = fuzz.WRatio(q, t.name.lower())
-            if score > best_score and score >= 72:
-                best_score, terminal = score, t
-    except ImportError:
-        import difflib
-        names = [t.name for t in ctx.cache.terminals]
-        m = difflib.get_close_matches(q, [n.lower() for n in names], n=1, cutoff=0.65)
-        if m:
-            terminal = next(t for t in ctx.cache.terminals if t.name.lower() == m[0])
+    from uexinfo.names import resolve
+    terminal = resolve(ctx, q, kinds={"terminal"}).best
 
     if not terminal:
         return None
@@ -1515,11 +1461,12 @@ def _resolve_node_uex(uex_terminal_name: str, graph) -> str | None:
 
 
 def _find_candidates(query: str, graph) -> list[str]:
-    """Retourne les nœuds du graphe dont le nom contient query (insensible casse)."""
-    q = query.lower().replace("_", " ").strip()
-    if not q or len(q) < 2:
+    """Nœuds du graphe dont le nom contient `query` (pas de flou) — résolveur unique."""
+    from uexinfo.names import SUBSTRING, graph_index
+    if len(query.strip()) < 2:
         return []
-    return [n for n in graph.nodes if q in n.lower()]
+    r = graph_index(graph).resolve(query, kinds={"node"}, min_level=SUBSTRING, limit=200)
+    return [m.entity.id for m in r.matches]
 
 
 def _expand_wildcard(pattern: str, graph) -> list[str]:

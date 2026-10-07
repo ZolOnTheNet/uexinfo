@@ -475,33 +475,6 @@ class CacheManager:
             ids_factions_hostile=d.get("ids_factions_hostile") or "",
         )
 
-    # ── Recherche ────────────────────────────────────────────────────────────
-
-    def find_commodity(self, query: str) -> Commodity | None:
-        q = query.lower().strip()
-        for c in self.commodities:
-            if c.code.lower() == q or c.name.lower() == q:
-                return c
-        # Partial match
-        for c in self.commodities:
-            if c.name.lower().startswith(q):
-                return c
-        return None
-
-    def find_terminal(self, query: str) -> Terminal | None:
-        q = query.lower().strip()
-        for t in self.terminals:
-            if t.code.lower() == q or t.name.lower() == q:
-                return t
-        for t in self.terminals:
-            if t.name.lower().startswith(q):
-                return t
-        return None
-
-    def search_terminals(self, query: str) -> list[Terminal]:
-        q = query.lower().strip()
-        return [t for t in self.terminals if q in t.name.lower()]
-
     def cache_age(self, key: str = "commodities") -> int | None:
         """Retourne l'âge du cache en secondes, None si absent."""
         path = DATA_DIR / _STATIC_FILES.get(key, f"{key}.json")

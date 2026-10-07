@@ -31,7 +31,7 @@ DEFAULT: dict = {
         "max_distance": 0,
         "illegal_commodities": False,
     },
-    "cache": {"ttl_static": 86400, "ttl_prices": 300},
+    "cache": {"ttl_static": 86400},
     "player": {
         "username": "",
         "ships": [],

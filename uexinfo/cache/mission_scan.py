@@ -422,35 +422,13 @@ def _resolve_graph_node(name: str, graph, system_hint: str | None = None) -> str
     clean = re.sub(r"\s+above\s+.*$", "", clean, flags=re.IGNORECASE).strip()
     clean = re.sub(r"\s+at\s+.*$",    "", clean, flags=re.IGNORECASE).strip()
 
-    node_names = list(graph.nodes.keys())
+    from uexinfo.names import SUBSTRING, graph_index
+    gi = graph_index(graph)
 
     def _match(q: str) -> str | None:
-        """Cherche q dans les nœuds du graphe (exact → contient → préfixe)."""
-        ql = q.lower().replace("_", " ")
-        # 1. Match exact
-        for n in node_names:
-            if n.lower() == ql:
-                return n
-        # 2. Contient le terme
-        candidates = [n for n in node_names if ql in n.lower()]
-        if candidates:
-            if len(candidates) == 1:
-                return candidates[0]
-            if system_hint:
-                sh = system_hint.lower()
-                preferred = [c for c in candidates if sh in c.lower()]
-                if len(preferred) == 1:
-                    return preferred[0]
-                if preferred:
-                    candidates = preferred
-            return max(candidates, key=len)
-        # 3. Premier token (code court : "CRU-L4")
-        short = ql.split()[0]
-        if len(short) >= 3:
-            for n in node_names:
-                if n.lower().startswith(short):
-                    return n
-        return None
+        """Nœud pour q (résolveur unique, sans flou) ; system_hint départage les gateways."""
+        r = gi.resolve(q, kinds={"node"}, min_level=SUBSTRING, prefer_system=system_hint or "")
+        return r.matches[0].entity.id if r.matches else None
 
     # Essai avec le nom nettoyé complet
     result = _match(clean)

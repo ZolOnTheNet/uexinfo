@@ -44,6 +44,8 @@ import uexinfo.cli.commands.voyage       # noqa: F401
 import uexinfo.cli.commands.calc         # noqa: F401
 import uexinfo.cli.commands.sync         # noqa: F401
 import uexinfo.cli.commands.note         # noqa: F401
+import uexinfo.cli.commands.evolution    # noqa: F401
+import uexinfo.cli.commands.game         # noqa: F401
 
 from uexinfo.cli.runner import run_command
 from uexinfo.cli.context import AppContext
@@ -69,12 +71,8 @@ _QUIT_CMDS   = frozenset({"quit", "exit", "bye", "quitter", "/quit", "/exit", "/
 
 def _resolve_game_log_path(cfg: dict) -> Path | None:
     """Chemin vers Game.log selon l'environnement actif (live/ptu, cf. [version])."""
-    gl_cfg = cfg.get("gamelog", {})
-    env = cfg.get("version", {}).get("active", "live")
-    install_path = gl_cfg.get(f"install_path_{env}", "") or gl_cfg.get("install_path_live", "")
-    if not install_path:
-        return None
-    return Path(install_path) / "Game.log"
+    from uexinfo.gamelog.follow import game_log_path
+    return game_log_path(cfg)
 
 
 def _clipboard_win(text: str) -> None:
@@ -142,6 +140,18 @@ class OverlayServer:
             pass
         self.ctx = AppContext(cfg=cfg, cache=cache)
         self.ctx.location_index = LocationIndex(cache)
+        # Versions SC / changements d'univers (D3)
+        try:
+            from uexinfo.cache.evolution import EvolutionStore
+            from uexinfo.cli.commands.evolution import run_check, sync_price_cache
+            self.ctx.evolution = EvolutionStore()
+            _vc = cfg.get("version", {})
+            self.ctx.evolution.observe_version(_vc.get(_vc.get("active", "live"), ""))
+            if not self.ctx.evolution.state["known_ids"] or self.ctx.evolution.watching():
+                run_check(self.ctx)
+            sync_price_cache(self.ctx)
+        except Exception as _e:
+            print(f"[overlay] evolution: {_e}", flush=True)
         self.ctx.player = Player.from_config(cfg.get("player", {}))
         # Migration clés terminaux → str(id) dans scan_prices.json
         try:
@@ -253,6 +263,11 @@ class OverlayServer:
                     else:
                         self._select_indices = None
                     self._select_event.set()
+                    continue
+
+                # ── Suivi en direct /game live : arrêt (bouton ■ ou Échap) ─
+                if t == "game_live_stop":
+                    self._stop_game_live()
                     continue
 
                 # ── Annulation (double-Esc) ────────────────────────────────
@@ -471,6 +486,15 @@ class OverlayServer:
             await self._send_status(ws)
 
         await ws.send(json.dumps({"type": "done"}))
+
+        # /game live | /game stop
+        live_req = getattr(self.ctx, "_game_live", None)
+        if live_req:
+            self.ctx._game_live = None
+            self._stop_game_live()
+            if not live_req.get("stop"):
+                self._game_live_task = asyncio.create_task(
+                    self._game_live_loop(ws, live_req["path"], live_req.get("filter", "")))
 
         # Envoyer un éditeur pour chaque nouveau ScanResult (tous les types de scan)
         new_scans = getattr(self.ctx, "scan_history", [])[prev_history_len:]
@@ -1721,6 +1745,56 @@ class OverlayServer:
         asyncio.run_coroutine_threadsafe(
             self._broadcast_raw(msg), self._loop
         )
+
+    # ── /game live : suivi en direct de Game.log ─────────────────────────────
+
+    def _stop_game_live(self) -> None:
+        task = getattr(self, "_game_live_task", None)
+        if task and not task.done():
+            task.cancel()
+        self._game_live_task = None
+
+    async def _game_live_loop(self, ws, path: str, needle: str) -> None:
+        """Pousse les nouvelles lignes de Game.log (interprétées si possible) toutes les 0,5 s."""
+        from uexinfo.gamelog.events import recognize
+        from uexinfo.gamelog.follow import LogFollower, tail_lines
+        from uexinfo.gamelog.lines import is_spam, parse_line
+
+        needle_l = needle.lower()
+
+        def _fmt(raw: str) -> dict:
+            ev = recognize(raw)
+            ll = parse_line(raw)
+            return {"ts": ll.ts.strftime("%H:%M:%S") if ll.ts else "",
+                    "kind": ev.kind if ev else "", "summary": ev.summary if ev else "",
+                    "verified": bool(ev and ev.verified), "raw": raw[:400]}
+
+        def _keep(raw: str) -> bool:
+            return bool(raw.strip()) and not is_spam(raw) and (not needle_l or needle_l in raw.lower())
+
+        loop = asyncio.get_event_loop()
+        follower = LogFollower(path, from_end=True)
+        try:
+            await ws.send(json.dumps({"type": "game_live_start", "path": path, "filter": needle}))
+            first = await loop.run_in_executor(None, tail_lines, path, 2000)
+            batch = [_fmt(l) for l in first if _keep(l)][-15:]
+            if batch:
+                await ws.send(json.dumps({"type": "game_live", "lines": batch}))
+            while True:
+                lines = await loop.run_in_executor(None, follower.poll)
+                batch = [_fmt(l) for l in lines if _keep(l)]
+                if batch:
+                    await ws.send(json.dumps({"type": "game_live", "lines": batch[-200:]}))
+                await asyncio.sleep(0.5)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:  # fichier illisible, websocket fermé…
+            print(f"[overlay] game live: {e}", flush=True)
+        finally:
+            try:
+                await ws.send(json.dumps({"type": "game_live_end"}))
+            except Exception:
+                pass
 
     async def _broadcast_raw(self, msg: str) -> None:
         """Envoie un message brut JSON à tous les clients connectés."""

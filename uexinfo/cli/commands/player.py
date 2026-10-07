@@ -58,10 +58,14 @@ def _resolve_location(token: str, ctx) -> tuple[str, int]:
     # "@TDD_-_Cloudview_Center_-_Orison" résolvait vers une boutique sans
     # rapport plutôt que le terminal TDD visé).
     query = token.lstrip("@").replace("_", " ")
-    entries = ctx.location_index.search(query, limit=1)
-    if entries:
-        entry = entries[0]
-        return entry.name, (entry.entity_id if entry.type == "terminal" else 0)
+    from uexinfo.display.formatter import terminal_short_name
+    from uexinfo.names import resolve
+    r = resolve(ctx, query, kinds={"system", "planet", "terminal"})
+    best = r.best
+    if best is not None:
+        if r.matches[0].entity.kind == "terminal":
+            return terminal_short_name(best.name), best.id
+        return best.name, 0
     return query, 0  # fallback : utiliser tel quel, id inconnu
 
 

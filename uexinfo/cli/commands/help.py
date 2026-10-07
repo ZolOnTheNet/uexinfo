@@ -30,10 +30,35 @@ _COMMANDS = {
     "dest":    "Définir ou effacer la destination  (/dest clear pour effacer)",
     "=":       "Calculatrice  (/calc — ex: = 16x6  = 100/3  = (12+8)*5)",
     "note":    "Notes personnelles par lieu",
+    "evolution": "Changement de version / d'univers SC  (/scevolution aussi)",
+    "game":    "Lecteur du Game.log : état, événements, suivi en direct  (/jeu aussi)",
     "exit":    "Quitter l'application  (/quit et /bye aussi)",
 }
 
 _DETAILS = {
+    "game": (
+        "/game                    État déduit du log : joueur, vaisseau, lieu, shard, commerce, missions\n"
+        "/game events [n] [-d]    Derniers événements reconnus (-d : avec la ligne brute)\n"
+        "/game tail [n] [texte]   Dernières lignes brutes, interprétées si possible\n"
+        "/game find <texte>       Lignes contenant <texte>\n"
+        "/game stats              Catégories <…> présentes dans le log\n"
+        "/game live [texte]       Suivi en direct dans un panneau (■ Arrêter ou Échap)\n"
+        "/game stop               Arrêter le suivi en direct\n"
+        "/game replay <fichier>   Rejouer un autre log (ex: logbackups)\n"
+        "/game extract            Extrait anonymisé (1-2 lignes par catégorie) pour créer des tests\n\n"
+        "(?) = format pas encore confirmé sur un vrai Game.log.\n"
+        "Dossier du jeu : /config gamelog.install_path_live <dossier LIVE>\n"
+        "Hors overlay : python -m uexinfo.gamelog <fichier> [--debug] [--all]"
+    ),
+    "evolution": (
+        "/evolution            État : version détectée, surveillance, lieux ajoutés/retirés\n"
+        "/evolution oui        L'univers a changé (aussi si vous ne savez pas)\n"
+        "/evolution non        Rien n'a changé : distances et graphe conservés\n"
+        "/evolution check      Comparer tout de suite les lieux UEX à la référence\n\n"
+        "La question est posée automatiquement à chaque changement de version majeur.mineur\n"
+        "(4.10 → 4.11, pas 4.10.0 → 4.10.1), une seule fois par version.\n"
+        "Après « oui » : surveillance 7 jours, distances et tailles de conteneurs re-téléchargées."
+    ),
     "player": (
         "/player info                      État joueur (vaisseau, position, dest)\n"
         "/player ship add <nom> [scu]      Ajouter un vaisseau\n"

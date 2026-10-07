@@ -32,14 +32,6 @@ class SCTradeClient:
 
     # ── Endpoints publics ─────────────────────────────────────────────────────
 
-    def commodity_items(self) -> list[dict]:
-        """GET /api/commodity/items — liste des commodités."""
-        return self._get("/api/commodity/items")
-
-    def ships(self) -> list[dict]:
-        """GET /api/ships — liste des vaisseaux."""
-        return self._get("/api/ships")
-
     def crowdsource_listings(
         self,
         page: int = 0,
