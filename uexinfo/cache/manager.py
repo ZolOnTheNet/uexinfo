@@ -37,12 +37,24 @@ _STATIC_FILES = {
 _console = Console()
 
 
+def _flag(value, default: int = 0) -> int:
+    """0/1 UEX → int. Absent ⇒ `default`. (Avant : `int(v or 1)` changeait 0 en 1,
+    si bien qu'aucun terminal n'apparaissait jamais comme fermé.)"""
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 class CacheManager:
     def __init__(self, ttl_static: int = 86400):
         self.ttl_static = ttl_static
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.commodities: list[Commodity] = []
         self.terminals: list[Terminal] = []
+        self.closed_terminals: list[Terminal] = []   # is_available=0 chez UEX (D10)
         self.star_systems: list[StarSystem] = []
         self.planets: list[Planet] = []
         self.vehicles: list[Vehicle] = []
@@ -83,6 +95,7 @@ class CacheManager:
                 path.unlink()
         self.commodities = []
         self.terminals   = []
+        self.closed_terminals = []
         self.star_systems = []
         self.planets     = []
         self.vehicles    = []
@@ -160,6 +173,7 @@ class CacheManager:
                 setattr(self, key, parsed)
                 progress.update(task, advance=1, count=f"{len(parsed)} entrées")
 
+        self._split_closed_terminals()
         _console.print(
             f"[green]✓[/green] Cache mis à jour — "
             f"[cyan]{len(self.commodities)}[/cyan] commodités, "
@@ -191,6 +205,15 @@ class CacheManager:
             with open(vpath, encoding="utf-8") as f:
                 raw = json.load(f)
             self.vehicles = self._parse_vehicles(raw)
+        self._split_closed_terminals()
+
+    def _split_closed_terminals(self) -> None:
+        """Terminaux fermés chez UEX (is_available=0) mis de côté (décision D10) :
+        absents des recherches, de la complétion, de /info et /trade. Gardés dans
+        closed_terminals pour reconnaître un ancien ID (scan, position enregistrée)."""
+        everything = self.terminals + self.closed_terminals
+        self.terminals = [t for t in everything if t.is_available != 0]
+        self.closed_terminals = [t for t in everything if t.is_available == 0]
 
     def _save(self, key: str, data: list) -> None:
         path = DATA_DIR / _STATIC_FILES[key]
@@ -260,7 +283,7 @@ class CacheManager:
             is_buyable=int(d.get("is_buyable") or 0),
             is_sellable=int(d.get("is_sellable") or 0),
             is_illegal=int(d.get("is_illegal") or 0),
-            is_available=int(d.get("is_available") or 1),
+            is_available=_flag(d.get("is_available"), default=1),
             is_refinable=int(d.get("is_refinable") or 0),
             is_extractable=int(d.get("is_extractable") or 0),
             is_harvestable=int(d.get("is_harvestable") or 0),
@@ -297,7 +320,7 @@ class CacheManager:
             id_poi=int(d.get("id_poi") or 0),
             id_faction=int(d.get("id_faction") or 0),
             max_container_size=int(d.get("max_container_size") or 0),
-            is_available=int(d.get("is_available") or 1),
+            is_available=_flag(d.get("is_available"), default=1),
             is_player_owned=int(d.get("is_player_owned") or 0),
             has_loading_dock=int(d.get("has_loading_dock") or 0),
             has_docking_port=int(d.get("has_docking_port") or 0),
@@ -323,7 +346,7 @@ class CacheManager:
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
             code=d.get("code") or "",
-            is_available=int(d.get("is_available") or 1),
+            is_available=_flag(d.get("is_available"), default=1),
         )
 
     @staticmethod
@@ -349,7 +372,7 @@ class CacheManager:
             orbit_name=d.get("orbit_name") or "",
             id_faction=int(d.get("id_faction") or 0),
             faction_name=d.get("faction_name") or "",
-            is_available=int(d.get("is_available") or 1),
+            is_available=_flag(d.get("is_available"), default=1),
         )
 
     @staticmethod
@@ -366,7 +389,7 @@ class CacheManager:
             is_planet=int(d.get("is_planet") or 0),
             is_star=int(d.get("is_star") or 0),
             is_man_made=int(d.get("is_man_made") or 0),
-            is_available=int(d.get("is_available") or 1),
+            is_available=_flag(d.get("is_available"), default=1),
         )
 
     @staticmethod
@@ -384,7 +407,7 @@ class CacheManager:
             id_moon=int(d.get("id_moon") or 0),
             id_faction=int(d.get("id_faction") or 0),
             faction_name=d.get("faction_name") or "",
-            is_available=int(d.get("is_available") or 1),
+            is_available=_flag(d.get("is_available"), default=1),
             is_landable=int(d.get("is_landable") or 0),
             is_decommissioned=int(d.get("is_decommissioned") or 0),
             is_lagrange=int(d.get("is_lagrange") or 0),
@@ -418,7 +441,7 @@ class CacheManager:
             moon_name=d.get("moon_name") or "",
             id_faction=int(d.get("id_faction") or 0),
             faction_name=d.get("faction_name") or "",
-            is_available=int(d.get("is_available") or 1),
+            is_available=_flag(d.get("is_available"), default=1),
             is_landable=int(d.get("is_landable") or 0),
             is_decommissioned=int(d.get("is_decommissioned") or 0),
             has_trade_terminal=int(d.get("has_trade_terminal") or 0),
@@ -450,7 +473,7 @@ class CacheManager:
             moon_name=d.get("moon_name") or "",
             id_faction=int(d.get("id_faction") or 0),
             faction_name=d.get("faction_name") or "",
-            is_available=int(d.get("is_available") or 1),
+            is_available=_flag(d.get("is_available"), default=1),
             has_trade_terminal=int(d.get("has_trade_terminal") or 0),
             has_habitation=int(d.get("has_habitation") or 0),
             has_refinery=int(d.get("has_refinery") or 0),

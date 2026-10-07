@@ -20,3 +20,4 @@
 **D6** `uexinfo/names/` (`tests/names/`), branché sur `/info`, `/trade`, `/go`, `/sync`, scans, `LocationIndex`.
 | D8 | `/game` | Lecteur du Game.log avec suivi en direct (bouton ■ Arrêter / Échap). Formats « S » à confirmer sur de vrais extraits (`/game extract`). | ✅ 🔧 |
 | D9 🔧 | Filtre système de `/info` | **Vient uniquement de `/select`**. Sans `/select system`, tous les systèmes sont affichés. Avant, le système du joueur filtrait par défaut, même après `/select clear`. | ✅ 🔧 |
+| D10 🔧 | Nettoyage de la base | Terminaux fermés chez UEX (`is_available=0`) écartés au chargement. Prix et scans : **version courante ou, au pire, la précédente** présente, sans trou au changement de version. Point unique : `DataManager.fetch_prices` → `clean_price_rows` (`rules/version.keep_recent_rows`). | ✅ 🔧 |

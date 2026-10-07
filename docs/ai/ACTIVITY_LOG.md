@@ -3,6 +3,23 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-07 (suite 4) — D10 : nettoyer la base sans trou
+
+**Décision :** nettoyer à la source, mais toujours afficher un prix. Au pire, celui de la version précédente.
+
+**Fait :**
+- Bug : `int(is_available or 1)` changeait 0 en 1. Aucun terminal n'apparaissait jamais comme fermé. Corrigé par `_flag`.
+- `CacheManager._split_closed_terminals` : 56 terminaux fermés sur 826 sont mis de côté (`closed_terminals`) et absents des recherches, de la complétion, de `/info` et de `/trade`.
+- `rules/version.kept_versions` et `keep_recent_rows` : la version courante, plus la plus récente version présente juste en dessous.
+- `data_manager.clean_price_rows` : point unique, appliqué dans `fetch_prices` (cache, API et cache périmé).
+- `ScanPriceStore.get_rows` : les scans de la version précédente restent visibles. Avant, seule la version exacte passait.
+
+**Vérifié :** `/info RMC` sur données réelles ne contient plus aucune ligne à 10 710 (Platinum Bay et Dumper's Depot, 4.8.3, fermés).
+
+**Reste :** des appels directs à `UEXClient.get_prices` dans `voyage`, `scan` et `sync` (B3) ne passent pas encore par ce nettoyage.
+
+**Tests :** 179 réussis.
+
 ## 2026-10-07 (suite 3) — pull refusé, instance masquée, filtre de `/info`
 
 - Le `git pull` de l'utilisateur échouait à cause de modifications locales non commitées. Il tournait donc toujours sur `fd5089e` : d'où « Seraphim Station » et l'absence de trade. Je lui ai indiqué `git stash` puis `git pull`.
