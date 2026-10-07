@@ -234,6 +234,14 @@ class _Win32HotkeyListener:
                 pass
 
 
+def _port_in_use(host: str, port: int) -> bool:
+    """True si un serveur écoute déjà sur host:port."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        return sock.connect_ex((host, port)) == 0
+
+
 def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     """Point d'entrée de l'overlay (appelé par __main__.py)."""
 
@@ -272,6 +280,17 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     close_mode = ov_cfg.get("close", "normal")    # "normal" | "dblclick"
 
     print(f"[overlay] Démarrage — ws://localhost:{port}  hotkey: {hotkey}")
+
+    # ── 0. Port déjà pris = une autre instance tourne (souvent l'ancienne version) ──
+    # Sans ce contrôle, le serveur échoue en silence et la nouvelle fenêtre se
+    # connecte au serveur de l'ANCIENNE instance : on croit tester le nouveau code.
+    if _port_in_use("127.0.0.1", port):
+        print(f"[overlay] ✗ Le port {port} est déjà utilisé — uexinfo semble déjà lancé.")
+        print("  Fermez l'autre fenêtre uexinfo (ou le processus python.exe correspondant)")
+        print("  puis relancez. Pour trouver le processus (PowerShell) :")
+        print(f"    Get-NetTCPConnection -LocalPort {port} | Select-Object OwningProcess")
+        print(f"  Autre port possible : [overlay] port = {port + 1} dans config.toml")
+        sys.exit(1)
 
     # ── 1. Démarrer le serveur WebSocket ─────────────────────────────────────
     # L'import de server.py redirige console AVANT les commandes → doit être
