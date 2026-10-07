@@ -3,6 +3,10 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-08 — .gitignore : versions de SC-Datarunner-UEX et worktrees
+
+Ajout de `extprg/SC-Datarunner-UEX*` (archives `.7z` et dossiers `-vX.Y.Z/`) et `.claude/worktrees/`. Aucun fichier supprimé ni désuivi : seules des règles d'exclusion sont ajoutées. Tests : inchangés.
+
 ## 2026-10-08 — log SC-Datarunner réel : lecture cassée, homonymes, corrections non journalisées
 
 **Entrée :** un vrai log Datarunner (Pyro Gateway côté Nyx, 2 scans d'achat et 2 de vente), plus des captures de l'interface de Datarunner. Extrait anonymisé dans `tests/fixtures/datarunner/`.
