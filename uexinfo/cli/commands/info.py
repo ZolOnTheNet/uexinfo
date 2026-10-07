@@ -353,23 +353,22 @@ def _player_system(ctx) -> str:
     return ""
 
 
-def _default_system_filter(ctx, player_sys: str) -> list[str] | None:
-    """Filtre système par défaut pour /info <commodité> — unifie avec /select.
+def _default_system_filter(ctx, player_sys: str = "") -> list[str] | None:
+    """Filtre système implicite de /info — vient UNIQUEMENT de /select (décision D9).
 
-    Priorité : liste "include" de /select (choix persistant explicite de
-    l'utilisateur, ex: "pyro" configuré via /select system) > système actuel
-    du joueur. La liste "exclude" de /select s'applique ensuite dans tous
-    les cas. N'intervient que sur le filtre implicite (sys_filter=None côté
-    appelant) — --all ou --<Système> explicite sur /info reste une
-    intention utilisateur qui prime sur /select.
+    Sans /select system : aucun filtre, tous les systèmes sont affichés.
+    Avant, le système du joueur servait de filtre par défaut, ce qui masquait par
+    exemple Pyro Gateway (Nyx) depuis Stanton même après /select clear.
+    « include » de /select = liste des systèmes gardés ; « exclude » retire des
+    systèmes. --all ou --<Système> explicite sur /info prime toujours.
     """
     sel = ctx.cfg.get("filters", {}).get("system", {})
     sel_inc = [s.lower() for s in sel.get("include", [])] if isinstance(sel, dict) else []
     sel_exc = [s.lower() for s in sel.get("exclude", [])] if isinstance(sel, dict) else []
-
-    base = sel_inc if sel_inc else ([player_sys] if player_sys else [])
-    if sel_exc:
-        base = [s for s in base if s not in sel_exc]
+    if not sel_inc and not sel_exc:
+        return None
+    base = sel_inc or [s.name.lower() for s in (getattr(ctx.cache, "star_systems", None) or [])]
+    base = [s for s in base if s not in sel_exc]
     return base or None
 
 
@@ -823,7 +822,7 @@ def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx,
     1. Destination du joueur (si définie)
     2. Prix de vente (décroissant)
     Exclut le terminal d'origine. Retourne les 3 meilleurs acheteurs.
-    sys_filter : None=système joueur, []=tous, [str,…]=liste explicite.
+    sys_filter : None=filtre /select (aucun si vide), []=tous, [str,…]=liste explicite.
     """
     if not id_commodity:
         return []
@@ -833,7 +832,7 @@ def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx,
     # Calcul du filtre effectif (même logique que _show_commodity)
     player_sys = _player_system(ctx)
     if sys_filter is None:
-        effective_filter: list[str] | None = [player_sys] if player_sys else None
+        effective_filter: list[str] | None = _default_system_filter(ctx, player_sys)
     elif sys_filter == []:          # --all
         effective_filter = None
     else:

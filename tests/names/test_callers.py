@@ -85,3 +85,15 @@ def test_term_sys_cell_no_duplicate_system():
                                  "star_system_name": "Stanton"}, maxlen=40)) == "Pyro Gateway (Stanton)"
     assert strip(_term_sys_cell({"terminal_name": "Admin - Seraphim",
                                  "star_system_name": "Stanton"}, maxlen=40)) == "Seraphim  (Stanton)"
+
+
+# ── D9 : sans /select, /info n'applique aucun filtre système ──────────────────
+def test_default_system_filter_comes_only_from_select(uex_cache):
+    from types import SimpleNamespace
+    from uexinfo.cli.commands.info import _default_system_filter
+    ctx = SimpleNamespace(cfg={}, cache=uex_cache)
+    assert _default_system_filter(ctx, "stanton") is None                 # /select clear
+    ctx.cfg = {"filters": {"system": {"include": ["Pyro"], "exclude": []}}}
+    assert _default_system_filter(ctx, "stanton") == ["pyro"]
+    ctx.cfg = {"filters": {"system": {"include": [], "exclude": ["Pyro"]}}}
+    assert set(_default_system_filter(ctx, "stanton")) == {"stanton", "nyx"}
