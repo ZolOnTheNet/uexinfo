@@ -463,6 +463,18 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         print_error(f"Terminal de destination introuvable : {dest_loc}")
         return
 
+    # Une position/destination enregistrée peut pointer une boutique sans prix de
+    # marchandise (« Landing Services - Seraphim Station ») : prendre le terminal
+    # de commerce du même lieu (règle c, uexinfo/names).
+    from uexinfo.names import trading_terminal
+    for label, t in (("origine", origin), ("destination", dest)):
+        tt = trading_terminal(ctx.cache.terminals, t)
+        if tt is not t:
+            console.print(f"[{C.DIM}]Terminal de commerce utilisé pour l'{label} : {tt.name} "
+                          f"(au lieu de {t.name})[/{C.DIM}]")
+    origin = trading_terminal(ctx.cache.terminals, origin)
+    dest = trading_terminal(ctx.cache.terminals, dest)
+
     ship_cargo = cargo_override or _player_cargo(ctx)
     if ship_cargo == 0:
         print_warn(f"Vaisseau actif non défini ou cargo = 0 {C.SCU}. Utilisez /ship set <nom> "

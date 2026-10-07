@@ -123,6 +123,31 @@ def _service_priority(t) -> int:
     return 4
 
 
+def terminal_group(t) -> str:
+    """Clé du LIEU d'un terminal (système + station/ville/lieu) : tous les terminaux
+    d'une même station partagent cette clé."""
+    name = getattr(t, "name", "") or ""
+    loc = name.rsplit(" - ", 1)[-1].strip() if " - " in name else ""
+    place = getattr(t, "space_station_name", "") or getattr(t, "city_name", "") or ""
+    return norm(f"{getattr(t, 'star_system_name', '') or ''}|{place or loc or name}")
+
+
+def trading_terminal(terminals, t):
+    """Terminal de commerce (type « commodity ») du même lieu que `t`, selon la règle c.
+
+    Une position enregistrée peut désigner une boutique (« Landing Services -
+    Seraphim Station », « Hot Dogs - … ») qui n'a aucun prix de marchandise :
+    pour le commerce, c'est le terminal principal du lieu qui compte.
+    Renvoie `t` inchangé s'il est déjà de commerce ou si le lieu n'en a aucun.
+    """
+    if t is None or (getattr(t, "type", "") or "") == "commodity":
+        return t
+    key = terminal_group(t)
+    same = [x for x in terminals or [] if (getattr(x, "type", "") or "") == "commodity"
+            and terminal_group(x) == key]
+    return min(same, key=terminal_priority) if same else t
+
+
 # ── Index ─────────────────────────────────────────────────────────────────────
 
 def _uniq(items: Iterable[str]) -> tuple[str, ...]:
@@ -264,7 +289,7 @@ def build_index(cache, graph=None) -> NameIndex:
         loc = t.name.rsplit(" - ", 1)[-1].strip() if " - " in t.name else ""
         place = g(t, "space_station_name") or g(t, "city_name")
         service = t.name.split(" - ", 1)[0].strip() if " - " in t.name else ""
-        group = norm(f"{g(t, 'star_system_name')}|{place or loc or t.name}")
+        group = terminal_group(t)
         short = terminal_short_name(t.name)
         # Nom court propre au terminal seulement s'il garde son service (« TDD - Area 18 ») ;
         # sinon c'est un nom du lieu (« Baijini »), qui relève de la règle c.

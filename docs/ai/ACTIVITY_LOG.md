@@ -3,6 +3,23 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-07 (suite 2) — « je choisis Seraphim Station, il doit comprendre »
+
+**Cause :**
+- `LocationIndex` regroupait les terminaux par nom court. « Seraphim » (Admin) et « Seraphim Station » (Landing Services, Hot Dogs…) étaient donc deux lieux distincts.
+- Choisir « Seraphim Station » enregistrait une boutique, sans aucun prix de marchandise.
+- `/trade` réutilisait cet ID : « Aucune commodité commune ».
+
+**Fait :**
+- `names.terminal_group` (clé du lieu) et `names.trading_terminal` (terminal de commerce du même lieu, règle c).
+- `LocationIndex` : une seule entrée par lieu, portée par le terminal de commerce principal.
+- `@lieu` (player) et `/go`/`/dest` enregistrent toujours le terminal de commerce du lieu.
+- `/trade` remplace une position ou destination déjà enregistrée sur une boutique par le terminal de commerce du lieu, et l'affiche.
+
+**Vérifié :** sur les données UEX réelles, position « Landing Services - Seraphim Station » puis `/trade cargo 512` donnent Waste +87 % et RMC −6 %.
+
+**Tests :** 170 réussis.
+
 ## 2026-10-07 (suite) — sortie : « Déconnecté — reconnexion dans 2s »
 
 **Cause :** à la sortie (`/quit`, double-clic ✕), le serveur s'arrête, ce qui ferme le WebSocket. La page ne savait pas que la fermeture était voulue : elle affichait « Déconnecté » et tentait de se reconnecter.

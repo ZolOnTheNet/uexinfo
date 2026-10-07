@@ -64,6 +64,8 @@ def _resolve_location(token: str, ctx) -> tuple[str, int]:
     best = r.best
     if best is not None:
         if r.matches[0].entity.kind == "terminal":
+            from uexinfo.names import trading_terminal
+            best = trading_terminal(ctx.cache.terminals, best)
             return terminal_short_name(best.name), best.id
         return best.name, 0
     return query, 0  # fallback : utiliser tel quel, id inconnu
