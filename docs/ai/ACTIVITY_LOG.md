@@ -3,6 +3,26 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-08 — log SC-Datarunner réel : lecture cassée, homonymes, corrections non journalisées
+
+**Entrée :** un vrai log Datarunner (Pyro Gateway côté Nyx, 2 scans d'achat et 2 de vente), plus des captures de l'interface de Datarunner. Extrait anonymisé dans `tests/fixtures/datarunner/`.
+
+**Constats et corrections :**
+- **Aucune marchandise n'était lue.** Datarunner a ajouté le champ `uex_name=` entre `id` et `quantity`, et la regex à ordre fixe ne correspondait plus. Remplacée par `parse_commodity_fields`, qui lit champ par champ, sans ordre ni liste fermée. `uex_name` est préféré quand il est présent. L'ancien format (dict) reste lu.
+- **Terminal mal découpé** (« Pyro Gateway' - ») sur `Matched terminal: 'X' -> Y`. Corrigé par `parse_terminal_line`, qui prend le nom canonique après `->`.
+- **Homonymes** (« Pyro Gateway » existe côté Stanton et côté Nyx) : `_resolve_autopos_terminal` passe par le résolveur unique (profil OCR), puis :
+  1. `rules/scan_match` compare marchandises et prix avec UEX ;
+  2. `_resolve_scan_batch` aligne les scans indécis sur un scan décisif de la même série ;
+  3. `_gamelog_system` prend le système lu dans le Game.log ;
+  4. sinon, le système du joueur.
+  Sur données réelles : la vente désigne Nyx (3 correspondances contre 2), l'achat est indécidable par les prix (identiques des deux côtés) et s'aligne sur la vente.
+- **Corrections faites dans Datarunner** (ajout de Waste, Tin, Organics, Gold ; quantités ; « Ship Ammunition ») : elles **ne sont pas journalisées**. `reported_count` compte les `ids_reports` des réponses UEX (8 envoyés contre 4 lus) et `_display_scan` avertit que le scan est incomplet.
+- **Aucune trace dans le log du terminal choisi par l'utilisateur dans Datarunner.** UEX n'a pas encore publié les envois (encore en attente).
+
+**Tests :** 193 réussis.
+
+**Suite :** de vrais extraits du Game.log à l'arrivée (`/game extract`) pour fiabiliser « où on arrive », comme Stelliverse.
+
 ## 2026-10-07 (suite 4) — D10 : nettoyer la base sans trou
 
 **Décision :** nettoyer à la source, mais toujours afficher un prix. Au pire, celui de la version précédente.

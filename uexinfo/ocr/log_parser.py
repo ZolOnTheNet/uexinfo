@@ -30,17 +30,23 @@ RE_COMMODITY = re.compile(
 # — ce n'est plus un littéral dict Python (ast.literal_eval échoue), vérifié
 # sur un vrai log après mise à jour de SC-Datarunner (39 occurrences, format
 # stable). RE_COMMODITY (ancien format) reste en repli pour compatibilité.
-RE_COMMODITY_V2 = re.compile(
-    r"Extracted commodity: CommodityData\("
-    r"name=StrConfidence\(value='(?P<name>[^']*)', confidence=(?P<name_conf>\d+)\), "
-    r"id=(?P<id>\d+), "
-    r"quantity=IntConfidence\(value=(?P<quantity>\d+|None), confidence=(?P<quantity_conf>\d+)\), "
-    r"stock=StrConfidence\(value='(?P<stock>[^']*)', confidence=(?P<stock_conf>\d+)\), "
-    r"stock_status=IntConfidence\(value=(?P<stock_status>\d+|None), confidence=(?P<stock_status_conf>\d+)\), "
-    r"price=IntConfidence\(value=(?P<price>\d+|None), confidence=(?P<price_conf>\d+)\)"
+# Format « CommodityData(...) » (SC-Datarunner ≥ 2026) : chaque champ est
+# `nom=StrConfidence(value='…', confidence=N)`, `nom=IntConfidence(value=N|None,
+# confidence=N)` ou une valeur simple (`id=201`, `uex_name='…'`). La lecture se fait
+# CHAMP PAR CHAMP, sans ordre ni liste fermée : un champ ajouté par une mise à jour
+# (ex. `uex_name`, apparu en octobre 2026 entre `id` et `quantity`, qui cassait
+# l'ancienne regex à ordre fixe → plus aucune marchandise lue) est simplement ignoré
+# ou exploité s'il est utile.
+RE_COMMODITY_DATA = re.compile(r"Extracted commodity: CommodityData\((?P<body>.*)\)\s*$")
+_RE_CONF_FIELD = re.compile(
+    r"(?P<key>\w+)=(?:Str|Int|Float)Confidence\(value=(?P<val>'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"|[^,()]+),"
+    r"\s*confidence=(?P<conf>-?\d+)\)"
 )
+_RE_PLAIN_FIELD = re.compile(r"(?P<key>\w+)=(?P<val>'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"|-?\d+|None)(?=\s*(?:,|$))")
+# Terminal : « Matched terminal: 'OCR' -> Canonique » (le nom canonique, après la
+# flèche, est préféré) ou « Matched terminal: Nom » / « terminal_name: Nom ».
 RE_TERMINAL = re.compile(
-    r"image_processing\.\w+ - INFO - (?:Matched terminal|terminal_name): ['\"]?([\w][\w\s\-']+)['\"]?"
+    r"image_processing\.\w+ - INFO - (?:Matched terminal|terminal_name):\s*(?P<raw>.+?)\s*$"
 )
 RE_SUBMISSION = re.compile(
     r"data_management\.api - INFO - Data successfully sent to API\. Response: (.+)$"
@@ -224,29 +230,62 @@ class LogParser:
         return _parse_commodity_line(line)
 
 
+def _unquote(v: str) -> str:
+    v = v.strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
+        return v[1:-1].replace("\\'", "'").replace('\\"', '"')
+    return v
+
+
+def _int_or(v, default=None):
+    if v is None:
+        return default
+    v = str(v).strip()
+    if v in ("", "None"):
+        return default
+    try:
+        return int(float(v))
+    except ValueError:
+        return default
+
+
+def parse_commodity_fields(body: str) -> dict[str, tuple[str, int | None]]:
+    """Champs d'un CommodityData(...) → {nom: (valeur brute, confiance|None)}. Pur."""
+    fields: dict[str, tuple[str, int | None]] = {}
+    for m in _RE_CONF_FIELD.finditer(body):
+        fields[m["key"]] = (_unquote(m["val"]), int(m["conf"]))
+    stripped = _RE_CONF_FIELD.sub("", body)
+    for m in _RE_PLAIN_FIELD.finditer(stripped):
+        fields.setdefault(m["key"], (_unquote(m["val"]), None))
+    return fields
+
+
 def _parse_commodity_line(line: str) -> ScannedCommodity | None:
-    m2 = RE_COMMODITY_V2.search(line)
-    if m2:
-        def _int_or(v, default=0):
-            return default if v == "None" else int(v)
-        # Le format distingue la confiance du texte "stock" (StrConfidence) de
-        # celle du niveau numérique stock_status (IntConfidence) — un seul champ
-        # affiché côté uexinfo, donc la plus basse des deux.
-        stock_confidence = min(int(m2.group("stock_conf")), int(m2.group("stock_status_conf")))
+    m = RE_COMMODITY_DATA.search(line)
+    if m:
+        f = parse_commodity_fields(m["body"])
+        if "name" not in f and "uex_name" not in f:
+            return None
+        val = lambda k: f.get(k, (None, None))[0]      # noqa: E731
+        conf = lambda k: f.get(k, (None, None))[1]     # noqa: E731
+        # Nom canonique UEX quand Datarunner le fournit (uex_name), sinon le nom lu.
+        name = val("uex_name") or val("name") or ""
+        confs = [c for c in (conf("stock"), conf("stock_status")) if c is not None]
         return ScannedCommodity(
-            name=m2.group("name") or "",
-            commodity_id=_int_or(m2.group("id")),
-            quantity=_int_or(m2.group("quantity"), None),
-            stock=m2.group("stock") or "",
-            stock_status=_int_or(m2.group("stock_status")),
-            price=_int_or(m2.group("price")),
-            name_confidence=int(m2.group("name_conf")),
-            quantity_confidence=int(m2.group("quantity_conf")),
-            stock_confidence=stock_confidence,
-            price_confidence=int(m2.group("price_conf")),
+            name=name,
+            commodity_id=_int_or(val("id"), 0),
+            quantity=_int_or(val("quantity")),
+            stock=val("stock") or "",
+            stock_status=_int_or(val("stock_status"), 0),
+            price=_int_or(val("price"), 0),
+            name_confidence=conf("name") if conf("name") is not None else 100,
+            quantity_confidence=conf("quantity") if conf("quantity") is not None else 100,
+            # Un seul champ « stock » affiché côté uexinfo : la plus basse des deux confiances.
+            stock_confidence=min(confs) if confs else 100,
+            price_confidence=conf("price") if conf("price") is not None else 100,
         )
 
-    m = RE_COMMODITY.search(line)
+    m = RE_COMMODITY.search(line)          # ancien format : littéral dict Python
     if not m:
         return None
     try:
@@ -261,6 +300,27 @@ def _parse_commodity_line(line: str) -> ScannedCommodity | None:
         stock_status=int(d.get("stock_status") or 0),
         price=int(d.get("price") or 0),
     )
+
+
+def parse_terminal_line(line: str) -> str | None:
+    """Nom du terminal d'une ligne « Matched terminal » (canonique après « -> »). Pur."""
+    m = RE_TERMINAL.search(line)
+    if not m:
+        return None
+    raw = m["raw"]
+    if "->" in raw:
+        raw = raw.rsplit("->", 1)[1]
+    name = _unquote(raw.strip()).strip()
+    return name or None
+
+
+def _reported_count(response: str) -> int:
+    """Nombre de rapports acceptés par UEX dans la réponse JSON d'un envoi (0 si illisible)."""
+    try:
+        data = json.loads(response.strip()).get("data") or {}
+        return len(data.get("ids_reports") or [])
+    except (ValueError, AttributeError):
+        return 0
 
 
 def _parse_log_timestamp(line: str) -> datetime | None:
@@ -320,9 +380,8 @@ def _group_scans(
             current_ts = ts
 
         # Nouveau terminal détecté
-        mt = RE_TERMINAL.search(line)
-        if mt:
-            new_terminal = mt.group(1).strip()
+        new_terminal = parse_terminal_line(line)
+        if new_terminal:
             if new_terminal.lower() != current_terminal.lower():
                 # Changement réel de terminal — clore le lot en cours.
                 _flush_pending(current_ts)
@@ -357,7 +416,9 @@ def _group_scans(
             continue
 
         # Soumission API = fin du scan courant → données validées par l'utilisateur
-        if RE_SUBMISSION.search(line):
+        ms = RE_SUBMISSION.search(line)
+        if ms:
+            n_reports = _reported_count(ms.group(1))
             if current_terminal and current_commodities:
                 results.append(ScanResult(
                     terminal=current_terminal,
@@ -366,9 +427,15 @@ def _group_scans(
                     mode=current_type,
                     validated=True,
                     timestamp=current_ts or datetime.now(),
+                    reported_count=n_reports,
                 ))
                 current_commodities = []
                 # Le terminal et son type persistent (même terminal peut être re-scanné)
+            elif (results and results[-1].validated and results[-1].terminal == current_terminal
+                  and results[-1].mode == current_type):
+                # Plusieurs captures d'une même série envoyées l'une après l'autre :
+                # une réponse par capture, toutes rattachées au scan déjà validé.
+                results[-1].reported_count += n_reports
 
     # Flush du dernier scan sans soumission API → non validé (en attente)
     if current_terminal and current_commodities:

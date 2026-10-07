@@ -165,11 +165,19 @@ def _display_scan(result: ScanResult, ctx) -> None:
         f"  [bold green]✓ validé UEX[/bold green]" if result.validated
         else f"  [{C.DIM}]en attente[/{C.DIM}]"
     ) if result.source == "log" else ""
+    shown = result.resolved_terminal or result.terminal
     console.print(
-        f"\n[bold cyan]{result.terminal}[/bold cyan]"
-        f"  [{C.DIM}]{result.timestamp.strftime('%H:%M:%S')}"
+        f"\n[bold cyan]{shown}[/bold cyan]"
+        + (f"  [{C.DIM}](lu : {result.terminal})[/{C.DIM}]" if shown != result.terminal else "")
+        + f"  [{C.DIM}]{result.timestamp.strftime('%H:%M:%S')}"
         f"  source={result.source}[/{C.DIM}]  {mode_label}{valid_badge}"
     )
+    if getattr(result, "log_incomplete", False):
+        print_warn(
+            f"Datarunner a envoyé {result.reported_count} ligne(s) à UEX, le log n'en décrit que "
+            f"{len(result.commodities)} : corrections faites dans Datarunner non journalisées — "
+            f"valeurs ci-dessous à vérifier (UEX fera foi après validation)."
+        )
 
     if not result.commodities:
         print_warn("Aucune commodité dans ce scan.")
@@ -460,80 +468,108 @@ def _scan_log(ctx, log_path: Path | None, full: bool = False) -> list[ScanResult
 
 # ── Auto-position depuis scan ─────────────────────────────────────────────────
 
-def _resolve_autopos_terminal(terminal_name: str, ctx) -> str:
-    """Résout un nom de terminal vers un nom canonique avec disambiguation.
+def _resolve_autopos_terminal(terminal_name: str, ctx, result=None) -> str:
+    """Nom lu par l'OCR/Datarunner → terminal de commerce UEX canonique.
 
-    Pour les gateways/jump-points présents dans plusieurs systèmes
-    (ex: "Nyx Gateway" côté Stanton ET côté Nyx), on préfère le terminal
-    dont star_system_name correspond au système actuel du joueur.
+    1. Résolveur unique (uexinfo/names, profil OCR) ; un lieu donne son terminal
+       de commerce (règle c), le système du joueur passe devant à égalité.
+    2. Homonymes (« Pyro Gateway » côté Stanton ET côté Nyx — Datarunner n'écrit
+       que le nom affiché) : départagés par les marchandises et prix scannés,
+       comparés aux prix UEX de chaque candidat (rules/scan_match).
+    Le résultat est mémorisé dans `result.resolved_terminal`.
     """
-    from uexinfo.names import terminal_priority as _trading_priority
-
+    if result is not None and getattr(result, "resolved_terminal", ""):
+        return result.resolved_terminal
     if not terminal_name:
         return ""
+    from uexinfo.cli.commands.info import _player_system
+    from uexinfo.names import resolve, trading_terminal
+
     terminals = getattr(ctx.cache, "terminals", None) or []
-    name_lo = terminal_name.lower().strip()
-
-    # 1. Lieu structuré (station/ville) — insensible aux tirets internes du
-    # nom du terminal. Certains terminaux (ex: vaisseaux en vente) ont un nom
-    # du type "INS Jericho - Pyro Gateway" sans le suffixe système que portent
-    # leurs voisins ("Admin - Pyro Gateway (Stanton)") : matcher sur le nom
-    # brut du terminal ferait à tort gagner "INS Jericho" (correspondance
-    # exacte accidentelle) au lieu du vrai terminal de service.
-    exact = [
-        t for t in terminals
-        if (t.space_station_name or t.city_name or "").lower().startswith(name_lo)
-    ]
-
-    # 2. Fallback : correspondance exacte sur le nom du terminal
-    if not exact:
-        exact = [t for t in terminals if t.name.lower() == name_lo
-                 or t.name.lower().endswith(f"- {name_lo}")]
-
-    # 3. Correspondance partielle (le terminal contient le nom scanné)
-    if not exact:
-        exact = [t for t in terminals if name_lo in t.name.lower()]
-
-    if not exact:
+    r = resolve(ctx, terminal_name, kinds={"terminal"}, profile="ocr",
+                prefer_system=_player_system(ctx))
+    if not r.matches:
         return terminal_name  # inconnu : retourner tel quel
 
-    if len(exact) > 1:
-        # Préférer le terminal de commerce (Admin/TDD/Trade) parmi les
-        # services d'une même station plutôt qu'un candidat arbitraire
-        # (restaurant, vaisseau en vente, etc.).
-        best_prio = min(_trading_priority(t) for t in exact)
-        exact = [t for t in exact if _trading_priority(t) == best_prio]
+    candidates = []
+    for t in (r.candidates if r.ambiguous else [r.best]):
+        tt = trading_terminal(terminals, t)
+        if tt not in candidates:
+            candidates.append(tt)
+    chosen = candidates[0]
 
-    if len(exact) == 1:
-        return exact[0].name
+    decided = len(candidates) == 1
+    if not decided and result is not None and result.commodities:
+        from uexinfo.cli.commands.info import _terminal_prices
+        from uexinfo.rules.scan_match import best_terminal
+        scanned = [(c.name, c.price) for c in result.commodities if c.name]
+        by_prices = best_terminal(candidates, scanned, result.mode, lambda t: _terminal_prices(t, ctx))
+        if by_prices is not None:
+            chosen, decided = by_prices, True
+    if not decided:
+        # Système courant lu dans le Game.log du jeu (plus sûr qu'une position
+        # enregistrée qui peut dater) ; sinon l'ordre du résolveur (système du joueur).
+        gsys = _gamelog_system(ctx)
+        same = [t for t in candidates if (t.star_system_name or "").lower() == gsys] if gsys else []
+        if same:
+            chosen = same[0]
 
-    # Plusieurs résultats de même priorité : préférer celui du système actuel du joueur
-    player_sys = ""
-    loc = (ctx.player.location or "").lower()
-    if loc:
-        # Correspondance exacte d'abord (le nom stocké par _apply_autopos est canonique)
-        for t in terminals:
-            if t.name.lower() == loc:
-                player_sys = (t.star_system_name or "").lower()
-                break
-        if not player_sys:
-            # Correspondance partielle (position abrégée ou sans préfixe service)
-            for t in terminals:
-                if loc in t.name.lower() or t.name.lower() in loc:
-                    player_sys = (t.star_system_name or "").lower()
-                    break
-    if not player_sys:
-        player_sys = ctx.cfg.get("player", {}).get("system", "").lower()
-
-    if player_sys:
-        same_sys = [t for t in exact if (t.star_system_name or "").lower() == player_sys]
-        if same_sys:
-            return same_sys[0].name
-
-    return exact[0].name
+    if result is not None:
+        result.resolved_terminal = chosen.name
+        result._resolution_decided = decided
+    return chosen.name
 
 
-def _apply_autopos(terminal_name: str, ctx) -> tuple[str, str] | None:
+def _resolve_scan_batch(results, ctx) -> None:
+    """Résout les terminaux d'une série de scans, puis aligne les scans indécis sur
+    un scan décisif de la MÊME série portant le même nom. Ex. : achats à « Pyro
+    Gateway » (mêmes prix des deux côtés) + ventes juste après au même « Pyro
+    Gateway » (marchandises propres au côté Nyx) ⇒ tous côté Nyx."""
+    from uexinfo.names import norm
+    for r in results:
+        if r.terminal:
+            _resolve_autopos_terminal(r.terminal, ctx, r)
+    decided = {norm(r.terminal): r.resolved_terminal for r in results
+               if r.terminal and getattr(r, "_resolution_decided", False)}
+    for r in results:
+        key = norm(r.terminal)
+        if r.terminal and not getattr(r, "_resolution_decided", False) and key in decided:
+            r.resolved_terminal = decided[key]
+
+
+_GAMELOG_SYS_CACHE: dict = {}
+
+
+def _gamelog_system(ctx) -> str:
+    """Système courant d'après le Game.log (changement de système, code de lieu
+    d'inventaire « Nyx… »/« Stanton3_… »), en minuscules ; « » si inconnu."""
+    import re as _re
+    from uexinfo.gamelog.follow import game_log_path, tail_lines
+    path = game_log_path(getattr(ctx, "cfg", {}) or {})
+    if path is None or not path.is_file():
+        return ""
+    key = (str(path), path.stat().st_mtime)
+    if key in _GAMELOG_SYS_CACHE:
+        return _GAMELOG_SYS_CACHE[key]
+    from uexinfo.gamelog.events import recognize
+    from uexinfo.gamelog.state import GameState
+    st = GameState()
+    for raw in tail_lines(path, 20_000):
+        ev = recognize(raw)
+        if ev:
+            st.apply(ev)
+    known = {s.name.lower() for s in (getattr(ctx.cache, "star_systems", None) or [])}
+    system = (st.system or "").lower()
+    if not system and st.near_location:
+        m = _re.match(r"[A-Za-z]+", st.near_location)
+        if m and m.group(0).lower() in known:
+            system = m.group(0).lower()
+    _GAMELOG_SYS_CACHE.clear()
+    _GAMELOG_SYS_CACHE[key] = system
+    return system
+
+
+def _apply_autopos(terminal_name: str, ctx, result=None) -> tuple[str, str] | None:
     """Propose une mise à jour auto-position (sans l'appliquer).
 
     Le scan peut être relu après coup (ex: pendant un saut quantique, une
@@ -543,7 +579,7 @@ def _apply_autopos(terminal_name: str, ctx) -> tuple[str, str] | None:
 
     Retourne (new_pos, old_pos) si une proposition a été émise, sinon None.
     """
-    new_pos = _resolve_autopos_terminal(terminal_name, ctx)
+    new_pos = _resolve_autopos_terminal(terminal_name, ctx, result)
     if not new_pos:
         return None
     old_pos = ctx.player.location or ""
@@ -622,15 +658,16 @@ def check_log_auto(ctx) -> list[ScanResult]:
         if r.validated:
             _refresh_validated_from_uex(r, ctx)
 
+    _resolve_scan_batch(results, ctx)
     if auto_cfg.get("log_accept", True):
         for r in results:
             _store_result(ctx, r)
 
     # Mode quick : mise à jour auto-position dès détection du changement de log
     if results and ctx.cfg.get("scan", {}).get("log", {}).get("autopos", "off") == "quick":
-        last_terminal = next((r.terminal for r in reversed(results) if r.terminal), None)
-        if last_terminal:
-            _apply_autopos(last_terminal, ctx)
+        last = next((r for r in reversed(results) if r.terminal), None)
+        if last:
+            _apply_autopos(last.terminal, ctx, last)
 
     return results if auto_cfg.get("signal_scan", True) else []
 
@@ -825,7 +862,7 @@ def _apply_smart_rules(result: ScanResult, ctx) -> None:
     max_key     = f"{price_key}_max"
     scu_max_key = "scu_sell_max" if is_sell else "scu_buy_max"
 
-    resolved_name = _resolve_autopos_terminal(result.terminal, ctx)
+    resolved_name = _resolve_autopos_terminal(result.terminal, ctx, result)
     terminal = next(
         (t for t in (ctx.cache.terminals or []) if t.name == resolved_name), None
     )
@@ -920,7 +957,7 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
     # le terminal Admin/commodité a un nom légèrement différent côté UEX (ex.
     # "Admin - Starlight Service" sans "Station", alors que le terminal détecté
     # par l'OCR est "Starlight Service Station").
-    resolved_name = _resolve_autopos_terminal(result.terminal, ctx)
+    resolved_name = _resolve_autopos_terminal(result.terminal, ctx, result)
     name_lower = result.terminal.lower()
     terminal = next(
         (t for t in (ctx.cache.terminals or []) if t.name == resolved_name), None
@@ -1542,7 +1579,7 @@ def _store_result(ctx, result) -> None:
     if (isinstance(result, ScanResult)
             and result.terminal
             and ctx.cfg.get("scan", {}).get("autopos", "off") == "on"):
-        _apply_autopos(result.terminal, ctx)
+        _apply_autopos(result.terminal, ctx, result)
 
 
 def _display_result(result, ctx) -> None:
@@ -1827,6 +1864,7 @@ def cmd_scan(args: list[str], ctx) -> None:
             from uexinfo.ocr.log_parser import LogParser
             LogParser(log_path).advance_to_end()
 
+        _resolve_scan_batch(results, ctx)
         for result in results:
             _store_result(ctx, result)
             _display_scan(result, ctx)
@@ -1834,9 +1872,9 @@ def cmd_scan(args: list[str], ctx) -> None:
         # Auto-position depuis log (mode on ou quick)
         log_autopos = ctx.cfg.get("scan", {}).get("log", {}).get("autopos", "off")  # clé: scan.log.autopos
         if results and log_autopos in ("on", "quick"):
-            last_terminal = next((r.terminal for r in reversed(results) if r.terminal), None)
-            if last_terminal:
-                _apply_autopos(last_terminal, ctx)
+            last = next((r for r in reversed(results) if r.terminal), None)
+            if last:
+                _apply_autopos(last.terminal, ctx, last)
         return
 
     # /scan status
