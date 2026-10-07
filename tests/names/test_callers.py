@@ -65,3 +65,13 @@ def test_location_index_one_entry_per_station(uex_cache):
     seraphim = [e for e in idx.search("seraphim", limit=20, types={"terminal"})
                 if "seraphim" in e.full_path.lower()]
     assert [e.entity_id for e in seraphim] == [259]       # plus de « Seraphim Station » boutique
+
+
+def test_overlay_completion_one_line_per_place_with_trading_terminal(uex_cache):
+    # Signalé : pour « Seraphim Station », aucun Admin ni terminal de commerce proposé.
+    from types import SimpleNamespace
+    from uexinfo.overlay.server import OverlayServer
+    srv = OverlayServer.__new__(OverlayServer)
+    srv.ctx = SimpleNamespace(cache=uex_cache, player=SimpleNamespace(ships=[]))
+    items = srv._dyn_typed("terminal", "seraph")
+    assert [(c["value"], c["hint"]) for c in items] == [("Seraphim Station", "Admin - Seraphim · Stanton")]

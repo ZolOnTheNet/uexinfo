@@ -1611,29 +1611,35 @@ class OverlayServer:
                     results.append(self._mk(name, "vaisseau joueur", insert))
 
         # — Terminaux / lieux ——————————————————————————————————————————————
+        # UNE ligne par lieu (station, ville…) : le nom du lieu, et en indice le
+        # terminal de commerce qui sera utilisé (règle c, uexinfo/names). Avant,
+        # chaque nom court de terminal était proposé (« Seraphim » ET « Seraphim
+        # Station » pour la même station) sans dire lequel permet le commerce.
         if do_loc and self.ctx.cache:
-            from uexinfo.cache.data_manager import _loc_short as _ls
-            q_lower = q.lower().replace("_", " ") if q else ""
-            seen_locs: set[str] = set()
-            match_count = 0
-            limit = 40 if q_lower else 80
+            from uexinfo.names import norm, terminal_group, terminal_priority
+            q_lower = norm(q) if q else ""
+            best_by_place: dict[str, object] = {}
             for t in (self.ctx.cache.terminals or []):
-                name = t.name or ""
-                if not name:
+                if not t.name:
                     continue
-                short = _ls(name)              # "Admin - CRU-L5" → "CRU-L5"
-                if short in seen_locs:
-                    continue
-                seen_locs.add(short)
-                sl = short.lower()
-                insert = short.replace(" ", "_")
-                if q_lower and not (sl.startswith(q_lower) or q_lower in sl):
+                key = terminal_group(t)
+                prev = best_by_place.get(key)
+                if prev is None or terminal_priority(t) < terminal_priority(prev):
+                    best_by_place[key] = t
+            limit = 40 if q_lower else 80
+            items = []
+            for t in best_by_place.values():
+                place = (getattr(t, "space_station_name", "") or getattr(t, "city_name", "")
+                         or t.name.rsplit(" - ", 1)[-1].strip())
+                pl = norm(place)
+                if q_lower and not (pl.startswith(q_lower) or q_lower in pl
+                                    or q_lower in norm(t.name)):
                     continue
                 system = getattr(t, "star_system_name", "") or ""
-                results.append(self._mk(short, f"terminal · {system}", insert))
-                match_count += 1
-                if match_count >= limit:
-                    break
+                trade = t.name if (getattr(t, "type", "") or "") == "commodity" else "pas de commerce"
+                items.append(self._mk(place, f"{trade} · {system}", place.replace(" ", "_")))
+            items.sort(key=lambda c: (not norm(c["value"]).startswith(q_lower), c["value"].lower()))
+            results.extend(items[:limit])
 
         # — Commodités ——————————————————————————————————————————————————————
         if do_com and self.ctx.cache:
