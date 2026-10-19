@@ -38,7 +38,7 @@
 | TTL prix / version SC | `cache/price_cache.py` ; versions et univers : `cache/evolution.py`, `/evolution` |
 | Graphe de transport | `uexinfo/data/transport_network.json` + `models/transport_network.py` |
 | Logs Datarunner | `ocr/log_parser.py` |
-| **Game.log** | `gamelog/` : `lines.py` + `events.py` (parseur pur), `state.py`, `follow.py` (tail), `/game`, `python -m uexinfo.gamelog` ; spec `docs/ai/GAMELOG_SPEC.md` ; ancien `parser.py`/`reader.py`/`arrival.py` (auto-position) |
+| **Game.log** | `gamelog/` : `lines.py` + `events.py` (parseur pur), `state.py` (position, système, morts, menu), `places.py` (codes de lieu → nom + système, **unique**), `follow.py` (tail), `/game`, `python -m uexinfo.gamelog` ; spec `docs/ai/GAMELOG_SPEC.md` ; ancien `parser.py`/`reader.py`/`arrival.py` (auto-position) |
 | Données utilisateur | `~/.uexinfo/` (JSON caches, `config.toml`, `scan_prices.json`, `missions.json`, `voyages.json`) |
 
 ## 3. Taille des fichiers (points chauds du refactoring)

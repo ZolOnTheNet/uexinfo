@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
 from uexinfo.gamelog.events import recognize
 from uexinfo.gamelog.follow import read_lines
@@ -19,6 +20,8 @@ def main(argv=None) -> int:
     ap.add_argument("--debug", action="store_true")
     ap.add_argument("--all", action="store_true")
     a = ap.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):      # console Windows cp1252 : pas de plantage sur « → »
+        sys.stdout.reconfigure(errors="replace")
     st = GameState()
     dbg = (lambda m: print("  DBG", m)) if a.debug else None
     for raw in read_lines(a.log):
@@ -27,11 +30,12 @@ def main(argv=None) -> int:
             st.apply(ev)
             mark = "" if ev.verified else " (?)"
             ts = ev.ts.strftime("%H:%M:%S") if ev.ts else "--:--:--"
-            print(f"{ts}  {ev.kind:<16} {ev.summary}{mark}")
+            where = " (menu principal)" if ev.kind == "spawn" and st.in_menu else ""
+            print(f"{ts}  {ev.kind:<16} {ev.summary}{where}{mark}")
         elif a.all and raw.strip():
             print(f"          ·              {raw[:150]}")
-    print("\n── État final ──")
-    for k in ("player", "shard", "system", "location", "near_location", "qt_target", "ship", "zone"):
+    print("\n-- État final --")
+    for k in ("player", "shard", "system", "location", "near_location", "qt_target", "ship", "zone", "deaths"):
         print(f"  {k:<14} {getattr(st, k) or '—'}")
     print(f"  événements     {st.counts}")
     return 0

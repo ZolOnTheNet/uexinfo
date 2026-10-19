@@ -61,9 +61,10 @@ def _show_state(lines: list[str], source: str) -> None:
     section(f"Game.log — {source}")
     rows = [
         ("Joueur", st.player), ("Shard", st.shard), ("Session depuis", _ts(st.session_start) if st.session_start else ""),
-        ("Système", st.system), ("Position (route QT)", st.location), ("Lieu proche", st.near_location),
+        ("Système", st.system), ("Position", st.location), ("Lieu proche", st.near_location),
         ("Zone", st.zone), ("Cible QT", st.qt_target),
         ("Route QT", " → ".join(st.qt_route) if st.qt_route else ""), ("Vaisseau", st.ship),
+        ("Morts", str(st.deaths) if st.deaths else ""), ("Au menu", "oui" if st.in_menu else ""),
     ]
     for label, val in rows:
         console.print(f"  {label:<20} {val or f'[{C.DIM}]—[/{C.DIM}]'}")

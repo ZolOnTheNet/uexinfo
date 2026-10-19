@@ -541,9 +541,8 @@ _GAMELOG_SYS_CACHE: dict = {}
 
 
 def _gamelog_system(ctx) -> str:
-    """Système courant d'après le Game.log (changement de système, code de lieu
-    d'inventaire « Nyx… »/« Stanton3_… »), en minuscules ; « » si inconnu."""
-    import re as _re
+    """Système courant d'après le Game.log (changement de système, codes de lieu :
+    voir gamelog/places.system_of), en minuscules ; « » si inconnu."""
     from uexinfo.gamelog.follow import game_log_path, tail_lines
     path = game_log_path(getattr(ctx, "cfg", {}) or {})
     if path is None or not path.is_file():
@@ -558,12 +557,7 @@ def _gamelog_system(ctx) -> str:
         ev = recognize(raw)
         if ev:
             st.apply(ev)
-    known = {s.name.lower() for s in (getattr(ctx.cache, "star_systems", None) or [])}
     system = (st.system or "").lower()
-    if not system and st.near_location:
-        m = _re.match(r"[A-Za-z]+", st.near_location)
-        if m and m.group(0).lower() in known:
-            system = m.group(0).lower()
     _GAMELOG_SYS_CACHE.clear()
     _GAMELOG_SYS_CACHE[key] = system
     return system

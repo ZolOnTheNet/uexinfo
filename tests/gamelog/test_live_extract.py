@@ -85,7 +85,10 @@ def test_location_codes(events):
 
 def test_final_state(events):
     st = build_state(events)
-    assert st.location == "Stanton Gateway"
+    # Arrivé à la Pyro Gateway (côté Nyx) : la position n'est plus le départ du saut (Stanton Gateway).
+    assert st.location == "Pyro Gateway"
+    assert st.system == "Nyx"
+    assert st.qt_target == ""
     assert st.near_location == "RR_JP_NyxPyro"
     assert st.ship == "RSI Constellation Taurus"
     assert st.zone.startswith("Entered Crusader Industries Jurisdiction")

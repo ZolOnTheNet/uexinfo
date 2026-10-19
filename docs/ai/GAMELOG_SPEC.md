@@ -27,10 +27,11 @@ Encodage : UTF-8 en général, mais certaines lignes sont en **cp1252** (`Entr\x
 |---|---|---|---|
 | Connexion | `AccountLoginCharacterStatus_Character` | `name <pseudo>`, `geid <n>` | V (nom) |
 | Pseudo | `<Legacy login response>` | `Handle[<pseudo>]` | V |
-| Apparition | `[CSessionManager::OnClientSpawned] Spawned!` | — | V |
+| Apparition | `[CSessionManager::OnClientSpawned] Spawned!` | — ; **aussi écrite dans le menu** : ne compte en jeu qu'après un `<Join PU>` | V |
+| Menu principal | `[CSessionManager::RequestFrontEnd] Started` | `RequestFrontEndReason="ProcessBootRequest"` (lancement) ou `"OnLobbyPostGameUnload"` (déconnexion) | V |
 | Shard | `<Join PU>` | `shard[…]` | V |
-| Zone / juridiction | `SHUDEvent_OnNotification` + `Added notification "Entered …"` | texte | V |
-| Notification de mission | `SHUDEvent_OnNotification` / `<UpdateNotificationItem>` + « Contract Accepted: », « New Objective: », « Nouvelle mission : », « Nouvel objectif : » | texte | S (V pour « Contract Accepted ») |
+| Zone / juridiction | `SHUDEvent_OnNotification` + `Added notification "Entered …"` | texte, « : » final retiré | V |
+| Notification de mission | `SHUDEvent_OnNotification` + « Contract Accepted: », « Contract Shared: », « Contract Complete: », « Contract Failed: », « New Objective: », « Nouvelle mission : », « Nouvel objectif : » | texte, balises `<EM4>…</EM4>` retirées ; `MissionId: [<uuid>]` en fin de ligne relie objectifs et contrat (non exploité) | V en anglais (2026-10-19) ; S en français |
 | Départ de route QT | `Projected Start Location is X for route to destination` | lieu en clair | V |
 | Cible QT | `Player has selected point <ID> as their destination` | ID interne (`LOC_rs_ext_stan-magnus_jp1`, `rs_ext_nyx-pyro_jp1`), **vaisseau** dans le segment `| <MODELE>_<id>[id]|` | V |
 | Noms de route | `routing from A to B` | origine, destination en clair | V |
@@ -40,13 +41,16 @@ Encodage : UTF-8 en général, mais certaines lignes sont en **cp1252** (`Entr\x
 | Vaisseau piloté | `<Vehicle Control Flow>` `SetDriver` … `requesting control token for '<MODELE>_<id>'` | modèle, id | S |
 | Vaisseau quitté | `<Vehicle Control Flow>` `ClearDriver` … `releasing control token for '<MODELE>_<id>'` | modèle | V |
 | Vaisseau sorti (ASOP) | `[VEHICLE SPAWN]` `OnVehicleSpawned <id> (<MODELE>_<id>) by player <geid>` | modèle | S |
-| Lieu proche (inventaire) | `<RequestLocationInventory>` `Player[x] requested inventory for Location[<Code_Lieu>]` | code lieu : `RR_CRU_LEO` (Seraphim Station), `RR_JP_StantonMagnus`, `RR_JP_NyxCastra`, `RR_JP_NyxPyro` | V |
+| Lieu proche (inventaire) | `<RequestLocationInventory>` `Player[x] requested inventory for Location[<Code_Lieu>]` | code lieu → nom et système : `uexinfo/gamelog/places.py` (voir ci-dessous) | V |
 | Achat de marchandise | `SendCommodityBuyRequest` | `shopName[…]`, `price[…]`, `quantity[N]` ou `quantity[N cSCU]`, `resourceGUID[…]` | S (unité à confirmer) |
 | Vente de marchandise | `SendCommoditySellRequest` | idem | S |
 | Achat d'objet | `SendStandardItemBuyRequest` | `shopName[…]`, `client_price[…]`, `itemName[…]`, `quantity[…]` | S |
-| Fin de mission | `<EndMission>` | `MissionId[…]`, `CompletionType[…]`, `Reason[…]` | S |
-| Mort | `<Actor Death>` `CActor::Kill: '<victime>' … killed by '<tueur>' … damage type '<type>'` | victime, tueur, type | S |
-| Destruction de vaisseau | `<Vehicle Destruction>` `Vehicle '<MODELE>_<id>' … destroy level A to B` | modèle, niveaux | S |
+| Fin de mission | `<EndMission>` `Ending mission for player. MissionId[…] Player[…] PlayerId[…] CompletionType[Complete] Reason[Mission Ended]` | identifiant, type de fin | V (2026-10-19) |
+| Crash | `<FatalCollision>` `Fatal Collision occured for vehicle <MODELE>_<id> [Part: …, Zone: <zone>, PlayerPilot: 1]` | modèle, zone | V (35 fois sur 317 logs) |
+| Mort en vaisseau détruit | `<[ActorState] Dead>` `Actor '<pseudo>' [geid] ejected from zone … due to previous zone being in a destroyed vehicle` | pseudo | V (39 fois, toujours cette forme) |
+| À terre ou mort | `<Adding non kept item [CSCActorCorpseUtils::PopulateItemPortForItemRecoveryEntitlement]> Item 'body_…'` | — ; une ligne par objet, seule `body_` compte. Suivie d'une apparition (12 à 33 s) = mort confirmée | V (83 fois) |
+| Mort | `<Actor Death>` `CActor::Kill: '<victime>' … killed by '<tueur>' … damage type '<type>'` | victime, tueur, type | S — **jamais vu sur 317 logs** (2026-10-19) |
+| Destruction de vaisseau | `<Vehicle Destruction>` `Vehicle '<MODELE>_<id>' … destroy level A to B` | modèle, niveaux | S — **jamais vu sur 317 logs** |
 | Fin de session | `<SystemQuit>` (`EndSession` = anti-triche, ignoré) | — | V |
 
 ## Unités et identifiants
@@ -55,9 +59,18 @@ Encodage : UTF-8 en général, mais certaines lignes sont en **cp1252** (`Entr\x
 - `quantity[100 cSCU]` correspond à 1 SCU (100 cSCU = 1 SCU), **à confirmer** sur un vrai achat.
 - `Location[Stanton3_Area18]` est un code interne (système + numéro de planète + lieu), et non le nom affiché.
 
+## Codes de lieu (V, 317 logs, 2026-10-19)
+
+Table et règles : `uexinfo/gamelog/places.py`. Noms relevés en associant un code d'inventaire (ou une cible QT atteinte) au `Projected Start Location` qui suit.
+- `RR_<HUR|CRU|ARC|MIC>_<LEO|L1…L5>` : aires de repos de Stanton (`RR_CRU_LEO` = Seraphim Station). Équivalents : `rs_ext_cru-leo1`, cible QT `LOC_RR_S<1-4>_L<n>` (S1 = Hurston … S4 = microTech).
+- `RR_P<n>_…` : Pyro (`RR_P3_LEO` = Orbituary). `RR_JP_<A><B>` : passerelle **située dans A** (`RR_JP_PyroStanton` = Stanton Gateway, dans Pyro).
+- `<Système><n><lettre>_…` : avant-poste ; le jeu n'affiche que le corps céleste (`Stanton1c` = Magda), sauf `HurdynMining_HDMS<Nom>` → `HDMS-<Nom>`.
+- `OOC_<Système>_<n><lettre>_<Nom>` : corps céleste (cible QT).
+- Non traduits : `ObjectContainer_RestStop` (générique, 3 stations différentes), `MISSION_QT_Beacon_…`, `NavPoint_Dynamic_…`.
+
 ## Non observés dans le log du 2026-10-07 (restent S)
 
-`SetDriver`, `OnVehicleSpawned`, `SendCommodityBuyRequest`/`SellRequest`, `SendStandardItemBuyRequest`, `<EndMission>`, `<Actor Death>`, `<Vehicle Destruction>`, `<Changing Solar System>` (aucune ligne lors du passage Stanton → Nyx par le point de saut), `routing from`, « Contract Accepted ».
+`SetDriver`, `OnVehicleSpawned`, `SendCommodityBuyRequest`/`SellRequest`, `SendStandardItemBuyRequest`, `<Changing Solar System>` (aucune ligne lors du passage Stanton → Nyx par le point de saut), `routing from`, « Contract Accepted ».
 
 ## Autres lignes observées, non exploitées
 

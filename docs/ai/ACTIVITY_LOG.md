@@ -274,3 +274,36 @@ Ajout de `extprg/SC-Datarunner-UEX*` (archives `.7z` et dossiers `-vX.Y.Z/`) et 
 **Tests :** `pytest tests` donne 45 réussis. Le `pytest` nu échoue, car il collecte `scripts/test_*.py`.
 
 **Suite proposée (à valider par l'utilisateur) :** voir la section « Plan de refactoring » de la réponse du 2026-10-06, reprise dans `NOTES.md` §4.
+
+## 2026-10-19 — analyse Game.log, session longue (crash à CRU-L1)
+
+**Demande :** vérifier le suivi de zone sur une vraie session (Everus Harbor → CRU-L1, crash, réapparition à Seraphim), puis surveiller l'activité en direct.
+
+**Constats (parseur `uexinfo/gamelog`, rejeu `python -m uexinfo.gamelog`) :**
+- Reconnus correctement : apparition, shard, zones, docking, `near_location` (RR_HUR_LEO, RR_CRU_L1, RR_CRU_LEO), cible QT LOC_RR_S2_L1, arrivée QT.
+- Non reconnus : `<FatalCollision>` (crash du Constellation Taurus dans un hangar de CRU-L1) et `<[ActorState] Dead>` (mort du joueur). Le crash n'apparaît que comme `ship_leave`.
+- État final faux : `location` reste « Everus Harbor » (départ QT), `qt_target` n'est pas vidé à l'arrivée, `ship` reste le Taurus détruit, `system` n'est jamais renseigné.
+- Les codes `RR_*` ne sont pas traduits en noms ; les zones gardent un « : » final.
+- `python -m uexinfo.gamelog` plante sur une console cp1252 (titre « ── État final ── »).
+
+Surveillance live faite avec un script temporaire (hors dépôt). Corrections : voir la suite ci-dessous.
+
+### Suite — corrections du parseur Game.log (même soirée)
+
+**Demande :** l'utilisateur a validé la correction des points relevés.
+
+**Fait :**
+- `gamelog/places.py` (nouveau) : codes de lieu → nom affiché et système. Table relevée sur 317 Game.log de l'utilisateur (code d'inventaire ou cible QT atteinte, suivi du `Projected Start Location`).
+- `events.py` : nouveaux reconnaisseurs vérifiés `menu` (`RequestFrontEnd`), `crash` (`<FatalCollision>`), `player_dead` (`<[ActorState] Dead>`), `down` (objet `body_` mis en récupération). Zones et notifications nettoyées (« : » final, balises `<EM4>`). Notifications de mission passées en vérifiées, et « Contract Shared » ajouté.
+- `state.py` : la position suit l'arrivée QT, l'inventaire et la réapparition ; cible QT vidée à l'arrivée ; vaisseau vidé au crash ou à la mort ; système déduit des codes ; apparition dans le menu ignorée ; morts comptées sans doublon.
+- `scan.py:_gamelog_system` : la règle système ↔ code est passée dans `state.py` (une seule implémentation).
+- `/game` : lignes « Position », « Morts » et « Au menu ». `python -m uexinfo.gamelog` ne plante plus sur une console cp1252.
+- Spec `GAMELOG_SPEC.md` mise à jour. `<Actor Death>` et `<Vehicle Destruction>` (relevés Stelliverse) n'apparaissent jamais dans les 317 logs.
+
+**Tests :** nouvel extrait anonymisé `tests/fixtures/gamelog/live_4.10_crash_cru_l1.log`, avec `test_live_crash.py` et `test_places.py`. `test_live_extract.py::test_final_state` corrigé : il validait la position périmée (départ du saut). `pytest` donne 240 réussis.
+
+- 22h10 : premier `<EndMission>` réel (contrat « Procure Refined Iron » terminé). Le format attendu était exact : `mission_end` passe en vérifié, avec un test sur la ligne anonymisée. `pytest` donne 241 réussis.
+- 22h19 : « Contract Failed » ajouté aux notifications de mission (Defend Ship échoué), avec un test. `pytest` donne 242 réussis.
+- Piste notée : `MissionId: [<uuid>]` en fin de notification permettrait de regrouper les objectifs par contrat.
+
+**Non commité.**

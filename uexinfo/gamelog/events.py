@@ -77,6 +77,12 @@ def _qty(text: str) -> dict:
     return out
 
 
+def _clean_notification(text: str) -> str:
+    """Texte de notification HUD sans balises (`<EM4>625 exp.</EM4>`) ni « : » final."""
+    text = re.sub(r"</?EM\d>", "", text)
+    return re.sub(r"\s+", " ", text).strip().rstrip(":").strip()
+
+
 def _fields(msg: str) -> dict:
     """Champs `cle[valeur]` d'une ligne → dict."""
     return {k: v for k, v in re.findall(r"(\w+)\[([^\]]*)\]", msg)}
@@ -133,6 +139,28 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
                re.compile(r"arrived at final destination", re.I),
                lambda m: (lambda v: ("Arrivée du saut quantique"
                                      + (f" ({v['vehicle']})" if v else ""), v))(_vehicle_in(m.string)), True),
+    # Retour au menu principal : au lancement du jeu et après une déconnexion. Le « Spawned! »
+    # qui suit est l'apparition dans le menu, pas dans l'univers (vérifié 4.10, 2026-10-19).
+    Recognizer("menu", "RequestFrontEnd] Started",
+               re.compile(r'RequestFrontEndReason="(?P<reason>[^"]*)"'),
+               lambda m: (f"Menu principal ({m['reason']})", {"reason": m["reason"]}), True),
+    # Crash : 35 occurrences sur 317 Game.log, toujours « PlayerPilot: 1 » (vérifié 4.10).
+    Recognizer("crash", "<FatalCollision>",
+               re.compile(r"Fatal Collision occured for vehicle (?P<veh>[A-Za-z0-9_]+) \[.*?Zone: (?P<zone>[^,\]]+)"),
+               lambda m: (f"Crash : {_vehicle_model(m['veh'])}",
+                          {"vehicle": _vehicle_model(m["veh"]), "zone": m["zone"].strip(),
+                           "player_pilot": "PlayerPilot: 1" in m.string}), True),
+    # Mort dans un vaisseau détruit (seule forme de « [ActorState] Dead » vue sur 317 Game.log).
+    Recognizer("player_dead", "<[ActorState] Dead>",
+               re.compile(r"Actor '(?P<name>[^']+)'"),
+               lambda m: (f"Mort de {m['name']}"
+                          + (" (vaisseau détruit)" if "destroyed vehicle" in m.string else ""),
+                          {"name": m["name"]}), True),
+    # Équipement du joueur mis en récupération : une ligne par objet, on ne garde que le corps.
+    # Écrit à la mise à terre comme à la mort ; la réapparition qui suit confirme la mort.
+    Recognizer("down", "ItemRecoveryEntitlement]> Item 'body_",
+               re.compile(r"Item 'body_"),
+               lambda m: ("À terre ou mort (équipement mis en récupération)", {}), True),
     # ── À confirmer (formats relevés, voir GAMELOG_SPEC.md) ──────────────────
     Recognizer("system_change", "Changing Solar System",
                re.compile(r"changing system from (?P<a>\S+) to (?P<b>\S+)"),
@@ -152,12 +180,15 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
                                      f" pour {_num(f.get('client_price', '0')):,.0f} aUEC".replace(",", " "),
                                      {"item": f.get("itemName", ""), "shop": f.get("shopName", ""),
                                       "price": _num(f.get("client_price", "0"))}))(_fields(m.string))),
+    # Vérifié 4.10 (2026-10-19) : « Ending mission for player. MissionId[…] Player[…] … CompletionType[Complete] ».
     Recognizer("mission_end", "<EndMission>",
                re.compile(r"MissionId\[(?P<id>[^\]]*)\].*?CompletionType\[(?P<type>[^\]]*)\]"),
-               lambda m: (f"Fin de mission ({m['type']})", {"mission_id": m["id"], "completion": m["type"]})),
+               lambda m: (f"Fin de mission ({m['type']})", {"mission_id": m["id"], "completion": m["type"]}), True),
+    # « Contract Accepted/Shared/Complete/Failed », « New Objective » vérifiés 4.10 (2026-10-19).
     Recognizer("notification", "Added notification",
-               re.compile(r'Added notification "(?P<text>(?:Contract Accepted|New Objective|Nouvelle mission|Nouvel objectif|Contract Complete|Contrat)[^"]*)"', re.I),
-               lambda m: (f"Mission : {m['text'].strip()}", {"text": m["text"].strip()}), strict=False),
+               re.compile(r'Added notification "(?P<text>(?:Contract Accepted|Contract Shared|Contract Failed|New Objective|Nouvelle mission|Nouvel objectif|Contract Complete|Contrat)[^"]*)"', re.I),
+               lambda m: (lambda t: (f"Mission : {t}", {"text": t}))(_clean_notification(m["text"])),
+               True, strict=False),
     Recognizer("death", "<Actor Death>",
                re.compile(r"CActor::Kill: '(?P<victim>[^']+)'.*?killed by '(?P<killer>[^']+)'.*?damage type '(?P<dmg>[^']+)'"),
                lambda m: (f"Mort : {m['victim']} tué par {m['killer']} ({m['dmg']})",
@@ -190,7 +221,8 @@ def recognize(line: str | LogLine, debug: Callable[[str], None] | None = None) -
     if "SHUDEvent_OnNotification" in raw:
         m = _verified.RE_ZONE.search(raw)
         if m and m["zone"].strip().startswith(_verified._ZONE_PREFIXES):
-            ev = GameEvent("zone", ll.ts, f"Zone : {m['zone'].strip()}", {"zone": m["zone"].strip()}, True, raw)
+            zone = _clean_notification(m["zone"])
+            ev = GameEvent("zone", ll.ts, f"Zone : {zone}", {"zone": zone}, True, raw)
             if debug:
                 debug(f"[zone] {raw[:160]}  →  {ev.summary}")
             return ev
