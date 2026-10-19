@@ -307,3 +307,18 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Piste notée : `MissionId: [<uuid>]` en fin de notification permettrait de regrouper les objectifs par contrat.
 
 **Non commité.**
+
+## 2026-10-19 (fin de soirée) — piste « liste des contrats » (à reprendre)
+
+**Constats :**
+- Un clic sur un contrat dans le mobiGlas n'écrit rien dans le Game.log. Seuls les contrats partagés ou acceptés y apparaissent (titre et nom interne). Les contrats acceptés sont limités à 10, et certains ont des frais.
+- L'XP des titres (« <EM4>625 exp.</EM4> ») vient de la traduction PolyToolSC (GerbyTV), installée par Stelliverse dans `LIVE\data\Localization\french_(france)\global.ini`. Les valeurs sont identiques aux `completionTags` des données de scmdb.net, elles-mêmes extraites du jeu.
+- scmdb.net : `https://scmdb.net/data/versions.json` → `merged-<version>.json`. Licence CC BY-NC-ND 4.0. Les paliers de l'événement RSI Discovery Month (nom de code Iasi) sont dans `eventScopes`. Une copie de la version 4.10.2-live.12913470 est dans le cache utilisateur (`appdirs.user_cache_dir('uexinfo')/scmdb/`), **hors dépôt** : la réutiliser pour la mise au point, ne pas recharger le site.
+- `GameOCR.extract_mission` lit déjà la liste de gauche (titre et montant en k), mais le résultat est brouillon : lignes fusionnées, montants souvent non lus.
+
+**Décisions de l'utilisateur :**
+- Tester l'usage des données scmdb sans attendre l'accord, à condition de ne rien en stocker dans le dépôt. Brouillon du mail de demande d'autorisation rédigé (EN et FR).
+- **Les anciennes captures (sans Stelliverse, donc sans XP) doivent rester analysables** : la reconnaissance doit marcher avec et sans « exp. » dans les titres.
+- Session de jeu sauvegardée dans `extprg/gamelogs/Game_2026-10-19_20h42_build12913470.log` (ignoré par git).
+
+**Suite :** prototype OCR de la liste (découpage par position, comparaison aux titres du global.ini sans la partie « exp. », puis détails tirés de scmdb), évalué sur les 361 captures existantes et sur les nouvelles captures que l'utilisateur fera.

@@ -76,6 +76,9 @@ Table et règles : `uexinfo/gamelog/places.py`. Noms relevés en associant un co
 
 - `<Update Inventory Location>` `Landing [a] -> [b]. Location [c] -> [d]` : identifiants numériques seulement.
 - `<GenerateLocationProperty>` : lieux proposés par les contrats (nom + code), pas la position du joueur.
+  Réécrit à chaque rafraîchissement de la liste des contrats du mobiGlas, mais **seulement pour les contrats proposés qui ont des lieux tirés au sort** : toujours les mêmes quelle que soit la mission cliquée. Aussi écrit à la réception d'un contrat partagé et à l'acceptation. Contenu : nom interne (`contract: Iasi_DefendShip_Hard_0`, qui correspond au `debugName` de scmdb.net) et lieux candidats. Pas de titre, ni de récompense, ni de description (vérifié 2026-10-19).
+- **Clic sur un contrat dans le mobiGlas : aucune ligne écrite** (vérifié 2026-10-19, séance de clics 22h44-22h47).
+- Contrats acceptés, poussés par le serveur : `<ObjectiveUpserted>` (`mission_id`, `objective_id`, `state MISSION_OBJECTIVE_STATE_…`), `<CMissionLogEntry::UpdateActiveObjective>` (texte d'objectif, souvent avec des variables non résolues : `Go to ~mission(Location)`, ou `Ship Health:` toutes les 5 s pendant une défense de vaisseau), `<MissionEnded>` (`MISSION_STATE_COMPLETED|FAILED`), `<MissionShared>` (`ownerId`, `missionId`).
 - `LoadShopInventoryData` … `shopName[SCShop_Admin_…] commodityName[…]` : ouverture d'un écran de shop (tailles de boîtes).
 
 ## Résistance aux changements de format
