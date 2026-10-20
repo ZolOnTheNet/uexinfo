@@ -18,14 +18,31 @@ from uexinfo.models.mission_result import MissionResult, ParsedObjective
 
 # ── Chemins ──────────────────────────────────────────────────────────────────
 
-_BASE          = Path(__file__).parents[2] / "extprg" / "SC-Datarunner-UEX"
-_DEFAULT_DATA  = _BASE / "data"
-_WIN_EXE       = _BASE / "dep" / "Tesseract-OCR" / "tesseract.exe"
+_EXTPRG        = Path(__file__).parents[2] / "extprg"
+# Copie stable (extprg/tesseract/LISEZMOI.txt) : SC-Datarunner v0.12 a supprimé son Tesseract
+# (passage à PaddleOCR), ce qui cassait l'OCR — on ne dépend plus de ses mises à jour.
+_OWN           = _EXTPRG / "tesseract"
+_BASE          = _EXTPRG / "SC-Datarunner-UEX"
+_EXE_CANDIDATES  = (_OWN / "Tesseract-OCR" / "tesseract.exe",
+                    _BASE / "dep" / "Tesseract-OCR" / "tesseract.exe")
+_DATA_CANDIDATES = (_OWN / "data", _BASE / "data")
 _LINUX_EXE     = Path("/usr/bin/tesseract")
 
 
+def _first_existing(candidates, ok=Path.exists) -> Path | None:
+    return next((p for p in candidates if ok(p)), None)
+
+
+def _has_model(d: Path) -> bool:
+    return (d / "eng_sc.traineddata").exists()
+
+
+_WIN_EXE       = _first_existing(_EXE_CANDIDATES) or _EXE_CANDIDATES[0]
+_DEFAULT_DATA  = _first_existing(_DATA_CANDIDATES, _has_model) or _DATA_CANDIDATES[0]
+
+
 def _find_exe() -> Path:
-    """Windows bundled .exe > Linux /usr/bin/tesseract > PATH."""
+    """Windows bundled .exe (extprg/tesseract, puis SC-Datarunner) > Linux /usr/bin/tesseract > PATH."""
     if _WIN_EXE.exists():
         return _WIN_EXE
     if _LINUX_EXE.exists():
@@ -41,9 +58,9 @@ def ocr_status() -> dict:
         "pytesseract": bool,       # pytesseract installé
         "tesseract_exe": Path,     # exécutable tesseract utilisé
         "tessdata_dir": Path,      # dossier tessdata utilisé
-        "sc_datarunner_exe": bool, # exe bundlé SC-Datarunner présent
-        "sc_datarunner_data": bool,# tessdata SC-Datarunner présents
-        "mode": str,               # "sc-datarunner" | "system" | "unavailable"
+        "bundled_exe": bool,       # tesseract.exe fourni (extprg/tesseract ou SC-Datarunner) présent
+        "bundled_data": bool,      # modèle eng_sc.traineddata présent
+        "mode": str,               # "bundled" | "system" | "unavailable"
         "version": str | None,     # version de tesseract
       }
     """
@@ -55,8 +72,8 @@ def ocr_status() -> dict:
             "pytesseract": False,
             "tesseract_exe": Path("tesseract"),
             "tessdata_dir": _DEFAULT_DATA,
-            "sc_datarunner_exe": _WIN_EXE.exists(),
-            "sc_datarunner_data": _DEFAULT_DATA.exists(),
+            "bundled_exe": _WIN_EXE.exists(),
+            "bundled_data": _has_model(_DEFAULT_DATA),
             "mode": "unavailable",
             "version": None,
         }
@@ -64,7 +81,7 @@ def ocr_status() -> dict:
     exe = _find_exe()
     tessdata = _DEFAULT_DATA
     sc_exe   = _WIN_EXE.exists()
-    sc_data  = _DEFAULT_DATA.exists() and any(_DEFAULT_DATA.glob("*.traineddata"))
+    sc_data  = _has_model(_DEFAULT_DATA)
 
     # Version de tesseract
     version = None
@@ -80,7 +97,7 @@ def ocr_status() -> dict:
         pass
 
     if sc_exe and sc_data:
-        mode = "sc-datarunner"
+        mode = "bundled"
     elif version:
         mode = "system"
     else:
@@ -90,8 +107,8 @@ def ocr_status() -> dict:
         "pytesseract": True,
         "tesseract_exe": exe,
         "tessdata_dir": tessdata,
-        "sc_datarunner_exe": sc_exe,
-        "sc_datarunner_data": sc_data,
+        "bundled_exe": sc_exe,
+        "bundled_data": sc_data,
         "mode": mode,
         "version": version,
     }

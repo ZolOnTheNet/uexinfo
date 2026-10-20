@@ -97,5 +97,9 @@ extprg/SC-Datarunner-UEX/
 extprg/applog*_SC-DataRunner.txt
 # Archives et dossiers de versions de SC-Datarunner-UEX, quels qu'ils soient
 extprg/SC-Datarunner-UEX*
+# Copie stable de Tesseract utilisée par uexinfo (~105 Mo, voir extprg/tesseract/LISEZMOI.txt)
+extprg/tesseract/
+# Sauvegardes datées des Game.log
+extprg/gamelogs/
 # Worktrees locaux de Claude Code
 .claude/worktrees/

@@ -10,9 +10,9 @@ def _print_ocr_status() -> None:
         return
 
     mode = s["mode"]
-    if mode == "sc-datarunner":
-        label = "\033[32mSC-Datarunner\033[0m"
-        detail = "(tesseract bundlé + tessdata personnalisée)"
+    if mode == "bundled":
+        label = "\033[32mbundlé\033[0m"
+        detail = f"(tesseract + modèle eng_sc : {s['tesseract_exe'].parent.parent})"
     elif mode == "system":
         label = "\033[33msystème\033[0m"
         detail = "(tesseract PATH — qualité OCR réduite)"
@@ -26,13 +26,13 @@ def _print_ocr_status() -> None:
     if mode == "unavailable":
         if not s["pytesseract"]:
             print("  ! pytesseract non installé : pip install pytesseract", flush=True)
-        if not s["sc_datarunner_exe"] and not s["version"]:
+        if not s["bundled_exe"] and not s["version"]:
             print("  ! tesseract introuvable (ni bundlé ni sur PATH)", flush=True)
     elif mode == "system":
-        if not s["sc_datarunner_exe"]:
-            print(f"  ! SC-Datarunner exe absent : {s['tesseract_exe']}", flush=True)
-        if not s["sc_datarunner_data"]:
-            print(f"  ! tessdata SC absent : {s['tessdata_dir']}", flush=True)
+        if not s["bundled_exe"]:
+            print("  ! tesseract.exe absent de extprg/tesseract/ (voir LISEZMOI.txt)", flush=True)
+        if not s["bundled_data"]:
+            print(f"  ! modèle eng_sc.traineddata absent : {s['tessdata_dir']}", flush=True)
 
 
 def main() -> None:

@@ -322,3 +322,15 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Session de jeu sauvegardée dans `extprg/gamelogs/Game_2026-10-19_20h42_build12913470.log` (ignoré par git).
 
 **Suite :** prototype OCR de la liste (découpage par position, comparaison aux titres du global.ini sans la partie « exp. », puis détails tirés de scmdb), évalué sur les 361 captures existantes et sur les nouvelles captures que l'utilisateur fera.
+
+## 2026-10-20 — réparation de l'OCR (Tesseract)
+
+**Constat :** la mise à jour de SC-Datarunner (v0.12, passage à PaddleOCR) a supprimé `dep/Tesseract-OCR`, `data/eng_sc.traineddata` et les `*.user-words` dont dépendait `uexinfo/ocr/engine.py`. Tout l'OCR échouait en silence (`TesseractNotFoundError` avalée) : la dernière capture correctement lue date du 2026-10-07 à 23h15.
+
+**Fait :**
+- Copie stable dans `extprg/tesseract/` (ignorée par git, origine dans `LISEZMOI.txt`) : Tesseract 5.5.3 et `eng_sc.traineddata` de la v0.10.0, `*.user-words` de la v0.6.8.
+- `engine.py` : cherche d'abord dans `extprg/tesseract/`, puis dans SC-Datarunner. Le dossier de données n'est retenu que s'il contient le modèle. `ocr_status` : clés `bundled_exe`/`bundled_data`, mode `bundled`. Message de démarrage mis à jour dans `__main__.py`.
+- Test `tests/ocr/test_engine_paths.py`. `pytest` donne 245 réussis.
+- Vérifié sur de vraies captures : contrats du 11 et du 20 octobre lus (titre, récompense, objectifs).
+
+**Reste :** l'écran « Local Market Value » de Pyro Gateway (marchandises de mission, prix dans le nom, noms sur plusieurs mots) est mal découpé par l'analyse des terminaux. C'est une limite de l'analyse, pas de Tesseract. Les `*.user-words` datent de juillet et pourraient être régénérés depuis le cache UEX.
