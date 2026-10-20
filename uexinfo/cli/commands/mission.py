@@ -13,7 +13,7 @@ from uexinfo.display.formatter import console, print_error, print_ok, print_warn
 from uexinfo.models.mission import Mission, MissionObjective
 
 _SUBS = frozenset({
-    "list", "add", "edit", "remove", "scan", "view", "+",
+    "list", "add", "edit", "remove", "scan", "view", "+", "offres", "offers",
     "clear", "vider", "effacer",
     # alias français
     "liste", "ajouter", "modifier", "supprimer", "voir",
@@ -60,6 +60,9 @@ def cmd_mission(args: list[str], ctx) -> None:
 
     elif sub == "scan":
         _cmd_scan_db(args[1:], ctx)
+
+    elif sub in ("offres", "offers"):
+        _cmd_offers(args[1:], ctx)
 
 
 # ── Clear catalogue ───────────────────────────────────────────────────────────
@@ -986,6 +989,113 @@ def _cmd_add_to_voyage(args: list[str], ctx) -> None:
 
 # ── Aide ─────────────────────────────────────────────────────────────────────
 
+# ── Offres lues dans les captures de la liste des contrats ───────────────────
+
+def _screenshot_db(ctx):
+    db = getattr(ctx, "screenshot_db", None)
+    if db is None:
+        from uexinfo.cache.screenshot_db import ScreenshotDB
+        db = ScreenshotDB()
+        ctx.screenshot_db = db
+    return db
+
+
+def _scope(args: list[str], ctx) -> tuple[float, str]:
+    """« today », « all » ou rien (fenêtre scan.hour) → (depuis, libellé)."""
+    import time
+    from datetime import datetime
+    scope = args[0].lower() if args else ""
+    if scope == "all":
+        return 0.0, "toute la base"
+    if scope == "today":
+        return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp(), "aujourd'hui"
+    hours = ctx.cfg.get("scan", {}).get("hour", 2)
+    return time.time() - hours * 3600, f"{hours}h"
+
+
+def _entry_cards(entry) -> list:
+    """Cartes d'une capture : champ « contracts » (lecteur actuel), sinon ancienne « mission_list »."""
+    from uexinfo.ocr.contract_list import ContractCard
+    data = entry.data if isinstance(entry.data, dict) else {}
+    names = {f for f in ContractCard.__dataclass_fields__}
+    cards = [ContractCard(**{k: v for k, v in d.items() if k in names}) for d in data.get("contracts") or []]
+    if not cards:
+        cards = [ContractCard(title=d.get("title", ""), reward=d.get("reward_k") or None)
+                 for d in data.get("mission_list") or [] if d.get("title")]
+    return cards
+
+
+def _cmd_offers(args: list[str], ctx) -> None:
+    """/mission offres [today|all|maj] — contrats vus dans la liste du mobiGlas, reconnus via le catalogue."""
+    from datetime import datetime
+    from uexinfo.cache import contract_catalog as cc
+
+    if args and args[0].lower() in ("maj", "update"):
+        try:
+            path = cc.download_scmdb()
+        except Exception as e:
+            print_error(f"Téléchargement scmdb impossible : {e}")
+            return
+        print_ok(f"Données de contrats à jour : {path.name}")
+        console.print(f"[{C.DIM}]{cc.SCMDB_CREDIT}[/{C.DIM}]")
+        return
+
+    try:
+        db = _screenshot_db(ctx)
+    except Exception as e:
+        print_error(f"Impossible d'accéder à la base screenshots : {e}")
+        return
+    since, label = _scope(args, ctx)
+    entries = db.missions(since=since)
+    if not entries:
+        print_warn(f"Aucune capture de contrats ({label})")
+        console.print(f"[{C.DIM}]Ouvre Contrats dans le mobiGlas et fais une capture de la liste (Impr. écran).[/{C.DIM}]")
+        return
+
+    catalog = cc.load_catalog(ctx.cfg)
+    if catalog is None:
+        print_warn("Aucun catalogue de contrats : /mission offres maj (scmdb.net) "
+                   "ou /config gamelog.install_path_live <dossier LIVE> (global.ini du jeu)")
+        return
+
+    seen: dict[tuple, tuple] = {}            # contrat (+ récompense) → (résultat, heure de capture)
+    for e in entries:
+        for r in catalog.recognize(_entry_cards(e)):
+            key = (r.contract.debug_name or r.contract.title, r.reward) if r.recognized else ("?", r.card.title)
+            seen[key] = (r, e.file_mtime)
+
+    rows = sorted(seen.values(), key=lambda rt: (not rt[0].recognized, -(rt[0].xp or 0)))
+    section(f"Offres de contrats — {len(rows)} ({label}, {len(entries)} capture(s))")
+    t = Table(box=None, pad_edge=False, show_header=True, header_style=f"bold {C.LABEL}")
+    for col, just in (("Contrat", "left"), ("Catégorie", "left"), ("Points", "right"),
+                      ("Récompense", "right"), ("Vu à", "right")):
+        t.add_column(col, justify=just)
+    split_seen = False
+    for r, ts in rows:
+        c = r.contract if r.recognized else None
+        title = c.title if c else f"[{C.DIM}]{r.card.title}  (non reconnu)[/{C.DIM}]"
+        pts = f"{r.xp}" if r.xp else "—"
+        if c and c.split_party:
+            pts += " ✂"
+            split_seen = True
+        rw = f"¤ {r.reward:,}".replace(",", " ") if r.reward else "—"
+        if r.reward_from_catalog and r.reward:
+            rw += "*"
+        when = datetime.fromtimestamp(ts)
+        t.add_row(title, c.category if c else "", pts, rw,
+                  when.strftime("%H:%M" if when.date() == datetime.now().date() else "%d/%m %H:%M"))
+    console.print(t)
+    if split_seen:
+        console.print(f"  [{C.DIM}]✂ points divisés entre les membres du groupe : à faire en solo pour les points[/{C.DIM}]")
+    if any(r.reward_from_catalog for r, _ in rows):
+        console.print(f"  [{C.DIM}]* récompense non lue à l'écran : valeur du catalogue[/{C.DIM}]")
+    if catalog.source == "scmdb":
+        console.print(f"  [{C.DIM}]{cc.SCMDB_CREDIT}[/{C.DIM}]")
+    else:
+        console.print(f"  [{C.DIM}]Catalogue : titres du global.ini du jeu (sans catégories ni récompenses) — "
+                      f"/mission offres maj pour les données scmdb.net[/{C.DIM}]")
+
+
 def _show_help() -> None:
     section("Aide — /mission")
     lines = [
@@ -1001,6 +1111,9 @@ def _show_help() -> None:
         ("scan all",         "Toute la base de screenshots"),
         ("scan today",       "Captures d'aujourd'hui"),
         ("scan terminal",    "Terminaux scannés"),
+        ("offres",           "Contrats lus dans les captures de la liste (catégorie, points, partage)"),
+        ("offres today|all", "Idem sur la journée / toute la base"),
+        ("offres maj",       "Télécharge les données de contrats scmdb.net (une fois par version du jeu)"),
     ]
     for cmd, desc in lines:
         console.print(f"  [bold {C.LABEL}]/mission {cmd:<20}[/bold {C.LABEL}]  [{C.DIM}]{desc}[/{C.DIM}]")

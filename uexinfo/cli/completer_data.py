@@ -255,6 +255,12 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("clear",  "Efface toutes les missions"),
         ("scan",   "Scanne des captures d'écran"),
         ("view",   "Affiche le détail d'une mission"),
+        ("offres", "Contrats lus dans les captures de la liste du mobiGlas"),
+    ],
+    "mission offres": [
+        ("today", "Captures d'aujourd'hui"),
+        ("all",   "Toute la base de captures"),
+        ("maj",   "Télécharge les données de contrats scmdb.net"),
     ],
     "auto": [
         ("log",         "Auto-lecture du log SC-Datarunner"),

@@ -129,7 +129,6 @@ def _img_size(image_path: Path) -> tuple[int, int]:
 _RE_REWARD      = re.compile(r"Reward[^\d\n]{0,8}([\d][0-9,\s]*)", re.IGNORECASE)
 _RE_CONTRACTED  = re.compile(r"Contracted\s+By\s+(.+)", re.IGNORECASE)
 _RE_AVAIL       = re.compile(r"Contract\s+Availability\s+(.+)", re.IGNORECASE)
-_RE_MISSION_AMT = re.compile(r"(\d+)\s*[kK]$")   # "40k" dans la liste de missions
 _RE_BULLET      = re.compile(r"^[•◇◆\-\*\u25c6\u2666\u00b7]\s*")
 
 # ── Patterns parsing structuré des objectifs ──────────────────────────────────
@@ -543,9 +542,13 @@ class TesseractEngine:
         objectives = self._parse_objectives(objectives_text)
         parsed_objectives = self._parse_objectives_structured(objectives)
 
-        # ── Liste missions panneau gauche ─────────────────────────────────────
-        list_text = _ocr((int(w*.06), int(h*.06), int(w*.31), int(h*.88)), psm=4)
-        mission_list = self._parse_mission_list(list_text)
+        # ── Liste des contrats, panneau gauche (découpage par position des mots) ──
+        from uexinfo.ocr.contract_list import read_contract_list
+        try:
+            contracts = read_contract_list(self, img)
+        except Exception:
+            contracts = []
+        mission_list = [(c.title, c.reward or 0) for c in contracts]
 
         # ── Texte bleu (liens importants) ─────────────────────────────────────
         blue_text = self._extract_blue_text(img)
@@ -561,6 +564,7 @@ class TesseractEngine:
             parsed_objectives=parsed_objectives,
             blue_text=blue_text,
             mission_list=mission_list,
+            contracts=contracts,
         )
 
     def _parse_mission_info(self, text: str) -> tuple[int, str, str]:
@@ -718,30 +722,6 @@ class TesseractEngine:
         if pending:
             results.append(pending)
         return results
-
-    def _parse_mission_list(self, text: str) -> list[tuple[str, int]]:
-        """Parse la liste des missions avec récompenses (ex. 'ALLIANCE AID... 40k')."""
-        missions = []
-        current_lines: list[str] = []
-        for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                if current_lines:
-                    missions.append((" ".join(current_lines), 0))
-                    current_lines = []
-                continue
-            m = _RE_MISSION_AMT.search(line)
-            if m:
-                amount_k = int(m.group(1))
-                title_part = line[:line.rfind(m.group(0))].strip()
-                current_lines.append(title_part)
-                missions.append((" ".join(current_lines), amount_k * 1000))
-                current_lines = []
-            else:
-                current_lines.append(line)
-        if current_lines:
-            missions.append((" ".join(current_lines), 0))
-        return [m for m in missions if m[0].strip()]
 
     def _extract_blue_text(self, img) -> list[str]:
         """Extrait le texte en bleu (liens/lieux importants) par masque couleur."""

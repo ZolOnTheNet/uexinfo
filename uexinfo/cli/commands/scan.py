@@ -1201,12 +1201,16 @@ def _display_mission(result) -> None:
         console.print(f"\n  [bold]Autres offres disponibles[/bold]")
         t = make_table(
             ("Mission",     C.LABEL,   "left"),
+            ("XP",          C.UEX,     "right"),
             ("Récompense",  C.PROFIT,  "right"),
         )
-        for title, amt in result.mission_list[:10]:
-            amt_str = f"¤ {amt:,}".replace(",", "\u202f") if amt else "—"
-            t.add_row(title, amt_str)
+        cards = result.contracts or [None] * len(result.mission_list)
+        for (title, amt), card in list(zip(result.mission_list, cards))[:12]:
+            amt_str = f"¤ {amt:,}".replace(",", " ") if amt else "—"
+            xp = getattr(card, "xp", None)
+            t.add_row(title, str(xp) if xp else "—", amt_str)
         console.print(t)
+        console.print(f"  [{C.DIM}]/mission offres  pour les reconnaître (catégorie, points, partage en groupe)[/{C.DIM}]")
 
     console.print("")
 

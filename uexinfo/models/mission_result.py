@@ -35,7 +35,8 @@ class MissionResult:
     objectives: list[str] = field(default_factory=list)           # lignes brutes
     parsed_objectives: list[ParsedObjective] = field(default_factory=list)  # structuré
     blue_text: list[str] = field(default_factory=list)  # liens importants (lieux, menaces)
-    mission_list: list[tuple[str, int]] = field(default_factory=list)  # (titre, récompense k)
+    mission_list: list[tuple[str, int]] = field(default_factory=list)  # (titre, récompense aUEC ou 0)
+    contracts: list = field(default_factory=list)   # ContractCard de la liste de gauche (ocr/contract_list.py)
     source: str = "ocr"
     timestamp: datetime = field(default_factory=datetime.now)
 

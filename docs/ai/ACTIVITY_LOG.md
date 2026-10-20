@@ -334,3 +334,17 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Vérifié sur de vraies captures : contrats du 11 et du 20 octobre lus (titre, récompense, objectifs).
 
 **Reste :** l'écran « Local Market Value » de Pyro Gateway (marchandises de mission, prix dans le nom, noms sur plusieurs mots) est mal découpé par l'analyse des terminaux. C'est une limite de l'analyse, pas de Tesseract. Les `*.user-words` datent de juillet et pourraient être régénérés depuis le cache UEX.
+
+## 2026-10-20 — lecture de la liste des contrats du mobiGlas (`/mission offres`)
+
+**Demande :** transformer le prototype en fonction de uexinfo.
+
+**Fait :**
+- `ocr/contract_list.py` : panneau gauche de l'écran Contrats → cartes (titre, XP Stelliverse si présente, donneur d'ordre, récompense, minuteur). Découpage par position des mots (`image_to_data`), seconde lecture ciblée des montants non lus. Remplace `GameOCR._parse_mission_list` (supprimé) dans `extract_mission`. Nouveau champ `MissionResult.contracts`, enregistré dans la base des captures (`contracts`).
+- `cache/contract_catalog.py` : catalogue depuis la copie locale de scmdb.net (points par catégorie d'événement, partage des points en groupe, récompense), sinon depuis le `global.ini` du jeu. Reconnaissance tolérante (rapidfuzz) : erreurs d'OCR, titre sans préfixe (« <REDACTED>: » avant un événement), variables du jeu (`([SHIP])`), départage des ex-aequo par montant puis XP. Une carte coupée en haut d'écran est recollée à la suivante, l'en-tête de catégorie est écarté. Un montant non lu ou incohérent est remplacé par celui du catalogue (marqué `*`). Téléchargement scmdb **seulement** via `/mission offres maj`, avec un User-Agent identifié, dans le cache utilisateur, et rien dans le dépôt.
+- `/mission offres [today|all|maj]` : contrats de toutes les captures de la période, dédoublonnés, triés par points, avec catégorie, ✂ (points divisés en groupe) et la mention SCMDB. Ajouté à la complétion. `/scan` affiche aussi l'XP dans « Autres offres disponibles ».
+- Résultat : 15 contrats sur 15 reconnus sur les captures du 20/10 (avec scmdb comme avec global.ini seul). Les captures du 11/10, avec des titres sans préfixe, sont aussi reconnues.
+
+**Tests :** `tests/ocr/test_contract_list.py` (mots OCR réels du 20/10 dans `tests/fixtures/ocr/`), `tests/cache/test_contract_catalog.py` (catalogue **fictif**, aucune donnée scmdb). `pytest` donne 267 réussis.
+
+**À valider :** les nouvelles captures de l'utilisateur sur d'autres styles de missions (prévues).

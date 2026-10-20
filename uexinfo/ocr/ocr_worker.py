@@ -18,6 +18,8 @@ Catégories de missions détectées :
 """
 from __future__ import annotations
 
+from dataclasses import asdict
+
 import logging
 import queue
 import threading
@@ -176,6 +178,8 @@ def _mission_result_to_dict(mr) -> dict:  # mr: MissionResult
         "objectives":         objectives,
         "blue_text":          mr.blue_text,
         "mission_list":       [{"title": t, "reward_k": r} for t, r in mr.mission_list],
+        "contracts":          [{k: v for k, v in asdict(c).items() if k not in ("top", "bottom")}
+                               for c in mr.contracts],
         "timestamp":          mr.timestamp.isoformat(),
     }
 

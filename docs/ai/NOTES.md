@@ -38,6 +38,8 @@
 | TTL prix / version SC | `cache/price_cache.py` ; versions et univers : `cache/evolution.py`, `/evolution` |
 | Graphe de transport | `uexinfo/data/transport_network.json` + `models/transport_network.py` |
 | Logs Datarunner | `ocr/log_parser.py` |
+| **Liste des contrats du mobiGlas** (OCR) | `ocr/contract_list.py` (capture → cartes) + `cache/contract_catalog.py` (reconnaissance : scmdb.net en cache local, sinon global.ini du jeu) ; `/mission offres` |
+| Tesseract | copie stable `extprg/tesseract/` (cherchée en premier par `ocr/engine.py`, voir LISEZMOI.txt) |
 | **Game.log** | `gamelog/` : `lines.py` + `events.py` (parseur pur), `state.py` (position, système, morts, menu), `places.py` (codes de lieu → nom + système, **unique**), `follow.py` (tail), `/game`, `python -m uexinfo.gamelog` ; spec `docs/ai/GAMELOG_SPEC.md` ; ancien `parser.py`/`reader.py`/`arrival.py` (auto-position) |
 | Données utilisateur | `~/.uexinfo/` (JSON caches, `config.toml`, `scan_prices.json`, `missions.json`, `voyages.json`) |
 
