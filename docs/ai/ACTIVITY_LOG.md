@@ -3,6 +3,13 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-21 — Proposition d'interface souris, version 2 (réponses de l'utilisateur)
+
+- Décisions : libellé « Trade », format long privilégié ; des groupes de boutons (pas de menu déroulant) avec chemin cliquable qui construit la commande et filtre quand il y a trop de boutons ; clic = exécute (sans paramètre) ou ouvre, double-clic = exécute sans paramètre ; minage par minerai et par lieu (ouvert sur le lieu le plus proche, raffinerie la plus proche) ; une seule fenêtre pour l'instant ; `/config cache clear` par type (clic = confirmation, double-clic = immédiat) ; jeton de sécurité accepté.
+- `docs/PROPOSITION_MENUS_SOURIS.html` refait (maquette en boutons, valeurs de minage fictives), republié au même lien.
+- Questions ouvertes : rangement nav/scan, source des % de minage (absente de l'API UEX), prix brut ou raffiné, sens de « remettre à zéro », ordre lots 0 et 1.
+- Rien n'est codé. Tests : inchangés (267).
+
 ## 2026-10-21 — Analyse de l'interface, proposition de menus souris
 
 **Demande :** analyser le code et proposer, dans un artefact rangé dans `docs/`, une interface souris (barre de menus et sous-menus par thème : info, commerce, missions, minage, vaisseaux, avec abréviations). Le projet peut-il ouvrir plusieurs fenêtres ?

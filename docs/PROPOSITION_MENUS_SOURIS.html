@@ -184,31 +184,6 @@ td .note { display: block; color: var(--muted); font-size: 0.88em; margin-top: 3
 .hb.sys .hb-long, .hb.sys .hb-short { display: none; }
 .hud[data-lbl="icon"] .hb-ico, .hb.sys .hb-ico { display: inline; margin-right: 0; }
 .hud.busy .hb { opacity: 0.4; cursor: progress; }
-.hud-drop { position: absolute; z-index: 5; max-height: calc(100% - 120px); overflow-y: auto; background: var(--hud-menu); border: 1px solid var(--hud-border); padding: 3px 0 4px; box-shadow: 0 8px 24px var(--hud-shadow); }
-.hd-head { display: flex; align-items: center; padding: 4px 12px 5px; color: var(--hud-accent); font-size: 0.85em; }
-.hd-back { font: inherit; color: var(--hud-accent); background: none; border: 0; padding: 0; cursor: pointer; }
-.hd-back:hover, .hd-back:focus-visible { text-decoration: underline; outline: none; }
-.hd-sec { color: var(--hud-accent); font-size: 0.8em; opacity: 0.75; padding: 6px 12px 2px; border-top: 1px solid var(--hud-sep); margin-top: 2px; }
-.hd-it { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; width: 100%; text-align: left; font: inherit; color: var(--hud-text); background: none; border: 0; padding: 4px 12px; cursor: pointer; }
-.hd-it:hover, .hd-it:focus-visible { background: var(--hud-hover); outline: none; }
-.hd-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hd-cmd { grid-column: 1 / -1; color: var(--hud-dim); font-size: 0.84em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hd-tag { font-size: 0.85em; }
-.hd-tag.ok { color: var(--hud-green); }
-.hd-tag.warn { color: var(--hud-yellow); }
-.hd-tag.todo { color: var(--hud-violet); }
-.hd-form { display: grid; gap: 8px; padding: 4px 12px 10px; }
-.hd-form label { display: grid; gap: 3px; font-size: 0.85em; color: var(--hud-dim); }
-.hd-form input { font: inherit; font-size: 13px; color: var(--hud-text); background: var(--hud-input); border: 1px solid var(--hud-border); padding: 4px 6px; min-width: 0; }
-.hd-form input:focus { outline: 1px solid var(--hud-accent); }
-.hd-preview { font-size: 0.86em; color: var(--hud-yellow); overflow-wrap: anywhere; }
-.hd-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.hd-btn { font: inherit; font-size: 0.88em; padding: 3px 10px; cursor: pointer; color: var(--hud-accent); background: transparent; border: 1px solid var(--hud-accent); }
-.hd-btn.primary { color: var(--hud-solid); background: var(--hud-accent); }
-.hd-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.hd-btn:focus-visible { outline: 1px solid var(--hud-text); outline-offset: 1px; }
-.hd-note { font-size: 0.82em; color: var(--hud-dim); }
-.hd-todo { color: var(--hud-violet); }
 .hud-out { flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
 .ho-sys { color: var(--hud-accent); }
 .ho-echo { color: var(--hud-yellow); overflow-wrap: anywhere; }
@@ -256,6 +231,44 @@ td .note { display: block; color: var(--muted); font-size: 0.88em; margin-top: 3
 footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 4px; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Panneau de boutons (version 2) */
+:root { --hud-btn: rgba(0, 188, 212, 0.06); }
+.hb[aria-pressed="true"] { color: var(--hud-accent); border-bottom-color: var(--hud-accent); }
+.hud-panel { display: grid; gap: 7px; padding: 7px 9px 9px; max-height: 330px; overflow-y: auto; background: var(--hud-menu); border-bottom: 1px solid var(--hud-border); }
+.hp-path { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font-size: 0.9em; }
+.hp-seg { font: inherit; color: var(--hud-accent); background: none; border: 0; padding: 0 2px; cursor: pointer; }
+.hp-seg:hover, .hp-seg:focus-visible { text-decoration: underline; outline: none; }
+.hp-seg[aria-current="step"] { color: var(--hud-text); cursor: default; text-decoration: none; }
+.hp-sep { color: var(--hud-dim); }
+.hp-cmd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.9em; }
+.hp-cmdtxt { flex: 1 1 200px; min-width: 0; color: var(--hud-yellow); overflow-wrap: anywhere; }
+.hp-hint { font-size: 0.8em; color: var(--hud-dim); }
+.hp-filter { font: inherit; color: var(--hud-text); background: var(--hud-input); border: 1px solid var(--hud-border); padding: 3px 7px; width: 100%; min-width: 0; }
+.hp-filter:focus { outline: 1px solid var(--hud-accent); }
+.hp-filter::placeholder { color: var(--hud-dim); }
+.hp-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+.bt { font: inherit; color: var(--hud-text); background: var(--hud-btn); border: 1px solid var(--hud-border); padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+.bt:hover, .bt:focus-visible { background: var(--hud-hover); border-color: var(--hud-accent); outline: none; }
+.bt.go { color: var(--hud-accent); }
+.bt.small { padding: 1px 6px; font-size: 0.85em; }
+.mk { margin-left: 5px; font-size: 0.85em; }
+.mk.more { color: var(--hud-dim); }
+.mk.warn { color: var(--hud-yellow); }
+.mk.todo { color: var(--hud-violet); }
+.hp-lines { display: grid; gap: 4px; }
+.hp-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.hp-line .d { color: var(--hud-dim); }
+.hp-line .v { color: var(--hud-text); font-variant-numeric: tabular-nums; }
+.hp-title { color: var(--hud-accent); font-size: 0.85em; }
+.hp-fake { font-size: 0.78em; color: var(--hud-violet); }
+.hp-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--hud-yellow); }
+.hp-todo { color: var(--hud-violet); }
+.hud[data-lbl="long"] .hb-ico { display: none; }
+.hud[data-lbl="long"] .hb.sys .hb-ico { display: inline; }
+.decisions { display: grid; gap: 8px; }
+.decisions li strong { color: var(--accent); }
+.example { font-family: var(--f-mono); font-size: 0.9rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; white-space: pre; line-height: 1.7; }
 </style>
 
 <div class="page">
@@ -263,18 +276,20 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
 <header>
   <span class="eyebrow">uexinfo · overlay · proposition</span>
   <h1>Menus souris de l'overlay</h1>
-  <p class="lede">Une ligne de cinq thèmes ouvre des sous-menus. Chaque entrée envoie une commande qui existe déjà, ou ouvre un petit formulaire qui la construit. Ce document part d'une analyse du code et propose une maquette cliquable, une réponse sur les fenêtres multiples et un plan par lots.</p>
+  <p class="lede">Des groupes de boutons, organisés en thèmes, avec un chemin cliquable pour remonter et un filtre quand il y a trop de boutons. Chaque bouton construit une commande qui existe déjà. Version 2, refaite avec tes réponses du 21 octobre.</p>
   <div class="meta">
-    <span>21 octobre 2026</span>
+    <span>21 octobre 2026 · version 2</span>
     <span>Code analysé au commit <code>31b8d6a</code></span>
     <span class="chip warn">À valider</span>
   </div>
   <nav class="toc" aria-label="Sommaire">
-    <a href="#bref">En bref</a>
+    <a href="#decisions">Décisions</a>
     <a href="#maquette">Maquette</a>
+    <a href="#minage">Minage</a>
+    <a href="#effacer">Effacer</a>
     <a href="#existant">Existant</a>
     <a href="#arbo">Arborescence</a>
-    <a href="#abrev">Abréviations</a>
+    <a href="#libelles">Libellés</a>
     <a href="#fenetres">Plusieurs fenêtres</a>
     <a href="#principes">Principes</a>
     <a href="#bugs">Bugs trouvés</a>
@@ -283,15 +298,17 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
   </nav>
 </header>
 
-<section id="bref" aria-labelledby="bref-t">
-  <h2 id="bref-t">En bref</h2>
+<section id="decisions" aria-labelledby="decisions-t">
+  <h2 id="decisions-t">Tes décisions</h2>
   <div class="keybox">
-    <ol>
-      <li><strong>Aujourd'hui, il n'y a pas de barre de menu.</strong> La souris sert déjà : les mots cliquables ouvrent un menu contextuel, la barre de statut a ses boutons (position, destination, vaisseau, Trade, ScanSC, ScanLog, ⚙, ?), et certains résultats ont des boutons ou des formulaires (scan, vente, missions).</li>
-      <li><strong>La proposition :</strong> une ligne de menus sous la barre de titre, <code>Info.</code> · <code>$$$</code> · <code>Miss.</code> · <code>Minage</code> · <code>Vaiss.</code>, plus ⚙. Une entrée envoie une commande existante. Aucune règle métier n'est recopiée dans le JavaScript.</li>
-      <li><strong>Plusieurs fenêtres : oui techniquement, pas en l'état.</strong> pywebview sait en ouvrir pendant que l'application tourne, et le serveur accepte déjà plusieurs connexions. Mais l'état d'une commande est global : deux fenêtres actives en même temps mélangeraient leurs sorties et leurs sélecteurs. À faire après les menus.</li>
-      <li><strong>Minage : aucune commande n'existe.</strong> L'API UEX fournit pourtant les raffineries (méthodes, rendements, capacités) et le prix du minerai brut. C'est une fonctionnalité à concevoir avec toi.</li>
-      <li><strong>Trouvé en passant :</strong> <code>/route</code> ne répond pas, le menu du clic gauche se referme aussitôt, <code>/?</code> lance <code>/info</code>, et le serveur WebSocket accepte n'importe quel programme local. Détail dans <a href="#bugs">Bugs trouvés</a>.</li>
+    <ol class="decisions">
+      <li><strong>Libellés :</strong> « Trade » pour le commerce, format long de préférence. L'abrégé ne sert que si la fenêtre est trop étroite.</li>
+      <li><strong>Des boutons plutôt qu'un menu déroulant.</strong> Un thème ouvre un groupe de boutons ; un bouton ouvre le groupe suivant. En haut, le chemin de la sélection permet de remonter et montre la commande en cours de construction. Un petit champ filtre les boutons quand il y en a trop.</li>
+      <li><strong>Clic et double-clic :</strong> un bouton sans paramètre s'exécute au clic. Un bouton qui accepte les deux formes ouvre ses sous-possibilités au clic, et s'exécute sans paramètre au double-clic.</li>
+      <li><strong>Minage, deux entrées :</strong> par minerai (liste alphabétique, chance de trouver, prix de vente, où le trouver) et par lieu (Stanton, Nyx, Pyro, ouvert sur le lieu le plus proche, avec la raffinerie la plus proche et le maximum d'infos sur une ligne).</li>
+      <li><strong>Une seule fenêtre pour l'instant.</strong> Plus tard : des fenêtres d'aide que le joueur garde ou ferme.</li>
+      <li><strong>Effacer au choix :</strong> cache API, missions, voyages… Double-clic pour aller vite, sinon une confirmation.</li>
+      <li><strong>Sécurité :</strong> d'accord pour le jeton secret entre la page et le serveur.</li>
     </ol>
   </div>
 </section>
@@ -299,14 +316,14 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
 <section id="maquette" aria-labelledby="maquette-t">
   <div class="prose">
     <h2 id="maquette-t">Maquette</h2>
-    <p>Clique un thème. Une entrée suivie de « … » ouvre un formulaire : la commande construite s'affiche avant l'envoi. Rien n'est exécuté. Fais varier la largeur pour voir les libellés passer en abrégé, puis en icônes.</p>
+    <p>Elle s'ouvre sur ton exemple : Minage ▸ Par lieu ▸ Stanton ▸ Crusader ▸ CRU-L1. Clique les segments du chemin pour remonter, les thèmes pour changer de groupe. Rien n'est exécuté, et les valeurs du minage sont fictives.</p>
   </div>
   <div class="mock-controls">
     <label for="w-range">Largeur de la fenêtre
       <input type="range" id="w-range" min="240" max="640" step="10" value="500">
       <output id="w-out" for="w-range">500 px</output>
     </label>
-    <div class="seg" role="radiogroup" aria-label="Libellés du menu">
+    <div class="seg" role="radiogroup" aria-label="Libellés des thèmes">
       <input type="radio" name="lbl" id="lbl-auto" value="auto" checked><label for="lbl-auto">Auto</label>
       <input type="radio" name="lbl" id="lbl-long" value="long"><label for="lbl-long">Longs</label>
       <input type="radio" name="lbl" id="lbl-short" value="short"><label for="lbl-short">Courts</label>
@@ -318,16 +335,15 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
   <div class="scene" id="scene">
     <div class="hud" id="hud" data-lbl="long">
       <div class="hud-title"><span>UEXInfo</span><span aria-hidden="true">✕</span></div>
-      <div class="hud-bar" id="hud-bar" role="menubar" aria-label="Thèmes"></div>
-      <div class="hud-drop" id="hud-drop" role="menu" hidden></div>
+      <div class="hud-bar" id="hud-bar" role="toolbar" aria-label="Thèmes"></div>
+      <div class="hud-panel" id="hud-panel" hidden></div>
       <div class="hud-out" id="hud-out" aria-live="polite">
         <div class="ho-sys">UEXInfo connecté · ws://localhost:8090</div>
-        <div class="ho-echo">› /trade cargo 174</div>
-        <div class="ho-dim">Ici, le résultat de la commande, rendu comme aujourd'hui (Rich vers HTML).</div>
+        <div class="ho-dim">Ici, le résultat des commandes, rendu comme aujourd'hui.</div>
       </div>
       <div class="hud-prompt">
         <span class="sym">›</span>
-        <input id="hud-input" type="text" aria-label="Ligne de commande de la maquette" placeholder="/commande ou clic dans un menu" autocomplete="off">
+        <input id="hud-input" type="text" aria-label="Ligne de commande de la maquette" placeholder="/commande ou clic sur un bouton" autocomplete="off">
         <span class="hud-busy" id="hud-busy" hidden>⏳ en cours</span>
       </div>
       <div class="hud-status" aria-hidden="true">
@@ -340,35 +356,77 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
       </div>
     </div>
   </div>
-  <div id="datalists"></div>
 
   <div class="mock-legend">
-    <span class="chip ok">✓ existe</span>
-    <span class="chip warn">⚠ existe, à corriger</span>
+    <span class="muted">Sur un bouton :</span>
+    <span class="kbd">▸</span><span class="muted">ouvre un groupe</span>
+    <span class="kbd">‹›</span><span class="muted">attend un paramètre</span>
+    <span class="kbd">⇉</span><span class="muted">double-clic possible</span>
+    <span class="chip warn">⚠ à corriger</span>
     <span class="chip todo">✚ à créer</span>
-    <span class="muted">Clavier :</span>
-    <span class="kbd">Alt+1…6</span><span class="muted">ouvre un thème</span>
-    <span class="kbd">↑ ↓</span><span class="kbd">Entrée</span><span class="muted">choisit</span>
-    <span class="kbd">Échap</span><span class="muted">revient en arrière</span>
   </div>
 
   <div class="two">
     <div>
-      <h3>Des sous-menus en tiroir</h3>
-      <p>La fenêtre fait 500 px de large par défaut. Des sous-menus en cascade vers la droite en sortiraient. Le niveau suivant remplace donc la liste, avec « ◂ » pour revenir.</p>
+      <h3>Le chemin construit la commande</h3>
+      <p>Trade ▸ Vendre ▸ Laranite donne <code>/trade sell Laranite</code>. La ligne jaune montre la commande à chaque étape. « Remplir la ligne » la recopie dans la saisie pour la modifier.</p>
     </div>
     <div>
-      <h3>Le menu se grise pendant une commande</h3>
-      <p>Pendant qu'une commande tourne, le serveur ignore les autres messages et ne garde qu'une commande en attente, que la suivante écrase (<code>server.py:300-306</code>). Le menu attend au lieu de perdre des clics.</p>
+      <h3>Le filtre sert aussi de saisie libre</h3>
+      <p>Il apparaît à partir de 9 boutons, ou quand un paramètre est attendu. Il réduit la liste à mesure de la frappe. Entrée prend le seul bouton restant, ou la valeur tapée (une quantité de SCU, un nom de voyage).</p>
     </div>
     <div>
-      <h3>Envoyer ou remplir la ligne</h3>
-      <p>« Envoyer » lance la commande. « Remplir la ligne » la recopie dans la ligne de commande pour la modifier. Le joueur voit toujours la commande, ce qui lui apprend la saisie au clavier.</p>
+      <h3>Clic ou double-clic</h3>
+      <p>Pour un bouton qui accepte les deux formes, le clic attend environ 250 ms pour savoir si un second clic suit. Les boutons simples s'exécutent tout de suite.</p>
     </div>
     <div>
-      <h3>Données de la maquette</h3>
-      <p>Les listes proposées dans les champs (terminaux, commodités, vaisseaux) sont des exemples. Dans l'overlay, elles viendraient du vocabulaire que le serveur envoie déjà à la connexion (message <code>vocab</code>).</p>
+      <h3>Le panneau reste ouvert</h3>
+      <p>Après une commande, le panneau reste au même endroit pour enchaîner (vendre une autre commodité, par exemple). Échap ou un clic sur le thème actif le referme.</p>
     </div>
+  </div>
+</section>
+
+<section id="minage" aria-labelledby="minage-t">
+  <div class="prose">
+    <h2 id="minage-t">Minage</h2>
+    <p>Deux entrées, comme tu les as décrites. Les crochets sont des boutons. Les valeurs ci-dessous sont fictives.</p>
+    <h3>Par lieu</h3>
+    <p>Le groupe s'ouvre sur le lieu le plus proche de ta position, ici Stanton ▸ Crusader pour Seraphim Station.</p>
+  </div>
+  <div class="example">[Stanton] ▸ [Crusader] ▸ CRU-L1
+Raffinerie la plus proche : [CRU-L2]  ·  0,9 Gm
+[Laranite]     18 %  ·  5 000 aUEC/SCU  [info]
+[Agricium]     12 %  ·  2 600 aUEC/SCU  [info]
+[Quantainium]   6 %  · 16 000 aUEC/SCU  [info]</div>
+  <div class="prose">
+    <h3>Par minerai</h3>
+    <p>Liste alphabétique. Un minerai mène à la liste des lieux où le trouver ; [info] passe au commerce (où le vendre, à quel prix).</p>
+  </div>
+  <div class="example">[Laranite] ▸ où la trouver
+[Stanton ▸ Crusader ▸ CRU-L1]    18 %  ·  raffinerie [CRU-L2]
+[Stanton ▸ Hurston ▸ Aberdeen]   11 %  ·  raffinerie [HUR-L2]
+[info]  →  /info Laranite</div>
+  <div class="prose">
+    <h3>Ce qui manque pour le coder</h3>
+    <ul>
+      <li><strong>La chance de trouver (%) :</strong> l'API UEX ne la fournit pas. Ses endpoints de minage donnent les rendements des raffineries (<code>refineries_yields</code>), leurs méthodes et capacités, et le prix du brut (<code>commodities_raw_prices</code>). Il faut une source pour la répartition des minerais par lieu (question 2).</li>
+      <li><strong>Le prix de vente affiché :</strong> prix du minerai brut à la raffinerie, ou prix du raffiné après raffinage ? Les deux existent (question 3).</li>
+      <li><strong>La raffinerie la plus proche :</strong> le graphe de transport sait calculer la distance (en Gm). Reste à marquer les raffineries dans le graphe : les terminaux ont déjà le drapeau <code>is_refinery</code>.</li>
+      <li><strong>Chaque valeur affichée</strong> (pourcentage, prix, distance) sera fixée par un test sur de vraies réponses UEX avant d'être codée.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="effacer" aria-labelledby="effacer-t">
+  <div class="prose">
+    <h2 id="effacer-t">Effacer les données</h2>
+    <p>Aujourd'hui, <code>/config cache clear</code> efface tout le dossier de données, missions, voyages, scans et notes compris (<code>config.py:840-846</code>). Proposition : ⚙ ▸ Effacer… ouvre un groupe de boutons, un par type de données. Un clic demande confirmation, un double-clic efface tout de suite.</p>
+  </div>
+  <div class="example">⚙ ▸ Effacer…
+[Cache API]  [Missions]  [Voyages]  [Scans]  [Notes]  [Historique]
+Effacer les missions ?  [Oui]  [Non]</div>
+  <div class="prose">
+    <p>Côté commande : <code>/config cache clear &lt;type&gt;</code>, sans type, liste les choix au lieu de tout effacer. Pour le cache API, « remettre à zéro » voudrait dire vider puis retélécharger ; pour le reste, vider (question 4).</p>
   </div>
 </section>
 
@@ -402,31 +460,32 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
   </div>
 </section>
 
+
 <section id="arbo" aria-labelledby="arbo-t">
   <div class="prose">
     <h2 id="arbo-t">Arborescence proposée</h2>
-    <p>Ces tableaux sont générés à partir du même catalogue que la maquette. C'est le principe proposé pour l'overlay : une seule liste décrit les menus. <span id="arbo-count" class="muted"></span></p>
-    <p>La navigation (<code>/go</code>, <code>/dest</code>, <code>/nav</code>) est rangée dans Info., et les relevés de prix (<code>/scan</code>, <code>/sync</code>) dans $$$. C'est à valider (question 2).</p>
+    <p>Générée à partir du même catalogue que la maquette : une seule liste décrit tous les boutons. <span id="arbo-count" class="muted"></span></p>
+    <p>La navigation (<code>/go</code>, <code>/dest</code>, <code>/nav</code>) et le Game.log sont rangés dans Info, les relevés de prix (<code>/scan</code>, <code>/sync</code>) dans Trade. C'est à valider (question 1).</p>
   </div>
   <noscript><p>Les tableaux de l'arborescence demandent JavaScript.</p></noscript>
   <div id="arbo-tables" class="arbo-list"></div>
   <div class="prose">
-    <h3>Gardé hors du menu</h3>
-    <p>Les outils de développement (<code>/scan debug</code>, <code>/game stats</code>, <code>/debug</code>, l'édition du graphe <code>/nav add-route</code>…) et les commandes destructrices : <code>/nav raz</code>, <code>/mission clear</code>, <code>/voyage delete --all</code>, <code>/history clear</code>, et surtout <code>/config cache clear</code>, qui efface tout le dossier de données, missions, voyages, scans et notes compris (<code>config.py:840-846</code>).</p>
+    <h3>Gardé hors des boutons</h3>
+    <p>Les outils de développement (<code>/scan debug</code>, <code>/game stats</code>, <code>/debug</code>, l'édition du graphe <code>/nav add-route</code>…) et les commandes destructrices sans confirmation : <code>/nav raz</code>, <code>/mission clear</code>, <code>/voyage delete --all</code>, <code>/history clear</code>.</p>
   </div>
 </section>
 
-<section id="abrev" aria-labelledby="abrev-t">
+<section id="libelles" aria-labelledby="libelles-t">
   <div class="prose">
-    <h2 id="abrev-t">Abréviations</h2>
-    <p>Les abréviations servent de libellés quand la fenêtre est étroite. La maquette applique cette règle en mode Auto ; les seuils sont une proposition, à valider.</p>
+    <h2 id="libelles-t">Libellés</h2>
+    <p>Le format long est la règle. Le court ne sert que si la fenêtre est trop étroite pour tout afficher ; en dessous, il ne reste que les icônes.</p>
   </div>
   <div class="tbl-wrap">
     <table>
-      <thead><tr><th>Thème</th><th>Libellé long</th><th>Court</th><th>Icône</th><th>Raccourci</th><th>Alias déjà tapables</th></tr></thead>
+      <thead><tr><th>Thème</th><th>Long</th><th>Court</th><th>Icône</th><th>Raccourci</th><th>Alias déjà tapables</th></tr></thead>
       <tbody>
         <tr><td>Info</td><td>Info</td><td><code>Info.</code></td><td>ⓘ</td><td><span class="kbd">Alt+1</span></td><td><code>/i</code></td></tr>
-        <tr><td>Commerce</td><td>Commerce</td><td><code>$$$</code><span class="note">ou Bénef, ou Trade</span></td><td>$</td><td><span class="kbd">Alt+2</span></td><td><code>/t</code></td></tr>
+        <tr><td>Commerce</td><td>Trade</td><td><code>Trade</code></td><td>$</td><td><span class="kbd">Alt+2</span></td><td><code>/t</code></td></tr>
         <tr><td>Missions</td><td>Missions</td><td><code>Miss.</code></td><td>◎</td><td><span class="kbd">Alt+3</span></td><td><code>/m</code> missions, <code>/v</code> voyages</td></tr>
         <tr><td>Minage</td><td>Minage</td><td><code>Minage</code></td><td>⛏</td><td><span class="kbd">Alt+4</span></td><td>aucun</td></tr>
         <tr><td>Vaisseaux</td><td>Vaisseaux</td><td><code>Vaiss.</code></td><td>✈</td><td><span class="kbd">Alt+5</span></td><td><code>/sh</code></td></tr>
@@ -436,9 +495,9 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
   </div>
   <div class="prose">
     <ul>
-      <li><strong>Règle Auto proposée :</strong> libellés longs à partir de 480 px, courts de 300 à 479 px, icônes seules en dessous. La fenêtre peut descendre à 200 px.</li>
-      <li><strong>Raccourcis :</strong> lire la touche physique (<code>event.code</code>), pas le caractère, pour que <span class="kbd">Alt+1</span> marche aussi sur un clavier AZERTY. À vérifier dans l'overlay réel, au-dessus du jeu.</li>
-      <li><strong>Libellés de menu seulement, pas de nouveaux alias à taper.</strong> <code>info.</code>, <code>miss.</code> et <code>vaiss.</code> entreraient en conflit avec la notation pointée, déjà utilisée par <code>@Stanton.Hurston</code>, <code>/explore stanton.hurston</code>, <code>/config scan.autopos</code> et les préfixes de complétion (<code>ship.</code>, <code>misc.</code>…). <code>miss.</code> est à une lettre de <code>misc.</code>, le fabricant MISC. <code>$$$</code> ne gêne rien, mais il faudrait l'enregistrer.</li>
+      <li><strong>Règle Auto proposée :</strong> libellés longs à partir de 380 px, courts de 260 à 379 px, icônes seules en dessous. À 500 px, la largeur par défaut, tout tient en long.</li>
+      <li><strong>Raccourcis :</strong> lire la touche physique (<code>event.code</code>) pour que <span class="kbd">Alt+1</span> marche aussi en AZERTY. À vérifier dans l'overlay, au-dessus du jeu.</li>
+      <li><strong>Pas de nouveaux alias tapés avec un point</strong> (<code>info.</code>, <code>miss.</code>) : la notation pointée sert déjà aux lieux (<code>@Stanton.Hurston</code>), à <code>/explore</code> et aux clés de <code>/config</code>.</li>
     </ul>
   </div>
 </section>
@@ -449,6 +508,7 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
     <div class="answer">
       <strong class="big">Oui techniquement, pas en l'état.</strong>
       <span>pywebview le permet et le serveur accepte déjà plusieurs connexions. Ce qui bloque, c'est uexinfo : l'état d'une commande et la gestion de la fenêtre supposent une fenêtre unique.</span>
+      <span><strong>Ta décision :</strong> plus tard. Une seule fenêtre pour l'instant ; ensuite, des fenêtres d'aide que le joueur garde ou ferme.</span>
     </div>
     <h3>Ce que pywebview permet</h3>
     <p>Vérifié dans le code source de pywebview 5.0.5 et 6.2.1 (le projet demande <code>pywebview&gt;=5.0</code>) :</p>
@@ -511,21 +571,22 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
       <li><span class="chip warn">Moyen</span> Un verrou d'exécution, pour que les commandes passent une par une, toutes fenêtres confondues ; un identifiant de requête pour le sélecteur et les listes « Choisir » ; l'état d'une commande dans un <code>contextvars.ContextVar</code> ; <code>status</code> et <code>vocab</code> envoyés à toutes les fenêtres après une commande qui change l'état.</li>
       <li><span class="chip bad">Lourd</span> De vraies commandes en parallèle : une capture par requête et des verrous sur les fichiers JSON et la configuration.</li>
     </ul>
-    <p><strong>Recommandation :</strong> les menus d'abord, dans la fenêtre actuelle (lots 1 et 2). Ensuite le verrou et les identifiants (lot 4), puis un bouton « Détacher » qui ouvre un thème dans sa propre fenêtre (lot 5). Le verrou suffit : un joueur lance rarement deux commandes à la même seconde.</p>
+    <p><strong>Quand on y viendra :</strong> d'abord le verrou d'exécution et les identifiants de requête, utiles même avec une seule fenêtre (la tâche périodique écrit aujourd'hui dans la même console que les commandes), puis l'ouverture des fenêtres d'aide.</p>
   </div>
 </section>
+
 
 <section id="principes" aria-labelledby="principes-t">
   <div class="prose">
     <h2 id="principes-t">Principes techniques</h2>
     <ul>
-      <li><strong>Le menu construit une commande existante.</strong> Le menu et la ligne de commande passent par le même <code>dispatch</code> : une seule implémentation par fonction.</li>
-      <li><strong>Un catalogue unique, en Python</strong> (par exemple <code>uexinfo/overlay/menus.py</code>) : thèmes, libellés longs et courts, gabarit de commande, champs typés. Il est envoyé à la page à la connexion, comme <code>vocab</code>. Les infobulles reprennent <code>CMD_HINTS</code> (<code>completer_data.py:397</code>).</li>
-      <li><strong>Un test vérifie le catalogue :</strong> chaque gabarit vise une commande enregistrée, et chaque champ a un type connu. Ce test aurait signalé <code>/route</code>.</li>
-      <li><strong>Guillemets :</strong> le parseur découpe la ligne avec <code>shlex</code>. Une valeur avec des espaces est donc mise entre guillemets, sauf les champs qui attendent plusieurs mots, comme la grille de soute <code>32x10 4x40</code>. À tester gabarit par gabarit.</li>
-      <li><strong>Formulaires :</strong> autocomplétion à partir du vocabulaire déjà reçu ; la commande construite reste visible ; « Remplir la ligne » permet de la modifier avant l'envoi.</li>
-      <li><strong>Le JavaScript du menu dans un fichier à part</strong> (<code>static/menu.js</code>), inséré dans la page par <code>_load_html</code>. C'est un premier pas pour découper <code>index.html</code>.</li>
-      <li><strong>Événements :</strong> bloquer la propagation du clic d'ouverture, une gestion d'Échap centralisée, et exclure le menu du déplacement de fenêtre s'il est placé dans la barre de titre.</li>
+      <li><strong>Un bouton construit une commande existante.</strong> Les boutons et la ligne de commande passent par le même <code>dispatch</code> : une seule implémentation par fonction.</li>
+      <li><strong>Un catalogue unique, en Python</strong> (par exemple <code>uexinfo/overlay/menus.py</code>) : thèmes, libellés, commande sans paramètre (double-clic), gabarit avec paramètres, type de chaque paramètre. Il est envoyé à la page à la connexion, comme <code>vocab</code>. Les listes de valeurs (commodités, terminaux, vaisseaux) viennent de <code>vocab</code>.</li>
+      <li><strong>Un test vérifie le catalogue :</strong> chaque commande vise une commande enregistrée, chaque paramètre a un type connu. Ce test aurait signalé <code>/route</code>.</li>
+      <li><strong>Guillemets :</strong> le parseur découpe avec <code>shlex</code>, donc une valeur avec des espaces est mise entre guillemets, sauf les paramètres qui attendent plusieurs mots (la grille <code>32x10 4x40</code>).</li>
+      <li><strong>Les vues de minage</strong> (par lieu, par minerai) sont des lignes de boutons calculées par le serveur, pas par la page : les valeurs viennent des règles testées.</li>
+      <li><strong>Le JavaScript des boutons dans un fichier à part</strong> (<code>static/menu.js</code>), inséré par <code>_load_html</code> : premier pas pour découper <code>index.html</code>.</li>
+      <li><strong>Événements :</strong> bloquer la propagation des clics du panneau (un clic n'importe où ferme aujourd'hui les menus), une gestion d'Échap centralisée, et pendant qu'une commande tourne, les boutons attendent au lieu de perdre le clic : le serveur n'en garde qu'un en file (<code>server.py:300-306</code>).</li>
     </ul>
   </div>
 </section>
@@ -533,7 +594,7 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
 <section id="bugs" aria-labelledby="bugs-t">
   <div class="prose">
     <h2 id="bugs-t">Bugs et risques trouvés en passant</h2>
-    <p>Tous vérifiés dans le code. Aucun n'est corrigé : ils attendent ton accord (lot 0).</p>
+    <p>Tous vérifiés dans le code. Aucun n'est encore corrigé : ils sont au lot 0, avec la sécurité que tu as validée.</p>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -553,35 +614,32 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
   </div>
 </section>
 
+
 <section id="plan" aria-labelledby="plan-t">
   <div class="prose">
     <h2 id="plan-t">Plan par lots</h2>
-    <p>Dans l'ordre. Chaque lot est un petit commit testé, fusionné après ta validation.</p>
+    <p>Une seule fenêtre. Chaque lot est un petit commit testé, fusionné après ta validation.</p>
   </div>
   <ol class="lots">
-    <li><span class="n">Lot 0</span><span class="t">Corrections préalables <span class="chip ok">petit</span></span><span class="d">Menu du clic gauche, <code>/route</code>, alias <code>?</code>, <code>/mission view</code>, jeton secret entre la page et le serveur, <code>open_file</code> limité aux dossiers de captures. <code>/config cache clear</code> seulement avec ton accord (question 6).</span></li>
-    <li><span class="n">Lot 1</span><span class="t">Barre de menus et sous-menus <span class="chip warn">moyen</span></span><span class="d">Catalogue Python et son test, <code>menu.js</code>, entrées sans paramètre, sous-menus en tiroir, état « occupé », raccourcis.</span></li>
-    <li><span class="n">Lot 2</span><span class="t">Formulaires <span class="chip warn">moyen</span></span><span class="d">Champs typés avec autocomplétion, aperçu de la commande, « Remplir la ligne ».</span></li>
-    <li><span class="n">Lot 3</span><span class="t">Messages orphelins et code mort <span class="chip ok">petit</span></span><span class="d">Afficher le tableau de bord des voyages, appliquer <code>opacity</code>, retirer <code>chooseTrade</code>, <code>#trade-pick</code> et <code>CommandResult</code> s'ils ne servent pas aux panneaux.</span></li>
-    <li><span class="n">Lot 4</span><span class="t">État par commande côté serveur <span class="chip warn">moyen</span></span><span class="d">Verrou d'exécution, identifiants de requête, <code>ContextVar</code>, <code>status</code> et <code>vocab</code> pour toutes les fenêtres. Utile même avec une seule fenêtre : la tâche périodique écrit aujourd'hui dans la même console que les commandes.</span></li>
-    <li><span class="n">Lot 5</span><span class="t">Fenêtres détachables <span class="chip warn">moyen</span></span><span class="d">« Détacher » un thème dans sa fenêtre, géométrie et raccourci par fenêtre, fermeture qui masque.</span></li>
-    <li><span class="n">Lot 6</span><span class="t">Minage <span class="chip bad">gros, à spécifier</span></span><span class="d">Client UEX pour les quatre endpoints, cache, commande <code>/minage</code>, règles de calcul fixées par des tests sur de vraies réponses UEX.</span></li>
-    <li><span class="n">Lot 7</span><span class="t">Vaisseaux <span class="chip warn">moyen</span></span><span class="d">Un seul chemin pour la flotte ; grille de soute personnelle dans <code>/trade</code>, si tu la valides.</span></li>
+    <li><span class="n">Lot 0</span><span class="t">Corrections et sécurité <span class="chip ok">petit</span></span><span class="d">Jeton secret entre la page et le serveur, <code>open_file</code> limité aux dossiers de captures. <code>/route</code>, alias <code>?</code>, menu du clic gauche, <code>/mission view</code> sans numéro.</span></li>
+    <li><span class="n">Lot 1</span><span class="t">Effacer au choix <span class="chip ok">petit</span></span><span class="d"><code>/config cache clear &lt;type&gt;</code> par type de données, sans type : la liste des choix. Plus de suppression de tout le dossier d'un coup.</span></li>
+    <li><span class="n">Lot 2</span><span class="t">Panneau de boutons <span class="chip warn">moyen</span></span><span class="d">Catalogue Python et son test, <code>menu.js</code>, thèmes, chemin cliquable, ligne de commande construite, filtre, clic et double-clic, état « occupé ».</span></li>
+    <li><span class="n">Lot 3</span><span class="t">Paramètres <span class="chip warn">moyen</span></span><span class="d">Listes de valeurs tirées de <code>vocab</code>, saisie libre par le filtre, paramètres enchaînés (de ▸ vers).</span></li>
+    <li><span class="n">Lot 4</span><span class="t">Minage, par lieu et par minerai <span class="chip bad">gros, à spécifier</span></span><span class="d">Client UEX pour les endpoints de raffinerie et de prix du brut, source des pourcentages, raffinerie la plus proche, commande <code>/minage</code> et ses vues en boutons. Règles fixées par des tests.</span></li>
+    <li><span class="n">Lot 5</span><span class="t">Messages orphelins et code mort <span class="chip ok">petit</span></span><span class="d">Tableau de bord des voyages, <code>opacity</code>, retrait de <code>chooseTrade</code>, <code>#trade-pick</code> et <code>CommandResult</code>.</span></li>
+    <li><span class="n">Plus tard</span><span class="t">Fenêtres d'aide <span class="chip info">reporté</span></span><span class="d">État par commande côté serveur, puis des fenêtres que le joueur garde ou ferme.</span></li>
   </ol>
 </section>
 
 <section id="questions" aria-labelledby="questions-t">
   <div class="prose">
-    <h2 id="questions-t">Questions pour toi</h2>
-    <p>Rien n'est codé avant tes réponses. Tu peux répondre par numéro.</p>
+    <h2 id="questions-t">Questions qui restent</h2>
     <ol class="questions">
-      <li><strong>Libellés.</strong> En court « Info. · $$$ · Miss. · Minage · Vaiss. » et en long « Info · Commerce · Missions · Minage · Vaisseaux » ? Pour le commerce : $$$, Bénef ou Trade ?</li>
-      <li><strong>Rangement.</strong> Navigation, relevés de prix et Game.log dans Info. et $$$, comme dans la maquette, ou des entrées à part (Nav., Scan) ? Le ⚙ devient-il un menu ?</li>
-      <li><strong>Clic sur une entrée sans paramètre.</strong> Envoyer tout de suite (proposé), ou seulement remplir la ligne de commande ?</li>
-      <li><strong>Minage.</strong> Par quoi commencer : prix du brut, choix de la raffinerie (rendement et méthode), suivi des raffinages, vaisseaux miniers ? Chaque calcul de valeur sera fixé par un test avant d'être codé.</li>
-      <li><strong>Fenêtres.</strong> Quels thèmes voudrais-tu détacher ? Un seul raccourci pour toutes les fenêtres, ou un par fenêtre ?</li>
-      <li><strong><code>/config cache clear</code>.</strong> Ne vider que le cache de l'API et garder missions, voyages, scans et notes ?</li>
-      <li><strong>Sécurité.</strong> D'accord pour un jeton secret entre la page et le serveur ? Rien ne change à l'écran.</li>
+      <li><strong>Rangement.</strong> Navigation et Game.log dans Info, relevés de prix dans Trade, comme dans la maquette ? Ou un thème à part (Nav., Scan) ?</li>
+      <li><strong>Minage, chance de trouver.</strong> D'où viennent les pourcentages ? L'API UEX ne les a pas. Tu connais une source (site communautaire, tes propres relevés) ?</li>
+      <li><strong>Minage, prix de vente.</strong> Prix du minerai brut à la raffinerie, prix du raffiné, ou les deux sur la ligne ?</li>
+      <li><strong>Effacer.</strong> Pour le cache API, « remettre à zéro » = vider puis retélécharger ; pour missions, voyages, scans et notes = vider. C'est bien ça ?</li>
+      <li><strong>Ordre.</strong> Je commence par le lot 0 (sécurité et corrections) puis le lot 1 (effacer au choix) ?</li>
     </ol>
   </div>
 </section>
@@ -601,226 +659,239 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
   var VOCAB = {
     terminal: ["Seraphim Station", "Pyro Gateway (Nyx)", "Stanton Gateway (Nyx)", "Port Tressler", "Everus Harbor", "Baijini Point", "Levski"],
     lieu: ["Seraphim Station", "Pyro Gateway (Nyx)", "Stanton Gateway (Nyx)", "Port Tressler", "Everus Harbor", "Baijini Point", "Levski", "Hurston", "microTech", "Stanton", "Pyro", "Nyx"],
-    commodite: ["Agricium", "Aluminum", "Laranite", "Quantainium", "Recycled Material Composite", "Titanium"],
+    commodite: ["Agricium", "Aluminum", "Gold", "Laranite", "Quantainium", "Recycled Material Composite", "Stims", "Titanium", "Tungsten", "Waste"],
     vaisseau: ["RSI Constellation Taurus", "Drake Cutlass Black", "MISC Freelancer MAX", "Crusader C2 Hercules", "MISC Prospector", "Argo MOLE"],
     flotte: ["RSI Constellation Taurus", "Drake Cutlass Black"],
     systeme: ["Stanton", "Pyro", "Nyx"],
-    mission: ["1", "2", "3"]
+    mission: ["1", "2", "3"],
+    scu: ["174", "96", "256", "512"],
+    texte: []
   };
   VOCAB.tout = VOCAB.commodite.concat(VOCAB.terminal, VOCAB.vaisseau);
-
   var TYPES = {
-    tout: "commodité, terminal, lieu ou vaisseau", terminal: "terminal", lieu: "lieu",
-    commodite: "commodité", vaisseau: "vaisseau du catalogue UEX", flotte: "vaisseau de ma flotte",
-    systeme: "système", mission: "numéro de mission", nombre: "nombre", texte: "texte"
+    tout: "commodité, terminal, lieu ou vaisseau", terminal: "terminal", lieu: "lieu", commodite: "commodité",
+    vaisseau: "vaisseau du catalogue", flotte: "vaisseau de ma flotte", systeme: "système",
+    mission: "numéro de mission", scu: "SCU", texte: "texte libre"
   };
 
-  // Catalogue unique : il construit la maquette ET les tableaux de l'arborescence.
-  // st : ok = existe, warn = existe mais à corriger, todo = à créer.
-  // cmd : {champ} = valeur saisie ; [ … ] = segment omis si son champ est vide.
-  var MENU = [
-    { id: "info", long: "Info", short: "Info.", icon: "ⓘ", alias: "/i", items: [
-      { sec: "Chercher" },
-      { label: "Ici (ma position)", cmd: "/info", st: "ok" },
-      { label: "Rechercher…", cmd: "/info {nom}", st: "ok", fields: [{ k: "nom", t: "tout", label: "Nom" }] },
-      { label: "Une commodité…", cmd: "/info commodity {c}", st: "ok", fields: [{ k: "c", t: "commodite", label: "Commodité" }] },
-      { label: "Un terminal…", cmd: "/info terminal {t}", st: "ok", fields: [{ k: "t", t: "terminal", label: "Terminal" }] },
-      { label: "Liste des commodités", cmd: "/info list", st: "ok" },
-      { label: "Explorer", sub: [
-        { label: "Stanton", cmd: "/explore stanton", st: "ok" },
-        { label: "Pyro", cmd: "/explore pyro", st: "ok" },
-        { label: "Nyx", cmd: "/explore nyx", st: "ok" },
-        { label: "Commodités", cmd: "/explore commodity", st: "ok" },
-        { label: "Vaisseaux", cmd: "/explore ship", st: "ok" }
-      ] },
-      { sec: "Position et route" },
-      { label: "Je suis à…", cmd: "/go {lieu}", st: "ok", fields: [{ k: "lieu", t: "lieu", label: "Lieu" }] },
-      { label: "Destination…", cmd: "/dest {lieu}", st: "ok", fields: [{ k: "lieu", t: "lieu", label: "Lieu" }] },
-      { label: "Je suis arrivé", cmd: "/arriver", st: "ok" },
-      { label: "Effacer la destination", cmd: "/dest clear", st: "ok" },
-      { label: "Route…", cmd: "/nav {de} to {vers}", st: "ok", note: "Passe par /nav : /route ne répond pas aujourd'hui.",
-        fields: [{ k: "de", t: "lieu", label: "Départ" }, { k: "vers", t: "lieu", label: "Arrivée" }] },
-      { sec: "Jeu et notes" },
-      { label: "État du jeu (Game.log)", cmd: "/game", st: "ok" },
-      { label: "Suivi en direct", cmd: "/game live", st: "ok" },
-      { label: "Notes", sub: [
-        { label: "Mes notes", cmd: "/note", st: "ok" },
-        { label: "Ajouter une note…", cmd: "/note [-l {lieu}] {texte}", st: "ok",
-          fields: [{ k: "lieu", t: "lieu", label: "Lieu", opt: true }, { k: "texte", t: "texte", label: "Note", raw: true }] }
-      ] }
-    ] },
-    { id: "trade", long: "Commerce", short: "$$$", icon: "$", alias: "/t", items: [
-      { sec: "Trouver un trade" },
-      { label: "Bilan position → destination", cmd: "/trade", st: "ok" },
-      { label: "Avec ma soute…", cmd: "/trade cargo {scu}", st: "ok", fields: [{ k: "scu", t: "nombre", label: "SCU", def: "174" }] },
-      { label: "D'un terminal à un autre…", cmd: "/trade from {de} to {vers}", st: "ok", note: "La soute ne se combine pas encore avec from/to.",
-        fields: [{ k: "de", t: "terminal", label: "De" }, { k: "vers", t: "terminal", label: "Vers" }] },
-      { label: "Où acheter…", cmd: "/trade buy {c}", st: "ok", fields: [{ k: "c", t: "commodite", label: "Commodité" }] },
-      { label: "Où vendre…", cmd: "/trade sell {c}", st: "ok", fields: [{ k: "c", t: "commodite", label: "Commodité" }] },
-      { label: "Vendre ma cargaison", cmd: "/trade vendre", st: "ok", note: "Ouvre le formulaire de vente existant." },
-      { label: "Routes sc-trade…", cmd: "/trade sctrade [--from {de}] [--to {vers}] [--budget {budget}]", st: "ok", note: "Données de la communauté, affichées en orange.",
-        fields: [{ k: "de", t: "lieu", label: "Départ", opt: true }, { k: "vers", t: "lieu", label: "Arrivée", opt: true }, { k: "budget", t: "nombre", label: "Budget (aUEC)", opt: true }] },
-      { label: "Meilleures routes", cmd: "/trade best", st: "todo", note: "Répond « Phase 3 » : pas encore implémenté." },
-      { sec: "Relevés de prix" },
-      { label: "Lire les dernières captures", cmd: "/scan", st: "ok" },
-      { label: "Lire le log Datarunner", cmd: "/scan log", st: "ok" },
-      { label: "Annuler le dernier scan", cmd: "/undo", st: "ok" },
-      { label: "Corriger un terminal…", cmd: "/scan edit {t}", st: "ok", fields: [{ k: "t", t: "terminal", label: "Terminal" }] },
-      { label: "Synchroniser les prix…", cmd: "/sync [{t}]", st: "ok", fields: [{ k: "t", t: "terminal", label: "Terminal (vide : ma position)", opt: true }] },
-      { label: "Filtres", sub: [
-        { label: "Voir les filtres", cmd: "/select show", st: "ok" },
-        { label: "Limiter à un système…", cmd: "/select system {s}", st: "ok", fields: [{ k: "s", t: "systeme", label: "Système" }] },
-        { label: "Tout effacer", cmd: "/select clear", st: "ok" }
-      ] }
-    ] },
-    { id: "miss", long: "Missions", short: "Miss.", icon: "◎", alias: "/m · /v", items: [
-      { sec: "Missions" },
-      { label: "Mes missions", cmd: "/mission list", st: "ok" },
-      { label: "Offres du mobiGlas", cmd: "/mission offres", st: "ok" },
-      { label: "Missions capturées", cmd: "/mission scan", st: "ok" },
-      { label: "Ajouter depuis le dernier scan", cmd: "/mission add", st: "ok" },
-      { label: "Modifier mes missions", cmd: "/mission edit", st: "ok", note: "Ouvre le formulaire existant." },
-      { label: "Voir une mission…", cmd: "/mission view {id}", st: "warn", note: "Sans numéro, la commande attend une saisie dans le terminal.",
-        fields: [{ k: "id", t: "mission", label: "Numéro" }] },
-      { sec: "Voyages" },
-      { label: "Voyage actif", cmd: "/voyage", st: "ok" },
-      { label: "Mes voyages", cmd: "/voyage list", st: "ok" },
-      { label: "Nouveau voyage…", cmd: "/voyage new {nom}", st: "ok", fields: [{ k: "nom", t: "texte", label: "Nom" }] },
-      { label: "Calculer", sub: [
-        { label: "Au bénéfice", cmd: "/voyage calc benef", st: "ok" },
-        { label: "À la distance", cmd: "/voyage calc dist", st: "ok" },
-        { label: "Au rendement (ROI)", cmd: "/voyage calc roi", st: "ok" },
-        { label: "Tous les critères", cmd: "/voyage calc all", st: "ok" }
-      ] },
-      { label: "Accepter le calcul", cmd: "/voyage accept", st: "ok" },
-      { label: "Tableau de bord", cmd: "/voyage tb", st: "warn", note: "Ses boutons ne s'affichent pas : la page ignore le message voyage_dashboard." }
-    ] },
-    { id: "mine", long: "Minage", short: "Minage", icon: "⛏", alias: "aucun", items: [
-      { sec: "Déjà possible" },
-      { label: "Catalogue des minerais", cmd: "/explore commodity.min", st: "ok", note: "Filtre sur le type « Mineral »." },
-      { label: "Prix d'un raffiné…", cmd: "/info {c}", st: "ok", fields: [{ k: "c", t: "commodite", label: "Commodité" }] },
-      { label: "Où vendre mon raffiné…", cmd: "/trade sell {c}", st: "ok", fields: [{ k: "c", t: "commodite", label: "Commodité" }] },
-      { sec: "À créer" },
-      { label: "Prix du minerai brut", st: "todo", note: "UEX : commodities_raw_prices. Aujourd'hui, /info « Quantainium (Raw) » ne trouve aucun prix." },
-      { label: "Rendement des raffineries", st: "todo", note: "UEX : refineries_yields, bonus en % par terminal et par minerai." },
-      { label: "Méthodes de raffinage", st: "todo", note: "UEX : refineries_methods, notes de rendement, de coût et de vitesse." },
-      { label: "Capacité des raffineries", st: "todo", note: "UEX : refineries_capacities." },
-      { label: "Vaisseaux miniers", st: "todo", note: "Le rôle « mining » est déjà en cache ; aucune commande ne filtre par rôle." },
-      { label: "Missions de minage", st: "todo", note: "L'OCR classe déjà certains contrats en « Minage »." },
-      { label: "Suivi des raffinages", st: "todo", note: "Source à trouver : traces du Game.log à relever en jeu." }
-    ] },
-    { id: "ship", long: "Vaisseaux", short: "Vaiss.", icon: "✈", alias: "/sh", items: [
-      { sec: "Ma flotte" },
-      { label: "Ma flotte", cmd: "/ship list", st: "ok" },
-      { label: "Vaisseau actif…", cmd: "/ship set {f}", st: "ok", fields: [{ k: "f", t: "flotte", label: "Vaisseau" }] },
-      { label: "Ajouter…", cmd: "/ship add {v}", st: "ok", fields: [{ k: "v", t: "vaisseau", label: "Modèle" }] },
-      { label: "Retirer…", cmd: "/ship remove {f}", st: "ok", fields: [{ k: "f", t: "flotte", label: "Vaisseau" }] },
-      { label: "Grille de soute…", cmd: "/ship cargo {f} {grille}", st: "warn", note: "La grille saisie n'est pas utilisée par /trade.",
-        fields: [{ k: "f", t: "flotte", label: "Vaisseau" }, { k: "grille", t: "texte", label: "Grille (ex. 32x10 4x40)", raw: true }] },
-      { sec: "Catalogue" },
-      { label: "Fiche d'un vaisseau…", cmd: "/info ship {v}", st: "ok", note: "Avec les prix d'achat et de location.",
-        fields: [{ k: "v", t: "vaisseau", label: "Modèle" }] },
-      { label: "Par fabricant", cmd: "/explore ship", st: "ok" }
-    ] },
-    { id: "sys", long: "Réglages", short: "⚙", icon: "⚙", alias: "/c", compact: true, items: [
-      { label: "Configuration", cmd: "/config", st: "ok" },
-      { label: "Rafraîchir les prix", cmd: "/refresh prices", st: "ok" },
-      { label: "Rafraîchir les données", cmd: "/refresh all", st: "ok" },
-      { label: "Version et univers", cmd: "/evolution", st: "ok" },
-      { label: "Historique", cmd: "/history", st: "ok" },
-      { label: "Aide", cmd: "/help", st: "ok" }
-    ] }
+  // ── Minage : valeurs FICTIVES pour la maquette ─────────────────────────────
+  var ORES = [
+    { n: "Agricium", price: 2600 }, { n: "Bexalite", price: 4100 }, { n: "Gold", price: 1200 },
+    { n: "Hephaestanite", price: 2900 }, { n: "Laranite", price: 5000 }, { n: "Quantainium", price: 16000 },
+    { n: "Taranite", price: 5600 }, { n: "Titanium", price: 800 }
   ];
-
-  MENU.forEach(function (th) {
-    var n = 0;
-    (function walk(items) {
-      items.forEach(function (it) {
-        if (it.sec) return;
-        it.id = th.id + "-" + (n++);
-        if (it.sub) walk(it.sub);
+  var PLACES = {
+    Stanton: {
+      Crusader: ["CRU-L1", "CRU-L4", "CRU-L5", "Cellin", "Daymar", "Yela"],
+      Hurston: ["HUR-L1", "HUR-L3", "Aberdeen", "Arial", "Ita", "Magda"],
+      ArcCorp: ["ARC-L3", "ARC-L4", "Lyria", "Wala"],
+      microTech: ["MIC-L1", "MIC-L4", "Calliope", "Clio", "Euterpe"]
+    },
+    Pyro: { "Pyro I": ["Pyro I"], Monox: ["Monox"], Bloom: ["Bloom"], Terminus: ["Terminus"] },
+    Nyx: { Keeger: ["Ceinture de Keeger"], Glaciem: ["Anneau de Glaciem"] }
+  };
+  var REFINERY = { Crusader: "CRU-L2", Hurston: "HUR-L2", ArcCorp: "ARC-L1", microTech: "MIC-L2",
+    "Pyro I": "Ruin Station", Monox: "Ruin Station", Bloom: "Checkmate", Terminus: "Endgame", Keeger: "Levski", Glaciem: "Levski" };
+  function hash(s) { var h = 7; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 9973; return h; }
+  function oresAt(place) {
+    if (place === "CRU-L1") return [{ ore: ORES[4], pct: 18 }, { ore: ORES[0], pct: 12 }, { ore: ORES[5], pct: 6 }];
+    var h = hash(place), out = [];
+    for (var k = 0; k < 3; k++) out.push({ ore: ORES[(h + k * 3) % ORES.length], pct: 4 + ((h >> k) + k * 5) % 17 });
+    out.sort(function (a, b) { return b.pct - a.pct; });
+    return out;
+  }
+  function distOf(place) { return (0.3 + (hash(place) % 25) / 10).toFixed(1).replace(".", ","); }
+  function fmt(n) { return n.toLocaleString("fr-FR"); }
+  var ALL_SPOTS = [];
+  Object.keys(PLACES).forEach(function (sys) {
+    Object.keys(PLACES[sys]).forEach(function (body) {
+      PLACES[sys][body].forEach(function (pl) {
+        oresAt(pl).forEach(function (x) { ALL_SPOTS.push({ sys: sys, body: body, place: pl, ore: x.ore.n, pct: x.pct }); });
       });
-    })(th.items);
+    });
+  });
+  function bestPct(ore) { return ALL_SPOTS.filter(function (s) { return s.ore === ore; }).reduce(function (m, s) { return Math.max(m, s.pct); }, 0); }
+
+  // ── Catalogue unique : construit la maquette ET les tableaux ───────────────
+  // cmd : commande sans paramètre (clic, ou double-clic si le bouton ouvre aussi un groupe)
+  // pcmd + params : commande construite le long du chemin ; {k} = valeur choisie
+  function p(k, t, label, raw) { return { k: k, t: t, label: label, raw: !!raw }; }
+  var placeNodes = Object.keys(PLACES).map(function (sys) {
+    return { label: sys, noTable: true, kids: Object.keys(PLACES[sys]).map(function (body) {
+      return { label: body, noTable: true, kids: PLACES[sys][body].map(function (pl) {
+        return { label: pl, noTable: true, view: "place", sys: sys, body: body };
+      }) };
+    }) };
+  });
+  var oreNodes = ORES.slice().sort(function (a, b) { return a.n.localeCompare(b.n); }).map(function (o) {
+    return { label: o.n, noTable: true, view: "ore", ore: o };
   });
 
+  var MENU = [
+    { id: "info", label: "Info", short: "Info.", icon: "ⓘ", alias: "/i", kids: [
+      { label: "Ici (ma position)", cmd: "/info" },
+      { label: "Rechercher", params: [p("nom", "tout", "nom")], pcmd: "/info {nom}" },
+      { label: "Commodités", cmd: "/info list", params: [p("c", "commodite", "commodité")], pcmd: "/info commodity {c}", note: "Double-clic : la liste de toutes les commodités." },
+      { label: "Terminal", params: [p("t", "terminal", "terminal")], pcmd: "/info terminal {t}" },
+      { label: "Explorer", kids: [
+        { label: "Stanton", cmd: "/explore stanton" }, { label: "Pyro", cmd: "/explore pyro" }, { label: "Nyx", cmd: "/explore nyx" },
+        { label: "Commodités", cmd: "/explore commodity" }, { label: "Vaisseaux", cmd: "/explore ship" }
+      ] },
+      { label: "Position", kids: [
+        { label: "Je suis à", cmd: "/go", params: [p("lieu", "lieu", "lieu")], pcmd: "/go {lieu}" },
+        { label: "Destination", cmd: "/dest", params: [p("lieu", "lieu", "lieu")], pcmd: "/dest {lieu}" },
+        { label: "Je suis arrivé", cmd: "/arriver" },
+        { label: "Effacer la destination", cmd: "/dest clear" }
+      ] },
+      { label: "Route", params: [p("de", "lieu", "départ"), p("vers", "lieu", "arrivée")], pcmd: "/nav {de} to {vers}", note: "Passe par /nav : /route ne répond pas aujourd'hui." },
+      { label: "Jeu", kids: [
+        { label: "État", cmd: "/game" }, { label: "Suivi en direct", cmd: "/game live" }, { label: "Évènements", cmd: "/game events" }
+      ] },
+      { label: "Notes", cmd: "/note", params: [p("texte", "texte", "note", true)], pcmd: "/note {texte}", note: "Double-clic : mes notes. Clic : en ajouter une." }
+    ] },
+    { id: "trade", label: "Trade", short: "Trade", icon: "$", alias: "/t", kids: [
+      { label: "Bilan position → destination", cmd: "/trade" },
+      { label: "Avec ma soute", params: [p("scu", "scu", "SCU")], pcmd: "/trade cargo {scu}" },
+      { label: "D'un terminal à un autre", params: [p("de", "terminal", "de"), p("vers", "terminal", "vers")], pcmd: "/trade from {de} to {vers}" },
+      { label: "Acheter", params: [p("c", "commodite", "commodité")], pcmd: "/trade buy {c}" },
+      { label: "Vendre", params: [p("c", "commodite", "commodité")], pcmd: "/trade sell {c}" },
+      { label: "Vendre ma cargaison", cmd: "/trade vendre", note: "Ouvre le formulaire de vente existant." },
+      { label: "Routes sc-trade", cmd: "/trade sctrade", params: [p("de", "lieu", "départ")], pcmd: "/trade sctrade --from {de}", note: "Double-clic : sans filtre. Données de la communauté." },
+      { label: "Meilleures routes", st: "todo", note: "/trade best répond « Phase 3 » : pas encore implémenté." },
+      { label: "Relevés de prix", kids: [
+        { label: "Lire les captures", cmd: "/scan" }, { label: "Lire le log Datarunner", cmd: "/scan log" },
+        { label: "Annuler le dernier scan", cmd: "/undo" },
+        { label: "Corriger un terminal", params: [p("t", "terminal", "terminal")], pcmd: "/scan edit {t}" },
+        { label: "Synchroniser", cmd: "/sync", params: [p("t", "terminal", "terminal")], pcmd: "/sync {t}", note: "Double-clic : terminal de ma position." }
+      ] },
+      { label: "Filtres", kids: [
+        { label: "Voir", cmd: "/select show" },
+        { label: "Système", params: [p("s", "systeme", "système")], pcmd: "/select system {s}" },
+        { label: "Tout effacer", cmd: "/select clear" }
+      ] }
+    ] },
+    { id: "miss", label: "Missions", short: "Miss.", icon: "◎", alias: "/m · /v", kids: [
+      { label: "Mes missions", cmd: "/mission list" },
+      { label: "Offres du mobiGlas", cmd: "/mission offres" },
+      { label: "Missions capturées", cmd: "/mission scan" },
+      { label: "Ajouter depuis le scan", cmd: "/mission add" },
+      { label: "Modifier", cmd: "/mission edit", note: "Ouvre le formulaire existant." },
+      { label: "Voir une mission", params: [p("id", "mission", "numéro")], pcmd: "/mission view {id}", st: "warn", note: "Sans numéro, la commande attend une saisie dans le terminal." },
+      { label: "Voyages", kids: [
+        { label: "Voyage actif", cmd: "/voyage" }, { label: "Mes voyages", cmd: "/voyage list" },
+        { label: "Nouveau voyage", params: [p("nom", "texte", "nom")], pcmd: "/voyage new {nom}" },
+        { label: "Calculer", kids: [
+          { label: "Au bénéfice", cmd: "/voyage calc benef" }, { label: "À la distance", cmd: "/voyage calc dist" },
+          { label: "Au rendement (ROI)", cmd: "/voyage calc roi" }, { label: "Tous les critères", cmd: "/voyage calc all" }
+        ] },
+        { label: "Accepter le calcul", cmd: "/voyage accept" },
+        { label: "Tableau de bord", cmd: "/voyage tb", st: "warn", note: "Ses boutons ne s'affichent pas : la page ignore le message voyage_dashboard." }
+      ] }
+    ] },
+    { id: "mine", label: "Minage", short: "Minage", icon: "⛏", alias: "aucun", kids: [
+      { label: "Par lieu", kids: placeNodes, auto: ["Stanton", "Crusader"], st: "todo", note: "S'ouvre sur le lieu le plus proche. Vue à créer." },
+      { label: "Par minerai", kids: oreNodes, view: "ore-list", st: "todo", note: "Liste alphabétique, chance de trouver, prix. Vue à créer." },
+      { label: "Raffineries", kids: [
+        { label: "Rendements", st: "todo", note: "UEX : refineries_yields, bonus en % par terminal et par minerai." },
+        { label: "Méthodes", st: "todo", note: "UEX : refineries_methods, notes de rendement, coût, vitesse." },
+        { label: "Capacités", st: "todo", note: "UEX : refineries_capacities." }
+      ] },
+      { label: "Vaisseaux miniers", st: "todo", note: "Le rôle « mining » est déjà en cache ; aucune commande ne filtre par rôle." },
+      { label: "Catalogue des minerais", cmd: "/explore commodity.min", note: "Existe : filtre sur le type « Mineral »." }
+    ] },
+    { id: "ship", label: "Vaisseaux", short: "Vaiss.", icon: "✈", alias: "/sh", kids: [
+      { label: "Ma flotte", cmd: "/ship list" },
+      { label: "Vaisseau actif", params: [p("f", "flotte", "vaisseau")], pcmd: "/ship set {f}" },
+      { label: "Ajouter", params: [p("v", "vaisseau", "modèle")], pcmd: "/ship add {v}" },
+      { label: "Retirer", params: [p("f", "flotte", "vaisseau")], pcmd: "/ship remove {f}" },
+      { label: "Grille de soute", params: [p("f", "flotte", "vaisseau"), p("grille", "texte", "grille, ex. 32x10 4x40", true)], pcmd: "/ship cargo {f} {grille}", st: "warn", note: "La grille saisie n'est pas utilisée par /trade." },
+      { label: "Fiche d'un vaisseau", params: [p("v", "vaisseau", "modèle")], pcmd: "/info ship {v}", note: "Avec les prix d'achat et de location." },
+      { label: "Par fabricant", cmd: "/explore ship" }
+    ] },
+    { id: "sys", label: "Réglages", short: "⚙", icon: "⚙", alias: "/c", compact: true, kids: [
+      { label: "Configuration", cmd: "/config" },
+      { label: "Rafraîchir", kids: [{ label: "Les prix", cmd: "/refresh prices" }, { label: "Les données", cmd: "/refresh all" }] },
+      { label: "Version et univers", cmd: "/evolution" },
+      { label: "Historique", cmd: "/history" },
+      { label: "Aide", cmd: "/help" },
+      { label: "Effacer…", view: "clear", st: "todo", note: "Nouvelle forme de /config cache clear, par type de données." }
+    ] }
+  ];
+  var CLEAR_TYPES = [["Cache API", "api"], ["Missions", "missions"], ["Voyages", "voyages"], ["Scans", "scans"], ["Notes", "notes"], ["Historique", "historique"]];
+
+  function opens(n) { return !!(n.kids || n.params || n.view); }
+  function stOf(n) { return n.st || (opens(n) && !n.params ? null : "ok"); }
+
+  // ── Outils ─────────────────────────────────────────────────────────────────
   function el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text != null) e.textContent = text;
     return e;
   }
-  function tpl(cmd) { return cmd.replace(/\{(\w+)\}/g, "‹$1›"); }
   function quote(v) { return /\s/.test(v) ? "\"" + v.replace(/"/g, "\\\"") + "\"" : v; }
-  function build(item, vals) {
+  function build(n, vals) {
     var raw = {};
-    (item.fields || []).forEach(function (f) { raw[f.k] = !!f.raw; });
-    var s = item.cmd.replace(/\[([^\]]*)\]/g, function (m, inner) {
-      var keys = [], r = /\{(\w+)\}/g, x;
-      while ((x = r.exec(inner))) keys.push(x[1]);
-      return keys.every(function (k) { return (vals[k] || "").trim(); }) ? inner : "";
-    });
-    s = s.replace(/\{(\w+)\}/g, function (m, k) {
+    n.params.forEach(function (q) { raw[q.k] = q.raw; });
+    return n.pcmd.replace(/\{(\w+)\}/g, function (m, k) {
       var v = (vals[k] || "").trim();
       if (!v) return "‹" + k + "›";
       return raw[k] ? v : quote(v);
     });
-    return s.replace(/\s+/g, " ").trim();
   }
-
-  var TAG = { ok: ["✓", "existe"], warn: ["⚠", "à corriger"], todo: ["✚", "à créer"] };
 
   // ── Arborescence (tableaux) ────────────────────────────────────────────────
-  function flat(items, prefix, acc) {
-    items.forEach(function (it) {
-      if (it.sec) return;
-      var path = (prefix ? prefix + " ▸ " : "") + it.label;
-      if (it.sub) flat(it.sub, path, acc);
-      else acc.push({ path: path, it: it });
-    });
-    return acc;
-  }
   var host = document.getElementById("arbo-tables");
   var count = { total: 0, ok: 0, warn: 0, todo: 0 };
   MENU.forEach(function (th, i) {
-    var rows = flat(th.items, "", []);
+    var rows = [];
+    (function walk(nodes, prefix) {
+      nodes.forEach(function (n) {
+        var path = (prefix ? prefix + " ▸ " : "") + n.label;
+        rows.push({ path: path, n: n });
+        if (n.kids && !n.kids[0].noTable) walk(n.kids, path);
+      });
+    })(th.kids, "");
     var box = el("div", "arbo-theme");
-    var h = el("h3", null, th.icon + " " + th.long);
-    h.appendChild(el("span", "arbo-meta", "menu « " + th.short + " » · Alt+" + (i + 1) + " · alias : " + th.alias));
+    var h = el("h3", null, th.icon + " " + th.label);
+    h.appendChild(el("span", "arbo-meta", "court : " + th.short + " · Alt+" + (i + 1) + " · alias : " + th.alias));
     box.appendChild(h);
-    var wrap = el("div", "tbl-wrap");
-    var table = el("table");
-    var thead = el("thead"), trh = el("tr");
-    ["Entrée", "Commande", "Champs", "État"].forEach(function (t) { trh.appendChild(el("th", null, t)); });
+    var wrap = el("div", "tbl-wrap"), table = el("table"), thead = el("thead"), trh = el("tr");
+    ["Chemin", "Clic", "Double-clic", "État"].forEach(function (t) { trh.appendChild(el("th", null, t)); });
     thead.appendChild(trh); table.appendChild(thead);
     var tbody = el("tbody");
     rows.forEach(function (r) {
-      var it = r.it;
-      count.total++; count[it.st]++;
-      var tr = el("tr");
+      var n = r.n, tr = el("tr");
       tr.appendChild(el("td", "arbo-path", r.path));
-      var tdc = el("td");
-      if (it.cmd) tdc.appendChild(el("code", null, tpl(it.cmd))); else tdc.appendChild(el("span", "muted", "aucune commande"));
-      tr.appendChild(tdc);
-      var tdf = el("td", "arbo-fields", it.fields ? it.fields.map(function (f) {
-        return f.label + " (" + TYPES[f.t] + (f.opt ? ", facultatif" : "") + ")";
-      }).join(" · ") : "aucun");
-      tr.appendChild(tdf);
-      var tds = el("td");
-      tds.appendChild(el("span", "chip " + it.st, TAG[it.st][0] + " " + TAG[it.st][1]));
-      if (it.note) tds.appendChild(el("span", "note", it.note));
-      tr.appendChild(tds);
+      var c1 = el("td");
+      if (n.params) c1.appendChild(el("code", null, build(n, {})));
+      else if (n.kids || n.view) c1.appendChild(el("span", "muted", "ouvre le groupe ▸"));
+      else if (n.cmd) c1.appendChild(el("code", null, n.cmd));
+      else c1.appendChild(el("span", "muted", "aucune commande"));
+      tr.appendChild(c1);
+      var c2 = el("td");
+      if (n.cmd && opens(n)) c2.appendChild(el("code", null, n.cmd)); else c2.appendChild(el("span", "muted", "—"));
+      tr.appendChild(c2);
+      var c3 = el("td"), st = stOf(n);
+      if (st) {
+        count.total++; count[st]++;
+        var lab = { ok: "✓ existe", warn: "⚠ à corriger", todo: "✚ à créer" }[st];
+        c3.appendChild(el("span", "chip " + st, lab));
+      } else c3.appendChild(el("span", "muted", "groupe"));
+      if (n.note) c3.appendChild(el("span", "note", n.note));
+      tr.appendChild(c3);
       tbody.appendChild(tr);
     });
     table.appendChild(tbody); wrap.appendChild(table); box.appendChild(wrap);
     host.appendChild(box);
   });
   document.getElementById("arbo-count").textContent =
-    count.total + " entrées : " + count.ok + " existent, " + count.warn + " à corriger, " + count.todo + " à créer.";
+    count.total + " boutons d'action : " + count.ok + " existent, " + count.warn + " à corriger, " + count.todo + " à créer.";
 
   // ── Maquette ───────────────────────────────────────────────────────────────
   var hud = document.getElementById("hud");
   var bar = document.getElementById("hud-bar");
-  var drop = document.getElementById("hud-drop");
+  var panel = document.getElementById("hud-panel");
   var out = document.getElementById("hud-out");
   var input = document.getElementById("hud-input");
   var busyEl = document.getElementById("hud-busy");
@@ -829,52 +900,357 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
   var lblOut = document.getElementById("lbl-out");
   var scene = document.getElementById("scene");
 
-  var dlHost = document.getElementById("datalists");
-  Object.keys(VOCAB).forEach(function (t) {
-    var dl = el("datalist"); dl.id = "dl-" + t;
-    VOCAB[t].forEach(function (v) { var o = el("option"); o.value = v; dl.appendChild(o); });
-    dlHost.appendChild(dl);
-  });
+  var path = [];          // [{kind:"node", node, label} | {kind:"param", owner, idx, vals, label}]
+  var themeIdx = null, busy = false, mode = "auto", confirmType = null, clickTimer = 0;
 
-  var openIdx = null, stack = [], busy = false, mode = "auto";
-
-  var buttons = MENU.map(function (th, i) {
+  var themeBtns = MENU.map(function (th, i) {
     var b = el("button", "hb" + (th.compact ? " sys" : ""));
     b.type = "button";
-    b.id = "hb-" + th.id;
-    b.setAttribute("role", "menuitem");
-    b.setAttribute("aria-haspopup", "menu");
-    b.setAttribute("aria-expanded", "false");
-    b.setAttribute("aria-controls", "hud-drop");
-    b.setAttribute("aria-label", th.long);
-    b.title = th.long + " (Alt+" + (i + 1) + ")";
+    b.setAttribute("aria-pressed", "false");
+    b.setAttribute("aria-label", th.label);
+    b.title = th.label + " (Alt+" + (i + 1) + ")";
     var ico = el("span", "hb-ico", th.icon); ico.setAttribute("aria-hidden", "true");
     b.appendChild(ico);
-    b.appendChild(el("span", "hb-long", th.long));
+    b.appendChild(el("span", "hb-long", th.label));
     b.appendChild(el("span", "hb-short", th.short));
     b.addEventListener("click", function (e) {
       e.stopPropagation();
       if (busy) return;
-      if (openIdx === i) closeMenu(true); else openMenu(i, e.detail === 0);
-    });
-    b.addEventListener("keydown", function (e) {
-      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-        e.preventDefault();
-        var j = (i + (e.key === "ArrowRight" ? 1 : MENU.length - 1)) % MENU.length;
-        buttons[j].focus();
-        if (openIdx !== null) openMenu(j, false);
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (!busy) openMenu(i, true);
-      }
+      if (themeIdx === i) closePanel(); else openTheme(i);
     });
     bar.appendChild(b);
     return b;
   });
 
+  function openTheme(i) {
+    themeIdx = i;
+    themeBtns.forEach(function (b, j) { b.setAttribute("aria-pressed", String(j === i)); });
+    path = [{ kind: "node", node: MENU[i], label: MENU[i].label }];
+    confirmType = null;
+    render();
+  }
+  function closePanel() {
+    themeIdx = null; path = []; confirmType = null;
+    themeBtns.forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+    panel.hidden = true;
+    panel.replaceChildren();
+  }
+  function enter(n) {
+    confirmType = null;
+    if (n.params && !n.kids) path.push({ kind: "param", owner: n, idx: 0, vals: {}, label: n.label });
+    else {
+      path.push({ kind: "node", node: n, label: n.label });
+      (n.auto || []).forEach(function (lbl) {
+        var cur = path[path.length - 1].node;
+        var k = (cur.kids || []).filter(function (x) { return x.label === lbl; })[0];
+        if (k) path.push({ kind: "node", node: k, label: k.label });
+      });
+    }
+    render(true);
+  }
+  function goTo(labels, quiet) {
+    // labels : chemin complet depuis le thème Minage, pour les liens internes des vues
+    var th = MENU.filter(function (t) { return t.id === "mine"; })[0];
+    themeIdx = MENU.indexOf(th);
+    themeBtns.forEach(function (b, j) { b.setAttribute("aria-pressed", String(j === themeIdx)); });
+    path = [{ kind: "node", node: th, label: th.label }];
+    labels.forEach(function (lbl) {
+      var cur = path[path.length - 1].node;
+      var k = (cur.kids || []).filter(function (x) { return x.label === lbl; })[0];
+      if (k) path.push({ kind: "node", node: k, label: k.label });
+    });
+    render(!quiet);
+  }
+  function up() {
+    if (path.length > 1) { path.pop(); confirmType = null; render(true); } else closePanel();
+  }
+
+  function preview() {
+    var top = path[path.length - 1];
+    if (top.kind === "param") return { text: build(top.owner, top.vals) };
+    var n = top.node;
+    if (n.params) return { text: build(n, {}), dbl: n.cmd };
+    if (n.cmd) return { text: n.cmd };
+    return null;
+  }
+
+  function render(focusFirst) {
+    panel.hidden = false;
+    panel.replaceChildren();
+    var top = path[path.length - 1];
+    // Chemin de sélection
+    var nav = el("nav", "hp-path");
+    nav.setAttribute("aria-label", "Chemin de la sélection");
+    path.forEach(function (entry, i) {
+      if (i > 0) nav.appendChild(el("span", "hp-sep", "▸"));
+      var seg = el("button", "hp-seg", entry.label);
+      seg.type = "button";
+      if (i === path.length - 1 && top.kind === "node") seg.setAttribute("aria-current", "step");
+      else seg.addEventListener("click", function () { path = path.slice(0, i + 1); confirmType = null; render(true); });
+      nav.appendChild(seg);
+    });
+    if (top.kind === "param") {
+      nav.appendChild(el("span", "hp-sep", "▸"));
+      nav.appendChild(el("span", "hp-seg", "‹" + top.owner.params[top.idx].label + "›"));
+    }
+    panel.appendChild(nav);
+    // Commande en construction
+    var pv = preview();
+    if (pv) {
+      var line = el("div", "hp-cmd");
+      line.appendChild(el("span", "hp-cmdtxt", "› " + pv.text + (pv.dbl ? "    (double-clic : " + pv.dbl + ")" : "")));
+      var fill = el("button", "bt small", "Remplir la ligne");
+      fill.type = "button";
+      fill.addEventListener("click", function () { input.value = pv.text.indexOf("‹") >= 0 ? pv.text.split("‹")[0] : pv.text; input.focus(); });
+      line.appendChild(fill);
+      panel.appendChild(line);
+    }
+    if (top.kind === "param") renderParam(top);
+    else if (top.node.view === "place") renderPlace(top.node);
+    else if (top.node.view === "ore") renderOre(top.node);
+    else if (top.node.view === "ore-list") renderOreList(top.node);
+    else if (top.node.view === "clear") renderClear();
+    else if (top.node.kids) renderKids(top.node.kids);
+    else renderInfo(top.node);
+    if (focusFirst) {
+      var f = panel.querySelector(".hp-filter, .hp-grid .bt, .hp-lines .bt");
+      if (f) f.focus();
+    }
+  }
+
+  function marks(n) {
+    var m = "";
+    if (n.kids || n.view) m += "▸";
+    else if (n.params) m += "‹›";
+    if (n.cmd && opens(n)) m += " ⇉";
+    return m;
+  }
+  function kidButton(n) {
+    var b = el("button", "bt" + (opens(n) || n.st === "todo" ? "" : " go"), n.label);
+    b.type = "button";
+    var m = marks(n);
+    if (m) b.appendChild(el("span", "mk more", m));
+    if (n.st === "warn" || n.st === "todo") b.appendChild(el("span", "mk " + n.st, n.st === "warn" ? "⚠" : "✚"));
+    if (n.note) b.title = n.note;
+    b.addEventListener("click", function (e) {
+      if (e.detail > 1 || busy) return;
+      if (n.cmd && opens(n)) {
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(function () { enter(n); }, 250);
+      } else if (opens(n) || n.st === "todo") enter(n);
+      else run(n.cmd);
+    });
+    b.addEventListener("dblclick", function () {
+      if (busy || !(n.cmd && opens(n))) return;
+      clearTimeout(clickTimer);
+      run(n.cmd);
+    });
+    return b;
+  }
+  function filterBox(buttons, onEnter, placeholder) {
+    var f = el("input", "hp-filter");
+    f.type = "text";
+    f.id = "hp-filter";
+    f.autocomplete = "off";
+    f.placeholder = placeholder;
+    f.setAttribute("aria-label", placeholder);
+    f.addEventListener("input", function () {
+      var q = f.value.trim().toLowerCase();
+      buttons.forEach(function (b) { b.hidden = q !== "" && b.textContent.toLowerCase().indexOf(q) < 0; });
+    });
+    f.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      var vis = buttons.filter(function (b) { return !b.hidden; });
+      if (vis.length === 1) vis[0].click();
+      else if (onEnter && f.value.trim()) onEnter(f.value.trim());
+    });
+    return f;
+  }
+  function renderKids(kids) {
+    var grid = el("div", "hp-grid");
+    var btns = kids.map(function (n) { var b = kidButton(n); grid.appendChild(b); return b; });
+    if (btns.length > 8) panel.appendChild(filterBox(btns, null, "Filtrer les " + btns.length + " boutons"));
+    panel.appendChild(grid);
+  }
+  function renderParam(top) {
+    var q = top.owner.params[top.idx];
+    var grid = el("div", "hp-grid");
+    var btns = (VOCAB[q.t] || []).map(function (v) {
+      var b = el("button", "bt go", v);
+      b.type = "button";
+      b.addEventListener("click", function () { choose(top, v); });
+      grid.appendChild(b);
+      return b;
+    });
+    panel.appendChild(filterBox(btns, function (v) { choose(top, v); },
+      btns.length ? "Filtrer ou taper : " + TYPES[q.t] : "Taper : " + TYPES[q.t] + ", puis Entrée"));
+    if (btns.length) panel.appendChild(grid);
+    if (top.owner.note) panel.appendChild(el("div", "hp-hint", top.owner.note));
+  }
+  function choose(top, v) {
+    if (busy) return;
+    var vals = {}; Object.keys(top.vals).forEach(function (k) { vals[k] = top.vals[k]; });
+    vals[top.owner.params[top.idx].k] = v;
+    if (top.idx + 1 < top.owner.params.length) {
+      path.push({ kind: "param", owner: top.owner, idx: top.idx + 1, vals: vals, label: v });
+      render(true);
+    } else {
+      run(build(top.owner, vals));
+    }
+  }
+  function renderInfo(n) {
+    if (n.st === "todo") panel.appendChild(el("div", "hp-todo", "✚ À créer : rien à exécuter pour l'instant."));
+    if (n.note) panel.appendChild(el("div", "hp-hint", n.note));
+  }
+  function fake() { panel.appendChild(el("div", "hp-fake", "Valeurs fictives : aucune source n'est encore branchée.")); }
+  function renderPlace(n) {
+    var lines = el("div", "hp-lines");
+    var ref = REFINERY[n.body] || "?";
+    var l0 = el("div", "hp-line");
+    l0.appendChild(el("span", "d", "Raffinerie la plus proche :"));
+    var rb = el("button", "bt small", ref); rb.type = "button";
+    rb.addEventListener("click", function () { run("/info " + quote(ref)); });
+    l0.appendChild(rb);
+    l0.appendChild(el("span", "d", "· " + distOf(n.label + ref) + " Gm"));
+    lines.appendChild(l0);
+    oresAt(n.label).forEach(function (x) {
+      var l = el("div", "hp-line");
+      var ob = el("button", "bt small", x.ore.n); ob.type = "button";
+      ob.title = "Où trouver " + x.ore.n;
+      ob.addEventListener("click", function () { goTo(["Par minerai", x.ore.n]); });
+      l.appendChild(ob);
+      l.appendChild(el("span", "v", x.pct + " % · " + fmt(x.ore.price) + " aUEC/SCU"));
+      var ib = el("button", "bt small go", "info"); ib.type = "button";
+      ib.title = "Commerce : /info " + x.ore.n;
+      ib.addEventListener("click", function () { run("/info " + quote(x.ore.n)); });
+      l.appendChild(ib);
+      lines.appendChild(l);
+    });
+    panel.appendChild(lines);
+    fake();
+  }
+  function renderOreList(n) {
+    var lines = el("div", "hp-lines");
+    var rows = n.kids.map(function (k) {
+      var l = el("div", "hp-line");
+      var b = el("button", "bt small", k.label); b.type = "button";
+      b.addEventListener("click", function () { enter(k); });
+      l.appendChild(b);
+      l.appendChild(el("span", "v", "jusqu'à " + bestPct(k.label) + " % · " + fmt(k.ore.price) + " aUEC/SCU"));
+      lines.appendChild(l);
+      return b;
+    });
+    panel.appendChild(filterBox(rows, null, "Filtrer les minerais"));
+    panel.appendChild(lines);
+    // le filtre masque le bouton : masquer toute la ligne
+    rows.forEach(function (b) {
+      new MutationObserver(function () { b.parentNode.hidden = b.hidden; }).observe(b, { attributes: true, attributeFilter: ["hidden"] });
+    });
+    fake();
+  }
+  function renderOre(n) {
+    var lines = el("div", "hp-lines");
+    lines.appendChild(el("div", "hp-title", n.label + " : où la trouver"));
+    ALL_SPOTS.filter(function (s) { return s.ore === n.label; })
+      .sort(function (a, b) { return b.pct - a.pct; })
+      .forEach(function (s) {
+        var l = el("div", "hp-line");
+        var pb = el("button", "bt small", s.sys + " ▸ " + s.body + " ▸ " + s.place); pb.type = "button";
+        pb.addEventListener("click", function () { goTo(["Par lieu", s.sys, s.body, s.place]); });
+        l.appendChild(pb);
+        l.appendChild(el("span", "v", s.pct + " %"));
+        l.appendChild(el("span", "d", "· raffinerie " + (REFINERY[s.body] || "?")));
+        lines.appendChild(l);
+      });
+    var acts = el("div", "hp-line");
+    var ib = el("button", "bt small go", "info"); ib.type = "button";
+    ib.addEventListener("click", function () { run("/info " + quote(n.label)); });
+    var sb = el("button", "bt small go", "où vendre"); sb.type = "button";
+    sb.addEventListener("click", function () { run("/trade sell " + quote(n.label)); });
+    acts.appendChild(ib); acts.appendChild(sb);
+    acts.appendChild(el("span", "d", "→ commerce"));
+    lines.appendChild(acts);
+    panel.appendChild(lines);
+    fake();
+  }
+  function renderClear() {
+    var grid = el("div", "hp-grid");
+    CLEAR_TYPES.forEach(function (t) {
+      var b = el("button", "bt", t[0]); b.type = "button";
+      b.appendChild(el("span", "mk more", "⇉"));
+      b.addEventListener("click", function (e) {
+        if (e.detail > 1 || busy) return;
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(function () { confirmType = t; render(); }, 250);
+      });
+      b.addEventListener("dblclick", function () {
+        if (busy) return;
+        clearTimeout(clickTimer);
+        confirmType = null;
+        run("/config cache clear " + t[1]);
+      });
+      grid.appendChild(b);
+    });
+    panel.appendChild(grid);
+    if (confirmType) {
+      var c = el("div", "hp-confirm");
+      c.appendChild(el("span", null, "Effacer : " + confirmType[0].toLowerCase() + " ?"));
+      var yes = el("button", "bt small go", "Oui"); yes.type = "button";
+      var t = confirmType;
+      yes.addEventListener("click", function () { confirmType = null; run("/config cache clear " + t[1]); });
+      var no = el("button", "bt small", "Non"); no.type = "button";
+      no.addEventListener("click", function () { confirmType = null; render(); });
+      c.appendChild(yes); c.appendChild(no);
+      panel.appendChild(c);
+      yes.focus();
+    }
+    panel.appendChild(el("div", "hp-hint", "Clic : demande confirmation. Double-clic : efface tout de suite. Commande proposée, pas encore codée."));
+  }
+
+  function setBusy(on) {
+    busy = on;
+    hud.classList.toggle("busy", on);
+    busyEl.hidden = !on;
+  }
+  function run(cmd) {
+    out.appendChild(el("div", "ho-echo", "› " + cmd));
+    out.appendChild(el("div", "ho-dim", "Maquette : rien n'est exécuté. Dans l'overlay, le résultat s'affiche ici."));
+    while (out.children.length > 15) out.removeChild(out.children[1]);
+    out.scrollTop = out.scrollHeight;
+    setBusy(true);
+    setTimeout(function () { setBusy(false); }, 700);
+    if (path.length && path[path.length - 1].kind === "node" && path[path.length - 1].node.view === "clear") render();
+  }
+
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && input.value.trim()) {
+      e.preventDefault();
+      if (busy) return;
+      var c = input.value.trim();
+      input.value = "";
+      run(c);
+    }
+  });
+  hud.addEventListener("keydown", function (e) {
+    if (e.altKey && /^Digit[1-9]$/.test(e.code)) {
+      var i = Number(e.code.slice(5)) - 1;
+      if (i < MENU.length) { e.preventDefault(); if (!busy) { openTheme(i); render(true); } }
+      return;
+    }
+    if (e.key === "Escape" && themeIdx !== null) {
+      var f = document.activeElement;
+      if (f && f.classList && f.classList.contains("hp-filter") && f.value) { f.value = ""; f.dispatchEvent(new Event("input")); return; }
+      e.preventDefault();
+      up();
+    }
+  });
+  panel.addEventListener("click", function (e) { e.stopPropagation(); });
+
+  // Largeur et libellés
   function labelMode(w) {
     if (mode !== "auto") return mode;
-    return w >= 480 ? "long" : (w >= 300 ? "short" : "icon");
+    return w >= 380 ? "long" : (w >= 260 ? "short" : "icon");
   }
   var MODE_TXT = { long: "libellés longs", short: "libellés courts", icon: "icônes seules" };
   function applyWidth() {
@@ -884,7 +1260,6 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
     var m = labelMode(w);
     hud.setAttribute("data-lbl", m);
     lblOut.textContent = MODE_TXT[m];
-    if (openIdx !== null) placeDrop();
   }
   function clampRange() {
     var avail = scene.clientWidth - 32;
@@ -903,195 +1278,7 @@ footer { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--li
     rafId = requestAnimationFrame(clampRange);
   });
 
-  function openMenu(i, focusFirst) {
-    openIdx = i;
-    buttons.forEach(function (b, j) { b.setAttribute("aria-expanded", String(j === i)); });
-    stack = [{ kind: "list", title: MENU[i].long, items: MENU[i].items }];
-    drop.hidden = false;
-    render(focusFirst);
-    placeDrop();
-  }
-  function closeMenu(refocus) {
-    if (openIdx === null) return;
-    var b = buttons[openIdx];
-    openIdx = null; stack = [];
-    drop.hidden = true;
-    drop.replaceChildren();
-    buttons.forEach(function (x) { x.setAttribute("aria-expanded", "false"); });
-    if (refocus) b.focus();
-  }
-  function placeDrop() {
-    var b = buttons[openIdx];
-    var hudW = hud.clientWidth;
-    var w = Math.min(310, hudW - 8);
-    drop.style.width = w + "px";
-    drop.style.left = Math.max(4, Math.min(b.offsetLeft, hudW - w - 4)) + "px";
-    drop.style.top = (bar.offsetTop + bar.offsetHeight) + "px";
-  }
-  function goBack() {
-    if (stack.length > 1) { stack.pop(); render(true); }
-    else closeMenu(true);
-  }
-
-  function render(focusFirst) {
-    var view = stack[stack.length - 1];
-    drop.replaceChildren();
-    var head = el("div", "hd-head");
-    if (stack.length > 1) {
-      var back = el("button", "hd-back", "◂ " + view.title);
-      back.type = "button";
-      back.setAttribute("aria-label", "Revenir au niveau précédent");
-      back.addEventListener("click", goBack);
-      head.appendChild(back);
-    } else {
-      head.appendChild(el("span", null, view.title));
-    }
-    drop.appendChild(head);
-    if (view.kind === "list") renderList(view.items);
-    else if (view.kind === "form") renderForm(view.item);
-    else renderTodo(view.item);
-    if (focusFirst) {
-      var f = drop.querySelector(".hd-it, input, .hd-btn, .hd-back");
-      if (f) f.focus();
-    }
-  }
-  function renderList(items) {
-    items.forEach(function (it) {
-      if (it.sec) { drop.appendChild(el("div", "hd-sec", it.sec)); return; }
-      var b = el("button", "hd-it");
-      b.type = "button";
-      b.setAttribute("role", "menuitem");
-      b.appendChild(el("span", "hd-label", it.label + (it.sub ? " ▸" : "")));
-      if (it.st) {
-        var tg = el("span", "hd-tag " + it.st, TAG[it.st][0]);
-        tg.title = TAG[it.st][1];
-        b.appendChild(tg);
-      } else {
-        b.appendChild(el("span"));
-      }
-      var line = it.sub ? it.sub.length + " entrées" : (it.cmd ? tpl(it.cmd) : (it.note || ""));
-      b.appendChild(el("span", "hd-cmd", line));
-      b.addEventListener("click", function () { activate(it); });
-      drop.appendChild(b);
-    });
-  }
-  function activate(it) {
-    if (busy) return;
-    if (it.sub) { stack.push({ kind: "list", title: it.label, items: it.sub }); render(true); }
-    else if (it.st === "todo") { stack.push({ kind: "todo", title: it.label, item: it }); render(true); }
-    else if (it.fields) { stack.push({ kind: "form", title: it.label.replace(/…$/, ""), item: it }); render(true); }
-    else send(it.cmd);
-  }
-  function renderForm(it) {
-    var form = el("form", "hd-form");
-    form.noValidate = true;
-    var vals = {};
-    var inputs = it.fields.map(function (f) {
-      var id = "mf-" + it.id + "-" + f.k;
-      var lab = el("label");
-      lab.htmlFor = id;
-      lab.appendChild(el("span", null, f.label + (f.opt ? " (facultatif)" : "")));
-      var inp = el("input");
-      inp.id = id; inp.name = f.k; inp.autocomplete = "off";
-      if (f.t === "nombre") { inp.type = "number"; inp.min = "0"; inp.inputMode = "numeric"; }
-      else inp.type = "text";
-      if (VOCAB[f.t]) inp.setAttribute("list", "dl-" + f.t);
-      inp.placeholder = TYPES[f.t] || "";
-      if (f.def) inp.value = f.def;
-      inp.addEventListener("input", update);
-      lab.appendChild(inp);
-      form.appendChild(lab);
-      return { f: f, inp: inp };
-    });
-    var prev = el("div", "hd-preview");
-    prev.setAttribute("aria-live", "polite");
-    form.appendChild(prev);
-    var acts = el("div", "hd-actions");
-    var go = el("button", "hd-btn primary", "Envoyer"); go.type = "submit";
-    var fill = el("button", "hd-btn", "Remplir la ligne"); fill.type = "button";
-    acts.appendChild(go); acts.appendChild(fill);
-    form.appendChild(acts);
-    if (it.note) form.appendChild(el("div", "hd-note", it.note));
-    function current() {
-      inputs.forEach(function (x) { vals[x.f.k] = x.inp.value; });
-      return build(it, vals);
-    }
-    function ready() { return inputs.every(function (x) { return x.f.opt || x.inp.value.trim(); }); }
-    function update() { prev.textContent = current(); go.disabled = !ready(); }
-    form.addEventListener("submit", function (e) { e.preventDefault(); if (ready()) send(current()); });
-    fill.addEventListener("click", function () {
-      var c = current();
-      closeMenu(false);
-      input.value = c;
-      input.focus();
-    });
-    drop.appendChild(form);
-    update();
-  }
-  function renderTodo(it) {
-    var box = el("div", "hd-form");
-    box.appendChild(el("div", "hd-todo", "✚ À créer : rien à exécuter pour l'instant."));
-    if (it.note) box.appendChild(el("div", "hd-note", it.note));
-    var back = el("button", "hd-btn", "Revenir"); back.type = "button";
-    back.addEventListener("click", goBack);
-    var acts = el("div", "hd-actions"); acts.appendChild(back);
-    box.appendChild(acts);
-    drop.appendChild(box);
-  }
-
-  function setBusy(on) {
-    busy = on;
-    hud.classList.toggle("busy", on);
-    busyEl.hidden = !on;
-    buttons.forEach(function (b) { if (on) b.setAttribute("aria-disabled", "true"); else b.removeAttribute("aria-disabled"); });
-  }
-  function send(cmd) {
-    closeMenu(false);
-    out.appendChild(el("div", "ho-echo", "› " + cmd));
-    out.appendChild(el("div", "ho-dim", "Maquette : rien n'est exécuté. Dans l'overlay, le résultat s'affiche ici, comme aujourd'hui."));
-    while (out.children.length > 15) out.removeChild(out.children[1]);
-    out.scrollTop = out.scrollHeight;
-    setBusy(true);
-    setTimeout(function () { setBusy(false); }, 900);
-  }
-
-  input.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && input.value.trim()) {
-      e.preventDefault();
-      if (busy) return;
-      var c = input.value.trim();
-      input.value = "";
-      send(c);
-    }
-  });
-
-  hud.addEventListener("keydown", function (e) {
-    if (e.altKey && /^Digit[1-9]$/.test(e.code)) {
-      var i = Number(e.code.slice(5)) - 1;
-      if (i < MENU.length) {
-        e.preventDefault();
-        if (!busy) { openMenu(i, true); buttons[i].scrollIntoView({ block: "nearest" }); }
-      }
-      return;
-    }
-    if (openIdx === null) return;
-    if (e.key === "Escape") { e.preventDefault(); goBack(); return; }
-    var active = document.activeElement;
-    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && drop.contains(active)) {
-      if (active.tagName === "INPUT") return;
-      var items = Array.prototype.slice.call(drop.querySelectorAll(".hd-back, .hd-it, input, .hd-btn"));
-      var k = items.indexOf(active);
-      if (!items.length) return;
-      e.preventDefault();
-      var n = items.length;
-      var j = e.key === "ArrowDown" ? (k + 1) % n : (k - 1 + n) % n;
-      items[j].focus();
-    }
-  });
-  drop.addEventListener("click", function (e) { e.stopPropagation(); });
-  document.addEventListener("click", function () { closeMenu(false); });
-
   clampRange();
-  openMenu(1, false);
+  goTo(["Par lieu", "Stanton", "Crusader", "CRU-L1"], true);
 })();
 </script>
