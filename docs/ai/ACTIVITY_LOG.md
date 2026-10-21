@@ -3,6 +3,16 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-10-21 — Analyse de l'interface, proposition de menus souris
+
+**Demande :** analyser le code et proposer, dans un artefact rangé dans `docs/`, une interface souris (barre de menus et sous-menus par thème : info, commerce, missions, minage, vaisseaux, avec abréviations). Le projet peut-il ouvrir plusieurs fenêtres ?
+
+- Livrable : `docs/PROPOSITION_MENUS_SOURIS.html` (publié en artefact) : maquette cliquable de l'overlay, arborescence (catalogue unique), abréviations, fenêtres multiples, bugs trouvés, plan par lots, 7 questions.
+- Plusieurs fenêtres : pywebview ≥ 5 le permet (vérifié dans son code source 5.0.5 et 6.2.1) et le serveur accepte déjà plusieurs connexions. Mais l'état d'une commande est global (sélecteur, envoi, annulation, capture) et la fenêtre est retrouvée par son titre : à faire après les menus.
+- Trouvés en passant (non corrigés, en attente d'accord) : `/route` non chargé, alias `?` en double, menu du clic gauche refermé aussitôt, WebSocket sans jeton et `open_file` sans limite, `/config cache clear` qui efface tout, `/mission view` sans id bloquant, messages orphelins, `CommandResult` mort.
+- Minage : aucune commande. Endpoints UEX vérifiés par GET : `refineries_methods` (9), `refineries_yields` (215), `refineries_capacities` (20), `commodities_raw_prices` (12 lignes pour le Quantainium brut).
+- Rien n'est codé. Tests : inchangés (267).
+
 ## 2026-10-08 — Game.log réel (LIVE 4.10) : formats confirmés, robustesse
 
 **Entrée :** Game.log du 2026-10-07 (Seraphim Station → Stanton Gateway → Pyro Gateway, Nyx). Extrait anonymisé : `tests/fixtures/gamelog/live_4.10_seraphim_nyx.log`.

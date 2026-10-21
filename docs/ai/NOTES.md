@@ -42,6 +42,7 @@
 | Tesseract | copie stable `extprg/tesseract/` (cherchée en premier par `ocr/engine.py`, voir LISEZMOI.txt) |
 | **Game.log** | `gamelog/` : `lines.py` + `events.py` (parseur pur), `state.py` (position, système, morts, menu), `places.py` (codes de lieu → nom + système, **unique**), `follow.py` (tail), `/game`, `python -m uexinfo.gamelog` ; spec `docs/ai/GAMELOG_SPEC.md` ; ancien `parser.py`/`reader.py`/`arrival.py` (auto-position) |
 | Données utilisateur | `~/.uexinfo/` (JSON caches, `config.toml`, `scan_prices.json`, `missions.json`, `voyages.json`) |
+| **Interface souris (proposition)** | `docs/PROPOSITION_MENUS_SOURIS.html` (2026-10-21) : menus par thème, maquette, fenêtres multiples, plan par lots — en attente des réponses de l'utilisateur |
 
 ## 3. Taille des fichiers (points chauds du refactoring)
 
@@ -69,6 +70,16 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 - Fait (commit `fd5089e`) : dédup du nom court de terminal, du classement de routes et de la distance Gm.
 - Fait : nettoyage (`scripts/dev/`, code mort retiré), A2 (`PriceCache.delete_keys`).
 - Reste en code mort : `select_editor.py` et le formulaire de `note.py` (prompt_toolkit, reliquat REPL).
+- Vérifié le 2026-10-21 (commit `31b8d6a`, détail dans `docs/PROPOSITION_MENUS_SOURIS.html`) :
+  - 25 handlers chargés par le serveur (59 noms). **`/route` n'est importé nulle part** (`route.py:29`) : « Commande inconnue » ; passer par `/nav route`.
+  - Alias `?` déclaré par `help.py:964` puis écrasé par `info.py:2523`.
+  - Menu contextuel au clic gauche refermé dans le même clic (`index.html:2436` + `:2547`, pas de `stopPropagation`).
+  - Serveur WS sans jeton ni contrôle d'origine ; `open_file` → `os.startfile` sur tout chemin (`server.py:350-365`).
+  - `/config cache clear` fait `rmtree` de tout `user_data_dir` (missions, voyages, scans, notes) (`config.py:840-846`).
+  - `/mission view` sans id appelle `input()` (`mission.py:864`).
+  - `display/result.py` (`CommandResult`) jamais importé : code mort. Messages orphelins : `voyage_dashboard`, `opacity` (non traités par la page), `hint`, `scan_edit`, `mission_list_actions` (jamais émis).
+  - État propre à une commande stocké en global (`ctx.select_fn`, `_overlay_send_fn`, `_select_event`, console de capture sans verrou) : bloque les fenêtres multiples.
+  - Minage : aucune commande ; endpoints UEX existants non utilisés : `refineries_methods`, `refineries_yields`, `refineries_capacities`, `commodities_raw_prices`.
 
 ## 5. Environnement de test (session cloud)
 
