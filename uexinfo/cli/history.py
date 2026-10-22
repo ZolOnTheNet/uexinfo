@@ -10,6 +10,16 @@ import appdirs
 _HISTORY_PATH = Path(appdirs.user_data_dir("uexinfo")) / "history.jsonl"
 
 
+def clear() -> int:
+    """Efface l'historique des commandes (/config cache clear historique). Retourne le nombre d'entrées."""
+    n = len(load())
+    try:
+        _HISTORY_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return n
+
+
 def load() -> list[str]:
     """Charge l'historique depuis le disque. Retourne la liste des commandes (les plus récentes en dernier)."""
     if not _HISTORY_PATH.exists():

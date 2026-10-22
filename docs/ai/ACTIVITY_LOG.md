@@ -365,3 +365,14 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 **Tests :** `tests/ocr/test_contract_list.py` (mots OCR réels du 20/10 dans `tests/fixtures/ocr/`), `tests/cache/test_contract_catalog.py` (catalogue **fictif**, aucune donnée scmdb). `pytest` donne 267 réussis.
 
 **À valider :** les nouvelles captures de l'utilisateur sur d'autres styles de missions (prévues).
+
+## 2026-10-22 — `/config cache clear` : effacement par type (lot 1 de la proposition souris)
+
+**Constat :** `/config cache clear` faisait `shutil.rmtree` de tout `user_data_dir`, emportant missions, voyages, prix scannés, notes, historique et config, alors qu'il devait seulement « vider le cache ».
+
+**Fait :**
+- `/config cache clear <type>`, un seul type à la fois : `api` (vide le cache des prix puis recharge les données statiques comme `/refresh static` ; en cas d'échec réseau, les fichiers existants restent), `missions`, `voyages`, `scans`, `notes`, `historique` (alias `history`, `uex`, `cache`). Sans type ou avec un type inconnu : la liste des choix, sans rien effacer.
+- Nouvelles méthodes `clear()` : `VoyageManager`, `NoteStore`, `ScanPriceStore` et `cli/history.py` (`MissionManager.clear` et `PriceCache.clear` existaient déjà).
+- Complétion (`config cache clear`) et aide (`help.py`) mises à jour. Côté overlay, la confirmation du clic simple et le double-clic prévus par la proposition restent à faire (lot 2).
+
+**Tests :** `tests/test_config_cache_clear.py` vérifie que chaque type n'efface que ses données, et que l'absence de type n'efface rien. `pytest` donne 276 réussis.

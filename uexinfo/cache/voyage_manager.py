@@ -71,6 +71,15 @@ class VoyageManager:
             encoding="utf-8",
         )
 
+    def clear(self) -> int:
+        """Supprime tous les voyages (/config cache clear voyages). Retourne le nombre supprimé."""
+        n = len(self.voyages)
+        self.voyages = []
+        self.active_id = None
+        self._next_id = 1
+        self.save()
+        return n
+
     # ── Session ───────────────────────────────────────────────────────────────
 
     def on_session_end(self, tbc: bool = False) -> None:

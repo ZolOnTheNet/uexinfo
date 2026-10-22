@@ -830,26 +830,79 @@ def _trade(args: list[str], ctx) -> None:
 
 # ── Cache ────────────────────────────────────────────────────────────────────
 
+def _clear_api(ctx) -> str:
+    """Vide le cache des prix puis retélécharge les données statiques UEX (comme /refresh static) :
+    en cas d'échec réseau, les fichiers existants restent en place."""
+    from uexinfo.cli.commands.refresh import _refresh_static
+    ctx._price_cache.clear()
+    _refresh_static(ctx)
+    return "cache API vidé et données UEX rechargées"
+
+
+def _clear_missions(ctx) -> str:
+    return f"{ctx.mission_manager.clear()} mission(s) effacée(s)"
+
+
+def _clear_voyages(ctx) -> str:
+    return f"{ctx.voyage_manager.clear()} voyage(s) effacé(s)"
+
+
+def _clear_scans(ctx) -> str:
+    from uexinfo.cache.scan_prices import ScanPriceStore
+    n = ScanPriceStore().clear()
+    ctx.last_scan = None
+    ctx.scan_history.clear()
+    return f"prix scannés effacés ({n} terminal(aux))"
+
+
+def _clear_notes(ctx) -> str:
+    from uexinfo.cache.notes_manager import NoteStore
+    return f"{NoteStore().clear()} note(s) effacée(s)"
+
+
+def _clear_history(ctx) -> str:
+    from uexinfo.cli import history
+    return f"{history.clear()} commande(s) effacée(s) de l'historique"
+
+
+# type → (description, fonction). Une seule donnée à la fois : plus d'effacement global
+# du dossier utilisateur (l'ancien `rmtree` emportait missions, voyages, scans et notes).
+_CLEAR_TYPES = {
+    "api":        ("Cache de l'API UEX (prix et données statiques), rechargé aussitôt", _clear_api),
+    "missions":   ("Catalogue de missions", _clear_missions),
+    "voyages":    ("Voyages", _clear_voyages),
+    "scans":      ("Prix et stocks relevés par tes scans", _clear_scans),
+    "notes":      ("Notes par lieu", _clear_notes),
+    "historique": ("Historique des commandes", _clear_history),
+}
+_CLEAR_ALIASES = {"history": "historique", "uex": "api", "cache": "api"}
+
+
+def _cache_clear(args: list[str], ctx) -> None:
+    """/config cache clear <type> — efface un seul type de données ; sans type, liste les choix."""
+    kind = _CLEAR_ALIASES.get(args[0].lower(), args[0].lower()) if args else ""
+    if kind not in _CLEAR_TYPES:
+        if kind:
+            print_error(f"Type inconnu : {args[0]}")
+        console.print("[bold]Usage :[/bold] /config cache clear <type>   (un seul type à la fois)")
+        for name, (desc, _fn) in _CLEAR_TYPES.items():
+            console.print(f"  [bold {C.LABEL}]{name:<11}[/bold {C.LABEL}] {desc}")
+        return
+    try:
+        print_ok(_CLEAR_TYPES[kind][1](ctx))
+    except Exception as e:
+        print_error(f"Effacement « {kind} » impossible : {e}")
+
+
 def _cache(args: list[str], ctx) -> None:
     if not args:
-        print_error("Usage: /config cache ttl <secondes>  |  /config cache clear")
+        print_error("Usage: /config cache ttl <secondes>  |  /config cache clear <type>")
         return
 
     sub = args[0].lower()
 
     if sub == "clear":
-        import shutil
-        from pathlib import Path
-        import appdirs
-        data_dir = Path(appdirs.user_data_dir("uexinfo"))
-        if data_dir.exists():
-            shutil.rmtree(data_dir)
-            data_dir.mkdir(parents=True)
-        ctx.cache.commodities.clear()
-        ctx.cache.terminals.clear()
-        ctx.cache.star_systems.clear()
-        ctx.cache.planets.clear()
-        print_ok("Cache vidé")
+        _cache_clear(args[1:], ctx)
 
     elif sub == "ttl":
         if len(args) < 2:

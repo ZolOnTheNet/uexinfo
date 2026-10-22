@@ -36,6 +36,12 @@ class ScanPriceStore:
         with open(_STORE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
+    def clear(self) -> int:
+        """Supprime tous les prix scannés (/config cache clear scans). Retourne le nombre de terminaux."""
+        n = len(self._load())
+        self._write({})
+        return n
+
     # ── Écriture ──────────────────────────────────────────────────────────────
 
     def save_result(self, result: ScanResult, terminal_key: str = "",

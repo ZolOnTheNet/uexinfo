@@ -81,6 +81,12 @@ class NoteStore:
             self._write(data)
         return count
 
+    def clear(self) -> int:
+        """Supprime toutes les notes (/config cache clear notes). Retourne le nombre supprimé."""
+        n = len(self._load().get("notes", []))
+        self._write({"next_id": 1, "notes": []})
+        return n
+
     def list_all(self) -> list[dict]:
         return sorted(
             self._load().get("notes", []),

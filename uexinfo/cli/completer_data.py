@@ -84,7 +84,15 @@ SUBS: dict[str, list[tuple[str, str]]] = {
     ],
     "config cache": [
         ("ttl",   "Durée de vie du cache (secondes)"),
-        ("clear", "Vider le cache"),
+        ("clear", "Effacer un type de données (api, missions, voyages, scans, notes, historique)"),
+    ],
+    "config cache clear": [
+        ("api",        "Cache de l'API UEX, rechargé aussitôt"),
+        ("missions",   "Catalogue de missions"),
+        ("voyages",    "Voyages"),
+        ("scans",      "Prix et stocks scannés"),
+        ("notes",      "Notes par lieu"),
+        ("historique", "Historique des commandes"),
     ],
     "config scan": [
         ("mode",         "Mode de scan (ocr/log/confirm)"),

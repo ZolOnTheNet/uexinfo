@@ -75,7 +75,7 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
   - Alias `?` déclaré par `help.py:964` puis écrasé par `info.py:2523`.
   - Menu contextuel au clic gauche refermé dans le même clic (`index.html:2436` + `:2547`, pas de `stopPropagation`).
   - Serveur WS sans jeton ni contrôle d'origine ; `open_file` → `os.startfile` sur tout chemin (`server.py:350-365`).
-  - `/config cache clear` fait `rmtree` de tout `user_data_dir` (missions, voyages, scans, notes) (`config.py:840-846`).
+  - ~~`/config cache clear` fait `rmtree` de tout `user_data_dir`~~ — **corrigé le 2026-10-22** : `/config cache clear <type>` (api, missions, voyages, scans, notes, historique), sans type la liste des choix.
   - `/mission view` sans id appelle `input()` (`mission.py:864`).
   - `display/result.py` (`CommandResult`) jamais importé : code mort. Messages orphelins : `voyage_dashboard`, `opacity` (non traités par la page), `hint`, `scan_edit`, `mission_list_actions` (jamais émis).
   - État propre à une commande stocké en global (`ctx.select_fn`, `_overlay_send_fn`, `_select_event`, console de capture sans verrou) : bloque les fenêtres multiples.
