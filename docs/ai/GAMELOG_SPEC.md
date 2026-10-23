@@ -74,6 +74,11 @@ Table et règles : `uexinfo/gamelog/places.py`. Noms relevés en associant un co
 
 ## Autres lignes observées, non exploitées
 
+- **`<Update Inventory Location>`** `Player [x] is changing location. Landing [a] -> [b]. Location [c] -> [d]` (V, 2026-10-22, sessions des 19 et 20/10) :
+  `b ≠ 0` = **entrée dans la zone d'une station ou d'une ville** (même seconde que `RequestLocationInventory` → code du lieu : identifiant ↔ nom apprenable) ; `b = 0` = **sortie de la zone** (`a` garde le dernier lieu). En vol, `d` change de région (identifiants numériques). Réapparition : `Landing [0] -> [id]`. Ex. 1752411604 = Seraphim, 1510935576 = CRU-L1, 308639451 = Everus Harbor, 3170699229 = New Babbage, 1105811199 = Orison, 4005457614 = Lorville, 753506656 = HDMS-Hahn, 3196629118 = MIC-L4. **Non vérifié** : survol d'une station sans s'y arrêter.
+- **Terminaux de commerce** (V, 317 logs) : `CEntityComponentCommodityUIProvider::LoadShopInventoryData` (ouverture de l'écran), `SendCommodityBuyRequest` / `SendCommoditySellRequest` avec `shopName[…]`, `shopId`, `kioskId`, `price[…]`, `shopPricePerCentiSCU[…]`, `quantity[N cSCU]` (100 cSCU = 1 SCU), `resourceGUID`. `shopName` identifie le type de terminal (`SCShop_CommEx_TDD_NewBabbage`, `TDD_SCShop-001`, `SCShop_Cargo_Office`…) mais `SCShop_Admin_lt_base_g` est un modèle partagé par de nombreuses stations : combiner avec la zone courante.
+- Monte-charge : `CEntityComponentFreightElevatorUIProvider::FillUnstowRequest` (`Location: <id>`, `Entities`), vu une fois (2026-10-20, kiosque extérieur de Seraphim).
+
 - `<Update Inventory Location>` `Landing [a] -> [b]. Location [c] -> [d]` : identifiants numériques seulement.
 - `<GenerateLocationProperty>` : lieux proposés par les contrats (nom + code), pas la position du joueur.
   Réécrit à chaque rafraîchissement de la liste des contrats du mobiGlas, mais **seulement pour les contrats proposés qui ont des lieux tirés au sort** : toujours les mêmes quelle que soit la mission cliquée. Aussi écrit à la réception d'un contrat partagé et à l'acceptation. Contenu : nom interne (`contract: Iasi_DefendShip_Hard_0`, qui correspond au `debugName` de scmdb.net) et lieux candidats. Pas de titre, ni de récompense, ni de description (vérifié 2026-10-19).

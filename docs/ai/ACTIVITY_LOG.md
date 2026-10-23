@@ -377,6 +377,25 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 
 **Tests :** `tests/test_config_cache_clear.py` vérifie que chaque type n'efface que ses données, et que l'absence de type n'efface rien. `pytest` donne 276 réussis.
 
+## 2026-10-22 (fin de soirée) — position automatique : constats et plan (rien n'est codé)
+
+**Demande :** savoir où se trouve le joueur sans le lui demander, avec une option de configuration, et distinguer « de passage » de « posé ou dans la station ». Puis savoir sur quel terminal il se trouve.
+
+**Constats (sessions des 19 et 20/10, détail dans GAMELOG_SPEC) :**
+- Niveaux distinguables : **de passage** (arrivée de saut, zone d'armistice, juridiction ; un survol donne les mêmes lignes) ; **dans la zone de la station ou de la ville** (`Update Inventory Location` Landing → identifiant, avec le code du lieu à la même seconde ; vu pour chaque station visitée) ; **posé** (quitte le siège pilote dans la zone, ou réapparition) ; **parti** (Landing → 0). Le survol d'une station sans arrêt n'a pas encore été observé.
+- **Terminal :** connu seulement à l'utilisation (`shopName` à l'ouverture de l'écran et à chaque achat ou vente). Le nom seul est parfois générique (`SCShop_Admin_lt_base_g`) : le combiner avec la zone courante.
+- Les achats et ventes donnent prix, quantité (cSCU) et identifiant de ressource : format confirmé (le reconnaisseur `commodity_buy` était en « à confirmer »).
+
+**Plan proposé (à valider) :**
+- Options `gamelog.auto_position` = `off` | `propose` (bandeau [MàJ]/[Ign] actuel) | `auto`, et `gamelog.auto_niveau` = `approche` | `zone` (défaut) | `pose`.
+- Reconnaître `Update Inventory Location`, les shops et le monte-charge dans `gamelog/events.py` et `state.py`, apprendre la correspondance identifiant ↔ lieu, et remplacer l'ancien `ArrivalTracker` (basé sur les dockings, peu fiables).
+- Position = **terminal de commerce par défaut du lieu** à l'entrée de la zone, avec l'ordre de priorité **TDD → Admin / Commodity Shop → premier terminal de commerce** (proposé, en attente de validation), puis corrigé par le terminal réellement ouvert.
+- Enregistrer automatiquement les achats et ventes (prix, quantité, terminal).
+
+**Questions en attente :** validation du plan et de l'ordre de priorité des terminaux.
+
+**Divers :** `scripts/dev/watch_gamelog.py` reste hors suivi, à la demande de l'utilisateur (machine locale). À corriger avant la prochaine surveillance : le décalage horaire fixé à +2 h (`LOCAL`) devient faux au passage à l'heure d'hiver le 25/10, il faut utiliser l'heure locale de Windows. `docs/Dungeon Alchemist.url` supprimé (raccourci Steam, non suivi).
+
 ## 2026-10-29 — tri des analyses Mistral, création de `docs/archive/`
 
 **Demande :** évaluer les documents d'analyse produits par Le Chat (Mistral) et archiver ceux qui sont dépassés.
