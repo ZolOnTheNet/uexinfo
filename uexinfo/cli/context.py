@@ -16,6 +16,11 @@ from uexinfo.models.scan_result import ScanResult
 
 @dataclass
 class AppContext:
+    """État global de l'application, créé une seule fois et passé à chaque commande.
+
+    Contient la configuration, les caches, le joueur, les scans et les gestionnaires
+    (missions, voyages, captures d'écran…). Le serveur overlay y injecte ses fonctions d'envoi.
+    """
     cfg: dict = field(default_factory=dict)
     cache: CacheManager = field(default_factory=CacheManager)
     cargo_grid_manager: CargoGridManager = field(default_factory=CargoGridManager)

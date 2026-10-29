@@ -102,6 +102,7 @@ class OverlayServer:
     """Serveur WebSocket qui expose le moteur CLI au frontend HTML."""
 
     def __init__(self) -> None:
+        """Serveur sans contexte : `init_context()` charge config et caches avant de servir."""
         self.ctx: AppContext | None = None
         self._clients: set = set()
         self._lock = threading.Lock()
@@ -122,6 +123,7 @@ class OverlayServer:
     # ── Initialisation du contexte CLI ────────────────────────────────────────
 
     def init_context(self) -> None:
+        """Crée l'AppContext : configuration (créée si absente), caches UEX, joueur, missions, voyages, captures, versions et index des lieux."""
         cfg  = _settings.load()
         # Créer le fichier config s'il n'existe pas encore
         if not _settings.CONFIG_PATH.exists():
@@ -179,6 +181,12 @@ class OverlayServer:
     # ── Handler WebSocket ─────────────────────────────────────────────────────
 
     async def handler(self, websocket) -> None:
+        """Session WebSocket d'une page.
+
+        Envoie d'abord statut, vocabulaire, historique et bannière, puis traite les messages
+        reçus. Une seule commande s'exécute à la fois ; une seconde attend son tour, et
+        « cancel » interrompt la commande en cours et vide l'attente.
+        """
         self._clients.add(websocket)
         _current_cmd: asyncio.Task | None = None
         _recv_task:   asyncio.Task | None = None
@@ -314,6 +322,7 @@ class OverlayServer:
                 _recv_task.cancel()
 
     async def _dispatch(self, ws, msg: dict) -> None:
+        """Aiguille un message de la page selon son `type` (cmd, complete, status, scan_confirm…)."""
         t = msg.get("type")
         if t == "cmd":
             await self._handle_cmd(ws, msg.get("text", "").strip())
@@ -371,6 +380,12 @@ class OverlayServer:
     # ── Exécution des commandes ───────────────────────────────────────────────
 
     async def _handle_cmd(self, ws, line: str) -> None:
+        """Exécute une ligne de commande saisie dans la page.
+
+        Gère les commandes de sortie, l'historique, l'écho, puis exécute la commande dans
+        un thread en injectant les fonctions de sélection et de progression propres à ce
+        client ; renvoie le rendu HTML et les messages spéciaux produits.
+        """
         if not line:
             return
 
@@ -425,6 +440,7 @@ class OverlayServer:
 
         # Injecter _overlay_progress_fn : mise à jour de progression en place (thread-safe)
         def _sync_progress(pct: int, label: str, done: int, total: int) -> None:
+            """Envoie à la page une mise à jour de la barre de progression (appelable depuis le thread de la commande)."""
             asyncio.run_coroutine_threadsafe(
                 ws.send(json.dumps({
                     "type": "progress_update",
@@ -545,6 +561,7 @@ class OverlayServer:
     # ── Opacité ───────────────────────────────────────────────────────────────
 
     async def _handle_opacity(self, value: float) -> None:
+        """Enregistre l'opacité choisie dans la page (bornée entre 0,10 et 0,99)."""
         try:
             v = round(max(0.10, min(0.99, float(value))), 2)
             self.ctx.cfg.setdefault("overlay", {})["opacity"] = v
@@ -555,6 +572,7 @@ class OverlayServer:
     # ── Statut ────────────────────────────────────────────────────────────────
 
     async def _send_status(self, ws) -> None:
+        """Envoie la barre d'état : position, destination, distance, vaisseau, cargo, zone, shard, voyage actif et état des scans."""
         if not self.ctx:
             return
         p = self.ctx.player
@@ -698,6 +716,7 @@ class OverlayServer:
         # Filtrer les commodités OCR noise : nom inconnu UEX + prix nul
         known_names = {_norm_apos(n) for n in uex_ref.keys()}
         def _keep(c):
+            """Vrai si la ligne scannée mérite d'être éditée : nom reconnu par UEX, prix lu, ou nom proche d'une commodité connue."""
             name_lc = _norm_apos(c.name.lower().strip())
             if not name_lc:
                 return False
@@ -767,6 +786,7 @@ class OverlayServer:
         dist_map = graph.find_all_distances(origin_node) if origin_node else {}
 
         def _proximity_key(r: dict) -> tuple:
+            """Clé de tri des terminaux de vente : d'abord ceux du graphe par distance, puis ceux du même système, puis les autres."""
             node = _resolve_node(r.get("terminal_name") or "", graph)
             if node and node in dist_map:
                 return (0, dist_map[node])
@@ -1330,6 +1350,7 @@ class OverlayServer:
     # ── Complétion ────────────────────────────────────────────────────────────
 
     async def _handle_complete(self, ws, text: str, cursor: int) -> None:
+        """Calcule la complétion hors de la boucle asynchrone et renvoie les propositions à la page."""
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, self._complete_sync, text, cursor)
         await ws.send(json.dumps({"type": "completions",
@@ -1370,9 +1391,15 @@ class OverlayServer:
 
     @staticmethod
     def _mk(value: str, hint: str = "", insert: str = "") -> dict:
+        """Une proposition de complétion : texte affiché, indice, et texte inséré (par défaut le même)."""
         return {"value": value, "hint": hint, "insert": insert or value}
 
     def _complete_impl(self, text: str, cursor: int) -> dict:
+        """Propositions de complétion pour la ligne `text`, curseur en `cursor`.
+
+        Selon la position : nom de commande, sous-commande, argument typé (lieu, commodité,
+        vaisseau…), notation pointée ou `@lieu`.
+        """
         from uexinfo.cli.completer_data import SUBS, NEXT_TYPE, CMD_HINTS
         from uexinfo.cli.commands import get_names
 
@@ -1756,6 +1783,7 @@ class OverlayServer:
     # ── /game live : suivi en direct de Game.log ─────────────────────────────
 
     def _stop_game_live(self) -> None:
+        """Arrête le suivi en direct du Game.log s'il tourne."""
         task = getattr(self, "_game_live_task", None)
         if task and not task.done():
             task.cancel()
@@ -1770,6 +1798,7 @@ class OverlayServer:
         needle_l = needle.lower()
 
         def _fmt(raw: str) -> dict:
+            """Ligne du Game.log mise en forme pour la page : heure, type et résumé de l'événement reconnu."""
             ev = recognize(raw)
             ll = parse_line(raw)
             return {"ts": ll.ts.strftime("%H:%M:%S") if ll.ts else "",
@@ -1777,6 +1806,7 @@ class OverlayServer:
                     "verified": bool(ev and ev.verified), "raw": raw[:400]}
 
         def _keep(raw: str) -> bool:
+            """Vrai si la ligne doit être montrée : non vide, pas du bruit, et contenant le filtre demandé."""
             return bool(raw.strip()) and not is_spam(raw) and (not needle_l or needle_l in raw.lower())
 
         loop = asyncio.get_event_loop()
@@ -1939,6 +1969,7 @@ class OverlayServer:
                     pass
 
     async def serve(self, host: str = "localhost", port: int = 8090) -> None:
+        """Sert les WebSockets sur `host:port` et pousse le statut périodiquement, sans fin."""
         async with websockets.serve(self.handler, host, port):
             asyncio.create_task(self._periodic_status())
             await asyncio.Future()  # tourne indéfiniment
@@ -1948,6 +1979,7 @@ class OverlayServer:
         ready = threading.Event()
 
         def _run() -> None:
+            """Thread du serveur : crée sa boucle asyncio, signale qu'elle est prête, puis sert."""
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             self._loop = loop

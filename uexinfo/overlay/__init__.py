@@ -73,12 +73,15 @@ class _WindowApi:
     """API JS exposée à PyWebView pour déplacer la fenêtre frameless."""
 
     def __init__(self) -> None:
+        """La fenêtre est rattachée après sa création, par `set_window()`."""
         self._win = None
 
     def set_window(self, win) -> None:
+        """Rattache la fenêtre PyWebView que l'API pilote."""
         self._win = win
 
     def move(self, x: int, y: int) -> None:
+        """Déplace la fenêtre (appelé par la page pendant un glisser)."""
         if self._win:
             try:
                 self._win.move(int(x), int(y))
@@ -86,6 +89,7 @@ class _WindowApi:
                 pass
 
     def resize(self, w: int, h: int) -> dict:
+        """Redimensionne la fenêtre, 200 × 200 px au minimum ; renvoie la taille appliquée."""
         w, h = max(200, int(w)), max(200, int(h))
         if self._win:
             try:
@@ -144,6 +148,7 @@ class _WindowApi:
         """Appelé depuis JS sur mouseup (fin de resize) — restaure la transparence DWM
         et sauvegarde la géométrie."""
         def _do() -> None:
+            """Masque puis réaffiche la fenêtre (Windows recalcule alors la transparence), puis enregistre la géométrie."""
             try:
                 user32 = ctypes.windll.user32
                 hwnd = user32.FindWindowW(None, "UEXInfo")
@@ -184,12 +189,14 @@ class _Win32HotkeyListener:
     _WM_QUIT   = 0x0012
 
     def __init__(self, key_name: str, callback) -> None:
+        """`key_name` : touche du raccourci (ex. « f9 ») ; `callback` : fonction appelée à chaque appui."""
         self._key_name = key_name.lower().strip("<>")
         self._callback = callback
         self._thread: threading.Thread | None = None
         self._tid: int = 0
 
     def start(self) -> None:
+        """Enregistre le raccourci global auprès de Windows dans un thread dédié ; touche inconnue → raccourci désactivé."""
         vk = self._VK.get(self._key_name)
         if vk is None:
             print(f"[overlay] ⚠ Touche sans VK connu : {self._key_name!r} — hotkey désactivée")
@@ -203,6 +210,7 @@ class _Win32HotkeyListener:
         tid_box  = [0]
 
         def _loop():
+            """Boucle de messages Windows du thread : appelle le callback à chaque appui, jusqu'au message WM_QUIT."""
             import ctypes.wintypes as _wt
             tid_box[0] = kernel32.GetCurrentThreadId()
             if not user32.RegisterHotKey(None, hk_id, 0, vk):
@@ -228,6 +236,7 @@ class _Win32HotkeyListener:
         self._tid = tid_box[0]
 
     def stop(self) -> None:
+        """Envoie WM_QUIT au thread du raccourci pour le terminer."""
         if self._tid:
             try:
                 ctypes.windll.user32.PostThreadMessageW(self._tid, self._WM_QUIT, 0, 0)
@@ -374,6 +383,7 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
         return True  # fallback prudent : on suppose visible
 
     def toggle():
+        """Raccourci clavier : masque la fenêtre si elle est visible, sinon l'affiche et met le curseur dans la ligne de commande."""
         with _lock:
             if _win32_visible():
                 try:
@@ -454,6 +464,10 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     api.on_save_geometry = _save_geometry
 
     def _shutdown():
+        """Arrêt complet : enregistre géométrie et graphe, coupe le raccourci, puis termine le processus.
+
+        Un minuteur force la sortie après 3 s si une sauvegarde bloque.
+        """
         print("[overlay] _shutdown() — sauvegarde + os._exit(0)", flush=True)
         # Filet de sécurité : quoi qu'il arrive pendant la sauvegarde (fenêtre
         # déjà détruite, écriture bloquée…), le processus se termine en 3 s.
@@ -475,6 +489,7 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     # Enregistrer le callback sur le serveur (utilisé par /quit [-tbc])
     # Appelé depuis le thread asyncio → déléguer à un thread non-daemon
     def _on_quit(tbc: bool = False) -> None:
+        """Commande de sortie : clôt la session des voyages (`tbc` : à continuer) puis lance l'arrêt."""
         if server.ctx:
             server.ctx.voyage_manager.on_session_end(tbc=tbc)
         threading.Thread(target=_shutdown, daemon=False).start()
@@ -484,6 +499,11 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     _close_last_t = [0.0]   # timestamp du dernier clic sur ✕ (mode dblclick)
 
     def on_closing():
+        """Clic sur la croix de la fenêtre.
+
+        En mode « dblclick », un premier clic masque seulement la fenêtre ; un second
+        dans la demi-seconde quitte. Sinon, quitte directement.
+        """
         if close_mode == "dblclick":
             now = time.monotonic()
             if now - _close_last_t[0] < 0.5:
@@ -506,6 +526,7 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
 
     # Ctrl+C dans le terminal
     def _sigint(sig, frame):
+        """Ctrl+C dans la console : arrêt propre."""
         print("[overlay] SIGINT reçu → _shutdown", flush=True)
         _shutdown()
 

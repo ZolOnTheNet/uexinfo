@@ -221,6 +221,7 @@ class OcrWorker:
     _OCR_TIMEOUT = 60
 
     def __init__(self, db: ScreenshotDB, ctx=None) -> None:
+        """Démarre le thread d'analyse et remet en file les captures restées en attente lors de la session précédente."""
         self._db:    ScreenshotDB = db
         self._ctx    = ctx
         self._queue:   queue.Queue[Path | None] = queue.Queue()
@@ -254,9 +255,11 @@ class OcrWorker:
                     self._queue.put(p)
 
     def on_processed(self, cb: Callable[[ScreenshotEntry], None]) -> None:
+        """Enregistre une fonction appelée après chaque capture analysée (même en erreur)."""
         self._callbacks.append(cb)
 
     def set_gap_minutes(self, minutes: int) -> None:
+        """Écart en minutes au-delà duquel deux captures appartiennent à deux sessions différentes."""
         self._gap_minutes = minutes
 
     def submit(self, path: Path) -> bool:
@@ -288,12 +291,17 @@ class OcrWorker:
         return self._queue.qsize()
 
     def stop(self) -> None:
+        """Demande l'arrêt du thread et l'attend au plus 5 secondes."""
         self._queue.put(None)
         self._thread.join(timeout=5)
 
     # ── Thread interne ────────────────────────────────────────────────────────
 
     def _run(self) -> None:
+        """Boucle du thread : analyse chaque capture de la file, l'enregistre, prévient les abonnés.
+
+        Une erreur est enregistrée dans l'entrée de la capture ; elle n'arrête jamais le thread.
+        """
         while True:
             path = self._queue.get()
             if path is None:
@@ -422,4 +430,5 @@ CATEGORY_LABELS: dict[str, str] = {
 
 
 def category_label(cat: str) -> str:
+    """Libellé affiché d'une catégorie de capture."""
     return CATEGORY_LABELS.get(cat, cat)

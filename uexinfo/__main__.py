@@ -3,6 +3,7 @@ import sys
 
 
 def _print_ocr_status() -> None:
+    """Affiche au démarrage d'où vient Tesseract (copie fournie, système ou absent)."""
     try:
         from uexinfo.ocr.engine import ocr_status
         s = ocr_status()
@@ -36,6 +37,7 @@ def _print_ocr_status() -> None:
 
 
 def main() -> None:
+    """Lit les options (`--hotkey`, `--port`), vérifie les dépendances de l'overlay et le lance."""
     import argparse
     parser = argparse.ArgumentParser(
         prog="uexinfo",

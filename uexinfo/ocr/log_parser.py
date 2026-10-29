@@ -60,12 +60,19 @@ RE_TIMESTAMP = re.compile(
 
 
 class LogParser:
+    """Lecture incrémentale du log de SC-Datarunner (mode A) : terminaux scannés et marchandises lues.
+
+    La position de lecture et le scan en cours sont enregistrés sur disque pour
+    reprendre après un redémarrage.
+    """
     def __init__(self, log_path: Path | None = None):
+        """`log_path` : log de SC-Datarunner (par défaut celui de `extprg/`)."""
         self.log_path = log_path or _DEFAULT_LOG
 
     # ── État persistant ────────────────────────────────────────────────────
 
     def _load_state(self) -> dict:
+        """État enregistré, par fichier de log ; {} s'il est absent ou illisible."""
         if _STATE_FILE.exists():
             try:
                 with open(_STATE_FILE, encoding="utf-8") as f:
@@ -83,6 +90,7 @@ class LogParser:
         last_type: str = "buy",
         pending_commodities: list[dict] | None = None,
     ) -> None:
+        """Enregistre position de lecture, dernier terminal, mode et marchandises en attente de ce fichier de log."""
         state = self._load_state()
         entry = state.get(str(self.log_path), {})
         if prev_offset is None:
@@ -102,6 +110,7 @@ class LogParser:
             json.dump(state, f)
 
     def get_offset(self) -> int:
+        """Position de lecture enregistrée pour ce fichier de log."""
         return self._load_state().get(str(self.log_path), {}).get("offset", 0)
 
     def reset_offset(self) -> None:
@@ -227,10 +236,12 @@ class LogParser:
 
     @staticmethod
     def _parse_commodity_line(line: str) -> ScannedCommodity | None:
+        """Alias de `_parse_commodity_line` du module."""
         return _parse_commodity_line(line)
 
 
 def _unquote(v: str) -> str:
+    """Retire les guillemets simples ou doubles qui entourent une valeur Python lue dans le log."""
     v = v.strip()
     if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
         return v[1:-1].replace("\\'", "'").replace('\\"', '"')
@@ -238,6 +249,7 @@ def _unquote(v: str) -> str:
 
 
 def _int_or(v, default=None):
+    """Entier lu dans `v` (« 12.0 » → 12), ou `default` si vide, « None » ou illisible."""
     if v is None:
         return default
     v = str(v).strip()
@@ -261,6 +273,11 @@ def parse_commodity_fields(body: str) -> dict[str, tuple[str, int | None]]:
 
 
 def _parse_commodity_line(line: str) -> ScannedCommodity | None:
+    """Marchandise depuis une ligne « Extracted commodity: CommodityData(...) » du log.
+
+    Gère le nouveau format (valeur et confiance par champ) et l'ancien ; préfère le
+    nom canonique UEX fourni par Datarunner. None si la ligne n'est pas une marchandise.
+    """
     m = RE_COMMODITY_DATA.search(line)
     if m:
         f = parse_commodity_fields(m["body"])
@@ -364,6 +381,7 @@ def _group_scans(
     current_ts: datetime | None = None   # timestamp de la dernière ligne vue
 
     def _flush_pending(ts_for_flush: datetime | None) -> None:
+        """Termine le scan en cours (terminal et marchandises accumulés) et l'ajoute aux résultats."""
         if current_terminal and current_commodities:
             results.append(ScanResult(
                 terminal=current_terminal,

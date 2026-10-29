@@ -30,10 +30,12 @@ _LINUX_EXE     = Path("/usr/bin/tesseract")
 
 
 def _first_existing(candidates, ok=Path.exists) -> Path | None:
+    """Premier chemin de `candidates` qui passe le test `ok` (par défaut : existe), ou None."""
     return next((p for p in candidates if ok(p)), None)
 
 
 def _has_model(d: Path) -> bool:
+    """Vrai si le dossier contient le modèle Tesseract `eng_sc` entraîné pour Star Citizen."""
     return (d / "eng_sc.traineddata").exists()
 
 
@@ -256,12 +258,14 @@ def _match_stock(text: str) -> tuple[str, int] | None:
 # ── Moteur ────────────────────────────────────────────────────────────────────
 
 class TesseractEngine:
+    """Moteur OCR : lit les captures d'écran de terminaux et de missions avec Tesseract et le modèle `eng_sc`."""
     def __init__(
         self,
         exe: Path | None = None,
         data_dir: Path | None = None,
         tessdata_dir: Path | None = None,
     ):
+        """Chemins de Tesseract et de ses données, trouvés automatiquement s'ils ne sont pas donnés ; lève une erreur si pytesseract manque."""
         self.exe          = exe          or _find_exe()
         self.data_dir     = data_dir     or _DEFAULT_DATA
         self.tessdata_dir = tessdata_dir or _DEFAULT_DATA
@@ -279,6 +283,10 @@ class TesseractEngine:
     # ── Public ────────────────────────────────────────────────────────────────
 
     def extract_from_image(self, image_path: Path) -> "ScanResult | MissionResult | None":
+        """Analyse une capture : écran de mission ou terminal de commerce.
+
+        Renvoie un MissionResult, un ScanResult, ou None si rien n'est reconnu.
+        """
         from PIL import Image, ImageOps
 
         try:
@@ -379,6 +387,7 @@ class TesseractEngine:
                 os.environ["TESSDATA_PREFIX"] = env_bak
 
     def _ocr_tsv(self, img) -> dict:
+        """Mots et positions lus par Tesseract en mode texte épars, aidé par la liste des commodités et les motifs SC."""
         parts = ["--psm 11", "--oem 3"]  # sparse text, comme SC-Datarunner
         uw  = self.data_dir / "commodities.user-words"
         pat = self.data_dir / "sc.patterns"
@@ -499,6 +508,7 @@ class TesseractEngine:
         w, h = img.size
 
         def _ocr(crop_box, psm=6) -> str:
+            """Texte d'une zone de la capture (inversée pour Tesseract) ; « » en cas d'échec."""
             region = img.crop(crop_box)
             region = ImageOps.invert(region.convert("L"))
             env_bak = os.environ.get("TESSDATA_PREFIX")
@@ -781,6 +791,7 @@ class TesseractEngine:
         w, h = img.size
 
         def _ocr_raw(crop_box, psm=6) -> str:
+            """Texte brut d'une zone de la capture, pour le diagnostic ; « (erreur OCR) » en cas d'échec."""
             region = img.crop(crop_box)
             region = ImageOps.invert(region.convert("L"))
             env_bak = os.environ.get("TESSDATA_PREFIX")
@@ -810,6 +821,11 @@ class TesseractEngine:
     # ── Machine à états : NOM → SCU → STOCK → PRIX ───────────────────────────
 
     def _parse_commodity_lines(self, lines: list[str]) -> list[ScannedCommodity]:
+        """Marchandises reconnues dans les lignes OCR d'un terminal.
+
+        Repère les sections (en stock, en demande), rattache prix, stock et quantité à la
+        dernière marchandise trouvée ; la quantité peut apparaître avant le nom.
+        """
         known    = self._load_words(self.data_dir / "commodities.user-words")
         result:  list[ScannedCommodity] = []
         current: ScannedCommodity | None = None
@@ -889,6 +905,7 @@ class TesseractEngine:
     # ── Fuzzy matching ────────────────────────────────────────────────────────
 
     def _fuzzy_best(self, candidates: list[str], known: list[str], cutoff: int) -> str:
+        """Meilleur nom connu ressemblant à l'un des candidats, si le score atteint `cutoff` (0-100) ; « » sinon."""
         try:
             from rapidfuzz import fuzz
             best, score = "", 0
@@ -907,6 +924,7 @@ class TesseractEngine:
             return ""
 
     def _fuzzy_commodity(self, line: str, known: list[str]) -> str | None:
+        """Commodité connue la plus proche de la ligne : d'abord la ligne entière, puis mot par mot ; None si rien de sûr."""
         if not known or re.match(r"^[\d\s,./()~\"\'\\]+$", line) or len(line) < 3:
             return None
         ku = [k.upper() for k in known]
@@ -947,6 +965,7 @@ class TesseractEngine:
     # ── Utilitaires ───────────────────────────────────────────────────────────
 
     def _load_words(self, path: Path) -> list[str]:
+        """Mots d'une liste Tesseract (`*.user-words`), sans les nombres ni les mots de 3 lettres ou moins."""
         if not path.exists():
             return []
         with open(path, encoding="utf-8", errors="replace") as f:

@@ -26,6 +26,7 @@ _RE_TIMER = re.compile(r"^\d{1,3}[hms]$")
 
 @dataclass
 class ContractCard:
+    """Une carte de contrat lue dans le panneau gauche du mobiGlas (titre, XP, donneur d'ordre, récompense, minuteur)."""
     title: str                     # titre lu (sans la partie « NNN EXP. »)
     xp: int | None = None          # points affichés (traduction Stelliverse), sinon None
     contractor: str = ""           # donneur d'ordre (dernière ligne de la carte)
@@ -37,10 +38,12 @@ class ContractCard:
 
     @property
     def has_right_column(self) -> bool:
+        """Vrai si la colonne de droite (récompense ou minuteur) a été lue."""
         return self.reward is not None or bool(self.timer)
 
 
 def parse_reward(token: str) -> int | None:
+    """Récompense en aUEC depuis le texte affiché (« 124k » → 124000) ; None si ce n'est pas un montant."""
     m = _RE_REWARD.match(token.strip())
     if not m:
         return None
@@ -48,6 +51,7 @@ def parse_reward(token: str) -> int | None:
 
 
 def _lines(words: list[dict]) -> list[dict]:
+    """Regroupe les mots OCR en lignes : deux mots de hauteur voisine (à 60 % près) sont sur la même ligne."""
     lines: list[dict] = []
     for w in sorted(words, key=lambda w: (w["y"], w["x"])):
         if lines and abs(lines[-1]["y"] - w["y"]) < max(w["h"], 8) * 0.6:
@@ -98,6 +102,7 @@ def cards_from_words(words: list[dict], panel_w: float) -> list[ContractCard]:
 
 
 def _clean(text: str) -> str:
+    """Retire les puces et symboles de début, réduit les espaces et la ponctuation de fin."""
     text = re.sub(r"^[^A-Za-z0-9<]+", "", text)          # puces, « — », « ¤ » de début
     return re.sub(r"\s+", " ", text).strip(" -.,")
 
@@ -105,6 +110,10 @@ def _clean(text: str) -> str:
 # ── OCR ───────────────────────────────────────────────────────────────────────
 
 def _ocr_words(engine, region, psm: int) -> list[dict]:
+    """Mots OCR positionnés d'une zone de l'image, coordonnées ramenées à la taille d'origine.
+
+    L'image est inversée (texte clair sur fond sombre en jeu) et agrandie pour Tesseract.
+    """
     from PIL import ImageOps
     img = ImageOps.invert(region.convert("L"))
     img = img.resize((img.width * _SCALE, img.height * _SCALE))

@@ -13,7 +13,9 @@ _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
 
 
 class ScreenshotWatcher:
+    """Surveille le dossier des captures de Star Citizen (mode B) et signale les nouvelles images."""
     def __init__(self, directory: Path, callback: Callable[[Path], None] | None = None):
+        """Les images déjà présentes sont ignorées : seules les nouvelles captures seront signalées."""
         self.directory = directory
         self.callback = callback
         self._seen: set[Path] = set()
