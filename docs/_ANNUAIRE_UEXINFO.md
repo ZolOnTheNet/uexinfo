@@ -87,7 +87,7 @@ uexinfo/                         (racine du dépôt)
 | `__main__.py` | Point d'entrée unique : vérifie les dépendances (webview, pynput, websockets), lance l'overlay. |
 | `overlay/__init__.py` | Fenêtre PyWebView transparente, raccourci clavier global (Win32, pynput hors Windows), presse-papiers, remplacement d'une instance déjà lancée, `run_overlay()`. |
 | `overlay/server.py` | Serveur WebSocket : reçoit les commandes de la page, les exécute, renvoie le HTML ; complétion, statut, confirmation des scans, suivi Game.log. Importe toutes les commandes. |
-| `overlay/static/index.html` | Toute l'interface (HTML + CSS + JS, ~4 400 lignes) : console, complétion, menus, mots cliquables, formulaires de scan. |
+| `overlay/static/index.html` | Toute l'interface (HTML + CSS + JS, ~4 400 lignes) : console, complétion, menus, mots cliquables (référence `#type:id` au clic, D11), formulaires de scan. |
 
 ### Routage des commandes — `cli/`
 
@@ -223,10 +223,10 @@ uexinfo/                         (racine du dépôt)
 | `display/colors.py` | Palette Rich (UEX cyan, sc-trade orange, profit/perte). **Seule source des couleurs.** |
 | `display/formatter.py` | Console partagée, formatage des prix, SCU, distances, nom court de terminal. |
 | `display/capturing_console.py` | Console Rich qui capture les rendus au lieu d'écrire dans un terminal. |
-| `display/render_html.py` | Rendu natif des objets Rich en HTML structuré. |
+| `display/render_html.py` | Rendu natif des objets Rich en HTML structuré ; liens `uex:type:id` → mots cliquables qui portent la référence de l'objet. |
 | `display/ansi_html.py` | Conversion des codes ANSI en HTML (ancienne voie, encore utilisée par le serveur). |
 | `display/adaptive.py` | Tableaux à colonnes proportionnelles (missions, voyages). |
-| `display/loc.py` | Affichage centralisé des noms de lieux. |
+| `display/loc.py` | Forme courte des noms de lieux (affichage seulement ; plus de registre d'abréviations). |
 | `config/__init__.py` | Docstring du package seulement. |
 | `config/settings.py` | Lecture/écriture de `config.toml`. |
 | `data/transport_network.json` | Graphe de transport (nœuds, arêtes), enrichi par `/nav populate` et `scripts/generate_locations.py`. |

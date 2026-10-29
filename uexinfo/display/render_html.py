@@ -104,19 +104,44 @@ def _esc(text: str) -> str:
 
 # ── Rich Text → HTML inline ────────────────────────────────────────────────────
 
+def _ref_link(style: Any) -> tuple[str, str] | None:
+    """(type, id) du lien `uex:type:id` porté par le style Rich, ou None (D11)."""
+    from uexinfo.names import parse_link
+    return parse_link(getattr(style, "link", None)) if style is not None else None
+
+
 def _text_to_inline_html(text: RichText) -> str:
-    """Convertit un objet Rich Text en fragment HTML inline."""
+    """Convertit un objet Rich Text en fragment HTML inline.
+
+    Un lien `uex:type:id` (markup `[link=…]`, voir `uexinfo/names/refs.py`) devient un
+    mot cliquable `.cw` qui porte la référence de l'objet : l'overlay l'envoie telle
+    quelle, sans relire le texte affiché, même raccourci (D11).
+    """
+    from uexinfo.names import ref
+    from uexinfo.names.refs import LINK_TYPES
     rc = _render_console()
     parts: list[str] = []
+    cur_link: tuple[str, str] | None = None
     for seg in text.render(rc):
         if not seg.text:
             continue
+        link = _ref_link(seg.style)
+        if link != cur_link:
+            if cur_link is not None:
+                parts.append("</span>")
+            if link is not None:
+                kind, ident = link
+                parts.append(f'<span class="cw" data-ref="{_html_mod.escape(ref(kind, ident))}" '
+                             f'data-type="{LINK_TYPES.get(kind, "")}">')
+            cur_link = link
         esc = _esc(seg.text)
         css = _style_to_css(seg.style) if seg.style else ""
         if css:
             parts.append(f'<span class="{css}">{esc}</span>')
         else:
             parts.append(esc)
+    if cur_link is not None:
+        parts.append("</span>")
     return "".join(parts)
 
 

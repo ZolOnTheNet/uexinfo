@@ -452,3 +452,13 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Branché : `/go`, `/dest`, `/player @lieu` (objet + id, plus de `_lookup_terminal_id` par nom, plus de lieu inconnu accepté tel quel) ; `/info` (recherche libre unifiée terminal + commodité + vaisseau, position par id) ; `/trade` (bilan par id, buy/sell) ; `/sync` ; `/nav route` (départ et arrivée : `_pick_node` avec liste, `@local`/`@dest` → `#node:…` via l'id du terminal, plus de découpage deviné ni de ressemblance silencieuse) ; calcul de vente de l'overlay (distances par id de terminal).
 - Supprimés (inutilisés) : `nav._find_candidates`, `nav._show_candidates_choice`.
 - Tests : 288 réussis (nouveaux : références, cas « Ship Ammunition - Size 7 », listes, faute de frappe, annulation, position par id).
+
+## 2026-10-29 — D11, partie 2 : liens qui désignent un objet
+
+**Fait :**
+- Rendu : un lien Rich `[link=uex:type:id]` devient un mot cliquable `.cw` avec `data-ref` (`display/render_html.py`). Liens posés sur les noms raccourcis des tableaux : marchandises d'un terminal (`_entry_ns`, tableau d'achat), terminaux d'une commodité (`_term_sys_cell`, qui repère aussi position et destination par identifiant), `/trade` achat, vente et bilan, étapes et destinations de `/nav` (`_node_link`).
+- Page : le clic, le double-clic et le menu contextuel envoient `#type:id` quand le mot en porte une. Le vocabulaire envoyé par le serveur donne la référence de chaque nom qui désigne un seul objet (`refs`).
+- Supprimé : la devinette des noms tronqués « … » côté page (premier nom connu qui commence pareil : c'était le problème « Amm…7 »), le repli sur le texte souligné, le registre d'abréviations (`loc.py`) et la réécriture des lignes tapées (`resolve_cmd_line` : « Faithful Dream Station » devenait « Faithful Dream Station Station »), le message `loc_abbrevs`, `trade._term_entry` (inutilisé).
+- `@lieu` affiche la fiche de la position enregistrée (par identifiant), plus celle du texte tapé.
+- Référence de nœud (`#node:…`) comprise là où un terminal est attendu : les terminaux de ce lieu exact.
+- Essai réel (vrai cache) : `/go lorville` → liste de 2 ; `/dest lorvile` → « Vouliez-vous dire » ; `/go qqqqqq` refusé ; `/nav route @local to @dest` par identifiants ; `/info #commodity:207` → Ship Ammunition - Size 7 ; `@port tressler` → 44 liens de marchandises. `node --check` sur le JS de la page : OK. 290 tests.

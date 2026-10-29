@@ -76,11 +76,12 @@ def run_command(line: str, ctx) -> set[str]:
         except ValueError:
             words = normalized.split()
         full_loc = " ".join(words)   # "@Port Tressler"
+        before = (ctx.player.location, ctx.player.location_id)
         dispatch("player", [full_loc], ctx)
-        loc_name = full_loc[1:]      # "Port Tressler"
-        if "." in loc_name:
-            loc_name = loc_name.rsplit(".", 1)[-1]
-        dispatch("info", [loc_name], ctx)
+        # Fiche de la position enregistrée (par son identifiant, D11) — rien si le
+        # lieu est introuvable ou si le joueur a annulé la liste de choix.
+        if (ctx.player.location, ctx.player.location_id) != before or ctx.player.location_id:
+            dispatch("info", [], ctx)
         return {"player", "info"}
 
     elif normalized.startswith("/"):

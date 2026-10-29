@@ -413,10 +413,6 @@ class OverlayServer:
             if len(self._history) > 500:
                 self._history.pop()
 
-        # Résoudre les abréviations *-suffixées (noms de lieux) dans la commande
-        from uexinfo.display.loc import resolve_cmd_line as _resolve_loc
-        line = _resolve_loc(line)
-
         # Écho
         await ws.send(json.dumps({"type": "echo", "text": line}))
 
@@ -474,12 +470,6 @@ class OverlayServer:
         self.ctx._overlay_send_fn = None
         self.ctx._overlay_progress_fn = None
         await ws.send(json.dumps({"type": "progress_done"}))
-
-        # Envoyer les abréviations de lieux AVANT l'output (le JS les aura quand il annote)
-        from uexinfo.display.loc import flush_abbrevs as _flush_loc
-        _loc_map = _flush_loc()
-        if _loc_map:
-            await ws.send(json.dumps({"type": "loc_abbrevs", "map": _loc_map}))
 
         # Messages "pré-output" : formulaires qui remplacent l'output (scan_log_inline)
         # Messages "post-output" : boutons/actions inline qui suivent le tableau (tout le reste)
@@ -1335,6 +1325,19 @@ class OverlayServer:
         vm = getattr(self.ctx, "voyage_manager", None)
         voyages = sorted(vm.voyage_names()) if vm else []
 
+        # Référence de chaque nom qui désigne un seul objet (D11) : le clic l'envoie
+        # telle quelle. Planètes, systèmes et noms partagés n'en ont pas (le texte
+        # exact part alors, et le serveur propose la liste s'il y a plusieurs objets).
+        from uexinfo.names import get_index, ref as _ref
+        idx = get_index(self.ctx)
+        refs: dict[str, str] = {}
+        for names, kinds in ((commodities, {"commodity"}),
+                             (locations, {"terminal", "station", "city", "outpost"})):
+            for n in names:
+                found = idx.exact(n, kinds)
+                if len(found) == 1:
+                    refs[n] = _ref(found[0].kind, found[0].id)
+
         cmdhistory = self.ctx.cfg.get("overlay", {}).get("cmdhistory", 5)
         await ws.send(json.dumps({
             "type":        "vocab",
@@ -1342,6 +1345,7 @@ class OverlayServer:
             "locations":   locations,
             "ships":       ships,
             "voyages":     voyages,
+            "refs":        refs,
             "cmdhistory":  cmdhistory,
             "terminals":   sorted({
                 f"{_loc(t.name)} ({t.star_system_name})"

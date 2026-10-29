@@ -180,3 +180,20 @@ def test_node_ref_and_link_roundtrip():
 def test_star_suffix_means_truncated_name(idx):
     r = idx.resolve("Port Tress*", kinds={"terminal"})
     assert name(r.best) == "Admin - Port Tressler"
+
+
+def test_node_ref_where_terminal_expected(idx):
+    # Un lien de nœud du graphe (« Port Tressler ») ouvert par /info ou /go :
+    # les terminaux de ce lieu exact, jamais un nom approchant.
+    from uexinfo.names import Entity
+    idx2 = type(idx)(idx.entities + [Entity("node", "Port Tressler", "Port Tressler", None,
+                                            keys=("port tressler",))])
+    r = idx2.resolve("#node:Port_Tressler", kinds={"terminal", "commodity", "vehicle"})
+    assert [name(o) for o in r.candidates] == ["Admin - Port Tressler"]
+
+
+def test_link_renders_reference_span():
+    from uexinfo.display.render_html import _markup_to_inline_html
+    html = _markup_to_inline_html("[cyan]x [link=uex:commodity:207]Ship Amm… S7[/link][/cyan]")
+    assert 'class="cw" data-ref="commodity:207" data-type="commodity"' in html
+    assert "Ship Amm… S7" in html

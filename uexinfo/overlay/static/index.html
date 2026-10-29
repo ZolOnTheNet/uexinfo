@@ -108,8 +108,6 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   opacity: 0.9;
 }
 .cw:hover { opacity: 1; filter: brightness(1.3); }
-/* Terme tronqué (préfixe «…») — tirets pour signaler que le nom complet est au survol */
-.cw.cw-truncated { border-bottom-style: dashed; }
 
 /* ── Formulaire scan log inline ────────────────────────────────────────────── */
 .scan-inline {
@@ -235,14 +233,6 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 .cw-location  { color: #00bcd4; }
 .cw-ship      { color: #69f0ae; }
 .cw-voyage    { color: #ff9800; }
-/* Noms de lieux abrégés cliquables (→ nom complet dans l'input) */
-.loc-abbr {
-  cursor: pointer;
-  border-bottom: 1px dotted #56b6c2;
-  color: inherit;
-  transition: color 0.15s;
-}
-.loc-abbr:hover { color: #56b6c2; }
 
 /* ── Mission scan overlay ────────────────────────────────────────────────── */
 #mission-scan-overlay {
@@ -1433,47 +1423,17 @@ const vocab = {
 };
 let vocabRe = null;
 const vocabFullNames = new Map();  // lowercase → nom complet canonique (pour tooltip hover)
+// lowercase → référence « type:id » quand le nom désigne un seul objet (D11) : le clic
+// envoie la référence, jamais le texte. Nom partagé par plusieurs objets : pas de
+// référence, le serveur proposera la liste.
+const vocabRefs = new Map();
 
-// ── Registre des noms de lieux abrégés ───────────────────────────────────
-let locAbbrevs = {};       // abbrev → nom complet
-let _locAbbrevRe = null;   // regex compilée (rebuilt à chaque update)
-
-function updateLocAbbrevs(map) {
-  Object.assign(locAbbrevs, map);
-  const keys = Object.keys(locAbbrevs).sort((a, b) => b.length - a.length);
-  if (!keys.length) { _locAbbrevRe = null; return; }
-  const escaped = keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  _locAbbrevRe = new RegExp('(?<![\\w])(' + escaped.join('|') + ')(?![\\w])', 'g');
-}
-
-function annotateLocNode(node) {
-  if (!_locAbbrevRe) return;
-  const text = node.textContent;
-  _locAbbrevRe.lastIndex = 0;
-  if (!_locAbbrevRe.test(text)) return;
-  _locAbbrevRe.lastIndex = 0;
-  const frag = document.createDocumentFragment();
-  let last = 0, m;
-  while ((m = _locAbbrevRe.exec(text)) !== null) {
-    const abbrev = m[1];
-    const full   = locAbbrevs[abbrev];
-    if (!full) continue;
-    if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-    const span = document.createElement('span');
-    span.className   = 'loc-abbr';
-    span.textContent = abbrev;
-    span.title       = full;
-    span.onclick = () => { navigator.clipboard.writeText(full).catch(() => {}); };
-    frag.appendChild(span);
-    last = m.index + abbrev.length;
-  }
-  if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
-  node.parentNode.replaceChild(frag, node);
-}
 
 function loadVocab(msg) {
   if (msg.cmdhistory !== undefined) cmdHistoryMax = msg.cmdhistory;
   vocabFullNames.clear();
+  vocabRefs.clear();
+  for (const [n, r] of Object.entries(msg.refs || {})) vocabRefs.set(n.toLowerCase(), r);
   vocab.commoditiesRaw = (msg.commodities || []).slice().sort();   // casse originale pour les <select>
 
   const _fill = (set, arr) => {
@@ -1539,26 +1499,11 @@ function vocabType(word) {
   return null;
 }
 
-// Retourne vrai si `haystack` commence par `needle` suivi d'un séparateur (espace, point, parenthèse…)
-function _vocabWordPrefix(haystack, needle) {
-  if (!haystack.startsWith(needle)) return false;
-  if (haystack.length === needle.length) return true;
-  const c = haystack[needle.length];
-  return c === ' ' || c === '.' || c === '(' || c === '[';
-}
-
 function annotateNode(textNode) {
   if (!vocabRe && !vocabFullNames.size) return;
   const text        = textNode.textContent;
-  const trimmed     = text.trimEnd();
-  // L'ellipse peut \u00eatre en fin de cha\u00eene ("TerminalNomLong\u2026") ou au milieu,
-  // suivie d'un suffixe de variante ("Ship Ammu\u2026 Size 1" \u2014 cf. _abbrev_name
-  // c\u00f4t\u00e9 serveur pour les noms "<base> - <variante>"). D\u00e9tecter sa position
-  // r\u00e9elle plut\u00f4t que de supposer qu'elle est forc\u00e9ment en derni\u00e8re position.
-  const ellipsisIdx = trimmed.indexOf('\u2026');
-  const isTruncated = ellipsisIdx !== -1;
 
-  // ── Passage 1 : regex normale (fonctionne aussi sur texte tronqué partiel) ──
+  // ── Noms complets du vocabulaire ──
   if (vocabRe) {
     vocabRe.lastIndex = 0;
     if (vocabRe.test(text)) {
@@ -1574,6 +1519,8 @@ function annotateNode(textNode) {
         span.className = `cw cw-${type}`;
         span.dataset.word = word;
         span.dataset.type = type;
+        const ref = vocabRefs.get(word.toLowerCase());
+        if (ref) span.dataset.ref = ref;
         span.title        = vocabFullNames.get(word.toLowerCase()) || word;
         span.textContent  = word;
         frag.appendChild(span);
@@ -1586,59 +1533,16 @@ function annotateNode(textNode) {
     }
   }
 
-  // ── Passage 2 : texte tronqué «…» non reconnu par la regex → préfixe-mot ──
-  // Couvre "TerminalNomLong…" et "TermName (Sy…" ou "Sys.Station.ty…"
-  if (isTruncated && vocabFullNames.size) {
-    // Un marqueur ("★ " données joueur, etc.) peut précéder le nom dans le
-    // même nœud de texte que le rendu HTML — l'ignorer, sinon le préfixe
-    // calculé ("★ ship amm") ne démarre jamais comme un nom de vocabulaire.
-    const rawPrefix = trimmed.slice(0, ellipsisIdx).replace(/^[^\p{L}\p{N}]+/u, '');
-    const prefix = rawPrefix.trimEnd().toLowerCase();
-    // Suffixe après l'ellipse (ex: "Size 1") — vide si l'ellipse est en fin
-    // de chaîne, présent pour désambiguïser entre plusieurs variantes qui
-    // partagent le même préfixe tronqué (Size 1, Size 2, Size 3…).
-    const suffix = trimmed.slice(ellipsisIdx + 1).trim().toLowerCase();
-    if (prefix.length >= 3) {
-      let fallback = null;
-      for (const [lc, canonical] of vocabFullNames) {
-        // terme vocab commence par le préfixe (nom coupé avant la fin du terme)
-        // OU préfixe commence par le terme vocab suivi d'un séparateur
-        if (!(lc.startsWith(prefix) || _vocabWordPrefix(prefix, lc))) continue;
-        if (!suffix || lc.endsWith(suffix) || lc.includes(' ' + suffix)) {
-          fallback = canonical;
-          break;
-        }
-        if (!fallback) fallback = canonical;   // repli si aucune variante ne matche le suffixe
-      }
-      if (fallback) {
-        const type = vocabType(fallback);
-        const span = document.createElement('span');
-        span.className = `cw cw-${type} cw-truncated`;
-        span.dataset.word = fallback;
-        span.dataset.type = type;
-        span.title        = fallback;
-        span.textContent  = text;
-        textNode.parentNode.replaceChild(span, textNode);
-        return;
-      }
-    }
-  }
+  // Un nom tronqué («…») n'est jamais deviné : seul le lien posé par le serveur
+  // (référence de l'objet) le rend cliquable (D11).
 }
 
 function annotateElement(el) {
-  if (!vocabRe && !vocabFullNames.size && !_locAbbrevRe) return;
-  // Passage 1 : noms de lieux abrégés EN PREMIER — prend la suite la plus longue
-  // et évite que le vocabulaire ne découpe "Green Glade" en "Green" + "Glade"
-  if (_locAbbrevRe) {
-    const w1 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    const n1 = [];
-    while (w1.nextNode()) n1.push(w1.currentNode);
-    n1.forEach(annotateLocNode);
-  }
-  // Passage 2 : vocabulaire — saute les nœuds déjà dans un .loc-abbr
-  if (vocabRe || vocabFullNames.size) {
+  if (!vocabRe) return;
+  // Vocabulaire — saute les nœuds déjà dans un lien posé par le serveur (.cw)
+  {
     const w2 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
-      acceptNode: n => n.parentElement?.closest('.loc-abbr')
+      acceptNode: n => n.parentElement?.closest('.cw')
         ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
     });
     const n2 = [];
@@ -1765,7 +1669,6 @@ function dispatch(msg) {
     case 'note_edit':  showNoteForm(msg);   break;
     case 'screenshot_processed': onScreenshotProcessed(msg); break;
     case 'ocr_queued':           onOcrQueued(msg); break;
-    case 'loc_abbrevs': updateLocAbbrevs(msg.map); break;
     case 'trade_pick':  showTradePick(msg); break;
     case 'terminal_buy_pick': showTerminalBuyPick(msg); break;
     case 'select':      showSelectPanel(msg); break;
@@ -2394,64 +2297,37 @@ function wordAt(e) {
 }
 
 // ── Résolution du mot cliquable ───────────────────────────────────────────────
-// Collecte le texte des spans contigus soulignés (reconstitue "Green Glade"
-// même si le parser ANSI l'a fragmenté en deux spans séparés).
-function _collectUnderlinedRun(startEl) {
-  const parent = startEl.parentElement;
-  if (!parent) return startEl.textContent;
-  const _isUL = el => {
-    if (!el || el.nodeType !== 1) return false;
-    const td = window.getComputedStyle(el).textDecoration || '';
-    return td.includes('underline');
-  };
-  const kids = Array.from(parent.children);
-  const idx = kids.indexOf(startEl);
-  if (idx < 0) return startEl.textContent;
-  let s = idx, e_ = idx;
-  while (s > 0 && _isUL(kids[s - 1])) s--;
-  while (e_ < kids.length - 1 && _isUL(kids[e_ + 1])) e_++;
-  return kids.slice(s, e_ + 1).map(c => c.textContent).join('').replace(/\s+/g, ' ').trim();
-}
-
-// Retourne { word, type } pour l'élément cliqué : .cw > soulignement ANSI > null.
+// Retourne { word, type, ref } pour le mot cliqué (.cw), ou null. `ref` (« type:id »)
+// désigne l'objet exact : c'est lui qui part dans la commande, pas le texte (D11).
 function getClickableWord(e) {
   const cw = e.target.closest('.cw');
-  if (cw) return { word: cw.dataset.word, type: cw.dataset.type };
-  // Recherche un ancêtre souligné (ANSI underline sur un segment fragmenté)
-  let el = e.target;
-  while (el && el !== elOutput) {
-    if (el.nodeType === 1) {
-      const td = window.getComputedStyle(el).textDecoration || '';
-      if (td.includes('underline')) {
-        const text = _collectUnderlinedRun(el);
-        if (text && text.length >= 2 && !/^\d+$/.test(text))
-          return { word: text, type: null };
-      }
-    }
-    el = el.parentElement;
-  }
-  return null;
+  if (!cw) return null;
+  return { word: cw.dataset.word || cw.textContent.trim(), type: cw.dataset.type,
+           ref: cw.dataset.ref || '' };
 }
+
+// Argument de commande pour un mot cliqué : « #type:id » s'il a une référence
+function clickArg(info) { return info.ref ? '#' + info.ref : info.word; }
 
 elOutput.addEventListener('click', e => {
   if (e.detail > 1) return;   // laisser dblclick gérer le double-clic
   closeCtx();
   const info = getClickableWord(e);
   if (!info) return;
-  showCtx(info.word, e.clientX, e.clientY, info.type, '');
+  showCtx(info.word, e.clientX, e.clientY, info.type, '', clickArg(info));
 });
 elOutput.addEventListener('dblclick', e => {
   closeCtx();
   const info = getClickableWord(e);
   if (!info) return;
   if (info.type === 'voyage') sendCmd(`/voyage ${info.word} list`);
-  else sendCmd(`/info ${info.word}`);
+  else sendCmd(`/info ${clickArg(info)}`);
 });
 elOutput.addEventListener('contextmenu', e => {
   e.preventDefault();
   const sel = window.getSelection()?.toString().trim() || '';
   const info = getClickableWord(e);
-  if (info) { showCtx(info.word, e.clientX, e.clientY, info.type, sel); return; }
+  if (info) { showCtx(info.word, e.clientX, e.clientY, info.type, sel, clickArg(info)); return; }
   if (sel) showCtx(null, e.clientX, e.clientY, null, sel);
   else closeCtx();
 });
@@ -2498,15 +2374,17 @@ function copyText(text, feedbackEl) {
 
 // ── Menu contextuel ───────────────────────────────────────────────────────────
 
-function showCtx(word, x, y, type, sel) {
+function showCtx(word, x, y, type, sel, arg) {
   // `word` finit dans un littéral JS entre apostrophes ('/dest ${ws}') lui-même
   // imbriqué dans un attribut HTML entre guillemets (onclick="..."). Échapper
   // uniquement " (comme avant) laissait passer les noms avec apostrophe (ex:
   // "Rod's Fuel 'N Supplies") — casse silencieusement le JS généré : le clic
   // ne fait rien, sans erreur visible. Échapper aussi \ et ' pour le littéral
   // JS, puis " en entité HTML pour l'attribut englobant.
-  const ws = word
-    ? word.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;')
+  // `arg` : référence « #type:id » du mot cliqué (D11) ; à défaut, le mot lui-même.
+  const target = arg || word;
+  const ws = target
+    ? target.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;')
     : '';
   const typeLabel = type === 'commodity' ? '🟡 Commodité'
                   : type === 'location'  ? '🔵 Lieu'

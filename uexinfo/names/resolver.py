@@ -241,6 +241,17 @@ class NameIndex:
         if kind in PLACE_KINDS and "terminal" in kinds:
             return Resolution([Match(t, EXACT, 100.0, via_location=True)
                                for t in self.place_terminals(kind, ident)])
+        if kind == "node":
+            # Nœud du graphe = un lieu nommé : les objets de même nom exact, et les
+            # terminaux dont c'est le lieu (règle c) — jamais un nom approchant.
+            n = norm(e.name)
+            ms = [Match(x, EXACT, 100.0) for x in self.exact(e.name, kinds) if x.kind != "terminal"]
+            if "terminal" in kinds:
+                ms += _collapse_locations([Match(t, EXACT, 100.0, via_location=True)
+                                           for t in self.entities
+                                           if t.kind == "terminal" and n in t.loc_keys])
+            ms.sort(key=lambda m: (m.via_location, m.entity.priority))
+            return Resolution(ms)
         if kind == "terminal":
             for pk, attr in (("station", "id_space_station"), ("city", "id_city"),
                              ("outpost", "id_outpost")):

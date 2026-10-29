@@ -13,6 +13,7 @@ from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
 from uexinfo.rules.stock import buy_quantity
 from uexinfo.display.formatter import console, print_warn, section
+from uexinfo.names import link as _link
 from uexinfo.models.scan_result import ScanResult
 from uexinfo.models.transport_network import EdgeType
 
@@ -226,9 +227,13 @@ def _fmt_date(date_modified) -> str:
         return ""
 
 
-def _entry_ns(name: str, scu_str: str, status: int | None, buy: bool, code: str = "") -> str:
-    """Formate 'NomCourt (SCU)' avec le SCU coloré selon le statut de stock."""
+def _entry_ns(name: str, scu_str: str, status: int | None, buy: bool, code: str = "",
+              cid: int = 0) -> str:
+    """Formate 'NomCourt (SCU)' avec le SCU coloré selon le statut de stock.
+    Le nom raccourci est un lien vers la commodité `cid` (D11)."""
     short = _abbrev_name(name, code=code)
+    if cid:
+        short = _link("commodity", cid, short)
     s = int(status or 0)
     color_map = _BUY_STATUS_COLOR if buy else _SELL_STATUS_COLOR
     color = color_map.get(s, C.DIM)
@@ -1114,7 +1119,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
         dest_sz = cs_entry.get("dest_sizes", {}).get(dest_name.lower(), "") if dest_name else ""
 
         entries.append((profit_opt, {
-            "name": name, "code": comm_code,
+            "id": id_comm, "name": name, "code": comm_code,
             "scu_range": _notable_scu(_scu(scu_min, scu_max)),
             "price_buy": price_buy, "date": date_buy,
             "dest": dest_display, "dest_tag": dest_tag,
@@ -1191,6 +1196,8 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
             risk_cell = f"[{C.LOSS}]{risk}%[/{C.LOSS}]"
 
         name_raw = _abbrev_name(d["name"], 16, code=d.get("code", ""))
+        if d.get("id"):
+            name_raw = _link("commodity", d["id"], name_raw)
         if d["scu_range"]:
             scu_pfx  = "★" if d.get("_player_stock") and not player else ""
             name_raw = f"{name_raw} [dim]({scu_pfx}{d['scu_range']})[/dim]"
@@ -1581,6 +1588,7 @@ def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
                         cname, scu_info,
                         r.get("status_sell"), buy=False,
                         code=_comm_code(cname, int(r.get("id_commodity") or 0)),
+                        cid=int(r.get("id_commodity") or 0),
                     )
                     if player_sell:
                         name_raw = f"[bold {C.NEUTRAL}]{name_raw}[/bold {C.NEUTRAL}]"
@@ -1729,7 +1737,8 @@ def _dist_label(term_name: str, terminal_sys: str, player_sys: str,
 
 def _term_sys_cell(r: dict, maxlen: int | None = None,
                    player_loc: str = "", player_dest: str = "",
-                   out_of_filter: bool = False) -> str:
+                   out_of_filter: bool = False,
+                   player_loc_id: int = 0, player_dest_id: int = 0) -> str:
     """'TermCourt  (Sys)' — nom court + système en dim.
     Souligne le nom si le joueur est sur ce terminal.
     Ajoute ⭐ si c'est la destination définie.
@@ -1745,10 +1754,18 @@ def _term_sys_cell(r: dict, maxlen: int | None = None,
     sys     = r.get("star_system_name") or ""
     term_lo = term.lower()
 
-    is_here = bool(player_loc and (term_lo in player_loc or player_loc in term_lo))
-    is_dest = bool(player_dest and (term_lo in player_dest or player_dest in term_lo))
+    # Position et destination : par identifiant (D11) ; le nom ne sert que sans id
+    tid = int(r.get("id_terminal") or 0)
+    if tid and (player_loc_id or player_dest_id):
+        is_here = tid == player_loc_id
+        is_dest = tid == player_dest_id
+    else:
+        is_here = bool(player_loc and (term_lo in player_loc or player_loc in term_lo))
+        is_dest = bool(player_dest and (term_lo in player_dest or player_dest in term_lo))
 
     term = _abbrev_terminal(term, maxlen)
+    if tid:
+        term = _link("terminal", tid, term)
     # « Pyro Gateway (Stanton) » porte déjà son système : ne pas le répéter.
     if sys and term_lo.endswith(f"({sys.lower()})"):
         sys = ""
@@ -1969,7 +1986,8 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
                            and sys.lower() not in effective_filter)
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key,
-                               out_of_filter=row_oof),
+                               out_of_filter=row_oof, player_loc_id=ctx.player.location_id,
+                               player_dest_id=ctx.player.destination_id),
                 _price_fmt(price),
                 _fmt_date(r.get("date_modified")) or "—",
                 sz,
@@ -2031,7 +2049,8 @@ def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
                            and sys.lower() not in effective_filter)
             tbl.add_row(
                 _term_sys_cell(r, player_loc=player_loc_key, player_dest=player_dest_key,
-                               out_of_filter=row_oof),
+                               out_of_filter=row_oof, player_loc_id=ctx.player.location_id,
+                               player_dest_id=ctx.player.destination_id),
                 _price_fmt(price),
                 _fmt_date(r.get("date_modified")) or "—",
                 _scu_frac(scu_stock, scu_sell_max, status, buy=False),

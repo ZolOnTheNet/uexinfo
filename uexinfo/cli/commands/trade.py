@@ -32,6 +32,7 @@ from uexinfo.rules.risk import age_hours, sell_risk
 from uexinfo.rules.stock import buy_quantity, sell_quantity
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console, fmt_distance_gm, print_error, print_warn, section
+from uexinfo.names import link as _link
 
 _SUBS  = {"buy", "sell", "best", "compare"}
 _FROMS = {"from", "de"}
@@ -105,27 +106,6 @@ def _sort_key_sys(r: dict, player_sys: str, price_field: str, reverse: bool) -> 
     return (own, -price if reverse else price)
 
 
-def _term_entry(terminal_name: str, star_system: str, player_sys: str,
-                scu_lo, scu_hi, status, buy: bool) -> str:
-    """Nom de terminal coloré selon le statut de stock.
-    Préfixe 'Sys.' si hors du système du joueur.
-    Plage SCU ajoutée entre parenthèses seulement si non-standard.
-    """
-    loc = _loc(terminal_name)
-    sys_other = bool(star_system and star_system.lower() != player_sys)
-    display = f"{star_system}.{loc}" if sys_other else loc
-    short = _abbrev_name(display, maxlen=_TERM_MAX_SYS if sys_other else _TERM_MAX)
-
-    s = int(status or 0)
-    color = (_BUY_STATUS_COLOR if buy else _SELL_STATUS_COLOR).get(s, C.DIM)
-
-    notable = _notable_scu(_scu(scu_lo, scu_hi))
-    suffix = f" ({notable})" if notable else ""
-    return f"[{color}]{short}[/{color}]{suffix}"
-
-
-# ── /trade buy ────────────────────────────────────────────────────────────────
-
 def _trade_buy(args: list[str], ctx) -> None:
     """/trade buy <commodité> — où acheter : terminaux triés par prix, ceux du système du joueur en premier."""
     query = " ".join(args).replace("_", " ")
@@ -170,6 +150,8 @@ def _trade_buy(args: list[str], ctx) -> None:
         loc  = _loc(tn)
         disp = f"{sys_}.{loc}" if sys_other else loc
         term = _abbrev_name(disp, maxlen=_TERM_MAX_SYS if sys_other else _TERM_MAX)
+        if r.get("id_terminal"):
+            term = _link("terminal", int(r["id_terminal"]), term)
         s    = int(r.get("status_buy") or 0)
         clr  = _BUY_STATUS_COLOR.get(s, C.DIM)
         term_cell  = f"[{clr}]{term}[/{clr}]"
@@ -230,6 +212,8 @@ def _trade_sell(args: list[str], ctx) -> None:
         loc  = _loc(tn)
         disp = f"{sys_}.{loc}" if sys_other else loc
         term = _abbrev_name(disp, maxlen=_TERM_MAX_SYS if sys_other else _TERM_MAX)
+        if r.get("id_terminal"):
+            term = _link("terminal", int(r["id_terminal"]), term)
         s    = int(r.get("status_sell") or 0)
         clr  = _SELL_STATUS_COLOR.get(s, C.DIM)
         term_cell  = f"[{clr}]{term}[/{clr}]"
@@ -611,7 +595,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
 
         roi = (price_sell - price_buy) / price_buy * 100 if price_buy else None
         entries.append({
-            "name": name, "code": _comm_code(name, id_comm),
+            "id": id_comm, "name": name, "code": _comm_code(name, id_comm),
             "price_buy": price_buy, "price_sell": price_sell,
             "date": date_buy,
             "status_buy": status_buy, "status_sell": status_sell,
@@ -676,7 +660,10 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
 
     for d in entries:
         cc = d.get("code", "")
-        name_cell  = f"[{C.NEUTRAL}]{_abbrev_name(d['name'], 16, code=cc)}[/{C.NEUTRAL}]"
+        short      = _abbrev_name(d['name'], 16, code=cc)
+        if d.get("id"):
+            short = _link("commodity", d["id"], short)
+        name_cell  = f"[{C.NEUTRAL}]{short}[/{C.NEUTRAL}]"
         buy_cell   = f"[{C.UEX}]{_price_short(d['price_buy'])}[/{C.UEX}]"
         sell_cell  = f"[{C.PROFIT}]{_price_short(d['price_sell'])}[/{C.PROFIT}]"
         age_cell   = d['date']

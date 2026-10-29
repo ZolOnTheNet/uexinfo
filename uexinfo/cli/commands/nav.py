@@ -191,8 +191,9 @@ def _list_edges(args: list[str], ctx) -> None:
     from uexinfo.display.loc import loc_display as _ld
     for edge in sorted(unique_edges, key=lambda e: e.from_node):
         dist_str = fmt_distance_gm(edge.distance_gm, space=True)
-        tbl.add_row(_ld(edge.from_node, max_chars=35, short=False), "↔",
-                    _ld(edge.to_node, max_chars=35, short=False), dist_str, edge.edge_type.value)
+        tbl.add_row(_node_link(edge.from_node, _ld(edge.from_node, max_chars=35, short=False)), "↔",
+                    _node_link(edge.to_node, _ld(edge.to_node, max_chars=35, short=False)),
+                    dist_str, edge.edge_type.value)
 
     console.print(tbl)
     console.print(f"\n[{C.DIM}]{len(unique_edges)} routes[/{C.DIM}]")
@@ -436,7 +437,7 @@ def _display_route(from_node: str, to_node: str, graph) -> None:
         console.print(f"[{C.DIM}]→ /nav --req {from_node} {to_node}  pour fetcher via UEX[/{C.DIM}]")
         return
 
-    section(f"Route — {from_node} → {to_node}")
+    section(f"Route — {_node_link(from_node)} → {_node_link(to_node)}")
     console.print(f"  [bold]Distance totale :[/bold] [{C.UEX}]{result.total_distance:.1f} Gm[/{C.UEX}]")
     console.print(f"  [bold]Durée estimée :[/bold]   [{C.NEUTRAL}]{result.duration_formatted}[/{C.NEUTRAL}]")
     if result.jump_points:
@@ -448,7 +449,7 @@ def _display_route(from_node: str, to_node: str, graph) -> None:
 
 def _display_multi_route(from_node: str, to_nodes: list[str], graph) -> None:
     """Affiche un tableau comparatif de routes depuis un nœud vers plusieurs destinations."""
-    section(f"Routes depuis {from_node}")
+    section(f"Routes depuis {_node_link(from_node)}")
 
     rows: list[tuple[str, float, str, int]] = []
     missing: list[str] = []
@@ -471,10 +472,10 @@ def _display_multi_route(from_node: str, to_nodes: list[str], graph) -> None:
     for dest, dist, dur, jp_count in rows:
         dist_str = fmt_distance_gm(dist, space=True)
         jp_str   = str(jp_count) if jp_count else "—"
-        tbl.add_row(dest, dist_str, dur, jp_str)
+        tbl.add_row(_node_link(dest), dist_str, dur, jp_str)
 
     for dest in missing:
-        tbl.add_row(dest, f"[{C.DIM}]?[/{C.DIM}]", f"[{C.DIM}]?[/{C.DIM}]", "—")
+        tbl.add_row(_node_link(dest), f"[{C.DIM}]?[/{C.DIM}]", f"[{C.DIM}]?[/{C.DIM}]", "—")
 
     console.print(tbl)
     note = f"{len(rows)} route(s) · {len(missing)} introuvable(s)" if missing else f"{len(rows)} route(s)"
@@ -532,7 +533,7 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
         print_warn(f"Aucune destination dans {system!r}")
         return
 
-    section(f"Destinations depuis {from_node}  [{system}]")
+    section(f"Destinations depuis {_node_link(from_node)}  [{system}]")
     console.print(
         f"[{C.DIM}]@local = [bold]{from_node}[/bold]  ·  "
         f"{n_known_qt}/{total_qt} destinations QT connues[/{C.DIM}]"
@@ -578,7 +579,7 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
             row_entries = entries[i:i + n_cols]
             cells: list[str] = []
             for nm, dist, ntype in row_entries:
-                nm_trunc = nm[:name_w]
+                nm_trunc = _node_link(nm, nm[:name_w])
                 if ntype in (NodeType.STATION, NodeType.LAGRANGE):
                     nc = f"[{C.UEX}]{nm_trunc}[/{C.UEX}]"
                 elif ntype == NodeType.CITY:
@@ -1365,6 +1366,12 @@ def _canonicalize_location(name: str, graph) -> str:
             return candidates_alt[0]
 
     return name
+
+
+def _node_link(name: str, text: str | None = None) -> str:
+    """Nom de nœud cliquable : le lien porte le nœud lui-même, même affiché tronqué (D11)."""
+    from uexinfo.names import link
+    return link("node", name, name if text is None else text)
 
 
 class _Cancelled(Exception):
