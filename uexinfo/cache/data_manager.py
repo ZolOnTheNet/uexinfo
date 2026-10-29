@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 import time
 
-from uexinfo.api.uex_client import UEXClient, UEXError
+from uexinfo.api.uex_client import UEXError, shared_client
 from uexinfo.display import colors as C
 from uexinfo.display.formatter import console
 
@@ -190,7 +190,7 @@ class DataManager:
             ctx._api_offline = False
             return data, Source.API
 
-        client = UEXClient()
+        client = shared_client()
         try:
             data = client.get_prices(**api_kwargs)
             # Ne pas mettre en cache les résultats vides : cela masquerait les
@@ -210,6 +210,33 @@ class DataManager:
             ctx._api_offline = True
             console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
             return [], Source.EMPTY
+
+    @staticmethod
+    def cached(key: str, method: str, ctx, *, warn: bool = True, **params) -> list[dict]:
+        """Lecture UEX unique avec cache : cache frais → API → cache périmé → [].
+
+        `method` est le nom d'une méthode de `UEXClient` (« get_routes »,
+        « get_vehicles_purchases_prices »…), appelée sur le client partagé avec `params`.
+        Un résultat non vide est mis en cache sous `key` ; une erreur d'API affiche un
+        avertissement (sauf `warn=False`) et met à jour `ctx._api_offline`.
+        """
+        cached = ctx._price_cache.get(key)
+        if cached:
+            return cached[1]
+        try:
+            data = getattr(shared_client(), method)(**params)
+        except UEXError as e:
+            ctx._api_offline = True
+            stale = ctx._price_cache.get_stale(key)
+            if stale:
+                return stale[1]
+            if warn:
+                console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
+            return []
+        ctx._api_offline = False
+        if data:
+            ctx._price_cache[key] = (time.time(), data)
+        return data
 
     @staticmethod
     def terminal_prices(t, ctx) -> tuple[list[dict], str]:

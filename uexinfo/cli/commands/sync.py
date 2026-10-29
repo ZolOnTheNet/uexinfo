@@ -31,8 +31,8 @@ def _invalidate_terminal(t, ctx) -> None:
 
 def _fetch_fresh(t, ctx) -> list[dict]:
     """Force le fetch depuis l'API (cache vidé avant)."""
-    from uexinfo.api.uex_client import UEXClient, UEXError
-    client = UEXClient()
+    from uexinfo.api.uex_client import UEXError, shared_client
+    client = shared_client()
     try:
         import time
         data = client.get_prices(id_terminal=t.id)

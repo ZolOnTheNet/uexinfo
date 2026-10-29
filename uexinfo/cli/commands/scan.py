@@ -108,8 +108,6 @@ def _fetch_terminal_uex_prices(result: ScanResult, ctx) -> dict[str, tuple[int, 
     Retourne {commodity_name_lower: (price, date_modified_unix)}.
     Utilise _price_cache de ctx.  Retourne {} si ambigu ou indisponible.
     """
-    import time
-    from uexinfo.api.uex_client import UEXClient, UEXError
 
     name_lower = result.terminal.lower()
     is_sell    = result.mode == "sell"
@@ -123,21 +121,9 @@ def _fetch_terminal_uex_prices(result: ScanResult, ctx) -> dict[str, tuple[int, 
     terminal = matches[0] if len(matches) == 1 else None
 
     def _fetch(key: str, **kwargs) -> list[dict]:
-        """Prix UEX pour une clé de cache : cache frais, sinon API, sinon cache périmé, sinon []."""
-        cached = ctx._price_cache.get(key)
-        if cached:
-            _ts, data = cached
-            return data
-        client = UEXClient()
-        try:
-            data = client.get_prices(**kwargs)
-            ctx._price_cache[key] = (time.time(), data)
-            return data
-        except UEXError:
-            stale = ctx._price_cache.get_stale(key)
-            if stale:
-                return stale[1]
-            return []
+        """Prix UEX pour une clé de cache (lecture unique avec cache et repli)."""
+        from uexinfo.cache.data_manager import DataManager
+        return DataManager.cached(key, "get_prices", ctx, warn=False, **kwargs)
 
     rows = (_fetch(f"t{terminal.id}", id_terminal=terminal.id) if terminal
             else _fetch(f"tl_{name_lower}", terminal_name=name_lower))
@@ -940,7 +926,7 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
     L'API UEX reflète immédiatement ces prix → on les récupère et on remplace le scan.
     Retourne True si le refresh a réussi et a produit des données.
     """
-    from uexinfo.api.uex_client import UEXClient, UEXError
+    from uexinfo.api.uex_client import UEXError, shared_client
     import time
 
     if not result.terminal:
@@ -978,7 +964,7 @@ def _refresh_validated_from_uex(result: ScanResult, ctx) -> bool:
         rows = recent[1]
     else:
         try:
-            client = UEXClient()
+            client = shared_client()
             if terminal:
                 rows = client.get_prices(id_terminal=terminal.id)
             else:
@@ -1239,7 +1225,7 @@ def _scan_resync(args: list[str], ctx) -> None:
         return
 
     from uexinfo.cache.scan_prices import ScanPriceStore
-    from uexinfo.api.uex_client import UEXClient, UEXError
+    from uexinfo.api.uex_client import UEXError, shared_client
     import time
 
     from uexinfo.cache.data_manager import all_terminal_keys
@@ -1261,7 +1247,7 @@ def _scan_resync(args: list[str], ctx) -> None:
     console.print(f"[{C.DIM}]Chargement des prix UEX pour {term_key}…[/{C.DIM}]")
     stale_key = f"tl_{term_key.lower()}"
     try:
-        client = UEXClient()
+        client = shared_client()
         rows = client.get_prices(terminal_name=term_key)
         ctx._price_cache[stale_key] = (__import__("time").time(), rows)
     except UEXError:

@@ -462,3 +462,10 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `@lieu` affiche la fiche de la position enregistrée (par identifiant), plus celle du texte tapé.
 - Référence de nœud (`#node:…`) comprise là où un terminal est attendu : les terminaux de ce lieu exact.
 - Essai réel (vrai cache) : `/go lorville` → liste de 2 ; `/dest lorvile` → « Vouliez-vous dire » ; `/go qqqqqq` refusé ; `/nav route @local to @dest` par identifiants ; `/info #commodity:207` → Ship Ammunition - Size 7 ; `@port tressler` → 44 liens de marchandises. `node --check` sur le JS de la page : OK. 290 tests.
+
+## 2026-10-29 — D11, partie 3 : lecture UEX unique avec cache
+
+**Fait :**
+- `api/uex_client.py:shared_client()` : un seul client (une session HTTP, un passage Cloudflare) au lieu de 14 `UEXClient()` créés à chaque lecture. `/nav populate` garde son client à délai long.
+- `DataManager.cached(key, method, ctx, **params)` : lecture UEX générique, cache frais → API → cache périmé → []. Branchée sur les prix d'achat et de location des vaisseaux et sur les prix lus par `/scan`. Les caches de résultats transformés (distances `rd_`, conteneurs `cs_`, `tcs_`) gardent leur forme, avec le client partagé. Dette B3 close.
+- Test `tests/cache/test_cached_read.py` ; 294 tests réussis.

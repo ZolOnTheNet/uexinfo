@@ -7,7 +7,7 @@ from datetime import datetime
 
 from rich.table import Table
 
-from uexinfo.api.uex_client import UEXClient, UEXError
+from uexinfo.api.uex_client import UEXError, shared_client
 from uexinfo.cache.models import Commodity, Terminal, Vehicle
 from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
@@ -465,7 +465,7 @@ def _fetch_route_distances(terminal_id: int, ctx) -> dict[str, float]:
         _add_graph_distances(dist_map, origin_t_obj, ctx)
         return dist_map
 
-    client = UEXClient()
+    client = shared_client()
     try:
         routes = client.get_routes(id_terminal_origin=terminal_id)
     except UEXError:
@@ -536,7 +536,7 @@ def _fetch_container_sizes(commodity_id: int, ctx) -> dict[str, str]:
         _ts, data = cached
         return data
 
-    client = UEXClient()
+    client = shared_client()
     try:
         routes = client.get_routes(id_commodity=commodity_id)
     except UEXError:
@@ -632,7 +632,7 @@ def _fetch_terminal_container_sizes(terminal_id: int, ctx) -> dict:
         return cached[1]
 
     try:
-        routes = UEXClient().get_routes(id_terminal_origin=terminal_id)
+        routes = shared_client().get_routes(id_terminal_origin=terminal_id)
     except UEXError:
         return {}
 
@@ -2154,37 +2154,13 @@ def _show_sctrade_transactions(txs: list[dict], ctx) -> None:
 
 
 def _fetch_vehicle_purchases(id_vehicle: int, ctx) -> list[dict]:
-    """Prix d'achat d'un vaisseau (cache, sinon API) ; [] en cas d'erreur."""
-    key = f"vp_{id_vehicle}"
-    cached = ctx._price_cache.get(key)
-    if cached:
-        _ts, data = cached
-        return data
-    client = UEXClient()
-    try:
-        data = client.get_vehicles_purchases_prices(id_vehicle=id_vehicle)
-    except UEXError as e:
-        console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
-        return []
-    ctx._price_cache[key] = (time.time(), data)
-    return data
+    """Prix d'achat d'un vaisseau (lecture UEX avec cache) ; [] en cas d'erreur."""
+    return _DM.cached(f"vp_{id_vehicle}", "get_vehicles_purchases_prices", ctx, id_vehicle=id_vehicle)
 
 
 def _fetch_vehicle_rentals(id_vehicle: int, ctx) -> list[dict]:
-    """Prix de location d'un vaisseau (cache, sinon API) ; [] en cas d'erreur."""
-    key = f"vr_{id_vehicle}"
-    cached = ctx._price_cache.get(key)
-    if cached:
-        _ts, data = cached
-        return data
-    client = UEXClient()
-    try:
-        data = client.get_vehicles_rentals_prices(id_vehicle=id_vehicle)
-    except UEXError as e:
-        console.print(f"[{C.WARNING}]⚠  API : {e}[/{C.WARNING}]")
-        return []
-    ctx._price_cache[key] = (time.time(), data)
-    return data
+    """Prix de location d'un vaisseau (lecture UEX avec cache) ; [] en cas d'erreur."""
+    return _DM.cached(f"vr_{id_vehicle}", "get_vehicles_rentals_prices", ctx, id_vehicle=id_vehicle)
 
 
 # ── Affichage vaisseau ──────────────────────────────────────────────────────────

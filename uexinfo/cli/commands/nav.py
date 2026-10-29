@@ -623,7 +623,7 @@ def _fetch_missing_distances(from_node: str, graph, ctx) -> None:
     Identifie les terminaux associés au nœud, fait une requête par terminal,
     et injecte les nouvelles arêtes (minimise les appels API).
     """
-    from uexinfo.api.uex_client import UEXClient, UEXError
+    from uexinfo.api.uex_client import UEXError, shared_client
 
     node = graph.nodes.get(from_node)
 
@@ -650,7 +650,7 @@ def _fetch_missing_distances(from_node: str, graph, ctx) -> None:
         f"[bold]{from_node}[/bold]...[/{C.DIM}]"
     )
 
-    client = UEXClient()
+    client = shared_client()
     edges_added = 0
     seen_dests: set[str] = set()
 
@@ -1457,7 +1457,7 @@ def _pick_node(query: str, graph, ctx, system: str = "") -> str | None:
 
 def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
     """Cherche le lieu dans le cache UEX, interroge les routes, enrichit le graphe."""
-    from uexinfo.api.uex_client import UEXClient, UEXError
+    from uexinfo.api.uex_client import UEXError, shared_client
     from uexinfo.models.transport_network import LocationNode, NodeType
 
     q = query.lower().replace("_", " ").strip()
@@ -1489,7 +1489,7 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
 
     edges_added = 0
     try:
-        client = UEXClient()
+        client = shared_client()
         routes = client.get_routes(id_terminal_origin=terminal.id)
 
         seen_dest: dict[str, float] = {}

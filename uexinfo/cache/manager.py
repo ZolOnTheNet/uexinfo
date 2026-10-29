@@ -130,8 +130,8 @@ class CacheManager:
         Les quatre premiers (commodités, terminaux, systèmes, planètes) sont indispensables ;
         un échec sur les autres est signalé sans bloquer le chargement.
         """
-        from uexinfo.api.uex_client import UEXClient
-        client = UEXClient()
+        from uexinfo.api.uex_client import shared_client
+        client = shared_client()
 
         steps = [
             ("commodities", "Commodités",  client.get_commodities,       self._parse_commodity),

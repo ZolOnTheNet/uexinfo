@@ -33,8 +33,9 @@
 | Règles métier pures (testées) | `uexinfo/rules/` (`stock.py` quantités, `risk.py` risque D2, `version.py` versions D3) — décisions dans `docs/ai/DECISIONS.md` |
 | Formatage (prix, SCU, distance, nom court terminal) | `display/formatter.py` (`fmt_distance_gm`, `terminal_short_name`) — **réutiliser** |
 | **Reconnaissance de noms (UNIQUE)** | `uexinfo/names/` : `resolve(ctx, query, kinds, profile, min_level)` → `.best`, `.ambiguous`, `.candidates`. Ne jamais réécrire de recherche floue ailleurs |
+| **Choisir un objet saisi (D11)** | `uexinfo/cli/choose.py` : `choose`/`decide` (un candidat sûr, sinon liste ; faute de frappe proposée) ; position/destination : `position_terminal(ctx)`, jamais `player.location` relu. Lien cliquable : `uexinfo.names.link(type, id, texte)` ; référence tapée `#type:id` |
 | Classement des routes de vente | `info._route_rank_key` (prix puis distance) |
-| Prix fusionnés UEX + scans | `cache/data_manager.py:terminal_prices`, `fetch_prices` (fallback : cache → API → périmé → vide) |
+| Prix fusionnés UEX + scans | `cache/data_manager.py:terminal_prices`, `fetch_prices` (fallback : cache → API → périmé → vide) ; toute autre lecture UEX avec cache : `DataManager.cached` ; client unique : `uex_client.shared_client()` |
 | TTL prix / version SC | `cache/price_cache.py` ; versions et univers : `cache/evolution.py`, `/evolution` |
 | Graphe de transport | `uexinfo/data/transport_network.json` + `models/transport_network.py` |
 | Logs Datarunner | `ocr/log_parser.py` |
@@ -66,7 +67,7 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 - **A2** : `sync.py:43` accède à `ctx._price_cache._mem`. **Pas fait.**
 - **B1** : `_price_fmt`/`_price_short` toujours dans `info.py`. **Pas fait.**
 - **B2** : `trade.py`, `explore.py`, `scan.py` importent des fonctions privées de `info.py`. **Pas fait.**
-- **B3** : `UEXClient()` créé sans cache à 10 endroits (`info`, `nav`, `scan`, `sync`, `voyage`). **Pas fait.**
+- ~~**B3**~~ — fait le 2026-10-29 : un seul client (`uex_client.shared_client()`), lecture unique avec cache et repli `DataManager.cached` (prix des vaisseaux, scans). Les caches de résultats transformés (`rd_`, `cs_`, `tcs_` dans `info.py`) restent tels quels, avec le client partagé.
 - Fait (commit `fd5089e`) : dédup du nom court de terminal, du classement de routes et de la distance Gm.
 - Fait : nettoyage (`scripts/dev/`, code mort retiré), A2 (`PriceCache.delete_keys`).
 - Fait le 2026-10-29 : plus de code mort connu. Supprimés : `cli/opts.py`, `cli/commands/route.py` (jamais chargé, `/nav route` suffit), `display/result.py`, `cli/commands/select_editor.py` (et `/select edit`), l'éditeur terminal de `note.py` (`/note -e` passe toujours par le formulaire de l'overlay), `scripts/dev/`, les dossiers vides `data/`, la dépendance optionnelle `playwright`.

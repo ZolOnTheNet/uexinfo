@@ -1954,8 +1954,8 @@ def _suggest_cargo(missions: list, order: list[int], spare_scu: float,
         if cached:
             return cached[1]
         try:
-            from uexinfo.api.uex_client import UEXClient, UEXError
-            data = UEXClient().get_prices(terminal_name=terminal_name)
+            from uexinfo.api.uex_client import shared_client
+            data = shared_client().get_prices(terminal_name=terminal_name)
             ctx._price_cache[key] = (__import__("time").time(), data)
             return data
         except Exception:

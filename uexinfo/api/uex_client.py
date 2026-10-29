@@ -1,6 +1,8 @@
 """Client REST pour l'API UEX Corp 2.0."""
 from __future__ import annotations
 
+import threading
+
 import requests
 try:
     import cloudscraper as _cloudscraper
@@ -10,6 +12,21 @@ except ImportError:
 
 BASE_URL = "https://uexcorp.space/api/2.0"
 TIMEOUT = 15
+
+
+_SHARED: "UEXClient | None" = None
+_SHARED_LOCK = threading.Lock()
+
+
+def shared_client() -> "UEXClient":
+    """Client unique du programme : une seule session HTTP (et un seul passage de la
+    protection Cloudflare) réutilisée par toutes les lectures. Les lectures avec cache
+    passent par `DataManager.cached` (`uexinfo/cache/data_manager.py`)."""
+    global _SHARED
+    with _SHARED_LOCK:
+        if _SHARED is None:
+            _SHARED = UEXClient()
+        return _SHARED
 
 
 class UEXError(Exception):
