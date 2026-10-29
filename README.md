@@ -289,9 +289,9 @@ ou manquantes. Les contributions et retours sont les bienvenus.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
+- [Annuaire des fichiers](docs/_ANNUAIRE_UEXINFO.md)
 - [API UEX 2.0](docs/api-uex.md)
-- [Commandes](docs/commands.md)
+- [Commandes](docs/_ALL_COMMANDS.md)
 
 ---
 

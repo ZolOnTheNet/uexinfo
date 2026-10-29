@@ -103,3 +103,6 @@ extprg/tesseract/
 extprg/gamelogs/
 # Worktrees locaux de Claude Code
 .claude/worktrees/
+
+# Fichiers temporaires NFS (fichier supprimé encore ouvert par un processus)
+.nfs*

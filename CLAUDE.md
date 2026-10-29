@@ -6,11 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Avant toute tâche, lire `docs/ai/NOTES.md` (objectifs, carte du code, dette vérifiée). Ajouter une entrée dans `docs/ai/ACTIVITY_LOG.md` à chaque étape notable.
 
+`docs/_ANNUAIRE_UEXINFO.md` répertorie **chaque fichier suivi par git** avec son rôle et, pour les documents, leur statut. À chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour sa ligne et la date de l'annuaire dans le même commit.
+
 ## Project
 
 **uexinfo** — Overlay Star Citizen pour le trading, les missions et la navigation. Interroge l'API UEX Corp 2.0 et sc-trade.tools (données communauté), lit les logs de SC-Datarunner et fait de l'OCR sur les captures d'écran du jeu pour suivre automatiquement les prix, le stock, la position du joueur et les missions.
 
-> Historique : le projet a démarré comme REPL terminal (`prompt_toolkit`), puis une migration vers une UI Textual a été construite (`docs/TEXTUAL_MIGRATION.md`) **puis entièrement retirée**. L'architecture actuelle (voir ci-dessous) est un overlay web PyWebView — c'est la seule interface qui existe aujourd'hui. `docs/architecture.md`, `docs/commands.md` et `docs/TEXTUAL_MIGRATION.md` décrivent des états antérieurs du projet et ne doivent **pas** être pris comme référence sans vérifier contre le code.
+> Historique : le projet a démarré comme REPL terminal (`prompt_toolkit`), puis une migration vers une UI Textual a été construite (`docs/archive/TEXTUAL_MIGRATION.md`) **puis entièrement retirée**. L'architecture actuelle (voir ci-dessous) est un overlay web PyWebView — c'est la seule interface qui existe aujourd'hui. Ces documents d'époque, comme `architecture.md` et `commands.md`, sont dans `docs/archive/` et ne doivent **pas** être pris comme référence.
 
 ## Commands
 

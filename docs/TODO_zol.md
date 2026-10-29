@@ -29,7 +29,7 @@ arrivé new babbage : Int Spatioport : 23h06 23h13 dans le TDD
 ## [2026-07-28] Tournées d'achat multi-étapes (/voyage, /route, /nav)
 Objectif : modéliser une vraie "tournée" d'achat/vente sur plusieurs terminaux (pas juste
 un aller-retour A→B comme /trade). C'est en théorie le rôle de /voyage et /nav route,
-mais la doc existante (docs/architecture.md, docs/commands.md) décrit un comportement
+mais la doc existante (docs/archive/architecture.md, docs/archive/commands.md) décrit un comportement
 qui ne correspond pas forcément à ce qui est réellement implémenté aujourd'hui — à
 vérifier commande par commande avant d'écrire quoi que ce soit de nouveau :
 - Auditer /voyage et /nav route (code réel, pas la doc) : que font-ils vraiment

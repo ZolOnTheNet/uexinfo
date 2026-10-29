@@ -376,3 +376,29 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Complétion (`config cache clear`) et aide (`help.py`) mises à jour. Côté overlay, la confirmation du clic simple et le double-clic prévus par la proposition restent à faire (lot 2).
 
 **Tests :** `tests/test_config_cache_clear.py` vérifie que chaque type n'efface que ses données, et que l'absence de type n'efface rien. `pytest` donne 276 réussis.
+
+## 2026-10-29 — tri des analyses Mistral, création de `docs/archive/`
+
+**Demande :** évaluer les documents d'analyse produits par Le Chat (Mistral) et archiver ceux qui sont dépassés.
+
+**Fait :**
+- `docs/archive/` créé avec un `README.md` (date, origine, raison de l'archivage de chaque fichier).
+- Archivés : `leChat_propositionAmelioration.md` et `lechat_interface_simplifier.md` (Le Chat, 2026-04-02, antérieurs à 122 commits, basés sur la TUI Textual retirée depuis), `Suppr_ANSI_cli.md` (plan exécuté par Vibe/Mistral, remplacé par `CapturingConsole`).
+- Les trois pistes encore valables (script d'installation, CI GitHub Actions, `/trade best`) sont reprises dans `NOTES.md` §6.
+
+## 2026-10-29 — annuaire des fichiers `docs/_ANNUAIRE_UEXINFO.md`
+
+**Demande :** créer et remplir un annuaire de tous les fichiers du projet, à maintenir ensuite.
+
+**Fait :**
+- `docs/_ANNUAIRE_UEXINFO.md` : accès rapide par besoin, arborescence, une ligne par fichier suivi par git (201), statut de chaque document (à jour, en partie dépassé, historique), fichiers locaux hors git, statistiques. Couverture vérifiée : chaque fichier suivi y est nommé.
+- Règle de maintenance ajoutée dans `CLAUDE.md`.
+- Relevé pendant l'inventaire : `cli/opts.py` jamais importé (nouveau code mort), deux fichiers `.claude/.nfs*` commités par erreur, 9 documents de `docs/` qui décrivent l'époque REPL/Textual (candidats à l'archivage, non déplacés).
+
+## 2026-10-29 — archivage des documents d'époque, nettoyage
+
+**Fait :**
+- 9 documents déplacés dans `docs/archive/` : `architecture.md`, `commands.md`, `TEXTUAL_MIGRATION.md`, `DUAL_MODE_OVERLAY.md`, `OVERLAY_GRAPHIQUE_PLAN.md`, `scan-editor.md`, `INFO_DIAG.md`, `CONSIGNES_Sonnet_FinMars.md`, `CONSIGNES_Sonnet_17Avril26.md`. Liens mis à jour dans `CLAUDE.md`, `README.md`, `TODO_zol.md`.
+- `.claude/.nfs*` retirés de git (fichiers laissés sur le disque), `.nfs*` ajouté au `.gitignore`.
+- `cli/opts.py` supprimé (jamais importé).
+- Annuaire et `docs/archive/README.md` mis à jour.

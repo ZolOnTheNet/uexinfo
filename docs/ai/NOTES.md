@@ -70,6 +70,7 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 - Fait (commit `fd5089e`) : dédup du nom court de terminal, du classement de routes et de la distance Gm.
 - Fait : nettoyage (`scripts/dev/`, code mort retiré), A2 (`PriceCache.delete_keys`).
 - Reste en code mort : `select_editor.py` et le formulaire de `note.py` (prompt_toolkit, reliquat REPL).
+- Fait le 2026-10-29 : `cli/opts.py` supprimé (jamais importé).
 - Vérifié le 2026-10-21 (commit `31b8d6a`, détail dans `docs/PROPOSITION_MENUS_SOURIS.html`) :
   - 25 handlers chargés par le serveur (59 noms). **`/route` n'est importé nulle part** (`route.py:29`) : « Commande inconnue » ; passer par `/nav route`.
   - Alias `?` déclaré par `help.py:964` puis écrasé par `info.py:2523`.
@@ -88,3 +89,10 @@ pip install rich requests appdirs tomli-w rapidfuzz websockets   # pywebview ne 
 python -m pytest -q tests        # 160 tests OK au 2026-10-06 (pytest seul suffit : testpaths)
 ```
 Impossible de lancer l'overlay graphique dans le conteneur. Valider par les tests et l'import des modules.
+
+## 6. Pistes retenues (hors dette)
+
+Repris de `docs/archive/leChat_propositionAmelioration.md` (2026-04-02), vérifiés contre le code le 2026-10-29 :
+- **Script d'installation** : aucun aujourd'hui. `install.ps1` (Windows, cible principale) et `install.sh` : venv, `pip install -e .`, vérification de Tesseract (`extprg/tesseract/`). `__main__.py` vérifie déjà webview/pynput/websockets au démarrage.
+- **CI GitHub Actions** : pas de `.github/workflows/`. Lancer `pytest` à chaque push, avec les dépendances de la section 5 (pywebview ne s'installe pas sans affichage).
+- **`/trade best`** : tri global des meilleures routes, toutes commodités confondues. Pas implémenté.
