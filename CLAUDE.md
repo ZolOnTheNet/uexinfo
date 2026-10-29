@@ -51,7 +51,7 @@ L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessu
 | Registre de commandes | `uexinfo/cli/commands/__init__.py` | Décorateur `@register` + `dispatch()` |
 | Commandes | `uexinfo/cli/commands/*.py` | Un fichier par commande (25 commandes chargées) |
 | Sélecteur interactif | `uexinfo/cli/selector.py` | Picker de désambiguïsation (terminaux homonymes, etc.), rendu côté overlay |
-| Client API UEX | `uexinfo/api/uex_client.py` | REST → UEX Corp 2.0 (`https://uexcorp.space/api/2.0`), 11 endpoints |
+| Client API UEX | `uexinfo/api/uex_client.py` | REST → UEX Corp 2.0 (`https://uexcorp.space/api/2.0`), 11 endpoints ; client unique `shared_client()`, lecture avec cache `DataManager.cached` |
 | Client sc-trade | `uexinfo/api/sctrade_client.py` | REST JSON public sc-trade.tools (données communauté, affichées en orange) |
 | Cache statique | `uexinfo/cache/manager.py` | Fetch → parse → sauvegarde JSON dans le dossier data utilisateur (`appdirs`), TTL 24h |
 | Cache prix | `uexinfo/cache/price_cache.py`, `uexinfo/cache/data_manager.py` | Cache prix UEX (TTL adaptatif) + fusion avec les scans joueur |
@@ -59,7 +59,8 @@ L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessu
 | Données modèles | `uexinfo/cache/models.py` | Dataclasses : `StarSystem`, `Planet`, `Moon`, `Orbit`, `SpaceStation`, `Outpost`, `City`, `Terminal`, `Vehicle`, `Commodity`, `Faction` |
 | Config | `uexinfo/config/settings.py` | Lecture/écriture `config.toml` (dossier config utilisateur) |
 | Réseau de transport | `uexinfo/models/transport_network.py` | Graphe Dijkstra (nœuds/arêtes), `uexinfo/data/transport_network.json` |
-| Noms | `uexinfo/names/` | **Résolveur unique** (lieux, terminaux, commodités, vaisseaux, nœuds) — toute recherche par nom passe par `names.resolve` |
+| Noms | `uexinfo/names/` | **Résolveur unique** (lieux, terminaux, commodités, vaisseaux, nœuds) — toute recherche par nom passe par `names.resolve` ; références `#type:id` (`names/refs.py`) |
+| Choix (D11) | `uexinfo/cli/choose.py` | Saisie du joueur → objet : un candidat sûr accepté, plusieurs ⇒ liste, faute de frappe ⇒ proposition ; position/destination par identifiant (`position_terminal`) |
 | Location | `uexinfo/location/index.py` | `LocationIndex` — complétion `@lieu` (chemins pointés) |
 | OCR / logs | `uexinfo/ocr/` | `engine.py` (Tesseract sur screenshots), `log_parser.py` (log SC-Datarunner) |
 | Modèles métier | `uexinfo/models/` | `player.py`, `scan_result.py`, `mission.py`, `voyage.py` |
@@ -98,6 +99,8 @@ Pour les prix (dynamiques), `DataManager.terminal_prices()` (`cache/data_manager
 Toujours utiliser les constantes de `uexinfo/display/colors.py`, jamais de couleurs brutes.
 
 ## Règles métier
+
+**D11 — les 3 règles de base, à respecter dans tout code :** (1) un objet choisi est retenu par son identifiant, jamais relu depuis son nom (`position_terminal(ctx)`, pas `ctx.player.location`) ; (2) un nom affiché est un lien vers l'objet : `uexinfo.names.link(type, id, texte)`, surtout s'il est raccourci ; (3) une saisie passe par `uexinfo.cli.choose.choose` : jamais de premier candidat pris en silence, jamais de nom inconnu enregistré tel quel. Reste à appliquer : missions et voyages (lieux encore stockés en texte).
 
 Règles pures et testées dans `uexinfo/rules/` (quantités, risque, versions). Décisions validées : `docs/ai/DECISIONS.md`. Ne jamais changer une valeur métier sans le signaler.
 
