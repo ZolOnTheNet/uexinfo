@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-29** (198 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-29** (181 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -69,8 +69,6 @@ uexinfo/                         (racine du dépôt)
 │   ├── ai/                      ← notes de travail de Claude (à jour)
 │   └── archive/                 ← documents dépassés
 ├── scripts/                     ← utilitaires (génération du graphe, lanceur Windows)
-│   └── dev/                     ← scripts de débogage ponctuels
-├── data/                        ← dossiers vides (.gitkeep), cache JSON ignoré par git
 ├── extprg/                      ← 🔒 programmes externes, presque tout hors git
 └── .claude/                     ← réglages Claude Code du projet
 ```
@@ -109,10 +107,8 @@ uexinfo/                         (racine du dépôt)
 | `trade.py` | `/trade` (`t`) | Prix d'achat et de vente, cargo simulé, vente multi-commodités. |
 | `info.py` | `/info` (`i`, `?`) | Fiche terminal, commodité ou vaisseau ; `/info list`. Le plus gros fichier (~2 600 lignes), point chaud du refactoring. |
 | `select.py` | `/select` (`sel`) | Filtres actifs inclusifs/exclusifs par catégorie. |
-| `select_editor.py` | `/select edit` | 💀 Éditeur plein écran prompt_toolkit, inutilisable dans l'overlay. |
 | `go.py` | `/go` (`g`, `lieu`), `/dest` (`d`), `/arriver` | Position actuelle, destination, arrivée. |
 | `nav.py` | `/nav` (`n`, `navigation`, `qt`, `quantum`) | Réseau de transport : routes QT, sauts, `/nav route`, `/nav populate`. |
-| `route.py` | `/route` (`itineraire`, `chemin`) | 💀 Importé nulle part : « Commande inconnue ». Utiliser `/nav route`. |
 | `mission.py` | `/mission` (`m`) | Catalogue de missions, groupe actif, `/mission offres` (contrats du mobiGlas). |
 | `voyage.py` | `/voyage` (`v`) | Voyages multi-étapes (achat, vente, missions), tableau de bord. |
 | `scan.py` | `/scan` (`s`) | Scan des terminaux (log SC-Datarunner, OCR), validation, édition. |
@@ -123,7 +119,7 @@ uexinfo/                         (racine du dépôt)
 | `game.py` | `/game` (`gamelog`, `jeu`) | Lecteur du Game.log : état, événements, tail, recherche, statistiques, rejeu. |
 | `evolution.py` | `/evolution` (`scevolution`) | Changement de version ou d'univers SC (décision D3). |
 | `explore.py` | `/explore` (`x`, `exp`) | Navigation hiérarchique : géographie, vaisseaux, commodités. |
-| `note.py` | `/note` (`notes`) | Notes personnelles par lieu. Le formulaire plein écran est 💀 (prompt_toolkit). |
+| `note.py` | `/note` (`notes`) | Notes personnelles par lieu ; `-e` ouvre le formulaire de l'overlay. |
 | `history_cmd.py` | `/history` (`hist`) | Affiche l'historique des commandes. |
 | `calc.py` | `/=` (`calc`, `calcul`) | Calculatrice. |
 | `config.py` | `/config` (`c`), `/ship` (`sh`) | Configuration (vaisseaux, sc-trade, overlay, cache, `/config cache clear <type>`). |
@@ -227,7 +223,6 @@ uexinfo/                         (racine du dépôt)
 | `display/ansi_html.py` | Conversion des codes ANSI en HTML (ancienne voie, encore utilisée par le serveur). |
 | `display/adaptive.py` | Tableaux à colonnes proportionnelles (missions, voyages). |
 | `display/loc.py` | Affichage centralisé des noms de lieux. |
-| `display/result.py` | 💀 `CommandResult` (représentation intermédiaire) jamais importé ; voir `docs/command_result_schema.md`. |
 | `config/__init__.py` | Docstring du package seulement. |
 | `config/settings.py` | Lecture/écriture de `config.toml`. |
 | `data/transport_network.json` | Graphe de transport (nœuds, arêtes), enrichi par `/nav populate` et `scripts/generate_locations.py`. |
@@ -304,8 +299,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | `_ALL_COMMANDS.md` | 2026-04-26 | ⚠️ | Liste exhaustive des commandes ; manque `/game`, `/evolution`, `/mission offres`… |
 | `bilan1_analyseFonctionnement.md` | 2026-05-20 | ⚠️ | Bilan : résolution de noms, cycle de vie des données, parallélisation. Une partie est corrigée depuis (résolveur D6). |
 | `REFACTORING_PLAN.md` | 2026-04-06 | ⚠️ | Plan de refactoring ; son état est suivi dans `ai/NOTES.md` §4. |
-| `route_commande_prg.md` | 2026-04-22 | ⚠️ | Plan de `/route` (sauts, SCU multi-taille). `/route` n'est pas branché. |
-| `command_result_schema.md` | 2026-04-29 | ⚠️ | Schéma `CommandResult`, jamais utilisé (`display/result.py` 💀). |
+| `route_commande_prg.md` | 2026-04-22 | ⚠️ | Plan d'une future commande `/route` (routes commerciales sc-trade.tools, sauts, SCU multi-taille). Pas implémentée. |
 | `scan-ocr.md` | 2026-03-14 | ⚠️ | Décisions OCR : modes A (log Datarunner) et B (dossier de captures), toujours en place. |
 | `etudes_missions.md` | 2026-03-22 | ⚠️ | Étude du système missions et voyages, implémenté depuis. |
 | `grids_ships_study.md` | 2026-03-10 | ⚠️ | Étude des grilles cargo, implémentée dans `data/cargo_grids.py`. |
@@ -330,6 +324,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | `INFO_DIAG.md` | Transcription de la conversation de lancement du projet (2026-02-27). |
 | `CONSIGNES_Sonnet_FinMars.md` | Consignes données à Claude Sonnet fin mars 2026. |
 | `CONSIGNES_Sonnet_17Avril26.md` | Consignes de revue de code et plan de tests (17 avril 2026). |
+| `command_result_schema.md` | Schéma `CommandResult` (2026-04-29), jamais adopté. |
 
 ---
 
@@ -338,14 +333,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | Fichier | Rôle |
 |---|---|
 | `scripts/generate_locations.py` | Régénère `uexinfo/data/transport_network.json` depuis l'API UEX. |
-| `scripts/uexinfo.ps1` | Lanceur Windows (`python -m uexinfo`). Son commentaire parle encore du « REPL ». |
-| `scripts/dev/check_commodities.py` | Vérifie les commodités du cache. |
-| `scripts/dev/check_terra_gateway.py` | Vérifie les prix de Terra Gateway dans le cache. |
-| `scripts/dev/fix_iron_price.py` | Correctif ponctuel du prix d'achat du fer à Terra Gateway. |
-| `scripts/dev/dbg_commodities_display.py` | Test d'affichage des commodités à prix d'achat nul. |
-| `scripts/dev/dbg_completion.py` | Test de la complétion. |
-| `scripts/dev/dbg_full_flow_debug.py`, `dbg_main_flow.py`, `dbg_help_dispatch.py`, `dbg_repl_help.py`, `debug_help.py` | 🗄️ Débogage de `help config` à l'époque du REPL (`main.py` n'existe plus). |
-| `scripts/dev/output.txt` | Sortie capturée d'un ancien débogage. |
+| `scripts/uexinfo.ps1` | Lanceur Windows (`python -m uexinfo`), chemin de Python écrit en dur. |
 | `extprg/SC-images/Mission_remisajour.ps1` | Recopie des captures de missions avec la date du jour, pour les tests. Seul fichier suivi de `extprg/SC-images/`. |
 
 ---
@@ -360,7 +348,6 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | `requirements.txt` | Dépendances pour `pip install -r`. |
 | `.gitignore` | Exclut caches, venv, logs, `extprg/` (sauf exceptions), données utilisateur, fichiers temporaires NFS `.nfs*`. |
 | `.claude/settings.json` | Permissions Claude Code du projet. |
-| `data/commodities/.gitkeep`, `data/locations/.gitkeep`, `data/terminals/.gitkeep` | Dossiers vides conservés ; les JSON qu'ils pourraient contenir sont ignorés. |
 
 ---
 
@@ -380,8 +367,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 
 ## ⚠️ **ANOMALIES RELEVÉES PENDANT L'INVENTAIRE**
 
-- 💀 `display/result.py`, `cli/commands/route.py`, `cli/commands/select_editor.py` : jamais importés ou inutilisables.
-- `scripts/dev/` : la moitié des scripts visent le REPL disparu.
+- Aucune en cours. Le code mort et les scripts de débogage relevés ont été supprimés le 2026-10-29.
 
 ---
 
@@ -389,11 +375,11 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 
 | Élément | Nombre |
 |---|---|
-| Fichiers suivis par git | 198 |
-| Fichiers Python du package `uexinfo/` | 97 |
-| Commandes (`@register`) | 26 déclarées, 25 chargées (`/route` non branché) |
+| Fichiers suivis par git | 181 |
+| Fichiers Python du package `uexinfo/` | 94 |
+| Commandes (`@register`) | 25, toutes chargées |
 | Fichiers de tests | 21 (276 tests réussis au 2026-10-22) |
-| Documents `docs/` | 36 (dont 13 dans `archive/`, 7 dans `ai/`) |
+| Documents `docs/` | 36 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
 
@@ -402,3 +388,4 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 - **2026-10-29** : création. Inventaire complet des fichiers suivis par git, statut de chaque document, anomalies.
 - **2026-10-29** (suite) : 9 documents historiques déplacés dans `docs/archive/`, `.claude/.nfs*` retirés de git, `cli/opts.py` supprimé.
 - **2026-10-29** (suite) : docstrings ajoutées dans tout le code Python ; descriptions des `__init__.py` mises à jour.
+- **2026-10-29** (suite) : code mort supprimé (`route.py`, `display/result.py`, `select_editor.py`), `scripts/dev/` et dossiers vides `data/` retirés, `command_result_schema.md` archivé.

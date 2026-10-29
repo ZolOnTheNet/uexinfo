@@ -10,7 +10,7 @@
 | # | Objectif principal | Commandes / modules |
 |---|---|---|
 | O1 | **Trading** : où acheter, où vendre, quel profit, combien de SCU | `/trade`, `/info`, `/select`, `cache/data_manager.py`, `cache/price_cache.py` |
-| O2 | **Position & navigation** : savoir où est le joueur et calculer la route | `/go`, `/dest`, `/arriver`, `@lieu`, `/nav`, `/route`, `models/transport_network.py`, `location/index.py` |
+| O2 | **Position & navigation** : savoir où est le joueur et calculer la route | `/go`, `/dest`, `/arriver`, `@lieu`, `/nav`, `models/transport_network.py`, `location/index.py` |
 | O3 | **Missions & tournées** : enchaîner plusieurs étapes d'achat/vente ou missions | `/mission`, `/voyage`, `cache/mission_*.py`, `cache/voyage_manager.py`, `models/voyage.py` |
 | O4 | **Collecte auto des données terrain** : prix/stock lus dans le jeu, prioritaires sur UEX | `/scan`, `/sync`, `/auto`, `ocr/`, `gamelog/`, `cache/scan_prices.py`, `cache/screenshot_db.py` |
 | O5 | **Ergonomie in-game** : CLI émulé, complétion, mots cliquables, boutons | `overlay/server.py`, `overlay/static/index.html`, `cli/completer_data.py` |
@@ -29,7 +29,7 @@
 | Exécution d'une commande | `server._handle_cmd` → `cli/runner.py` → `cli/commands/__init__.py:dispatch` |
 | Complétion côté serveur | `server._complete_impl`, `_dyn_typed`, `_complete_dotted` + `cli/completer_data.py` |
 | État global | `cli/context.py:AppContext` (`_price_cache`, `_overlay_send_fn`, `select_fn` injectés par le serveur) |
-| Rendu Rich → HTML | `display/capturing_console.py`, `display/render_html.py`, `display/result.py` |
+| Rendu Rich → HTML | `display/capturing_console.py`, `display/render_html.py` |
 | Règles métier pures (testées) | `uexinfo/rules/` (`stock.py` quantités, `risk.py` risque D2, `version.py` versions D3) — décisions dans `docs/ai/DECISIONS.md` |
 | Formatage (prix, SCU, distance, nom court terminal) | `display/formatter.py` (`fmt_distance_gm`, `terminal_short_name`) — **réutiliser** |
 | **Reconnaissance de noms (UNIQUE)** | `uexinfo/names/` : `resolve(ctx, query, kinds, profile, min_level)` → `.best`, `.ambiguous`, `.candidates`. Ne jamais réécrire de recherche floue ailleurs |
@@ -69,16 +69,15 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
 - **B3** : `UEXClient()` créé sans cache à 10 endroits (`info`, `nav`, `scan`, `sync`, `voyage`). **Pas fait.**
 - Fait (commit `fd5089e`) : dédup du nom court de terminal, du classement de routes et de la distance Gm.
 - Fait : nettoyage (`scripts/dev/`, code mort retiré), A2 (`PriceCache.delete_keys`).
-- Reste en code mort : `select_editor.py` et le formulaire de `note.py` (prompt_toolkit, reliquat REPL).
-- Fait le 2026-10-29 : `cli/opts.py` supprimé (jamais importé).
+- Fait le 2026-10-29 : plus de code mort connu. Supprimés : `cli/opts.py`, `cli/commands/route.py` (jamais chargé, `/nav route` suffit), `display/result.py`, `cli/commands/select_editor.py` (et `/select edit`), l'éditeur terminal de `note.py` (`/note -e` passe toujours par le formulaire de l'overlay), `scripts/dev/`, les dossiers vides `data/`, la dépendance optionnelle `playwright`.
 - Vérifié le 2026-10-21 (commit `31b8d6a`, détail dans `docs/PROPOSITION_MENUS_SOURIS.html`) :
-  - 25 handlers chargés par le serveur (59 noms). **`/route` n'est importé nulle part** (`route.py:29`) : « Commande inconnue » ; passer par `/nav route`.
+  - 25 handlers chargés par le serveur (59 noms). ~~`/route` jamais importé~~ — `route.py` supprimé le 2026-10-29 ; passer par `/nav route`.
   - Alias `?` déclaré par `help.py:964` puis écrasé par `info.py:2523`.
   - Menu contextuel au clic gauche refermé dans le même clic (`index.html:2436` + `:2547`, pas de `stopPropagation`).
   - Serveur WS sans jeton ni contrôle d'origine ; `open_file` → `os.startfile` sur tout chemin (`server.py:350-365`).
   - ~~`/config cache clear` fait `rmtree` de tout `user_data_dir`~~ — **corrigé le 2026-10-22** : `/config cache clear <type>` (api, missions, voyages, scans, notes, historique), sans type la liste des choix.
   - `/mission view` sans id appelle `input()` (`mission.py:864`).
-  - `display/result.py` (`CommandResult`) jamais importé : code mort. Messages orphelins : `voyage_dashboard`, `opacity` (non traités par la page), `hint`, `scan_edit`, `mission_list_actions` (jamais émis).
+  - ~~`display/result.py` jamais importé~~ — supprimé le 2026-10-29. Messages orphelins : `voyage_dashboard`, `opacity` (non traités par la page), `hint`, `scan_edit`, `mission_list_actions` (jamais émis).
   - État propre à une commande stocké en global (`ctx.select_fn`, `_overlay_send_fn`, `_select_event`, console de capture sans verrou) : bloque les fenêtres multiples.
   - Minage : aucune commande ; endpoints UEX existants non utilisés : `refineries_methods`, `refineries_yields`, `refineries_capacities`, `commodities_raw_prices`.
 

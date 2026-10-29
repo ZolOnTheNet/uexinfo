@@ -17,8 +17,6 @@ _COMMANDS = {
     "auto":    "Contrôle des automatisations (log, signalement, validation)",
     "undo":    "Annuler le dernier scan",
     "trade":   "Prix d'achat/vente, bilan route, routes sc-trade.tools",
-    "route":   "Calcul de routes commerciales rentables",
-    "plan":    "Plan de vol multi-étapes",
     "info":    "Détail d'un terminal ou d'une commodité",
     "explore": "Navigation hiérarchique : systèmes, vaisseaux, commodités",
     "nav":     "Réseau de transport : nœuds, routes QT, jump points, itinéraires",
@@ -532,8 +530,7 @@ _DETAILS = {
         "    /nav route Lorville to Port_Tressler\n"
         "    /nav route @local @dest\n"
         "    /nav route lorville new_babbage\n\n"
-        "  Si la route passe par des jump points, ils sont indiqués.\n"
-        "  Alias : /route from <a> to <b>"
+        "  Si la route passe par des jump points, ils sont indiqués."
     ),
     "dest": (
         "/dest                   Afficher la destination courante\n"
@@ -588,14 +585,6 @@ _DETAILS = {
         "/dev db                         Statistiques et contenu de la screenshot_db\n"
         "/dev db list [n]                Lister les n dernières entrées (défaut 20)\n"
         "/dev calc.missions              Matrice missions : départ × destination × distance"
-    ),
-    "route": (
-        "/route                           Routes depuis position courante\n"
-        "/route from <terminal>           Routes depuis un terminal\n"
-        "/route to <terminal>             Routes vers une destination\n"
-        "/route --commodity <nom>         Filtrer sur une commodité\n"
-        "/route --min-profit <aUEC>       Profit minimum\n"
-        "/route --scu <n>                 Taille cargo"
     ),
     "mission": (
         "Deux magasins de données distincts — à ne pas confondre :\n"

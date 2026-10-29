@@ -117,7 +117,6 @@ SUBS: dict[str, list[tuple[str, str]]] = {
     ],
     "select": [
         ("show",     "Statut ✓/✗ des lieux d'un système"),
-        ("edit",     "Éditeur TUI avec cases à cocher"),
         ("clear",    "Efface les filtres"),
         ("dest",     "Type de destination : station/outpost/city"),
         ("system",   "Filtre par système stellaire"),
@@ -372,7 +371,6 @@ NEXT_TYPE: dict[str, str | None] = {
     "explore commodity": "commodity",  # catégories + noms de commodités
     "select system":     "system",
     "select show":       "system",
-    "select edit":       "system",
     "select station":    "sel_loc",
     "select outpost":    "sel_loc",
     "select city":       "sel_loc",

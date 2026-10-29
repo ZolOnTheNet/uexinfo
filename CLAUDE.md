@@ -45,7 +45,7 @@ L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessu
 | Routage commande | `uexinfo/cli/runner.py` | `normalize_command` → `parser.py` → `dispatch()` |
 | Parser | `uexinfo/cli/parser.py` | `/cmd args` → `(name, [args])` via `shlex` |
 | Registre de commandes | `uexinfo/cli/commands/__init__.py` | Décorateur `@register` + `dispatch()` |
-| Commandes | `uexinfo/cli/commands/*.py` | Un fichier par commande (23 commandes enregistrées) |
+| Commandes | `uexinfo/cli/commands/*.py` | Un fichier par commande (25 commandes chargées) |
 | Sélecteur interactif | `uexinfo/cli/selector.py` | Picker de désambiguïsation (terminaux homonymes, etc.), rendu côté overlay |
 | Client API UEX | `uexinfo/api/uex_client.py` | REST → UEX Corp 2.0 (`https://uexcorp.space/api/2.0`), 11 endpoints |
 | Client sc-trade | `uexinfo/api/sctrade_client.py` | REST JSON public sc-trade.tools (données communauté, affichées en orange) |
@@ -62,17 +62,17 @@ L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessu
 | Display | `uexinfo/display/` | Console Rich partagée (`capturing_console.py` — capture les renderables pour rendu HTML, pas de vrai TTY), couleurs, formatters |
 
 
-### Commandes réelles (23, via `@register`)
+### Commandes réelles (25, via `@register`)
 
 Trading & marché : `/trade`, `/info`, `/select`
 Position & déplacement : `/go` (`lieu`), `/dest`, `/arriver`, `@<lieu>`
-Navigation & routes : `/nav` (`navigation`, `qt`), `/route` (délègue à `/nav route`)
+Navigation & routes : `/nav` (`navigation`, `qt`), itinéraire avec `/nav route`
 Missions & voyages : `/mission`, `/voyage`
 Scan & suivi terrain : `/scan`, `/sync`, `/player`, `/auto`, `/game` (lecteur Game.log)
 Versions : `/evolution` (`/scevolution`)
 Divers : `/note`, `/explore`, `/history`, `/undo`, `/calc` (`=`), `/ship`, `/config`, `/refresh`, `/help`, `/debug`
 
-`/plan` (annoncé dans une ancienne roadmap) n'existe pas. `/trade best` (tri global des meilleures routes toutes commodités) n'est pas implémenté.
+`/plan` (annoncé dans une ancienne roadmap) et `/route` n'existent pas : l'itinéraire passe par `/nav route`. `/trade best` (tri global des meilleures routes toutes commodités) n'est pas implémenté.
 
 ### Data flow (données statiques)
 
@@ -102,13 +102,12 @@ Règles pures et testées dans `uexinfo/rules/` (quantités, risque, versions). 
 1. Créer `uexinfo/cli/commands/macommande.py`
 2. Utiliser le décorateur `@register("macommande", "alias")` (`commands/__init__.py`)
 3. Signature : `def handle(args: list[str], ctx: AppContext) -> None`
-4. Importer le module dans `commands/__init__.py`
+4. Importer le module dans `overlay/server.py` (liste d'imports en tête) : sans cet import, la commande n'est jamais chargée
 5. Si la commande a des sous-commandes/arguments à compléter, les ajouter à `uexinfo/cli/completer_data.py`
 
-## Code mort connu (à supprimer ou implémenter, pas à imiter)
+## Code mort
 
-- `cli/commands/select_editor.py` et le formulaire plein écran de `note.py` utilisent `prompt_toolkit` (reliquat REPL terminal) : inutilisables dans l'overlay.
-- Scripts de debug ponctuels : `scripts/dev/` (hors package, non testés).
+Aucun connu : nettoyé le 2026-10-29 (`route.py`, `display/result.py`, `select_editor.py`, éditeur terminal de `note.py`, `scripts/dev/`). Ne pas réintroduire de saisie terminal (`input()`, `prompt_toolkit`) : l'overlay n'a pas de terminal.
 
 ## Known issues
 

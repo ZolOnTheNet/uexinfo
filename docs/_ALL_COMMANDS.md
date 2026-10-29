@@ -190,26 +190,6 @@
 
 ---
 
-## /route — Routes commerciales
-
-**Décorateur :** `@register("route", "itineraire", "itin├®raire", "chemin")`
-
-**Sous-commandes :**
-- `/route` : Routes depuis position courante
-- `/route from <terminal>` : Routes depuis un terminal
-- `/route to <terminal>` : Routes vers une destination
-- `/route --commodity <nom>` : Filtrer sur une commodité
-- `/route --min-profit <aUEC>` : Profit minimum total
-- `/route --scu <n>` : Taille cargo
-
----
-
-## /plan — Plan de vol multi-étapes
-
-**Décorateur :** Non implémenté
-
----
-
 ## /info — Informations détaillées
 
 **Décorateur :** `@register("info", "i", "?")`

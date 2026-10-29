@@ -147,7 +147,6 @@ Le bilan `/trade` affiche pour chaque commodité :
 | `/nav info` | Infos sur le réseau de transport |
 | `/nav add-route <a> <b> <dist>` | Ajouter une route manuelle |
 | `/nav add-jump <sys_a> <sys_b>` | Ajouter un jump point |
-| `/route from <a> to <b>` | Alias pour `/nav route` |
 
 ### Scan de terminal
 

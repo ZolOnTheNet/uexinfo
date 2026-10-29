@@ -117,106 +117,6 @@ def _display_notes(notes: list[dict], title: str, ctx=None) -> None:
         )
 
 
-# ── Éditeur TUI ───────────────────────────────────────────────────────────────
-
-def _open_editor(initial_loc: str, initial_msg: str,
-                 note_id: int | None = None) -> tuple[str, str] | None:
-    """Ouvre un formulaire plein-écran via prompt_toolkit.
-
-    Retourne (loc, message) ou None si annulé.
-    """
-    try:
-        from prompt_toolkit import Application
-        from prompt_toolkit.buffer import Buffer
-        from prompt_toolkit.document import Document
-        from prompt_toolkit.layout import Layout, HSplit, Window, BufferControl
-        from prompt_toolkit.widgets import TextArea, Label, Box
-        from prompt_toolkit.key_binding import KeyBindings
-        from prompt_toolkit.styles import Style
-    except ImportError:
-        return _open_editor_fallback(initial_loc, initial_msg)
-
-    result: list[tuple[str, str] | None] = [None]
-    title = f" Note #{note_id} " if note_id else " Nouvelle note "
-
-    loc_area = TextArea(
-        text=initial_loc, multiline=False, height=1,
-        prompt="Lieu : ",
-        style="class:loc-input",
-    )
-    msg_area = TextArea(
-        text=initial_msg, multiline=True,
-        scrollbar=True, style="class:msg-input",
-        wrap_lines=True,
-    )
-
-    kb = KeyBindings()
-
-    @kb.add("c-s")
-    def _save(event):
-        result[0] = (loc_area.text.strip(), msg_area.text.strip())
-        event.app.exit()
-
-    @kb.add("escape", eager=True)
-    def _cancel(event):
-        event.app.exit()
-
-    # Tab : passe de loc_area à msg_area et vice-versa
-    @kb.add("tab")
-    def _tab(event):
-        focus_map = {id(loc_area.control): msg_area, id(msg_area.control): loc_area}
-        nxt = focus_map.get(id(event.app.layout.current_control))
-        if nxt:
-            event.app.layout.focus(nxt)
-
-    layout = Layout(HSplit([
-        Window(height=1,
-               content=BufferControl(
-                   buffer=Buffer(name="__title__", read_only=True,
-                                 document=Document(title)),
-               ),
-               style="class:title"),
-        Label(text="Lieu"),
-        loc_area,
-        Label(text="Message  (Ctrl+S = sauvegarder, Tab = changer de champ, Echap = annuler)"),
-        msg_area,
-    ]))
-
-    app = Application(
-        layout=layout, key_bindings=kb, full_screen=True,
-        style=Style.from_dict({
-            "title":     "reverse bold",
-            "loc-input": "bg:#1c1c2e",
-            "msg-input": "bg:#12121e",
-        }),
-    )
-    try:
-        app.run()
-    except (KeyboardInterrupt, EOFError):
-        return None
-    return result[0]
-
-
-def _open_editor_fallback(initial_loc: str, initial_msg: str) -> tuple[str, str] | None:
-    """Saisie simple sans prompt_toolkit (fallback)."""
-    try:
-        loc = input(f"Lieu [{initial_loc}]: ").strip() or initial_loc
-        console.print("[dim]Message (ligne vide pour terminer) :[/dim]")
-        lines: list[str] = []
-        while True:
-            try:
-                line = input()
-            except (EOFError, KeyboardInterrupt):
-                return None
-            if not line:
-                break
-            lines.append(line)
-        msg = "\n".join(lines) or initial_msg
-        return (loc, msg)
-    except (EOFError, KeyboardInterrupt):
-        return None
-
-
 # ── Sous-handlers ─────────────────────────────────────────────────────────────
 
 def _cmd_list(loc_opt: str | None, ctx) -> None:
@@ -263,37 +163,17 @@ def _cmd_edit(loc: str, note_id: int | None, ctx) -> None:
     from uexinfo.cache.notes_manager import NoteStore
     store = NoteStore()
 
-    # Overlay : déléguer au formulaire HTML
     pending = getattr(ctx, "_overlay_msgs", None)
-    if pending is not None:
-        initial = store.get(note_id) if note_id else None
-        pending.append({
-            "type":     "note_edit",
-            "note_id":  note_id,
-            "location": initial["location"] if initial else loc,
-            "message":  initial["message"]  if initial else "",
-        })
-        return
-
-    # CLI : éditeur TUI
+    if pending is None:
+        ctx._overlay_msgs = []
+        pending = ctx._overlay_msgs
     initial = store.get(note_id) if note_id else None
-    init_loc = initial["location"] if initial else loc
-    init_msg = initial["message"]  if initial else ""
-
-    res = _open_editor(init_loc, init_msg, note_id)
-    if res is None:
-        print_warn("Edition annulee.")
-        return
-    new_loc, new_msg = res
-    if not new_msg:
-        print_warn("Message vide - annule.")
-        return
-    if note_id and initial:
-        store.update(note_id, message=new_msg, location=new_loc or init_loc)
-        print_ok(f"Note #{note_id} mise a jour.")
-    else:
-        nid = store.add(new_loc or loc, new_msg)
-        print_ok(f"Note #{nid} ajoutee a '{new_loc or loc}'.")
+    pending.append({
+        "type":     "note_edit",
+        "note_id":  note_id,
+        "location": initial["location"] if initial else loc,
+        "message":  initial["message"]  if initial else "",
+    })
 
 
 # ── Handler principal ─────────────────────────────────────────────────────────

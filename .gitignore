@@ -36,9 +36,6 @@ pip-wheel-metadata/
 .uexinfo/
 
 # Cache local (données régénérées automatiquement)
-data/commodities/*.json
-data/locations/*.json
-data/terminals/*.json
 *.cache
 .cache/
 

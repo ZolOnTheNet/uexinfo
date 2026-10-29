@@ -16,3 +16,4 @@ Documents dépassés, conservés pour l'historique. **Ne pas les prendre comme r
 | `INFO_DIAG.md` | 2026-02-27 | Conversation Claude | Transcription de la conversation de lancement du projet. |
 | `CONSIGNES_Sonnet_FinMars.md` | 2026-03-30 | Zol → Claude Sonnet | Consignes de fin mars, sur l'ancienne architecture. |
 | `CONSIGNES_Sonnet_17Avril26.md` | 2026-04-17 | Zol → Claude Sonnet | Consignes de revue de code et plan de tests du 17 avril. |
+| `command_result_schema.md` | 2026-04-29 | Claude | Schéma `CommandResult` jamais adopté ; `display/result.py` supprimé le 2026-10-29. |

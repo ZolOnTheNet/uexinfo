@@ -411,3 +411,14 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - 463 docstrings ajoutées (fonctions, méthodes, classes, fonctions internes) dans tous les packages et toutes les commandes, plus une docstring pour chaque `__init__.py`. Il reste 35 fonctions sans docstring, toutes volontairement laissées : code mort (`display/result.py`, `select_editor.py`, `route.py`, formulaire prompt_toolkit de `note.py`) et deux `_onoff` d'une ligne dans `config.py`.
 - Commentaires ajoutés là où la logique n'était pas expliquée : codes SGR (`display/ansi_html.py`), ordre des regex (`gamelog/parser.py`), heuristique du plus proche voisin (`voyage.py`), message de `/scan resync`. Les autres fonctions longues étaient déjà commentées.
 - Aucun changement de comportement : `pytest` donne 276 réussis, `compileall` sans erreur.
+
+## 2026-10-29 — suppression du code mort et des fichiers inutiles
+
+**Demande :** un outil léger et simple (lanceur shell, boutons de l'overlay) ; retirer les fichiers inutiles.
+
+**Fait :**
+- Supprimés : `cli/commands/route.py` (jamais chargé, `/nav route` fait la même chose), `display/result.py` (jamais importé), `cli/commands/select_editor.py` et la sous-commande `/select edit` (éditeur prompt_toolkit, sans terminal dans l'overlay), l'éditeur terminal de `note.py` (`/note -e` envoie toujours le formulaire à l'overlay, même à la première commande), `scripts/dev/` (11 scripts de débogage ponctuels, la moitié visant le REPL disparu), les dossiers vides `data/` et leurs lignes `.gitignore`, la dépendance optionnelle `playwright` (aucun import).
+- `/route` et `/plan` retirés de `/help`, de la complétion, de `README.md` et de `docs/_ALL_COMMANDS.md` : ces commandes n'existaient pas.
+- `docs/command_result_schema.md` archivé. `CLAUDE.md` corrigé : une nouvelle commande s'importe dans `overlay/server.py`, pas dans `commands/__init__.py` (c'est ce qui laissait `/route` non branché).
+- Conservés : `scripts/generate_locations.py`, `scripts/uexinfo.ps1` (commentaire corrigé), `extprg/SC-images/Mission_remisajour.ps1` (outil de test personnel).
+- 181 fichiers suivis (198 avant). `pytest` : 276 réussis ; `compileall` sans erreur ; `/note -e` vérifié à la main.

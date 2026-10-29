@@ -229,7 +229,6 @@ def _show_help() -> None:
         f"  [{C.UEX}]/select[/{C.UEX}]                              Afficher tous les filtres actifs\n"
         f"  [{C.UEX}]/select <catégorie> [+|-]<item>...[/{C.UEX}]  Définir filtres pour une catégorie\n"
         f"  [{C.UEX}]/select show <système>[/{C.UEX}]              Statut ✓/✗ de chaque lieu\n"
-        f"  [{C.UEX}]/select edit <système>[/{C.UEX}]              Éditeur TUI avec cases à cocher\n"
         f"  [{C.UEX}]/select clear [catégorie][/{C.UEX}]           Effacer tout ou une catégorie\n\n"
 
         f"[bold]━━ Catégories ━━[/bold]\n"
@@ -251,7 +250,6 @@ def _show_help() -> None:
         f"  [{C.DIM}]/select station -MIC-L5[/{C.DIM}]              → cette station est exclue\n"
         f"  [{C.DIM}]/select city +New_Babbage[/{C.DIM}]            → New Babbage inclus même si city exclu\n"
         f"  [{C.DIM}]/select show Stanton[/{C.DIM}]                 → statut ✓/✗ de chaque lieu Stanton\n"
-        f"  [{C.DIM}]/select edit Stanton[/{C.DIM}]                 → éditeur TUI Stanton\n"
         f"  [{C.DIM}]/select clear dest[/{C.DIM}]                   → effacer les filtres de type\n"
         f"\n"
         f"[bold]━━ Pourquoi filtrer ? ━━[/bold]\n"
@@ -347,24 +345,6 @@ def _cmd_show(args: list[str], ctx, filters: dict) -> None:
             console.print(f"    {status} [{C.UEX}]{lname}[/{C.UEX}]{badge}")
 
 
-# ── Sous-commande edit ─────────────────────────────────────────────────────────
-
-def _cmd_edit(args: list[str], ctx, filters: dict) -> None:
-    """/select edit <système> — éditeur TUI."""
-    if not args:
-        print_error("Usage : /select edit <système>")
-        return
-    sys_query = " ".join(args).replace("_", " ").strip()
-    try:
-        from uexinfo.cli.commands.select_editor import run_select_editor
-        run_select_editor(sys_query, ctx, filters)
-        settings.save(ctx.cfg)
-    except ImportError as e:
-        print_error(f"Éditeur TUI non disponible : {e}")
-    except Exception as e:
-        print_error(f"Erreur éditeur : {e}")
-
-
 # ── Commande principale ────────────────────────────────────────────────────────
 
 @register("select", "sel")
@@ -408,11 +388,6 @@ def cmd_select(args: list[str], ctx) -> None:
     # Show
     if sub == "show":
         _cmd_show(args[1:], ctx, filters)
-        return
-
-    # Edit
-    if sub == "edit":
-        _cmd_edit(args[1:], ctx, filters)
         return
 
     # Catégorie connue : /select <cat> [items...]
