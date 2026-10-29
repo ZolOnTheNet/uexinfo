@@ -1,0 +1,1 @@
+"""Configuration utilisateur (`config.toml`)."""

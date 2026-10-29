@@ -59,6 +59,7 @@ def _resolve_terminal_pick(query: str, ctx, label: str):
 
 @register("trade", "t")
 def cmd_trade(args: list[str], ctx) -> None:
+    """/trade [N | buy | sell | from | to | cargo | vendre | sctrade …] — prix d'achat/vente et bilan de trading."""
     if not args:
         _trade_bilan(ctx)
         return
@@ -97,14 +98,17 @@ def cmd_trade(args: list[str], ctx) -> None:
 
 
 def _is_active_buy(r: dict) -> bool:
+    """Vrai si le terminal achète réellement : prix d'achat ou statut de stock renseigné."""
     return bool(r.get("price_buy")) or int(r.get("status_buy") or 0) >= 1
 
 
 def _is_active_sell(r: dict) -> bool:
+    """Vrai si le terminal vend réellement : prix de vente ou statut de stock renseigné."""
     return bool(r.get("price_sell")) or int(r.get("status_sell") or 0) >= 1
 
 
 def _sort_key_sys(r: dict, player_sys: str, price_field: str, reverse: bool) -> tuple:
+    """Clé de tri : terminaux du système du joueur d'abord, puis par prix (décroissant si `reverse`)."""
     own = 0 if (r.get("star_system_name") or "").lower() == player_sys else 1
     price = r.get(price_field) or 0
     return (own, -price if reverse else price)
@@ -132,6 +136,7 @@ def _term_entry(terminal_name: str, star_system: str, player_sys: str,
 # ── /trade buy ────────────────────────────────────────────────────────────────
 
 def _trade_buy(args: list[str], ctx) -> None:
+    """/trade buy <commodité> — où acheter : terminaux triés par prix, ceux du système du joueur en premier."""
     query = " ".join(args).replace("_", " ")
     if not query:
         print_warn("Usage : /trade buy <commodité>")
@@ -192,6 +197,7 @@ def _trade_buy(args: list[str], ctx) -> None:
 # ── /trade sell ───────────────────────────────────────────────────────────────
 
 def _trade_sell(args: list[str], ctx) -> None:
+    """/trade sell <commodité> — où vendre : terminaux triés par prix, ceux du système du joueur en premier."""
     query = " ".join(args).replace("_", " ")
     if not query:
         print_warn("Usage : /trade sell <commodité>")
@@ -276,6 +282,7 @@ def _parse_from_to(args: list[str]) -> tuple[str, str]:
 
 
 def _trade_bilan_override(args: list[str], ctx) -> None:
+    """/trade from|to <lieu> — bilan avec un départ ou une arrivée imposés."""
     from_str, to_str = _parse_from_to(args)
     _trade_bilan(ctx, origin_override=from_str, dest_override=to_str)
 
@@ -510,6 +517,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
     _STD_SIZES = [32, 24, 16, 8, 4, 2, 1]
 
     def _ps(raw: str) -> set[int]:
+        """Tailles de conteneur (SCU) depuis la liste « 1/2/4… » de l'API ; ensemble vide si absente."""
         return (
             {int(x) for x in raw.split("/") if x.strip().isdigit()}
             if raw and raw != "—" else set()
@@ -537,6 +545,7 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         return r + C.SCU if approx else r
 
     def _fmt_szs(raw: str, fb: set[int]) -> str:
+        """Tailles de conteneur en notation d'intervalle ; à défaut, celles de `fb` marquées comme approximatives."""
         if raw and raw != "—":
             # Convertir la liste slash de l'API en notation range
             parts = {int(x) for x in raw.split("/") if x.strip().isdigit()}

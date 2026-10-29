@@ -402,3 +402,12 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `.claude/.nfs*` retirés de git (fichiers laissés sur le disque), `.nfs*` ajouté au `.gitignore`.
 - `cli/opts.py` supprimé (jamais importé).
 - Annuaire et `docs/archive/README.md` mis à jour.
+
+## 2026-10-29 — docstrings dans tout le code Python
+
+**Demande :** commenter l'ensemble du code Python (docstrings + logique non évidente, en français).
+
+**Fait :**
+- 462 docstrings ajoutées (fonctions, méthodes, classes, fonctions internes) dans tous les packages et toutes les commandes, plus une docstring pour chaque `__init__.py`. Il reste 35 fonctions sans docstring, toutes volontairement laissées : code mort (`display/result.py`, `select_editor.py`, `route.py`, formulaire prompt_toolkit de `note.py`) et deux `_onoff` d'une ligne dans `config.py`.
+- Commentaires ajoutés là où la logique n'était pas expliquée : codes SGR (`display/ansi_html.py`), ordre des regex (`gamelog/parser.py`), heuristique du plus proche voisin (`voyage.py`), message de `/scan resync`. Les autres fonctions longues étaient déjà commentées.
+- Aucun changement de comportement : `pytest` donne 276 réussis, `compileall` sans erreur.

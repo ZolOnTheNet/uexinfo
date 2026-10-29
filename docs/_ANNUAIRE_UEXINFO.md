@@ -83,7 +83,7 @@ uexinfo/                         (racine du dépôt)
 
 | Fichier | Rôle |
 |---|---|
-| `__init__.py` | Version du package. |
+| `__init__.py` | Version du package, `build_id()` (commit git en cours). |
 | `__main__.py` | Point d'entrée unique : vérifie les dépendances (webview, pynput, websockets), lance l'overlay. |
 | `overlay/__init__.py` | Fenêtre PyWebView transparente, raccourci clavier global (Win32), remplacement d'une instance déjà lancée, `run_overlay()`. |
 | `overlay/server.py` | Serveur WebSocket : reçoit les commandes de la page, les exécute, renvoie le HTML ; complétion, statut, confirmation des scans, suivi Game.log. Importe toutes les commandes. |
@@ -93,7 +93,7 @@ uexinfo/                         (racine du dépôt)
 
 | Fichier | Rôle |
 |---|---|
-| `cli/__init__.py` | Package vide. |
+| `cli/__init__.py` | Docstring du package seulement. |
 | `cli/context.py` | `AppContext` : état global partagé (config, cache, joueur, historique de scans…), une seule instance. |
 | `cli/runner.py` | Chaîne d'exécution : normalisation → `parser.py` → `dispatch()`. |
 | `cli/parser.py` | Découpe `/cmd args` en `(nom, [args])` avec `shlex`. |
@@ -135,7 +135,7 @@ uexinfo/                         (racine du dépôt)
 
 | Fichier | Rôle |
 |---|---|
-| `api/__init__.py` | Package vide. |
+| `api/__init__.py` | Docstring du package seulement. |
 | `api/uex_client.py` | Client REST UEX Corp 2.0 (11 endpoints : commodités, terminaux, prix, systèmes…). |
 | `api/sctrade_client.py` | Client sc-trade.tools (JSON public, sans jeton), données communauté affichées en orange. |
 
@@ -143,7 +143,7 @@ uexinfo/                         (racine du dépôt)
 
 | Fichier | Rôle |
 |---|---|
-| `cache/__init__.py` | Package vide. |
+| `cache/__init__.py` | Docstring du package seulement. |
 | `cache/manager.py` | Données statiques UEX : téléchargement, TTL 24 h, repli sur le disque si le réseau échoue. |
 | `cache/models.py` | Dataclasses UEX : `StarSystem`, `Planet`, `Moon`, `Terminal`, `Commodity`, `Vehicle`… |
 | `cache/price_cache.py` | Cache des prix UEX sur disque (TTL adaptatif). |
@@ -194,7 +194,7 @@ uexinfo/                         (racine du dépôt)
 
 | Fichier | Rôle |
 |---|---|
-| `ocr/__init__.py` | Package vide. |
+| `ocr/__init__.py` | Docstring du package seulement. |
 | `ocr/engine.py` | Moteur Tesseract : lecture des terminaux et des écrans de mission. Cherche Tesseract d'abord dans `extprg/tesseract/`. |
 | `ocr/contract_list.py` | Panneau des contrats du mobiGlas → cartes (titre, XP, donneur d'ordre, récompense). |
 | `ocr/log_parser.py` | Lecture du log de SC-Datarunner (mode A). |
@@ -205,7 +205,7 @@ uexinfo/                         (racine du dépôt)
 
 | Fichier | Rôle |
 |---|---|
-| `models/__init__.py` | Package vide. |
+| `models/__init__.py` | Docstring du package seulement. |
 | `models/player.py` | `Player` et `Ship`. |
 | `models/scan_result.py` | `ScanResult`, `ScannedCommodity`. |
 | `models/mission.py` | Mission. |
@@ -217,9 +217,9 @@ uexinfo/                         (racine du dépôt)
 
 | Fichier | Rôle |
 |---|---|
-| `location/__init__.py` | Package vide. |
+| `location/__init__.py` | Docstring du package seulement. |
 | `location/index.py` | `LocationIndex` : complétion `@lieu` par chemins pointés. |
-| `display/__init__.py` | Package vide. |
+| `display/__init__.py` | Docstring du package seulement. |
 | `display/colors.py` | Palette Rich (UEX cyan, sc-trade orange, profit/perte). **Seule source des couleurs.** |
 | `display/formatter.py` | Console partagée, formatage des prix, SCU, distances, nom court de terminal. |
 | `display/capturing_console.py` | Console Rich qui capture les rendus au lieu d'écrire dans un terminal. |
@@ -228,7 +228,7 @@ uexinfo/                         (racine du dépôt)
 | `display/adaptive.py` | Tableaux à colonnes proportionnelles (missions, voyages). |
 | `display/loc.py` | Affichage centralisé des noms de lieux. |
 | `display/result.py` | 💀 `CommandResult` (représentation intermédiaire) jamais importé ; voir `docs/command_result_schema.md`. |
-| `config/__init__.py` | Package vide. |
+| `config/__init__.py` | Docstring du package seulement. |
 | `config/settings.py` | Lecture/écriture de `config.toml`. |
 | `data/transport_network.json` | Graphe de transport (nœuds, arêtes), enrichi par `/nav populate` et `scripts/generate_locations.py`. |
 | `data/cargo_grids.py` | Grilles cargo des vaisseaux (tailles de conteneurs). |
@@ -401,3 +401,4 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 
 - **2026-10-29** : création. Inventaire complet des fichiers suivis par git, statut de chaque document, anomalies.
 - **2026-10-29** (suite) : 9 documents historiques déplacés dans `docs/archive/`, `.claude/.nfs*` retirés de git, `cli/opts.py` supprimé.
+- **2026-10-29** (suite) : docstrings ajoutées dans tout le code Python ; descriptions des `__init__.py` mises à jour.

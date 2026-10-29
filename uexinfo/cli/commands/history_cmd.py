@@ -8,6 +8,7 @@ from uexinfo.display import colors as C
 
 
 def _show_help() -> None:
+    """Affiche l'aide de /history."""
     from uexinfo.display.formatter import section
     from uexinfo.display import colors as C
     section("Aide — /history")

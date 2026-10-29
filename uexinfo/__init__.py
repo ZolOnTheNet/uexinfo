@@ -1,3 +1,4 @@
+"""uexinfo — overlay Star Citizen pour le trading, les missions et la navigation."""
 __version__ = "0.1.0"
 
 

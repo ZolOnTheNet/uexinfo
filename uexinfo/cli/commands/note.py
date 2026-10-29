@@ -23,15 +23,18 @@ from uexinfo.display import colors as C
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _fmt_ts(ts: float) -> str:
+    """Date « JJ/MM/AAAA » d'un horodatage."""
     return datetime.fromtimestamp(ts).strftime("%d/%m/%Y")
 
 
 def _normalize_loc(name: str) -> str:
+    """Nom de lieu sous sa forme courte commune (underscores remplacés par des espaces)."""
     from uexinfo.cache.data_manager import _loc_short
     return _loc_short(name.replace("_", " ").strip()).strip()
 
 
 def _current_loc(ctx) -> str:
+    """Position actuelle du joueur sous forme courte, ou « » si inconnue."""
     loc = (ctx.player.location or "").strip()
     return _normalize_loc(loc) if loc else ""
 
@@ -217,6 +220,7 @@ def _open_editor_fallback(initial_loc: str, initial_msg: str) -> tuple[str, str]
 # ── Sous-handlers ─────────────────────────────────────────────────────────────
 
 def _cmd_list(loc_opt: str | None, ctx) -> None:
+    """Affiche les notes d'un lieu, ou toutes les notes si aucun lieu n'est donné."""
     from uexinfo.cache.notes_manager import NoteStore
     store = NoteStore()
     if loc_opt:
@@ -229,6 +233,7 @@ def _cmd_list(loc_opt: str | None, ctx) -> None:
 
 
 def _cmd_delete(rm_val: str, ctx) -> None:
+    """Supprime une note par son numéro, ou toutes les notes d'un lieu."""
     from uexinfo.cache.notes_manager import NoteStore
     store = NoteStore()
     if rm_val.lstrip("-").isdigit():
@@ -247,12 +252,14 @@ def _cmd_delete(rm_val: str, ctx) -> None:
 
 
 def _cmd_add(loc: str, message: str, ctx) -> None:
+    """Ajoute une note à un lieu."""
     from uexinfo.cache.notes_manager import NoteStore
     note_id = NoteStore().add(loc, message)
     print_ok(f"Note #{note_id} ajoutee a '{loc}'.")
 
 
 def _cmd_edit(loc: str, note_id: int | None, ctx) -> None:
+    """Ouvre le formulaire d'édition d'une note (ou d'une nouvelle) dans l'overlay."""
     from uexinfo.cache.notes_manager import NoteStore
     store = NoteStore()
 

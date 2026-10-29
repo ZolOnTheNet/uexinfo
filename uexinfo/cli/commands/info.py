@@ -384,17 +384,20 @@ def _fetch_prices(key: str, api_kwargs: dict, ctx) -> list[dict]:
 
 
 def _to_slug(name: str) -> str:
+    """Nom de terminal en identifiant d'URL : minuscules, tirets à la place des espaces et symboles."""
     s = name.lower().replace(" - ", "-")
     s = re.sub(r"[^a-z0-9-]+", "-", s)
     return s.strip("-")
 
 
 def _terminal_prices(t: Terminal, ctx) -> list[dict]:
+    """Prix d'un terminal (UEX fusionné avec les scans), sans leur origine."""
     rows, _src = _DM.terminal_prices(t, ctx)
     return rows
 
 
 def _commodity_prices(c_id: int, ctx) -> list[dict]:
+    """Prix d'une commodité sur tous les terminaux, sans leur origine."""
     data, _src = _DM.commodity_prices(c_id, ctx)
     return data
 
@@ -851,6 +854,7 @@ def _find_best_buyers(id_commodity: int, origin_terminal_id: int, ctx,
         return []
 
     def sort_key(row):
+        """Clé de tri des acheteurs : la destination du joueur d'abord, puis le meilleur prix de vente."""
         terminal = (row.get("terminal_name") or "").lower()
         is_player_dest = 1 if player_dest and terminal == player_dest else 0
         price = float(row.get("price_sell") or 0)
@@ -1135,6 +1139,7 @@ def _show_buy_detailed(buy_rows: list[dict], origin_terminal: Terminal, ctx, sys
 
     # ── Trier : destination prioritaire, puis ROI décroissant ───────────
     def _roi_key(e):
+        """Clé de tri des achats : vers la destination du joueur d'abord, puis meilleure rentabilité (bénéfice / prix d'achat)."""
         d = e[1]
         pb = d.get("price_buy") or 0
         ps = d.get("price_sell") or 0
@@ -1442,6 +1447,7 @@ def _show_site_header(t: Terminal, ctx) -> None:
     )
 
     def _fmt_names(terminals: list[Terminal]) -> str:
+        """Noms des terminaux du lieu séparés par « · » ; toutes les raffineries comptent pour une seule."""
         names: list[str] = []
         refinery_done = False
         for x in terminals:
@@ -1478,6 +1484,12 @@ def _show_site_header(t: Terminal, ctx) -> None:
 # ── Affichage terminal ─────────────────────────────────────────────────────────
 
 def _show_terminal(t: Terminal, ctx, sys_filter=None) -> None:
+    """/info <terminal> — fiche marché d'un terminal.
+
+    En-tête du lieu, puis une ligne par commodité : prix d'achat et de vente, stock
+    et âge de la donnée. Les valeurs scannées par le joueur (★, gras) passent devant
+    celles d'UEX ; les prix venant du cache hors ligne sont en orange.
+    """
     player_sys = _player_system(ctx)
     dot = _dot_name(
         t.name, t.star_system_name, player_sys,
@@ -1759,6 +1771,7 @@ def _term_sys_cell(r: dict, maxlen: int | None = None,
 
 
 def _scu_cell(qty) -> str:
+    """Quantité en SCU avec séparateur de milliers, ou « — » si nulle."""
     q = int(qty or 0)
     return f"{q:,} {C.SCU}".replace(",", "\u202f") if q else f"[{C.DIM}]—[/{C.DIM}]"
 
@@ -1814,6 +1827,12 @@ def _parse_sys_filter(
 
 
 def _show_commodity(c: Commodity, ctx, sys_filter=None) -> None:
+    """/info <commodité> — où l'acheter et où la vendre.
+
+    Résumé, table des achats puis des ventes avec distances (routes UEX et graphe),
+    résumé des autres systèmes si un filtre est actif, et sc-trade.tools quand UEX
+    est hors ligne.
+    """
     flags = []
     if c.is_illegal:     flags.append("[red]illégal[/red]")
     if c.is_refinable:   flags.append("raffinable")
@@ -2095,6 +2114,7 @@ def _show_sctrade_transactions(txs: list[dict], ctx) -> None:
     t.add_column("Stock SCU",  justify="right", min_width=9)
 
     def _action(r):
+        """Action du joueur vue depuis sc-trade : le terminal « BUYS » signifie que le joueur vend."""
         tx = r.get("transaction", "")
         return "SELL" if tx == "BUYS" else "BUY"   # BUYS = terminal achète = joueur vend
 
@@ -2122,6 +2142,7 @@ def _show_sctrade_transactions(txs: list[dict], ctx) -> None:
 
 
 def _fetch_vehicle_purchases(id_vehicle: int, ctx) -> list[dict]:
+    """Prix d'achat d'un vaisseau (cache, sinon API) ; [] en cas d'erreur."""
     key = f"vp_{id_vehicle}"
     cached = ctx._price_cache.get(key)
     if cached:
@@ -2138,6 +2159,7 @@ def _fetch_vehicle_purchases(id_vehicle: int, ctx) -> list[dict]:
 
 
 def _fetch_vehicle_rentals(id_vehicle: int, ctx) -> list[dict]:
+    """Prix de location d'un vaisseau (cache, sinon API) ; [] en cas d'erreur."""
     key = f"vr_{id_vehicle}"
     cached = ctx._price_cache.get(key)
     if cached:
@@ -2156,6 +2178,7 @@ def _fetch_vehicle_rentals(id_vehicle: int, ctx) -> list[dict]:
 # ── Affichage vaisseau ──────────────────────────────────────────────────────────
 
 def _show_vehicle(v: Vehicle, ctx) -> None:
+    """/info ship <nom> — fiche vaisseau : caractéristiques, grilles cargo, où l'acheter et le louer."""
     section(f"Vaisseau — {v.name_full}")
 
     # ── Fiche technique ────────────────────────────────────────────────────
@@ -2199,6 +2222,7 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
         )
 
         def _buy_sort(r):
+            """Clé de tri des lieux d'achat : système du joueur d'abord, puis prix croissant."""
             sys = (r.get("star_system_name") or "").lower()
             same = (sys == player_sys) if player_sys else False
             return (0 if same else 1, int(r.get("price") or r.get("price_buy") or 0))
@@ -2232,6 +2256,7 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
         )
 
         def _rent_sort(r):
+            """Clé de tri des lieux de location : système du joueur d'abord, puis prix croissant."""
             sys = (r.get("star_system_name") or "").lower()
             same = (sys == player_sys) if player_sys else False
             return (0 if same else 1, int(r.get("price_rent") or r.get("price") or 0))
@@ -2320,6 +2345,7 @@ def _show_commodity_list(args: list[str], ctx) -> None:
         return
 
     def _benef(c):
+        """Bénéfice de référence par SCU : prix de vente moins prix d'achat UEX."""
         return (c.price_sell or 0) - (c.price_buy or 0)
 
     if sort_mode == "price_desc":
@@ -2523,6 +2549,11 @@ def _info_reset_scan(args: list[str], ctx) -> None:
 @register("info", "i", "?")
 def cmd_info(args: list[str], ctx) -> None:
     # Extraire les flags système (--all, --Sys,Sys) avant de router
+    """/info [terminal | commodity | ship | list | reset-…] <nom> — fiche d'un terminal, d'une commodité ou d'un vaisseau.
+
+    Sans argument : le terminal de la position actuelle. `--all` ou `--Sys,Sys`
+    choisissent les systèmes affichés.
+    """
     player_sys = _player_system(ctx)
     sys_filter, args = _parse_sys_filter(args, player_sys)
 

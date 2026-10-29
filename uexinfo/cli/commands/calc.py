@@ -34,6 +34,11 @@ _UNOPS: dict[type, object] = {
 
 
 def _eval(node: ast.expr) -> float:
+    """Évalue un nœud d'expression : nombres, + − × ÷ et signe seulement.
+
+    Passer par l'arbre syntaxique évite `eval()` : aucun code arbitraire ne peut
+    s'exécuter. Lève ValueError pour tout le reste.
+    """
     if isinstance(node, ast.Constant):
         if isinstance(node.value, (int, float)):
             return float(node.value)

@@ -336,6 +336,7 @@ def _show_terminal_scans(db, ctx) -> None:
 
 
 def _is_image(path: str) -> bool:
+    """Vrai si l'argument désigne une image (extension connue) ou un fichier existant."""
     p = Path(path)
     return p.suffix.lower() in _IMAGE_EXTS or p.exists()
 
@@ -343,6 +344,7 @@ def _is_image(path: str) -> bool:
 # ── Affichage liste ───────────────────────────────────────────────────────────
 
 def _cmd_list(ctx) -> None:
+    """/mission list — tableau du catalogue : récompense, SCU, départs, arrivées, synergies."""
     mm = ctx.mission_manager
     if not mm.missions:
         print_warn("Aucune mission dans le catalogue")
@@ -583,6 +585,7 @@ def _player_dist(player_node: str, loc_name: str, graph, cache: dict) -> str | N
 # ── Add depuis dernier scan ───────────────────────────────────────────────────
 
 def _cmd_add_from_scan(ctx) -> None:
+    """/mission add sans argument — ajoute la mission du dernier scan s'il s'agit d'un écran de contrat."""
     from uexinfo.models.mission_result import MissionResult
     last = ctx.last_scan
     if last is None:
@@ -626,6 +629,7 @@ def _cmd_add_from_file(path_str: str, ctx) -> None:
 
 
 def _add_mission_result(mr, ctx) -> None:
+    """Crée une mission à partir d'un scan de contrat et l'ajoute au catalogue."""
     from uexinfo.models.mission_result import MissionResult
     if not mr.parsed_objectives:
         print_warn("Pas d'objectifs parsés dans ce scan")
@@ -650,6 +654,10 @@ def _add_mission_result(mr, ctx) -> None:
 # ── Add ───────────────────────────────────────────────────────────────────────
 
 def _cmd_add(args: list[str], ctx) -> None:
+    """/mission add <nom> reward:<n> [obj:… from:… to:… scu:…]+ — saisie manuelle.
+
+    Le nom va jusqu'au premier argument « clé:valeur » ; chaque `obj:` ouvre un nouvel objectif.
+    """
     mm = ctx.mission_manager
     if not args:
         _show_add_help()
@@ -714,6 +722,7 @@ def _cmd_add(args: list[str], ctx) -> None:
 # ── Edit ──────────────────────────────────────────────────────────────────────
 
 def _cmd_edit(args: list[str], ctx) -> None:
+    """/mission edit [id | a-b | liste] — ouvre le formulaire d'édition de l'overlay pour ces missions."""
     mm = ctx.mission_manager
     all_missions = mm.missions
     if not all_missions:
@@ -765,6 +774,7 @@ def _cmd_edit(args: list[str], ctx) -> None:
             _sdb = None
 
         def _mission_dict(m):
+            """Mission sous la forme attendue par le formulaire d'édition, avec sa capture d'écran si elle est connue."""
             d = {
                 "id":           m.id,
                 "name":         m.name or "",
@@ -804,6 +814,7 @@ def _cmd_edit(args: list[str], ctx) -> None:
 # ── Remove ────────────────────────────────────────────────────────────────────
 
 def _cmd_remove(args: list[str], ctx) -> None:
+    """/mission remove <id | a-b …> — supprime une ou plusieurs missions (intervalles acceptés)."""
     mm = ctx.mission_manager
     if not args:
         print_error("Identifiant de mission manquant")
@@ -992,6 +1003,7 @@ def _cmd_add_to_voyage(args: list[str], ctx) -> None:
 # ── Offres lues dans les captures de la liste des contrats ───────────────────
 
 def _screenshot_db(ctx):
+    """Base des captures du contexte, ouverte au premier appel."""
     db = getattr(ctx, "screenshot_db", None)
     if db is None:
         from uexinfo.cache.screenshot_db import ScreenshotDB
@@ -1097,6 +1109,7 @@ def _cmd_offers(args: list[str], ctx) -> None:
 
 
 def _show_help() -> None:
+    """Affiche l'aide de /mission."""
     section("Aide — /mission")
     lines = [
         ("list",             "Liste le catalogue de missions"),
@@ -1123,6 +1136,7 @@ def _show_help() -> None:
 
 
 def _show_add_help() -> None:
+    """Affiche la syntaxe de la saisie manuelle de /mission add."""
     console.print(f"  [{C.DIM}]Syntaxe add manuelle :[/{C.DIM}]")
     console.print(f"  [bold {C.LABEL}]/mission add <nom> reward:<aUEC>[/bold {C.LABEL}]")
     console.print(f"  [bold {C.LABEL}]    [obj:<commodité> from:<source> to:<dest> scu:<n> [tdd|shop|delay:<r>]]+[/bold {C.LABEL}]")

@@ -19,6 +19,7 @@ _APOS_MAP = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "`": "'"})
 
 
 def _norm_apos(s: str) -> str:
+    """Remplace les apostrophes typographiques par l'apostrophe simple (comparaison de noms lus par OCR)."""
     return s.translate(_APOS_MAP)
 
 # Seuils de confiance OCR (score SC-Datarunner, nouveau format de log) —
@@ -50,6 +51,7 @@ _STOCK_BARS = {
 
 
 def _stock_bar(status: int, label: str) -> str:
+    """Barre visuelle d'un statut de stock UEX (1 à 7), sinon le libellé lu."""
     if status in _STOCK_BARS:
         return _STOCK_BARS[status]
     return label or str(status)
@@ -121,6 +123,7 @@ def _fetch_terminal_uex_prices(result: ScanResult, ctx) -> dict[str, tuple[int, 
     terminal = matches[0] if len(matches) == 1 else None
 
     def _fetch(key: str, **kwargs) -> list[dict]:
+        """Prix UEX pour une clé de cache : cache frais, sinon API, sinon cache périmé, sinon []."""
         cached = ctx._price_cache.get(key)
         if cached:
             _ts, data = cached
@@ -770,6 +773,7 @@ def _capture_sc_window():
         found = []
 
         def _enum(hwnd, _):
+            """Rappel de EnumWindows : retient les fenêtres visibles dont le titre contient « Star Citizen »."""
             if win32gui.IsWindowVisible(hwnd) and "Star Citizen" in win32gui.GetWindowText(hwnd):
                 found.append(hwnd)
 
@@ -1308,6 +1312,8 @@ def _scan_resync(args: list[str], ctx) -> None:
 
         if remaining_buy or remaining_sell:
             store.delete_field(stored_tk, cid_key, *fields_to_del)
+            # Message : seuls les champs de prix sont nommés ; status_* et scu_*
+            # (les seuls à commencer par « s ») partent avec eux sans être listés.
             console.print(
                 f"  [{C.WARNING}]⚠[/{C.WARNING}]  [{C.NEUTRAL}]{display_name}[/{C.NEUTRAL}]"
                 f"  [{C.DIM}]champs supprimés : {', '.join(f for f in fields_to_del if not f.startswith('s'))}[/{C.DIM}]"
@@ -1548,6 +1554,12 @@ def _fmt_age(ts: float) -> str:
 
 
 def _store_result(ctx, result) -> None:
+    """Mémorise un scan (historique limité à 20) et l'enregistre comme prix joueur ★.
+
+    Un scan du log Datarunner non encore validé n'est pas enregistré : c'est un
+    brouillon que le joueur peut corriger avant l'envoi à UEX. Applique aussi la
+    position automatique si elle est activée.
+    """
     ctx.last_scan = result
     ctx.scan_history.append(result)
     if len(ctx.scan_history) > 20:
@@ -1735,6 +1747,7 @@ def _debug_batch(ctx, folder_str: str) -> None:
 
 @register("scan", "s")
 def cmd_scan(args: list[str], ctx) -> None:
+    """/scan [n | ecran | log | status | history | debug] — lire les terminaux depuis les captures d'écran ou le log SC-Datarunner."""
     if not args:
         # Nouveaux screenshots depuis le dernier scan (ou les 3 plus récents)
         results = _scan_screenshot_new(ctx, max_files=3)

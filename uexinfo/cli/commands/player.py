@@ -9,11 +9,13 @@ from uexinfo.display import colors as C
 
 
 def _save_player(ctx) -> None:
+    """Recopie le joueur dans la configuration et l'enregistre."""
     ctx.cfg["player"] = ctx.player.to_config()
     settings.save(ctx.cfg)
 
 
 def _show_info(ctx) -> None:
+    """Affiche la fiche joueur : vaisseau actif, position, destination, contexte lu dans Game.log."""
     section("Joueur")
     p = ctx.player
     from rich.table import Table
@@ -73,6 +75,7 @@ def _resolve_location(token: str, ctx) -> tuple[str, int]:
 
 @register("player", "p")
 def cmd_player(args: list[str], ctx) -> None:
+    """/player [info | ship | dest | @lieu] — fiche joueur, vaisseaux, position et destination."""
     if not args:
         _show_info(ctx)
         return

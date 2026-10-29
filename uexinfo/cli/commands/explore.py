@@ -14,6 +14,7 @@ from uexinfo.display.formatter import console, print_warn, section
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _loc(name: str) -> str:
+    """Lieu d'un nom de terminal UEX (la partie après le dernier « - »)."""
     return name.rsplit(" - ", 1)[-1].strip()
 
 
@@ -43,6 +44,7 @@ def _geo_tree(ctx) -> dict:
 # ── Niveaux d'affichage géo ────────────────────────────────────────────────────
 
 def _show_root(ctx) -> None:
+    """Affiche la racine : systèmes avec leur nombre de terminaux, puis vaisseaux et commodités."""
     section("Explorer")
     # Systèmes
     console.print(f"[bold {C.UEX}]Systèmes stellaires[/bold {C.UEX}]")
@@ -57,6 +59,7 @@ def _show_root(ctx) -> None:
 
 
 def _show_system(sys_name: str, tree: dict, ctx) -> None:
+    """Affiche les corps d'un système avec le nombre de lieux de chacun."""
     bodies = tree.get(sys_name, {})
     if not bodies:
         print_warn(f"Aucune donnée pour le système '{sys_name}'")
@@ -75,6 +78,7 @@ def _show_system(sys_name: str, tree: dict, ctx) -> None:
 
 
 def _show_body(sys_name: str, body_name: str, locs: dict, ctx) -> None:
+    """Affiche les lieux d'une planète ou orbite avec leurs types de terminaux."""
     section(f"{sys_name} › {body_name}")
     tbl = Table(show_header=False, box=None, padding=(0, 1))
     tbl.add_column(style=C.UEX, no_wrap=True)
@@ -90,6 +94,7 @@ def _show_body(sys_name: str, body_name: str, locs: dict, ctx) -> None:
 
 def _show_location(sys_name: str, body_name: str, loc_name: str, terminals: list[Terminal], ctx) -> None:
     # Si un seul terminal effectif → déléguer à /info
+    """Affiche les terminaux d'un lieu ; s'il n'y en a qu'un, ouvre directement sa fiche /info."""
     from uexinfo.cli.commands.info import _show_terminal
     if len(terminals) == 1:
         _show_terminal(terminals[0], ctx)
@@ -147,6 +152,7 @@ def _search_ships(query: str, ctx) -> list:
 
 
 def _ship_table(vehicles: list, ctx=None) -> Table:
+    """Tableau de vaisseaux : capacité, équipage, taille de pad, rôles et grilles cargo."""
     from uexinfo.data.cargo_grids import format_cargo_config
     tbl = Table(show_header=True, box=None, padding=(0, 1))
     tbl.add_column("Vaisseau",  style=C.NEUTRAL, no_wrap=True, min_width=26)
@@ -174,6 +180,7 @@ def _ship_table(vehicles: list, ctx=None) -> Table:
 
 
 def _show_ships_root(ctx) -> None:
+    """Affiche les constructeurs avec leur nombre de vaisseaux."""
     if not ctx.cache.vehicles:
         print_warn("Données vaisseaux non disponibles — lancez /refresh")
         return
@@ -193,6 +200,7 @@ def _show_ships_root(ctx) -> None:
 
 
 def _show_ships_query(query: str, ctx) -> None:
+    """Affiche les vaisseaux qui correspondent à la recherche, groupés par constructeur s'il y en a plusieurs."""
     matched = _search_ships(query, ctx)
     if not matched:
         print_warn(f"Aucun vaisseau pour '{query}'")
@@ -218,6 +226,7 @@ def _show_ships_query(query: str, ctx) -> None:
 # ── Commodités ─────────────────────────────────────────────────────────────────
 
 def _show_commodities_root(ctx) -> None:
+    """Affiche les catégories de commodités avec leur nombre."""
     section("Commodités")
     by_kind: dict[str, int] = defaultdict(int)
     for c in ctx.cache.commodities:
@@ -232,6 +241,7 @@ def _show_commodities_root(ctx) -> None:
 
 
 def _show_commodities_kind(kind_query: str, rest: list[str], ctx) -> None:
+    """Affiche une catégorie de commodités, ou la fiche d'une commodité si le nom désigne une seule."""
     from uexinfo.cli.commands.info import _show_commodity, _find_commodity
     q = kind_query.lower()
 
@@ -268,6 +278,7 @@ def _show_commodities_kind(kind_query: str, rest: list[str], ctx) -> None:
 # ── Navigateur géo ─────────────────────────────────────────────────────────────
 
 def _explore_geo(sys_name: str, parts: list[str], ctx) -> None:
+    """Parcourt la géographie : système, puis corps, puis lieu, selon le nombre de segments donnés."""
     tree = _geo_tree(ctx)
 
     # Find matching system (case-insensitive prefix)
@@ -313,6 +324,7 @@ def _explore_geo(sys_name: str, parts: list[str], ctx) -> None:
 # ── Commande principale ────────────────────────────────────────────────────────
 
 def _show_help() -> None:
+    """Affiche l'aide de /explore."""
     from uexinfo.display.formatter import section
     from uexinfo.display import colors as C
     section("Aide — /explore")

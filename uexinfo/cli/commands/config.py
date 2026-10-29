@@ -9,11 +9,17 @@ from uexinfo.display.formatter import console, print_error, print_ok, print_warn
 
 @register("ship", "sh")
 def cmd_ship(args: list[str], ctx) -> None:
+    """/ship — raccourci de /config ship (gestion des vaisseaux)."""
     _ship(args, ctx)
 
 
 @register("config", "c")
 def cmd_config(args: list[str], ctx) -> None:
+    """/config [clé [valeur]] — afficher ou modifier la configuration.
+
+    « scan.log autopos » et « scan log autopos » sont équivalents : le premier mot est
+    découpé sur les points, puis aiguillé vers la section concernée.
+    """
     if not args:
         _show(ctx.cfg, ctx)
         return
@@ -113,6 +119,7 @@ def _opacity_config(args: list[str], ctx) -> None:
 # ── Affichage ────────────────────────────────────────────────────────────────
 
 def _show(cfg: dict, ctx=None) -> None:
+    """Affiche toute la configuration, sur une à trois colonnes selon la largeur de la console."""
     section("Configuration")
     trade     = cfg.get("trade", {})
     cache_cfg = cfg.get("cache", {})
@@ -128,6 +135,7 @@ def _show(cfg: dict, ctx=None) -> None:
 
     # Affichage multi-colonnes via rich.Table (gère les markup nativement)
     def print_columns(items):
+        """Affiche les lignes en colonnes ; une chaîne vide dans `items` marque une séparation de groupe."""
         if num_columns == 1:
             for item in items:
                 console.print(item)
@@ -141,6 +149,7 @@ def _show(cfg: dict, ctx=None) -> None:
         pending: list[str] = []      # items en cours d'accumulation
 
         def _flush_pending():
+            """Range les lignes en attente par paquets de `num_columns`, complétés par des cases vides."""
             for k in range(0, len(pending), num_columns):
                 chunk = pending[k:k + num_columns]
                 while len(chunk) < num_columns:
@@ -167,6 +176,7 @@ def _show(cfg: dict, ctx=None) -> None:
 
     # Fonction pour créer des paires clé-valeur bien formatées
     def config_item(key, value, note=""):
+        """Ligne « clé: valeur » avec une note atténuée facultative."""
         note_str = f"  [{C.DIM}]{note}[/{C.DIM}]" if note else ""
         return f"[bold]{key}:[/bold] {value}{note_str}"
 
@@ -399,6 +409,7 @@ def _version_config(args: list[str], ctx) -> None:
 # ── sc-trade.tools config ────────────────────────────────────────────────────
 
 def _sctrade_config(args: list[str], ctx) -> None:
+    """/config sctrade on|off — active ou coupe les données sc-trade.tools."""
     sct = ctx.cfg.setdefault("sctrade", {})
     if not args:
         state = "on" if sct.get("enabled", True) else "off"
@@ -418,6 +429,7 @@ def _sctrade_config(args: list[str], ctx) -> None:
 # ── Historique commandes+résultats ───────────────────────────────────────────
 
 def _cmdhistory(args: list[str], ctx) -> None:
+    """/config cmdhistory <n> — nombre de commandes et résultats rejoués au démarrage de l'overlay (1 à 50)."""
     ov = ctx.cfg.setdefault("overlay", {})
     if not args:
         n = ov.get("cmdhistory", 5)
@@ -446,6 +458,7 @@ def _find_vehicle(name: str, ctx):
 
 
 def _save_player(ctx) -> None:
+    """Recopie le joueur dans la configuration et l'enregistre."""
     ctx.cfg["player"] = ctx.player.to_config()
     settings.save(ctx.cfg)
 
@@ -796,6 +809,7 @@ def _ship(args: list[str], ctx) -> None:
 # ── Trade ────────────────────────────────────────────────────────────────────
 
 def _trade(args: list[str], ctx) -> None:
+    """/config trade profit|margin|illegal <valeur> — seuils de trading."""
     if len(args) < 2:
         print_error("Usage: /config trade profit|margin|illegal <valeur>")
         return
@@ -840,14 +854,17 @@ def _clear_api(ctx) -> str:
 
 
 def _clear_missions(ctx) -> str:
+    """Efface le catalogue de missions ; renvoie le message de résultat."""
     return f"{ctx.mission_manager.clear()} mission(s) effacée(s)"
 
 
 def _clear_voyages(ctx) -> str:
+    """Efface tous les voyages ; renvoie le message de résultat."""
     return f"{ctx.voyage_manager.clear()} voyage(s) effacé(s)"
 
 
 def _clear_scans(ctx) -> str:
+    """Efface les prix scannés et l'historique des scans de la session ; renvoie le message de résultat."""
     from uexinfo.cache.scan_prices import ScanPriceStore
     n = ScanPriceStore().clear()
     ctx.last_scan = None
@@ -856,11 +873,13 @@ def _clear_scans(ctx) -> str:
 
 
 def _clear_notes(ctx) -> str:
+    """Efface toutes les notes ; renvoie le message de résultat."""
     from uexinfo.cache.notes_manager import NoteStore
     return f"{NoteStore().clear()} note(s) effacée(s)"
 
 
 def _clear_history(ctx) -> str:
+    """Efface l'historique des commandes ; renvoie le message de résultat."""
     from uexinfo.cli import history
     return f"{history.clear()} commande(s) effacée(s) de l'historique"
 
@@ -895,6 +914,7 @@ def _cache_clear(args: list[str], ctx) -> None:
 
 
 def _cache(args: list[str], ctx) -> None:
+    """/config cache ttl <secondes> | clear <type> — durée de validité du cache, ou effacement d'un type de données."""
     if not args:
         print_error("Usage: /config cache ttl <secondes>  |  /config cache clear <type>")
         return
@@ -924,6 +944,7 @@ def _cache(args: list[str], ctx) -> None:
 # ── Scan ─────────────────────────────────────────────────────────────────────
 
 def _scan(args: list[str], ctx) -> None:
+    """/config scan <clé> <valeur> — réglages du scan (mode, dossier des captures, position automatique…)."""
     if not args:
         _show(ctx.cfg, ctx)
         return
@@ -1006,6 +1027,7 @@ def _scan(args: list[str], ctx) -> None:
 # ── Overlay close ────────────────────────────────────────────────────────────
 
 def _overlay_close(args: list[str], ctx) -> None:
+    """/config close normal|dblclick — effet de la croix : fermer, ou masquer (double-clic pour fermer)."""
     if not args or args[0].lower() not in ("normal", "dblclick"):
         print_error("Usage : /config close normal|dblclick")
         console.print(f"  [{C.DIM}]normal   — ✕ ferme immédiatement la fenêtre[/{C.DIM}]")
@@ -1022,6 +1044,7 @@ def _overlay_close(args: list[str], ctx) -> None:
 
 
 def _clock(args: list[str], ctx) -> None:
+    """/config clock on|off — horloge en fond de l'overlay."""
     if not args or args[0].lower() not in ("on", "off"):
         current = ctx.cfg.get("overlay", {}).get("clock", True)
         print_error("Usage : /config clock on|off")
@@ -1161,6 +1184,7 @@ def _validate_hotkey(raw: str) -> tuple[bool, str, str]:
 
 
 def _hotkey(args: list[str], ctx) -> None:
+    """/config hotkey <touches> — raccourci global qui affiche ou masque l'overlay ; sans argument, montre le réglage et le format."""
     current = ctx.cfg.get("overlay", {}).get("hotkey", "alt+shift+u")
 
     if not args:

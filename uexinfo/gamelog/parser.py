@@ -87,6 +87,8 @@ def parse_lines(lines: list[str]) -> list[GameLogEvent]:
     events: list[GameLogEvent] = []
     for line in lines:
         ts = _parse_timestamp(line) or datetime.now()
+        # Au plus un événement par ligne : la première regex qui correspond
+        # l'emporte, l'ordre des tests ci-dessous compte.
 
         m = RE_ROUTE_START.search(line)
         if m:

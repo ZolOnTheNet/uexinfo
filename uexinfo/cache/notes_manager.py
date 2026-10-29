@@ -101,5 +101,6 @@ class NoteStore:
         )
 
     def list_by_location(self, location: str) -> list[dict]:
+        """Notes d'un lieu (sans tenir compte de la casse), triées par id."""
         loc_lo = location.lower().strip()
         return [n for n in self.list_all() if n["location"].lower().strip() == loc_lo]

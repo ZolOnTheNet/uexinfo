@@ -15,6 +15,7 @@ _OPTIONS: dict[str, tuple[str, str]] = {
 
 
 def _on_off(val: str) -> bool | None:
+    """« on/oui/1… » → True, « off/non/0… » → False, autre chose → None."""
     if val.lower() in ("on", "1", "oui", "yes", "true"):
         return True
     if val.lower() in ("off", "0", "non", "no", "false"):
@@ -23,6 +24,7 @@ def _on_off(val: str) -> bool | None:
 
 
 def _show_help() -> None:
+    """Affiche l'aide de /auto."""
     from uexinfo.display.formatter import section
     from uexinfo.display import colors as C
     section("Aide — /auto")
@@ -75,6 +77,7 @@ def cmd_auto(args: list[str], ctx) -> None:
 
 
 def _show_status(auto_cfg: dict) -> None:
+    """Affiche l'état ON/OFF de chaque automatisme."""
     from rich.table import Table
     t = Table(show_header=False, box=None, padding=(0, 2))
     t.add_column(style=f"bold {C.LABEL}", no_wrap=True)
@@ -93,5 +96,6 @@ def _show_status(auto_cfg: dict) -> None:
 
 
 def _print_state(option: str, label: str, state: bool) -> None:
+    """Affiche le nouvel état d'un automatisme après modification."""
     badge = "[bold green]ON[/bold green]" if state else "[dim]OFF[/dim]"
     console.print(f"[{C.LABEL}]auto {option}[/{C.LABEL}]  {badge}  [{C.DIM}]{label}[/{C.DIM}]")

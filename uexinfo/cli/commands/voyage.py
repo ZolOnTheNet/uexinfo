@@ -234,6 +234,7 @@ def _resolve(args: list[str], ctx) -> tuple[Voyage | None, str, list[str]]:
 # ── Affichage liste de voyages ────────────────────────────────────────────────
 
 def _cmd_list(ctx) -> None:
+    """/voyage list — tableau des voyages enregistrés, le voyage actif marqué."""
     vm = ctx.voyage_manager
     mm = ctx.mission_manager
     if not vm.voyages:
@@ -286,6 +287,7 @@ def _cmd_list(ctx) -> None:
 # ── Affichage missions d'un voyage ────────────────────────────────────────────
 
 def _cmd_show(voyage: Voyage, ctx) -> None:
+    """Affiche un voyage : départ, arrivée, étapes et missions avec leurs synergies."""
     vm = ctx.voyage_manager
     mm = ctx.mission_manager
     is_active = voyage.id == vm.active_id
@@ -375,6 +377,7 @@ def _cmd_show(voyage: Voyage, ctx) -> None:
 # ── Add missions ──────────────────────────────────────────────────────────────
 
 def _cmd_add(args: list[str], voyage: Voyage, ctx) -> None:
+    """/voyage add [id …] — ajoute des missions au voyage ; sans argument, ouvre le sélecteur du catalogue."""
     vm = ctx.voyage_manager
     mm = ctx.mission_manager
 
@@ -434,6 +437,7 @@ def _cmd_add(args: list[str], voyage: Voyage, ctx) -> None:
 # ── Remove mission ────────────────────────────────────────────────────────────
 
 def _cmd_remove(args: list[str], voyage: Voyage, ctx) -> None:
+    """/voyage remove <id …> — retire des missions du voyage."""
     vm = ctx.voyage_manager
     mm = ctx.mission_manager
     if not args:
@@ -453,6 +457,7 @@ def _cmd_remove(args: list[str], voyage: Voyage, ctx) -> None:
 # ── Suppression de voyages ────────────────────────────────────────────────────
 
 def _cmd_delete(args: list[str], ctx) -> None:
+    """/voyage delete <id | nom | --all> — supprime un voyage, ou tous."""
     vm = ctx.voyage_manager
     if not vm.voyages:
         print_warn("Aucun voyage enregistré")
@@ -541,6 +546,7 @@ _STATION_KW = {
 
 
 def _loc_is_station(loc: str) -> bool:
+    """Vrai si le nom de lieu ressemble à une station (mots-clés de `_STATION_KW`)."""
     l = loc.lower()
     return any(kw in l for kw in _STATION_KW)
 
@@ -672,6 +678,7 @@ def _select_best_subset(
     _PROG_STEP   = max(1, total_combos // 40)   # mise à jour toutes les ~2.5%
 
     class _Cancelled(Exception):
+        """Levée pour sortir de l'énumération quand le joueur annule le calcul."""
         pass
 
     try:
@@ -731,6 +738,7 @@ def _progress_done(use_tty: bool) -> None:
 
 
 def _show_calc_help(ctx=None) -> None:
+    """Affiche l'aide de /voyage calc : critères, options et réglages par défaut."""
     section("Aide — /voyage calc")
     console.print(
         f"  [{C.LABEL}]Critères :[/{C.LABEL}]\n"
@@ -894,6 +902,7 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
     to_locs = [t.lower() for t in opts["to"]]
     if to_locs:
         def _touches_to(m) -> bool:
+            """Vrai si la mission part de ou arrive à l'un des lieux de `--to`."""
             return any(
                 any(t in loc.lower() for t in to_locs)
                 for loc in m.all_sources + m.all_destinations
@@ -1004,6 +1013,7 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
         # Callback de progression
         _last_pct = [-1]
         def _prog_cb(done: int, total: int, label: str = crit_label) -> None:
+            """Avancement du calcul : barre dans le terminal ou barre de progression de l'overlay (une mise à jour par point de pourcentage)."""
             pct = int(done / total * 100)
             if pct == _last_pct[0]:
                 return
@@ -1174,6 +1184,7 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
             _sdb = None
 
         def _screenshot_path(m) -> str | None:
+            """Chemin de la capture d'origine d'une mission scannée par OCR, ou None."""
             if not _sdb or not m.source_raw or not m.source_raw.startswith("ocr:"):
                 return None
             filename = m.source_raw[4:]
@@ -1278,6 +1289,12 @@ def _cmd_save_proposal(rest: list[str], ctx) -> None:
 
 
 def _handle_save_input(raw: str, proposals: list, ctx) -> None:
+    """Traite la réponse du joueur après une proposition de voyage.
+
+    « 2 » enregistre la proposition P2 dans le voyage actif (ou un nouveau),
+    « n2 » force un nouveau voyage, « m12 » ajoute la mission 12 au voyage actif.
+    Plusieurs choix séparés par des virgules.
+    """
     mm = ctx.mission_manager
     vm = ctx.voyage_manager
     for ref in raw.split(","):
@@ -1318,6 +1335,7 @@ def _handle_save_input(raw: str, proposals: list, ctx) -> None:
 
 
 def _save_proposal_by_index(idx: int, proposals: list, ctx, force_new: bool = False) -> None:
+    """Enregistre la proposition n° `idx` : ajout au voyage actif, ou nouveau voyage « calc-<critère> »."""
     vm        = ctx.voyage_manager
     prop      = proposals[idx]
     mission_ids = [prop["missions"][i].id for i in prop["order"]]
@@ -1415,6 +1433,10 @@ def _tsp_nearest_neighbor(
     dist: dict,
 ) -> tuple[list, float]:
     """Heuristique du plus proche voisin."""
+    # Chaque mission est réduite à son premier départ et sa première arrivée.
+    # On choisit à chaque tour la mission dont le départ est le plus proche de la
+    # position courante, puis on se place à son arrivée. Une distance inconnue
+    # compte comme infinie ; si toutes le sont, on prend la mission suivante.
     remaining = list(range(len(missions)))
     order: list[int] = []
     cur = start_node
@@ -1519,6 +1541,7 @@ def _build_route_nodes(missions: list, resolved: dict) -> dict:
     nodes: dict[str, dict] = {}
 
     def _node_for(raw: str | None) -> str | None:
+        """Nœud du graphe correspondant à un lieu brut, ou None."""
         if not raw:
             return None
         return resolved.get(raw)
@@ -1583,9 +1606,11 @@ def _route_solve(
     n       = len(nd_list)
 
     def _pickup_scu(nd):
+        """SCU chargés au nœud."""
         return sum(a["scu"] for a in nodes[nd]["pickups"])
 
     def _deliver_scu(nd):
+        """SCU livrés au nœud."""
         return sum(a["scu"] for a in nodes[nd]["delivers"])
 
     best_dist  = [float("inf")]
@@ -1594,6 +1619,11 @@ def _route_solve(
     if n <= 10:
         # Backtracking avec élagage
         def _bt(cur, remaining, order, cur_dist, cur_scu):
+            """Recherche exhaustive de l'ordre de visite le plus court (récursive).
+
+            Respecte les précédences (charger avant de livrer) et la capacité du vaisseau ;
+            abandonne une branche dès qu'elle dépasse la meilleure distance trouvée.
+            """
             if not remaining:
                 if cur_dist < best_dist[0]:
                     best_dist[0] = cur_dist
@@ -1741,6 +1771,7 @@ def _active_ship(player):
 
 
 def _run_analysis(voyage: Voyage, ctx) -> None:
+    """Analyse d'un voyage : vaisseau, lieux et distances, ordre de visite optimal, suggestions de rentabilité."""
     mm = ctx.mission_manager
     missions = [m for m in (mm.get(str(mid)) for mid in voyage.mission_ids) if m]
     if not missions:
@@ -2004,6 +2035,7 @@ def _loc_terminals(loc_name: str, cache) -> list:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _player_loc(ctx) -> str | None:
+    """Position actuelle du joueur, ou None."""
     return (getattr(ctx.player, "location", None) or "").strip() or None
 
 
@@ -2016,6 +2048,7 @@ def _infer_arrival(missions) -> str | None:
 
 
 def _require_active(vm) -> bool:
+    """Vrai s'il y a un voyage actif ; sinon affiche comment en démarrer un."""
     if not vm.get_active():
         print_warn("Aucun voyage actif")
         console.print(f"[{C.DIM}]/voyage on  ou  /voyage new  pour démarrer[/{C.DIM}]")
@@ -2024,6 +2057,7 @@ def _require_active(vm) -> bool:
 
 
 def _no_active() -> None:
+    """Affiche qu'aucun voyage n'est actif et comment en démarrer un."""
     print_warn("Aucun voyage actif")
     from uexinfo.display.formatter import console as _c
     _c.print(f"[dim]/voyage on  ou  /voyage new  pour démarrer[/dim]")
@@ -2032,6 +2066,7 @@ def _no_active() -> None:
 # ── Aide ──────────────────────────────────────────────────────────────────────
 
 def _show_help() -> None:
+    """Affiche l'aide de /voyage."""
     section("Aide — /voyage")
     lines = [
         ("on [n|nom]",      "Active un voyage existant ou en crée un nouveau"),

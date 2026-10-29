@@ -118,6 +118,7 @@ def _show_info(ctx) -> None:
 # ── Nodes ──────────────────────────────────────────────────────────────────────
 
 def _list_nodes(args: list[str], ctx) -> None:
+    """/nav nodes [système] — tableau des nœuds du graphe, filtrables par système."""
     graph = ctx.cache.transport_graph
     system_filter = args[0].lower() if args else None
 
@@ -158,6 +159,7 @@ def _list_nodes(args: list[str], ctx) -> None:
 # ── Edges ──────────────────────────────────────────────────────────────────────
 
 def _list_edges(args: list[str], ctx) -> None:
+    """/nav edges [nœud] — tableau des liaisons (une seule ligne par paire, quel que soit le sens)."""
     graph = ctx.cache.transport_graph
     node_filter = " ".join(args).strip() if args else None
 
@@ -199,6 +201,7 @@ def _list_edges(args: list[str], ctx) -> None:
 # ── Jump points ────────────────────────────────────────────────────────────────
 
 def _list_jumps(ctx) -> None:
+    """/nav jumps — tableau des points de saut entre systèmes."""
     graph = ctx.cache.transport_graph
     jumps = list(graph.jump_points.values())
 
@@ -516,6 +519,7 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
             qt_entries.append(entry)
 
     def _sort_entries(entries):
+        """Destinations à distance connue d'abord (plus proches en premier), puis les autres par nom."""
         known   = sorted([(nm, d, t) for nm, d, t in entries if d is not None], key=lambda x: x[1])
         unknown = sorted([(nm, d, t) for nm, d, t in entries if d is None],     key=lambda x: x[0])
         return known + unknown
@@ -540,6 +544,7 @@ def _show_system_destinations(from_node: str, graph, ctx) -> None:
     console.print()
 
     def _print_section(entries: list, title: str | None = None) -> None:
+        """Affiche une liste de destinations en colonnes (nom + distance), autant que la largeur de la console le permet."""
         if not entries:
             return
         if title:
@@ -728,6 +733,7 @@ def _get_terminals_for_node(node_name: str, node, ctx) -> list:
 # ── Add route ──────────────────────────────────────────────────────────────────
 
 def _add_route(args: list[str], ctx) -> None:
+    """/nav add-route <de> <vers> <Gm> [quantum|ground] — ajoute une liaison manuelle (dans les deux sens)."""
     if len(args) < 3:
         print_error("Usage: /nav add-route <de> <vers> <distance_gm> [quantum|ground]")
         return
@@ -772,6 +778,7 @@ def _add_route(args: list[str], ctx) -> None:
 # ── Add jump ───────────────────────────────────────────────────────────────────
 
 def _add_jump(args: list[str], ctx) -> None:
+    """/nav add-jump <nom> <sys1> <sys2> <entrée> <sortie> [taille] — ajoute un point de saut."""
     if len(args) < 5:
         print_error("Usage: /nav add-jump <nom> <sys1> <sys2> <entrée> <sortie> [size]")
         return
@@ -801,6 +808,7 @@ def _add_jump(args: list[str], ctx) -> None:
 # ── Remove ─────────────────────────────────────────────────────────────────────
 
 def _remove_route(args: list[str], ctx) -> None:
+    """/nav remove-route <de> <vers> — retire la liaison, dans les deux sens."""
     if len(args) < 2:
         print_error("Usage: /nav remove-route <de> <vers>")
         return
@@ -822,6 +830,7 @@ def _remove_route(args: list[str], ctx) -> None:
 
 
 def _remove_jump(args: list[str], ctx) -> None:
+    """/nav remove-jump <nom> — retire un point de saut."""
     if not args:
         print_error("Usage: /nav remove-jump <nom>")
         return
@@ -846,12 +855,14 @@ def _remove_jump(args: list[str], ctx) -> None:
 # ── Save & reset ───────────────────────────────────────────────────────────────
 
 def _save_graph(ctx) -> None:
+    """/nav save — enregistre le graphe dans `uexinfo/data/transport_network.json`."""
     ctx.cache.save_transport_graph()
     print_ok("Graphe de transport sauvegardé dans uexinfo/data/transport_network.json")
     console.print(f"[{C.DIM}]Pensez à commiter ce fichier avec git[/{C.DIM}]")
 
 
 def _reset_graph(ctx) -> None:
+    """/nav raz — recharge le graphe depuis le fichier et perd les modifications non enregistrées."""
     print_warn("Cette action supprimera toutes les modifications non sauvegardées")
     ctx.cache.load_transport_graph()
     print_ok("Graphe réinitialisé depuis le fichier source")
@@ -1231,6 +1242,7 @@ def _dedup_graph(ctx) -> None:
         source_priority = {"manual": 3, "uex": 2, "calculated": 1, "community": 1, "jump_point": 2}
 
         def _edge_score(e: RouteEdge) -> tuple:
+            """Préférence entre deux liaisons en double : distance réelle, puis source la plus fiable, puis la plus récente."""
             real = 1 if e.distance_gm > 0.001 else 0
             prio = source_priority.get(e.source, 1)
             return (real, prio, e.updated_at)
@@ -1528,6 +1540,7 @@ def _show_candidates_choice(query: str, candidates: list[str], graph, ctx) -> No
 
 
 def _show_candidates(query: str, graph) -> None:
+    """Lieu non trouvé : propose les nœuds dont le nom contient les 3 premières lettres saisies."""
     q = query.lower().replace("_", " ").strip()
     node_names = list(graph.nodes.keys())
     suggestions = [n for n in node_names if q[:3] in n.lower()] if len(q) >= 3 else []
@@ -1541,6 +1554,7 @@ def _show_candidates(query: str, graph) -> None:
 
 
 def _show_nodes_hint(graph) -> None:
+    """Affiche les 15 premiers nœuds du graphe pour aider à saisir un nom."""
     node_names = sorted(graph.nodes.keys())
     if not node_names:
         console.print(f"[{C.DIM}]Aucun nœud dans le réseau — utilisez /nav add-route[/{C.DIM}]")

@@ -12,6 +12,7 @@ _registry: dict[str, Callable] = {}
 def register(*names: str):
     """Décorateur pour enregistrer un handler de commande."""
     def decorator(func: Callable) -> Callable:
+        """Inscrit la fonction sous chacun des noms (en minuscules) et la renvoie inchangée."""
         for name in names:
             _registry[name.lower()] = func
         return func
@@ -20,6 +21,11 @@ def register(*names: str):
 
 def dispatch(name: str, args: list[str], ctx: "AppContext") -> None:
     # /cmd help  →  /help cmd
+    """Exécute la commande `name` avec ses arguments.
+
+    « /cmd help » et « /cmd sous-commande help » sont redirigés vers /help ;
+    une commande inconnue affiche une erreur.
+    """
     if args and args[0].lower() in ("help", "aide", "?", "--help"):
         dispatch("help", [name] + args[1:], ctx)
         return
@@ -41,4 +47,5 @@ def dispatch(name: str, args: list[str], ctx: "AppContext") -> None:
 
 
 def get_names() -> list[str]:
+    """Tous les noms et alias de commandes enregistrés, triés."""
     return sorted(_registry.keys())

@@ -14,6 +14,7 @@ def _save_player(ctx) -> None:
 
 
 def _show_help() -> None:
+    """Affiche l'aide de /go."""
     from uexinfo.display.formatter import section
     from uexinfo.display import colors as C
     from uexinfo.display.formatter import console
@@ -100,6 +101,7 @@ def cmd_go(args: list[str], ctx) -> None:
 
 
 def _show(player) -> None:
+    """Affiche position et destination du joueur."""
     curr = player.location or "(non définie)"
     dest = player.destination or "(non définie)"
     console.print(f"  [bold]Position :[/bold]    [{C.UEX}]{curr}[/{C.UEX}]")

@@ -64,8 +64,14 @@ def ansi_to_html(raw: str) -> str:
         if m.start() > last:
             segs.append((style(), raw[last:m.start()]))
         last = m.end()
+        # Seules les séquences « ESC[…m » changent le style ; les autres
+        # (effacement, déplacement du curseur) sont simplement retirées.
         if m.group(2) != 'm':
             continue
+        # Codes SGR : 0 remet tout à zéro ; 1-4 gras, atténué, italique, souligné
+        # (22-24 les annulent) ; 30-37 et 90-97 couleur du texte, 40-47 fond,
+        # 39/49 couleur par défaut ; 38 et 48 couleur étendue, suivie de « 5;n »
+        # (palette 256) ou « 2;r;g;b » (vraie couleur), d'où la lecture des codes suivants.
         codes = [int(x) for x in m.group(1).split(';')] if m.group(1) else [0]
         ci = 0
         while ci < len(codes):

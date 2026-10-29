@@ -13,6 +13,7 @@ from uexinfo.display.formatter import console, print_error, print_info, print_ok
 
 
 def _show_help() -> None:
+    """Affiche l'aide de /refresh."""
     from uexinfo.display.formatter import section
     from uexinfo.display import colors as C
     section("Aide — /refresh")
@@ -51,6 +52,7 @@ def cmd_refresh(args: list[str], ctx) -> None:
 
 
 def _refresh_static(ctx) -> None:
+    """Retélécharge les données statiques UEX et reconstruit l'index des lieux."""
     try:
         ctx.cache.load(force=True)
     except Exception as e:
@@ -61,6 +63,7 @@ def _refresh_static(ctx) -> None:
 
 
 def _status(ctx) -> None:
+    """Affiche l'âge et le nombre d'entrées des fichiers de cache principaux."""
     data_dir = Path(appdirs.user_data_dir("uexinfo"))
     entries = {
         "commodities.json": ("Commodités",  len(ctx.cache.commodities)),

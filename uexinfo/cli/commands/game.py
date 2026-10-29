@@ -30,6 +30,7 @@ _STATE_WINDOW = 50_000   # lignes relues pour reconstruire l'état (fin du fichi
 
 
 def _path(ctx, args: list[str] | None = None) -> Path | None:
+    """Chemin du Game.log configuré, ou None (avec un message) s'il n'est pas configuré ou introuvable."""
     p = game_log_path(ctx.cfg)
     if p is None:
         print_error("Dossier du jeu non configuré — /config gamelog.install_path_live <dossier LIVE>")
@@ -41,10 +42,12 @@ def _path(ctx, args: list[str] | None = None) -> Path | None:
 
 
 def _ts(ev_ts) -> str:
+    """Heure « HH:MM:SS », ou « --:--:-- » si inconnue."""
     return ev_ts.strftime("%H:%M:%S") if ev_ts else "--:--:--"
 
 
 def _event_line(ev, raw: bool = False) -> str:
+    """Ligne d'affichage d'un événement ; (?) si son format n'est pas confirmé, `raw` ajoute la ligne d'origine."""
     mark = "" if ev.verified else f" [{C.DIM}](?)[/{C.DIM}]"
     out = f"[{C.DIM}]{_ts(ev.ts)}[/{C.DIM}]  [{C.UEX}]{ev.kind:<16}[/{C.UEX}] {ev.summary}{mark}"
     if raw:
@@ -53,6 +56,7 @@ def _event_line(ev, raw: bool = False) -> str:
 
 
 def _show_state(lines: list[str], source: str) -> None:
+    """Affiche l'état du joueur reconstitué à partir des lignes."""
     st = GameState()
     for raw in lines:
         ev = recognize(raw)
@@ -82,6 +86,7 @@ def _show_state(lines: list[str], source: str) -> None:
 
 
 def _show_events(lines: list[str], n: int, raw: bool) -> None:
+    """Affiche les `n` derniers événements reconnus."""
     evs = [ev for ev in (recognize(l) for l in lines) if ev]
     if not evs:
         print_warn("Aucun événement reconnu.")
@@ -91,6 +96,7 @@ def _show_events(lines: list[str], n: int, raw: bool) -> None:
 
 
 def _show_lines(lines: list[str], n: int, needle: str = "") -> None:
+    """Affiche les `n` dernières lignes utiles (filtrées par `needle`), avec le résumé si l'événement est reconnu."""
     needle_l = needle.lower()
     picked = [l for l in lines if l.strip() and not is_spam(l) and (not needle_l or needle_l in l.lower())][-n:]
     if not picked:
@@ -105,6 +111,7 @@ def _show_lines(lines: list[str], n: int, needle: str = "") -> None:
 
 
 def _show_stats(lines: list[str]) -> None:
+    """Affiche l'audit des reconnaisseurs (marqueur vu / reconnu) et les catégories de lignes présentes."""
     rows = audit(lines)
     section("Reconnaisseurs (marqueur vu / reconnu)")
     for r in rows:
@@ -155,6 +162,7 @@ def _extract(lines: list[str], ctx) -> None:
 
 @register("game", "gamelog", "jeu")
 def cmd_game(args: list[str], ctx) -> None:
+    """/game [events | tail | find | stats | live | stop | replay | extract] — lecteur du Game.log."""
     sub = args[0].lower() if args else ""
     rest = args[1:]
 

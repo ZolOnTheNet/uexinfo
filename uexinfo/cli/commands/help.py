@@ -964,6 +964,7 @@ _DETAILS = {
 
 @register("help", "h", "?")
 def cmd_help(args: list[str], ctx) -> None:
+    """/help [commande [sous-commande]] — aide détaillée d'un sujet, ou liste de toutes les commandes."""
     if args:
         # Essayer d'abord "cmd sub" (ex: "mission add"), puis "cmd" seul
         topic = args[0].lstrip("/").lower()

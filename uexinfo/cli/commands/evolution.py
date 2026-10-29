@@ -25,6 +25,7 @@ _CAT_LABEL = {
 
 
 def _store(ctx):
+    """Mémoire des versions du contexte, créée au premier appel."""
     store = getattr(ctx, "evolution", None)
     if store is None:
         from uexinfo.cache.evolution import EvolutionStore
@@ -54,6 +55,7 @@ def sync_price_cache(ctx) -> None:
 
 
 def _print_diff(diff: dict) -> None:
+    """Affiche les lieux ajoutés et retirés par catégorie (10 id au plus par ligne)."""
     for kind, label, color in (("added", "ajoutés", C.SUCCESS), ("removed", "retirés", C.WARNING)):
         for cat, ids in diff.get(kind, {}).items():
             console.print(f"  [{color}]{len(ids)} {_CAT_LABEL.get(cat, cat)} {label}[/{color}]"
@@ -64,6 +66,7 @@ def _print_diff(diff: dict) -> None:
 
 
 def _show(ctx) -> None:
+    """Affiche l'état : version détectée, dernier changement d'univers, question en attente, surveillance."""
     store = _store(ctx)
     st = store.state
     section("Évolution de l'univers")
@@ -89,6 +92,7 @@ def _show(ctx) -> None:
 
 @register("evolution", "scevolution")
 def cmd_evolution(args: list[str], ctx) -> None:
+    """/evolution [oui | non | check] — afficher l'état, déclarer si l'univers a changé, ou comparer les lieux UEX."""
     sub = args[0].lower() if args else ""
     store = _store(ctx)
     if not sub:
