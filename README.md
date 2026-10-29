@@ -64,7 +64,8 @@ passe par X11/XWayland, ce qui est le cas de Star Citizen sous Wine/Proton.
 Options, OCR, Game.log, emplacement des données, dépannage : [`docs/INSTALLATION.md`](docs/INSTALLATION.md).
 
 Au premier démarrage, les données statiques (terminaux, commodités, systèmes)
-sont téléchargées et mises en cache dans `~/.uexinfo/`.
+sont téléchargées et mises en cache dans le dossier de données de l'utilisateur
+(voir « Où sont les données » dans `docs/INSTALLATION.md`).
 
 ---
 
