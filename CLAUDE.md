@@ -17,6 +17,10 @@ Avant toute tâche, lire `docs/ai/NOTES.md` (objectifs, carte du code, dette vé
 ## Commands
 
 ```bash
+# Lanceurs : créent .venv et installent les dépendances au premier lancement
+scripts/uexinfolnx.sh                                   # Linux (venv --system-site-packages pour WebKitGTK)
+powershell -ExecutionPolicy Bypass -File scripts\uexinfogene.ps1   # Windows
+
 # Installer en mode éditable (activer le venv d'abord)
 pip install -e .
 
@@ -111,4 +115,5 @@ Aucun connu : nettoyé le 2026-10-29 (`route.py`, `display/result.py`, `select_e
 
 ## Known issues
 
-- Warning d'encodage Windows quand `CacheManager` imprime `✓` sur une console non-UTF8 (inoffensif).
+- Warning d'encodage Windows quand `CacheManager` imprime `✓` sur une console non-UTF8 (inoffensif ; `scripts/uexinfogene.ps1` l'évite avec `PYTHONUTF8=1`).
+- Sous Linux, l'overlay fonctionne (testé le 2026-10-29, GNOME Wayland via XWayland), sans les retouches Win32 : focus forcé et transparence DWM. Le raccourci global (pynput) ne voit que les fenêtres X11.

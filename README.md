@@ -32,35 +32,48 @@ qui exécute les commandes et renvoie l'affichage en HTML/ANSI.
 
 ---
 
-## Installation
+## Installation et lancement
+
+Un script par système prépare l'environnement Python au premier lancement
+(`.venv`, dépendances), puis lance l'overlay. Les lancements suivants sont immédiats.
 
 ### Windows
+
+Prérequis : Python 3.11 ou plus ([python.org](https://www.python.org/), case « Add python.exe to PATH »).
 
 ```powershell
 git clone https://github.com/ZolOnTheNet/uexinfo.git
 cd uexinfo
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e .
+powershell -ExecutionPolicy Bypass -File scripts\uexinfogene.ps1
 ```
+
+Pour un raccourci sur le bureau, utiliser la même commande avec le chemin complet du script.
 
 ### Linux
 
 ```bash
+sudo apt install python3-venv python3-gi gir1.2-webkit2-4.1 tesseract-ocr xclip
 git clone https://github.com/ZolOnTheNet/uexinfo.git
 cd uexinfo
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+scripts/uexinfolnx.sh
 ```
 
----
+Le raccourci global (alt+shift+u par défaut) ne répond que lorsque la fenêtre active
+passe par X11/XWayland, ce qui est le cas de Star Citizen sous Wine/Proton.
 
-## Lancement
+### Options des scripts
 
-```bash
-uexinfo              # Lance l'overlay (mode unique)
-```
+| Windows | Linux | Effet |
+|---|---|---|
+| `--hotkey f9`, `--port 8091` | idem | Options transmises à `python -m uexinfo` |
+| `-Installer` | `--installer` | Prépare l'environnement sans lancer |
+| `-Reinstaller` | `--reinstaller` | Recrée l'environnement de zéro |
+
+### Installation manuelle
+
+`pip install -e .` dans un environnement virtuel, puis `uexinfo`. Sous Linux, créer
+l'environnement avec `python3 -m venv --system-site-packages .venv` : la fenêtre a besoin
+de WebKitGTK, fourni par le système.
 
 Au premier démarrage, les données statiques (terminaux, commodités, systèmes)
 sont téléchargées et mises en cache dans `~/.uexinfo/`.

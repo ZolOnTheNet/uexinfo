@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-29** (181 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-29** (183 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -68,7 +68,7 @@ uexinfo/                         (racine du dépôt)
 │   ├── _ANNUAIRE_UEXINFO.md     ← VOUS ÊTES ICI
 │   ├── ai/                      ← notes de travail de Claude (à jour)
 │   └── archive/                 ← documents dépassés
-├── scripts/                     ← utilitaires (génération du graphe, lanceur Windows)
+├── scripts/                     ← utilitaires (génération du graphe, lanceurs Windows et Linux)
 ├── extprg/                      ← 🔒 programmes externes, presque tout hors git
 └── .claude/                     ← réglages Claude Code du projet
 ```
@@ -83,7 +83,7 @@ uexinfo/                         (racine du dépôt)
 |---|---|
 | `__init__.py` | Version du package, `build_id()` (commit git en cours). |
 | `__main__.py` | Point d'entrée unique : vérifie les dépendances (webview, pynput, websockets), lance l'overlay. |
-| `overlay/__init__.py` | Fenêtre PyWebView transparente, raccourci clavier global (Win32), remplacement d'une instance déjà lancée, `run_overlay()`. |
+| `overlay/__init__.py` | Fenêtre PyWebView transparente, raccourci clavier global (Win32, pynput hors Windows), presse-papiers, remplacement d'une instance déjà lancée, `run_overlay()`. |
 | `overlay/server.py` | Serveur WebSocket : reçoit les commandes de la page, les exécute, renvoie le HTML ; complétion, statut, confirmation des scans, suivi Game.log. Importe toutes les commandes. |
 | `overlay/static/index.html` | Toute l'interface (HTML + CSS + JS, ~4 400 lignes) : console, complétion, menus, mots cliquables, formulaires de scan. |
 
@@ -333,7 +333,9 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | Fichier | Rôle |
 |---|---|
 | `scripts/generate_locations.py` | Régénère `uexinfo/data/transport_network.json` depuis l'API UEX. |
-| `scripts/uexinfo.ps1` | Lanceur Windows (`python -m uexinfo`), chemin de Python écrit en dur. |
+| `scripts/uexinfogene.ps1` | ✅ Lanceur Windows portable : crée `.venv`, installe les dépendances au besoin, lance l'overlay. |
+| `scripts/uexinfolnx.sh` | ✅ Lanceur Linux : même rôle ; vérifie WebKitGTK et Tesseract, force XWayland sous Wayland. |
+| `scripts/uexinfo.ps1` | Lanceur Windows du poste personnel (`python -m uexinfo`), chemin de Python écrit en dur. |
 | `extprg/SC-images/Mission_remisajour.ps1` | Recopie des captures de missions avec la date du jour, pour les tests. Seul fichier suivi de `extprg/SC-images/`. |
 
 ---
@@ -375,7 +377,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 
 | Élément | Nombre |
 |---|---|
-| Fichiers suivis par git | 181 |
+| Fichiers suivis par git | 183 |
 | Fichiers Python du package `uexinfo/` | 94 |
 | Commandes (`@register`) | 25, toutes chargées |
 | Fichiers de tests | 21 (276 tests réussis au 2026-10-22) |
@@ -389,3 +391,4 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 - **2026-10-29** (suite) : 9 documents historiques déplacés dans `docs/archive/`, `.claude/.nfs*` retirés de git, `cli/opts.py` supprimé.
 - **2026-10-29** (suite) : docstrings ajoutées dans tout le code Python ; descriptions des `__init__.py` mises à jour.
 - **2026-10-29** (suite) : code mort supprimé (`route.py`, `display/result.py`, `select_editor.py`), `scripts/dev/` et dossiers vides `data/` retirés, `command_result_schema.md` archivé.
+- **2026-10-29** (suite) : lanceurs `scripts/uexinfogene.ps1` (Windows) et `scripts/uexinfolnx.sh` (Linux) ajoutés.

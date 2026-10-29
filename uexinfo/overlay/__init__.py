@@ -19,6 +19,25 @@ import time
 import uexinfo.config.settings as _settings
 
 
+def _copy_clipboard_unix(text: str) -> bool:
+    """Copie text dans le presse-papiers hors Windows : wl-copy (Wayland), sinon xclip ou xsel."""
+    import shutil
+    import subprocess
+    for cmd in (["wl-copy"], ["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]):
+        if not shutil.which(cmd[0]):
+            continue
+        try:
+            # Ces outils restent en arrière-plan pour servir le presse-papiers : pas de
+            # capture de leur sortie, sinon run() attendrait leur fin.
+            subprocess.run(cmd, input=text.encode("utf-8"), stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, timeout=8, check=True)
+            return True
+        except Exception as exc:
+            print(f"[overlay] clipboard error ({cmd[0]}): {exc}", flush=True)
+    print("[overlay] Presse-papiers indisponible : installer xclip ou wl-clipboard", flush=True)
+    return False
+
+
 def _force_focus(title: str = "UEXInfo") -> None:
     """Force le focus OS sur la fenêtre PyWebView (Windows uniquement).
 
@@ -75,6 +94,8 @@ class _WindowApi:
     def __init__(self) -> None:
         """La fenêtre est rattachée après sa création, par `set_window()`."""
         self._win = None
+        # Hors Windows, rien ne permet d'interroger la fenêtre : on retient son état.
+        self._visible = True
 
     def set_window(self, win) -> None:
         """Rattache la fenêtre PyWebView que l'API pilote."""
@@ -108,12 +129,34 @@ class _WindowApi:
         return {"w": 500, "h": 880}
 
     def hide_window(self) -> None:
-        """Masque la fenêtre (utilisé en mode close=dblclick, clic simple sur ✕)."""
+        """Masque la fenêtre (raccourci clavier, ou clic simple sur ✕ en mode close=dblclick)."""
         if self._win:
             try:
                 self._win.hide()
             except Exception:
                 pass
+        self._visible = False
+
+    def show_window(self) -> None:
+        """Réaffiche la fenêtre masquée."""
+        if self._win:
+            try:
+                self._win.show()
+            except Exception:
+                pass
+        self._visible = True
+
+    def is_visible(self) -> bool:
+        """Vrai si la fenêtre est affichée : demandé à Windows, sinon d'après le dernier masquage."""
+        if sys.platform != "win32":
+            return self._visible
+        try:
+            hwnd = ctypes.windll.user32.FindWindowW(None, "UEXInfo")
+            if hwnd:
+                return bool(ctypes.windll.user32.IsWindowVisible(hwnd))
+        except Exception:
+            pass
+        return True  # fallback prudent : on suppose visible
 
     def copy_clipboard(self, text: str) -> bool:
         """Copie text dans le presse-papiers via PowerShell Set-Clipboard.
@@ -121,9 +164,10 @@ class _WindowApi:
         Approche robuste — pas de ctypes, pas de problèmes 64-bit, gère tout Unicode.
         Appelé directement depuis JS via window.pywebview.api (pas de WebSocket).
         La donnée persiste dans le presse-papiers après la fin de PowerShell.
+        Hors Windows : voir `_copy_clipboard_unix`.
         """
         if sys.platform != "win32":
-            return False
+            return _copy_clipboard_unix(text)
         try:
             import subprocess
             # Texte transmis via stdin → pas de limite de longueur ni d'injection
@@ -372,29 +416,13 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     # ── 3. Hotkey global toggle show/hide ────────────────────────────────────
     _lock = threading.Lock()
 
-    def _win32_visible() -> bool:
-        """Interroge Win32 IsWindowVisible — source de vérité, sans flag local."""
-        try:
-            hwnd = ctypes.windll.user32.FindWindowW(None, "UEXInfo")
-            if hwnd:
-                return bool(ctypes.windll.user32.IsWindowVisible(hwnd))
-        except Exception:
-            pass
-        return True  # fallback prudent : on suppose visible
-
     def toggle():
         """Raccourci clavier : masque la fenêtre si elle est visible, sinon l'affiche et met le curseur dans la ligne de commande."""
         with _lock:
-            if _win32_visible():
-                try:
-                    window.hide()
-                except Exception:
-                    pass
+            if api.is_visible():
+                api.hide_window()
             else:
-                try:
-                    window.show()
-                except Exception:
-                    pass
+                api.show_window()
                 _force_focus()
                 threading.Timer(
                     0.12,
@@ -411,10 +439,11 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     # quand une app admin (Star Citizen) est au premier plan.
     # keyboard.Listener (WH_KEYBOARD_LL) NE fonctionne PAS dans ce cas.
     # → Pour les touches seules (F3, F9…) on utilise RegisterHotKey directement.
+    # Hors Windows, pynput gère aussi les touches seules.
     _hk_parts = [p for p in pynput_hk.split("+") if p]
     _has_modifier = any(p in ("<alt>", "<ctrl>", "<shift>", "<cmd>") for p in _hk_parts)
 
-    if not _has_modifier and len(_hk_parts) == 1:
+    if sys.platform == "win32" and not _has_modifier and len(_hk_parts) == 1:
         # Touche seule ex: <f3>, <f9> → RegisterHotKey Win32 (fonctionne même
         # quand le processus au premier plan est plus privilégié)
         _key_name = _hk_parts[0].strip("<>").lower()
@@ -434,29 +463,37 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
         est fiable. Pour width/height on prend window.width/window.height —
         même référentiel que create_window — pour éviter la dérive cumulative
         causée par le border invisible DWM (WS_THICKFRAME) ou le DPI scaling.
+        Hors Windows, tout vient de PyWebView.
         """
         try:
-            import ctypes.wintypes as _wt
-            _user32 = ctypes.windll.user32
-            _hwnd = _user32.FindWindowW(None, "UEXInfo")
-            if _hwnd and server.ctx:
+            if not server.ctx:
+                return
+            if sys.platform == "win32":
+                import ctypes.wintypes as _wt
+                _user32 = ctypes.windll.user32
+                _hwnd = _user32.FindWindowW(None, "UEXInfo")
+                if not _hwnd:
+                    return
                 _rect = _wt.RECT()
                 _user32.GetWindowRect(_hwnd, ctypes.byref(_rect))
                 # Dimensions : référentiel PyWebView (mis à jour par resize())
                 # afin d'éviter que GetWindowRect n'introduise un offset DWM/DPI
+                x, y = _rect.left, _rect.top
                 w = window.width  if (window.width  and window.width  > 50) else (_rect.right  - _rect.left)
                 h = window.height if (window.height and window.height > 50) else (_rect.bottom - _rect.top)
-                ov = server.ctx.cfg.setdefault("overlay", {})
-                ov["x"]      = _rect.left
-                ov["y"]      = _rect.top
-                ov["width"]  = w
-                ov["height"] = h
-                _settings.save(server.ctx.cfg)
-                print(
-                    f"[overlay] Géométrie sauvegardée : "
-                    f"{ov['x']},{ov['y']}  {ov['width']}×{ov['height']}",
-                    flush=True,
-                )
+            else:
+                x, y, w, h = window.x, window.y, window.width, window.height
+            ov = server.ctx.cfg.setdefault("overlay", {})
+            ov["x"]      = x
+            ov["y"]      = y
+            ov["width"]  = w
+            ov["height"] = h
+            _settings.save(server.ctx.cfg)
+            print(
+                f"[overlay] Géométrie sauvegardée : "
+                f"{ov['x']},{ov['y']}  {ov['width']}×{ov['height']}",
+                flush=True,
+            )
         except Exception as e:
             print(f"[overlay] Erreur sauvegarde géométrie : {e}", flush=True)
 
@@ -510,13 +547,10 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
                 print("[overlay] on_closing() dblclick confirmé → _shutdown", flush=True)
                 threading.Thread(target=_shutdown, daemon=False).start()
             else:
-                # Premier clic : masquer. toggle() lira IsWindowVisible → pas de flag.
+                # Premier clic : masquer ; le raccourci clavier réaffichera la fenêtre.
                 print("[overlay] on_closing() dblclick 1er clic → hide", flush=True)
                 _close_last_t[0] = now
-                try:
-                    window.hide()
-                except Exception:
-                    pass
+                api.hide_window()
             return False   # annule TOUJOURS la fermeture native en mode dblclick
         else:
             print("[overlay] on_closing() → _shutdown", flush=True)

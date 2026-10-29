@@ -92,6 +92,6 @@ Impossible de lancer l'overlay graphique dans le conteneur. Valider par les test
 ## 6. Pistes retenues (hors dette)
 
 Repris de `docs/archive/leChat_propositionAmelioration.md` (2026-04-02), vérifiés contre le code le 2026-10-29 :
-- **Script d'installation** : aucun aujourd'hui. `install.ps1` (Windows, cible principale) et `install.sh` : venv, `pip install -e .`, vérification de Tesseract (`extprg/tesseract/`). `__main__.py` vérifie déjà webview/pynput/websockets au démarrage.
+- ~~Script d'installation~~ — fait le 2026-10-29 : `scripts/uexinfogene.ps1` (Windows) et `scripts/uexinfolnx.sh` (Linux) créent `.venv`, installent les dépendances (réinstallation si `.venv` cassé ou `pyproject.toml` modifié) et lancent l'overlay. Sous Linux, `.venv` doit voir les paquets système (`gi`, WebKitGTK).
 - **CI GitHub Actions** : pas de `.github/workflows/`. Lancer `pytest` à chaque push, avec les dépendances de la section 5 (pywebview ne s'installe pas sans affichage).
 - **`/trade best`** : tri global des meilleures routes, toutes commodités confondues. Pas implémenté.

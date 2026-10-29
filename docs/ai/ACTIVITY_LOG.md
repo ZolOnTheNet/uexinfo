@@ -422,3 +422,15 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `docs/command_result_schema.md` archivé. `CLAUDE.md` corrigé : une nouvelle commande s'importe dans `overlay/server.py`, pas dans `commands/__init__.py` (c'est ce qui laissait `/route` non branché).
 - Conservés : `scripts/generate_locations.py`, `scripts/uexinfo.ps1` (commentaire corrigé), `extprg/SC-images/Mission_remisajour.ps1` (outil de test personnel).
 - 181 fichiers suivis (198 avant). `pytest` : 276 réussis ; `compileall` sans erreur ; `/note -e` vérifié à la main.
+
+## 2026-10-29 — lanceurs Windows et Linux, overlay utilisable sous Linux
+
+**Demande :** un lanceur Windows générique (`uexinfogene.ps1`) et un lanceur pour la machine Linux actuelle (`uexinfolnx.sh`).
+
+**Fait :**
+- `scripts/uexinfogene.ps1` : trouve Python 3.11+ (`py -3`, sinon `python`, en ignorant l'alias du Microsoft Store), crée `.venv` (`.venv-win` si `.venv` vient de Linux), installe les dépendances si `pyproject.toml` a changé, recrée l'environnement s'il est cassé, lance l'overlay en UTF-8. Options `-Installer`, `-Reinstaller`, le reste passe à `python -m uexinfo`. Enregistré avec BOM pour Windows PowerShell 5.1. Vérifié sous `pwsh` (Linux) avec les chemins adaptés : analyse, installation, relance sans réinstallation, reprise après suppression de pip, transmission de `--port`/`--help`.
+- `scripts/uexinfolnx.sh` : mêmes étapes ; vérifie WebKitGTK (`gi`, WebKit2 4.1/4.0) et Tesseract ; venv `--system-site-packages` (WebKitGTK vient du système) ; `GDK_BACKEND=x11` sous Wayland. L'ancien `.venv` (Python 3.12, cassé par le passage à 3.14) a été recréé par le script.
+- Code de l'overlay rendu utilisable hors Windows (`overlay/__init__.py`) : le raccourci sur une touche seule n'utilise `RegisterHotKey` que sous Windows (pynput ailleurs) ; l'état affiché/masqué est suivi par `OverlayApi` hors Windows (avant : le raccourci masquait sans jamais réafficher) ; la géométrie est sauvegardée depuis PyWebView ; le presse-papiers passe par `wl-copy`, `xclip` ou `xsel` (avant : « ✓ Copié » sans rien copier). Comportement Windows inchangé.
+- Lancement réel sous GNOME Wayland : serveur prêt, page connectée au WebSocket, géométrie sauvegardée, copie vérifiée avec `xclip`.
+- `uexinfo/widgets/` supprimé du disque (hors git : seulement des `.pyc` de l'époque Textual).
+- `pytest` installé dans `.venv` ; 276 tests réussis.
