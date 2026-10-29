@@ -772,7 +772,8 @@ class OverlayServer:
         actuelle du joueur (souvent le meilleur compromis sans détour)."""
         from uexinfo.cli.commands.info import _find_commodity, _commodity_prices, _player_system
         from uexinfo.cli.commands.trade import _is_active_sell
-        from uexinfo.cli.commands.nav import _resolve_node
+        from uexinfo.cli.choose import terminal_by_id
+        from uexinfo.cli.commands.nav import _player_node, _terminal_node
 
         ctx = self.ctx
         dest_name = (ctx.player.destination or "").strip()
@@ -782,12 +783,13 @@ class OverlayServer:
         # prix par la proximité plutôt qu'un ordre arbitraire.
         player_sys = _player_system(ctx)
         graph = ctx.cache.transport_graph
-        origin_node = _resolve_node(ctx.player.location, graph) if ctx.player.location else None
+        origin_node = _player_node(ctx, graph)
         dist_map = graph.find_all_distances(origin_node) if origin_node else {}
 
         def _proximity_key(r: dict) -> tuple:
             """Clé de tri des terminaux de vente : d'abord ceux du graphe par distance, puis ceux du même système, puis les autres."""
-            node = _resolve_node(r.get("terminal_name") or "", graph)
+            t = terminal_by_id(ctx, r.get("id_terminal") or 0)
+            node = _terminal_node(t, graph) if t is not None else None
             if node and node in dist_map:
                 return (0, dist_map[node])
             same_sys = (r.get("star_system_name") or "").lower() == player_sys
@@ -807,7 +809,8 @@ class OverlayServer:
             if not name or qty <= 0:
                 continue
 
-            c = _find_commodity(name, ctx)
+            # Pas de liste possible ici (calcul hors commande) : seul un nom sûr est accepté
+            c = _find_commodity(name, ctx, quiet=True, ask=False)
             if not c:
                 rows_out.append({"name": name, "qty": qty, "error": "commodité introuvable"})
                 dest_covers_all = False

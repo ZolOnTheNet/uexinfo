@@ -44,33 +44,24 @@ def _show_info(ctx) -> None:
     console.print(t)
 
 
-def _resolve_location(token: str, ctx) -> tuple[str, int]:
-    """Résout un token @lieu en (nom canonique, id terminal UEX ou 0).
+def _resolve_location(token: str, ctx) -> tuple[str, int] | None:
+    """Résout un token @lieu en (nom affiché, id terminal UEX ou 0), comme /go.
 
-    L'id n'est renvoyé que pour une entrée de type "terminal" (LocationIndex
-    associe déjà entity_id=terminal.id, avec la priorité de trading TDD >
-    Admin/Trade > autre déjà appliquée dans LocationIndex._build()) — un
-    système/planète/station résolu n'a pas d'id terminal exploitable pour
-    /trade, donc 0 (comme /go clear).
+    L'id n'est renvoyé que pour un terminal : une planète ou un système n'a pas
+    d'id terminal exploitable pour /trade, donc 0. None si introuvable ou annulé
+    (un nom inconnu n'est jamais enregistré tel quel, D11).
+    Les underscores viennent de la complétion @lieu (« @TDD_-_Area_18 »).
     """
-    # Les underscores viennent de la complétion @lieu ("@TDD_-_Area_18") et
-    # doivent redevenir des espaces avant la recherche — sinon le fuzzy
-    # search de LocationIndex opère sur une chaîne truffée d'underscores et
-    # peut renvoyer un tout autre lieu au score plus élevé (vérifié en vrai :
-    # "@TDD_-_Cloudview_Center_-_Orison" résolvait vers une boutique sans
-    # rapport plutôt que le terminal TDD visé).
     query = token.lstrip("@").replace("_", " ")
+    from uexinfo.cache.models import Terminal
+    from uexinfo.cli.commands.go import _resolve
     from uexinfo.display.formatter import terminal_short_name
-    from uexinfo.names import resolve
-    r = resolve(ctx, query, kinds={"system", "planet", "terminal"})
-    best = r.best
-    if best is not None:
-        if r.matches[0].entity.kind == "terminal":
-            from uexinfo.names import trading_terminal
-            best = trading_terminal(ctx.cache.terminals, best)
-            return terminal_short_name(best.name), best.id
-        return best.name, 0
-    return query, 0  # fallback : utiliser tel quel, id inconnu
+    obj = _resolve(query, ctx)   # même choix que /go (règle 3, D11) ; None si introuvable
+    if obj is None:
+        return None
+    if isinstance(obj, Terminal):
+        return terminal_short_name(obj.name), obj.id
+    return obj.name, 0
 
 
 @register("player", "p")
@@ -89,7 +80,10 @@ def cmd_player(args: list[str], ctx) -> None:
 
     # /player @lieu  — définir position (supporte noms avec espaces)
     if sub.startswith("@"):
-        loc, loc_id = _resolve_location(" ".join(args), ctx)
+        place = _resolve_location(" ".join(args), ctx)
+        if place is None:
+            return
+        loc, loc_id = place
         ctx.player.set_location(loc, loc_id)
         _save_player(ctx)
         print_ok(f"Position : {loc}")
@@ -101,7 +95,10 @@ def cmd_player(args: list[str], ctx) -> None:
         if not rest or not rest[0].startswith("@"):
             print_error("Usage : /player dest @<lieu>")
             return
-        loc, loc_id = _resolve_location(" ".join(rest), ctx)
+        place = _resolve_location(" ".join(rest), ctx)
+        if place is None:
+            return
+        loc, loc_id = place
         ctx.player.set_destination(loc, loc_id)
         _save_player(ctx)
         print_ok(f"Destination : {loc}")

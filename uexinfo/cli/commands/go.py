@@ -33,12 +33,10 @@ def _show_help() -> None:
     )
 
 
-def _lookup_terminal_id(resolved_name: str, ctx) -> int:
-    """Retourne l'ID du terminal dont le nom canonique correspond exactement, ou 0."""
-    for t in ctx.cache.terminals:
-        if t.name == resolved_name:
-            return t.id
-    return 0
+def _place(obj) -> tuple[str, int]:
+    """(nom, id terminal) à enregistrer pour un lieu choisi ; id 0 pour une planète ou un système."""
+    from uexinfo.cache.models import Terminal
+    return obj.name, (obj.id if isinstance(obj, Terminal) else 0)
 
 
 @register("go", "g", "lieu")
@@ -71,33 +69,33 @@ def cmd_go(args: list[str], ctx) -> None:
         if not name:
             print_error("Spécifie un lieu")
             return
-        resolved = _resolve(name, ctx)
-        if resolved is None:
+        obj = _resolve(name, ctx)
+        if obj is None:
             return
-        ctx.player.set_location(resolved, _lookup_terminal_id(resolved, ctx))
+        ctx.player.set_location(*_place(obj))
         _save_player(ctx)
-        print_ok(f"Position : {resolved}")
+        print_ok(f"Position : {obj.name}")
 
     elif sub == "to":
         name = " ".join(args[1:])
         if not name:
             print_error("Spécifie un lieu")
             return
-        resolved = _resolve(name, ctx)
-        if resolved is None:
+        obj = _resolve(name, ctx)
+        if obj is None:
             return
-        ctx.player.set_destination(resolved, _lookup_terminal_id(resolved, ctx))
+        ctx.player.set_destination(*_place(obj))
         _save_player(ctx)
-        print_ok(f"Destination : {resolved}")
+        print_ok(f"Destination : {obj.name}")
 
     else:
         name = " ".join(args)
-        resolved = _resolve(name, ctx)
-        if resolved is None:
+        obj = _resolve(name, ctx)
+        if obj is None:
             return
-        ctx.player.set_location(resolved, _lookup_terminal_id(resolved, ctx))
+        ctx.player.set_location(*_place(obj))
         _save_player(ctx)
-        print_ok(f"Position : {resolved}")
+        print_ok(f"Position : {obj.name}")
 
 
 def _show(player) -> None:
@@ -108,45 +106,37 @@ def _show(player) -> None:
     console.print(f"  [bold]Destination :[/bold] [{C.UEX}]{dest}[/{C.UEX}]")
 
 
-def _resolve(name: str, ctx) -> str | None:
-    """Résout un nom de lieu vers le nom canonique UEX (résolveur unique, uexinfo/names).
+def _resolve(name: str, ctx):
+    """Lieu désigné par `name` : terminal, planète ou système, choisi selon la règle 3 (D11).
 
-    Retourne le nom résolu, ou None si l'utilisateur a annulé la sélection.
-    Retourne le nom brut si le lieu n'est pas dans le cache (Pyro, etc.).
-    Un lieu donne son terminal principal (Admin > TDD > centre cargo) ; un picker
-    n'est affiché qu'en cas de vraie égalité (ex: deux Nyx Gateway).
+    Terminaux, planètes et systèmes ensemble : le niveau de correspondance départage
+    (« hurston » = la planète, pas « Hurston Dynamics Showcase »). Un nom de lieu donne
+    ses terminaux de commerce ; un terminal sans commerce (boutique) est remplacé par
+    celui de son lieu. Plusieurs candidats ⇒ liste. Un nom inconnu n'est jamais
+    enregistré tel quel. Renvoie None si introuvable ou annulé.
     """
-    from uexinfo.cache.data_manager import _loc_short
-    from uexinfo.names import SUBSTRING, resolve
+    from uexinfo.cache.models import Terminal
+    from uexinfo.cli.choose import choose
+    obj = choose(ctx, name, {"terminal", "planet", "system"}, what="Lieu")
+    if not isinstance(obj, Terminal) or (obj.type or "") == "commodity":
+        return obj
+    return _trade_terminal_of(obj, ctx)
 
-    # Terminaux, planètes et systèmes ensemble : le niveau de correspondance
-    # départage (« hurston » = la planète, pas « Hurston Dynamics Showcase »).
-    r = resolve(ctx, name, kinds={"terminal", "planet", "system"}, min_level=SUBSTRING)
-    if r.matches and not r.ambiguous:
-        if r.matches[0].entity.kind == "terminal":
-            from uexinfo.names import trading_terminal
-            return trading_terminal(ctx.cache.terminals, r.best).name
-        return r.best.name
-    if r.ambiguous:
-        from uexinfo.cli.selector import SelectItem, pick
-        items = [
-            SelectItem(label=_loc_short(t.name), value=t, meta=t.star_system_name or "")
-            for t in r.candidates[:20]
-        ]
-        chosen = pick(ctx, items, title=f"Destination — «{name}»", mode="single")
-        if chosen:
-            return chosen[0].value.name
-        # CLI : afficher la liste et demander de préciser
-        console.print(f"[{C.WARNING}]Plusieurs lieux correspondent à «{name}» — précisez :[/{C.WARNING}]")
-        for it in items:
-            meta = f"  [{C.DIM}]{it.meta}[/{C.DIM}]" if it.meta else ""
-            console.print(f"  [{C.UEX}]{it.label}[/{C.UEX}]{meta}")
-        return None
 
-    # Inconnu (Pyro, lieu perso) → accepter tel quel avec avertissement
-    from uexinfo.display.formatter import print_warn
-    print_warn(f"Lieu «{name}» non trouvé dans le cache — accepté tel quel")
-    return name
+def _trade_terminal_of(t, ctx):
+    """Terminal de commerce ouvert du lieu de la boutique `t` (liste s'il y en a
+    plusieurs) ; `t` lui-même si le lieu n'en a aucun."""
+    from uexinfo.cli.choose import decide
+    from uexinfo.names import EXACT, Match, Resolution, get_index, terminal_group, terminal_priority
+    key = terminal_group(t)
+    same = sorted((x for x in ctx.cache.terminals or []
+                   if (x.type or "") == "commodity" and getattr(x, "is_available", 1) != 0
+                   and terminal_group(x) == key), key=terminal_priority)
+    if not same:
+        return t
+    idx = get_index(ctx)
+    r = Resolution([Match(e, EXACT, 100.0) for x in same if (e := idx.by_ref("terminal", x.id))])
+    return decide(ctx, r, t.name, title="Terminal de commerce") if r.matches else t
 
 
 @register("arriver", "arrivé", "arrive", "arrived")
@@ -175,9 +165,9 @@ def cmd_dest(args: list[str], ctx) -> None:
         print_ok("Destination effacée")
         return
     name = " ".join(args)
-    resolved = _resolve(name, ctx)
-    if resolved is None:
+    obj = _resolve(name, ctx)
+    if obj is None:
         return
-    ctx.player.set_destination(resolved, _lookup_terminal_id(resolved, ctx))
+    ctx.player.set_destination(*_place(obj))
     _save_player(ctx)
-    print_ok(f"Destination : {resolved}")
+    print_ok(f"Destination : {obj.name}")

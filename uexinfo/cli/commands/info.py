@@ -328,28 +328,23 @@ def _dot_name(
 
 
 def _player_system(ctx) -> str:
-    """Retourne le système du joueur en minuscules, ou ''."""
-    loc = ctx.player.location or ""
+    """Retourne le système du joueur en minuscules, ou ''.
+
+    Position = terminal : retrouvé par son identifiant (D11, jamais par son nom).
+    Position = planète ou système : son nom exact.
+    """
+    from uexinfo.cli.choose import position_terminal as _pos
+    t = _pos(ctx)
+    if t is not None:
+        return (t.star_system_name or "").lower()
+    loc = (ctx.player.location or "").strip()
     if not loc:
         return ""
-    # player.location est toujours un nom de terminal complet (posé par /go via
-    # _find_terminal) — comparer directement contre les terminaux AVANT tout
-    # fuzzy search : LocationIndex.search() indexe les terminaux sous leur nom
-    # court (sans préfixe "Admin - "/"TDD - "), donc lui passer le nom complet
-    # ne matche jamais ni en préfixe ni en sous-chaîne, et retombe sur un
-    # fuzzy match n'importe quoi (des SYSTÈMES sans rapport, ex: "Odin" pour
-    # "Admin - CRU-L1") — bug vérifié en vrai, faussait le tri "système du
-    # joueur en tête" de /trade.
-    loc_lower = loc.lower()
-    for t in ctx.cache.terminals:
-        if t.name.lower() == loc_lower or _loc(t.name).lower() == _loc(loc).lower():
-            return t.star_system_name.lower()
-    entries = (
-        ctx.location_index.search(loc, limit=1, types={"terminal"})
-        if ctx.location_index else []
-    )
-    if entries:
-        return entries[0].full_path.split(".")[0].lower()
+    from uexinfo.names import get_index
+    found = get_index(ctx).exact(loc, {"planet", "system"})
+    if len(found) == 1:
+        o = found[0].obj
+        return (getattr(o, "star_system_name", "") or o.name).lower()
     return ""
 
 
@@ -1708,11 +1703,9 @@ def _player_cargo(ctx) -> int:
 
 
 def _player_terminal(ctx):
-    """Retourne le Terminal correspondant à la position du joueur, ou None."""
-    loc = (ctx.player.location or "").strip()
-    if not loc:
-        return None
-    return _find_terminal(loc, ctx)
+    """Retourne le Terminal de la position du joueur (par son identifiant), ou None."""
+    from uexinfo.cli.choose import position_terminal as _pos
+    return _pos(ctx)
 
 
 def _dist_label(term_name: str, terminal_sys: str, player_sys: str,
@@ -2281,17 +2274,17 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
 
 # ── Recherche — délègue au résolveur unique (uexinfo/names, décision D6) ──────
 
+from uexinfo.cli.choose import choose as _choose, decide as _decide, position_terminal
 from uexinfo.names import PREFIX as _PREFIX, SUBSTRING as _SUBSTRING
 from uexinfo.names import resolve as _resolve_name, terminal_priority as _trading_priority
 
 
-def _find_terminal(query: str, ctx, strong: bool = False) -> Terminal | None:
-    """Terminal le plus proche de `query` (notation pointée, nom, code, lieu → terminal
-    principal). strong=True : exact ou préfixe seulement — utilisé en recherche libre
-    pour ne pas écraser une commodité homonyme (« scrap » vs « Devlin Scrap … »)."""
-    r = _resolve_name(ctx, query, kinds={"terminal"},
-                      min_level=_PREFIX if strong else _SUBSTRING)
-    return r.best
+def _find_terminal(query: str, ctx, quiet: bool = False) -> Terminal | None:
+    """Terminal désigné par `query` (référence #terminal:id, notation pointée, nom, code,
+    lieu → ses terminaux de commerce), choisi selon la règle 3 (D11) : plusieurs
+    candidats ou faute de frappe ⇒ liste au joueur. None si introuvable ou annulé
+    (message affiché, sauf `quiet` pour un introuvable)."""
+    return _choose(ctx, query, {"terminal"}, what="Terminal", quiet=quiet)
 
 
 def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
@@ -2300,14 +2293,15 @@ def _find_terminal_candidates(query: str, ctx) -> list[Terminal]:
     return r.candidates
 
 
-def _find_commodity(query: str, ctx) -> Commodity | None:
-    """Commodité la plus proche (achetable préférée à une fiche parente)."""
-    return _resolve_name(ctx, query, kinds={"commodity"}, min_level=_SUBSTRING).best
+def _find_commodity(query: str, ctx, quiet: bool = False, ask: bool = True) -> Commodity | None:
+    """Commodité désignée par `query` (achetable préférée à une fiche parente), règle 3 (D11).
+    `ask=False` : sans personne pour choisir (tâche de fond), seul un candidat sûr est rendu."""
+    return _choose(ctx, query, {"commodity"}, what="Commodité", quiet=quiet, ask=ask)
 
 
-def _find_vehicle(query: str, ctx) -> Vehicle | None:
-    """Vaisseau (nom court, nom complet, « drak.cutlass », flou en dernier recours)."""
-    return _resolve_name(ctx, query, kinds={"vehicle"}).best
+def _find_vehicle(query: str, ctx, quiet: bool = False) -> Vehicle | None:
+    """Vaisseau (nom court, nom complet, « drak.cutlass »), règle 3 (D11)."""
+    return _choose(ctx, query, {"vehicle"}, what="Vaisseau", quiet=quiet)
 
 
 def _show_commodity_list(args: list[str], ctx) -> None:
@@ -2444,16 +2438,16 @@ def _show_terminal_by_name(query: str, ctx, sys_filter=None) -> bool:
 def _info_reset_cache(args: list[str], sub: str, ctx) -> None:
     """Invalide le cache de prix d'un terminal et recharge immédiatement."""
     query = " ".join(args).replace("_", " ").strip()
-    if not query:
-        loc = (ctx.player.location or "").strip().replace("_", " ")
-        if loc:
-            query = loc
-        else:
+    if query:
+        t = _find_terminal(query, ctx)
+        if t is None:
+            return
+    else:
+        t = position_terminal(ctx)
+        if t is None:
             print_warn(f"Usage : /info {sub} <nom_terminal>")
             return
-
-    # Résoudre le terminal (fort puis souple)
-    t = _find_terminal(query, ctx, strong=True) or _find_terminal(query, ctx)
+        query = t.name
 
     # Construire toutes les clés de cache possibles pour ce terminal
     q_lo = query.lower()
@@ -2503,17 +2497,14 @@ def _info_reset_scan(args: list[str], ctx) -> None:
         query = args[0].replace("_", " ").strip()
         if len(args) > 1:
             commodity_q = " ".join(args[1:]).replace("_", " ").strip()
-    if not query:
-        loc = (ctx.player.location or "").strip().replace("_", " ")
-        if loc:
-            query = loc
-        else:
+    if query:
+        t = _find_terminal(query, ctx)
+    else:
+        t = position_terminal(ctx)
+        if t is None:
             print_warn("Usage : /info reset-scan <terminal> [commodité]")
             return
-
-    t = _find_terminal(query, ctx, strong=True) or _find_terminal(query, ctx)
     if not t:
-        print_warn(f"Terminal introuvable : {query}")
         return
 
     store       = ScanPriceStore()
@@ -2558,15 +2549,13 @@ def cmd_info(args: list[str], ctx) -> None:
     sys_filter, args = _parse_sys_filter(args, player_sys)
 
     if not args:
-        loc = (ctx.player.location or "").strip()
-        if not loc:
-            print_warn("Usage : /info <nom>   ou   /info terminal|commodity <nom>")
-            return
-        t = _find_terminal(loc, ctx)
+        t = position_terminal(ctx)
         if t:
             _show_terminal(t, ctx, sys_filter=sys_filter)
-        elif not _show_terminal_by_name(loc, ctx, sys_filter=sys_filter):
-            print_warn(f"Position actuelle introuvable comme terminal : {loc}")
+        elif (ctx.player.location or "").strip():
+            print_warn(f"La position actuelle n'est pas un terminal : {ctx.player.location}")
+        else:
+            print_warn("Usage : /info <nom>   ou   /info terminal|commodity <nom>")
         return
 
     _SUBS = {"terminal", "commodity", "ship"}
@@ -2589,12 +2578,11 @@ def cmd_info(args: list[str], ctx) -> None:
         from uexinfo.cli.commands.scan import _scan_edit
         terminal_args = args[1:]
         if not terminal_args:
-            loc = (ctx.player.location or "").strip()
-            if loc:
-                terminal_args = [loc]
-            else:
+            t = position_terminal(ctx)
+            if t is None:
                 print_warn("Usage : /info --edit <terminal>")
                 return
+            terminal_args = [t.name]
         _scan_edit(terminal_args, ctx)
         return
 
@@ -2605,33 +2593,23 @@ def cmd_info(args: list[str], ctx) -> None:
             return
         if first == "terminal":
             t = _find_terminal(query, ctx)
-            if t is None:
-                print_warn(f"Terminal introuvable : {query}")
-            else:
+            if t is not None:
                 _show_terminal(t, ctx, sys_filter=sys_filter)
         elif first == "commodity":
             c = _find_commodity(query, ctx)
-            if c is None:
-                print_warn(f"Commodité introuvable : {query}")
-            else:
+            if c is not None:
                 _show_commodity(c, ctx, sys_filter=sys_filter)
         else:
             # "ship" est aussi le début de noms de commodités ("Ship Ammunition",
             # "Ship Decoy Countermeasures"…) — vérifier terminal/commodité sur la
-            # requête complète avant de forcer une recherche véhicule.
+            # requête complète (nom exact ou début de nom) avant le véhicule.
             full_query = f"{first} {query}"
-            c = _find_commodity(full_query, ctx)
-            if c is not None:
-                _show_commodity(c, ctx, sys_filter=sys_filter)
-                return
-            t = _find_terminal(full_query, ctx, strong=True)
-            if t is not None:
-                _show_terminal(t, ctx, sys_filter=sys_filter)
+            r = _resolve_name(ctx, full_query, kinds={"commodity", "terminal"}, min_level=_PREFIX)
+            if r.matches:
+                _show_found(_decide(ctx, r, full_query), ctx, sys_filter)
                 return
             v = _find_vehicle(query, ctx)
-            if v is None:
-                print_warn(f"Vaisseau introuvable : {query}")
-            else:
+            if v is not None:
                 _show_vehicle(v, ctx)
         return
 
@@ -2641,32 +2619,29 @@ def cmd_info(args: list[str], ctx) -> None:
     if query.startswith("@"):
         query = query[1:].rsplit(".", 1)[-1]
 
-    # Priorité : terminal exact/préfixe > commodité > terminal "contient" > API > vaisseau
-    # On ne fait pas le match "contient" des terminaux en premier pour éviter
-    # qu'un nom de terminal comme "Devlin Scrap and Salvage" écrase la commodité "Scrap".
-    t = _find_terminal(query, ctx, strong=True)
-    if t:
-        _show_terminal(t, ctx, sys_filter=sys_filter)
+    # Terminaux, commodités et vaisseaux ensemble : le niveau de correspondance
+    # départage (« scrap » = la commodité Scrap, nom exact, et pas « Devlin Scrap and
+    # Salvage » qui ne fait que le contenir). Égalité ou faute de frappe ⇒ liste (D11).
+    r = _resolve_name(ctx, query, kinds={"terminal", "commodity", "vehicle"},
+                      prefer_system=player_sys)
+    if r.matches:
+        _show_found(_decide(ctx, r, query), ctx, sys_filter)
         return
-    c = _find_commodity(query, ctx)
-    if c:
-        _show_commodity(c, ctx, sys_filter=sys_filter)
-        return
-    # Fallback : terminal hors cache (Pyro, etc.) → requête directe par nom
+    # Terminal hors cache (Pyro, etc.) → requête directe par nom
     if _show_terminal_by_name(query, ctx, sys_filter=sys_filter):
-        return
-    # Fallback : terminal match "contient" (ex: "devlin scrap" → Devlin Scrap and Salvage)
-    t = _find_terminal(query, ctx)
-    if t:
-        _show_terminal(t, ctx, sys_filter=sys_filter)
-        return
-    # Fallback : vaisseau
-    v = _find_vehicle(query, ctx)
-    if v:
-        _show_vehicle(v, ctx)
         return
 
     console.print(
         f"[{C.DIM}]Rien trouvé pour « {query} »"
         f"  —  les commandes commencent par /  (ex: /help)[/{C.DIM}]"
     )
+
+
+def _show_found(obj, ctx, sys_filter) -> None:
+    """Affiche la fiche de l'objet choisi (terminal, commodité ou vaisseau) ; rien si None."""
+    if isinstance(obj, Terminal):
+        _show_terminal(obj, ctx, sys_filter=sys_filter)
+    elif isinstance(obj, Commodity):
+        _show_commodity(obj, ctx, sys_filter=sys_filter)
+    elif isinstance(obj, Vehicle):
+        _show_vehicle(obj, ctx)

@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-29** (184 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-29** (186 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -26,6 +26,7 @@
 | **Protocole WebSocket overlay ↔ page** | `uexinfo/overlay/server.py` (`_dispatch`) |
 | **L'interface (HTML/JS)** | `uexinfo/overlay/static/index.html` |
 | **Reconnaître un nom (lieu, terminal, commodité…)** | `uexinfo/names/resolver.py` — **seul endroit autorisé** (décision D6) |
+| **Choisir un objet saisi par le joueur (accepter, lister, proposer)** | `uexinfo/cli/choose.py` (décision D11) ; références `#type:id` : `uexinfo/names/refs.py` |
 | **Prix fusionnés UEX + scans joueur** | `uexinfo/cache/data_manager.py` |
 | **Règles métier (stock, risque, versions)** | `uexinfo/rules/` + `docs/ai/DECISIONS.md` |
 | **Lire le Game.log** | `uexinfo/gamelog/` + `docs/ai/GAMELOG_SPEC.md` |
@@ -97,6 +98,7 @@ uexinfo/                         (racine du dépôt)
 | `cli/runner.py` | Chaîne d'exécution : normalisation → `parser.py` → `dispatch()`. |
 | `cli/parser.py` | Découpe `/cmd args` en `(nom, [args])` avec `shlex`. |
 | `cli/selector.py` | Sélecteur générique (choix entre homonymes…), affiché par l'overlay via `ctx.select_fn`. |
+| `cli/choose.py` | Règle 3 de D11 : un candidat sûr accepté, plusieurs ⇒ liste, faute de frappe ⇒ proposition ; position et destination du joueur retrouvées par identifiant. |
 | `cli/completer_data.py` | Données de complétion : sous-commandes et aides par commande. |
 | `cli/history.py` | Historique persistant des commandes (`history.jsonl`). |
 
@@ -160,7 +162,8 @@ uexinfo/                         (racine du dépôt)
 |---|---|
 | `names/__init__.py` | Point d'entrée `resolve()`. Toute recherche par nom passe par ici. |
 | `names/normalize.py` | Normalisation unique des noms (saisie, OCR, UEX). |
-| `names/resolver.py` | Résolveur : lieux, terminaux, commodités, vaisseaux, nœuds du graphe ; homonymes. |
+| `names/resolver.py` | Résolveur : lieux, terminaux, commodités, vaisseaux, nœuds du graphe ; homonymes ; références `#type:id`. |
+| `names/refs.py` | Références d'objets `#type:id` et liens `uex:type:id` (décision D11). |
 
 ### Règles métier — `rules/` (pures, sans I/O, chacune testée)
 
@@ -379,8 +382,8 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 
 | Élément | Nombre |
 |---|---|
-| Fichiers suivis par git | 184 |
-| Fichiers Python du package `uexinfo/` | 94 |
+| Fichiers suivis par git | 186 |
+| Fichiers Python du package `uexinfo/` | 96 |
 | Commandes (`@register`) | 25, toutes chargées |
 | Fichiers de tests | 21 (276 tests réussis au 2026-10-22) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
@@ -395,3 +398,4 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 - **2026-10-29** (suite) : code mort supprimé (`route.py`, `display/result.py`, `select_editor.py`), `scripts/dev/` et dossiers vides `data/` retirés, `command_result_schema.md` archivé.
 - **2026-10-29** (suite) : lanceurs `scripts/uexinfogene.ps1` (Windows) et `scripts/uexinfolnx.sh` (Linux) ajoutés.
 - **2026-10-29** (suite) : `docs/INSTALLATION.md` créé.
+- **2026-10-29** (suite) : `names/refs.py` et `cli/choose.py` ajoutés (décision D11).

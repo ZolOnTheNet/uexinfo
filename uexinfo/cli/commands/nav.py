@@ -233,7 +233,19 @@ def _list_jumps(ctx) -> None:
 # ── Route finding ──────────────────────────────────────────────────────────────
 
 def _find_route(args: list[str], ctx) -> None:
+    """Calcule le chemin entre deux lieux (voir `_find_route_impl`) ; une liste de choix
+    annulée arrête la commande sans autre message."""
+    try:
+        _find_route_impl(args, ctx)
+    except _Cancelled:
+        pass
+
+
+def _find_route_impl(args: list[str], ctx) -> None:
     """Calcule le chemin entre deux lieux.
+
+    Départ et arrivée ne sont jamais devinés (D11) : position et destination du joueur
+    par leur identifiant, saisie choisie selon la règle 3 (liste si plusieurs candidats).
 
     Syntaxes :
       /nav                       → toutes destinations du système courant
@@ -259,9 +271,9 @@ def _find_route(args: list[str], ctx) -> None:
             console.print(f"[{C.DIM}]💡 Conseil : /go <lieu> pour définir votre position, puis /nav[/{C.DIM}]")
             return
 
-        from_node = _resolve_node(loc, graph, _sys)
+        from_node = _player_node(ctx, graph)
         if not from_node and force_req:
-            from_node = _auto_add_from_uex(loc, graph, ctx)
+            from_node = _auto_add_from_uex(_expand_alias("@local", ctx), graph, ctx)
         if not from_node:
             print_warn(f"Position [{C.LABEL}]{loc}[/{C.LABEL}] absente du graphe")
             console.print(f"[{C.DIM}]→ /nav --req   pour fetcher les distances UEX[/{C.DIM}]")
@@ -282,16 +294,16 @@ def _find_route(args: list[str], ctx) -> None:
 
         # Wildcard ou multi-dest sans mot-clé "to" (ex: /route cru-*, /route l1,l2)
         if "*" in to_raw or "," in to_raw:
-            dest_nodes = _parse_destinations(to_raw, graph, ctx)
+            dest_nodes = _parse_destinations(to_raw, graph, ctx, _sys)
             if not dest_nodes:
                 print_error(f"Destination(s) introuvable(s) : {to_raw!r}")
                 _show_candidates(to_raw.split(",")[0].strip().replace("*", ""), graph)
                 return
             loc = (getattr(ctx.player, "location", None) or "").strip()
             from_loc = loc
-            from_node = _resolve_node(loc, graph, _sys) if loc else None
+            from_node = _player_node(ctx, graph) if loc else None
             if not from_node:
-                from_node = _auto_add_from_uex(loc, graph, ctx) if loc else None
+                from_node = _auto_add_from_uex(_expand_alias("@local", ctx), graph, ctx) if loc else None
             if not from_node:
                 print_error("Position courante non définie — utilisez /go <lieu>")
                 return
@@ -306,14 +318,10 @@ def _find_route(args: list[str], ctx) -> None:
             return
 
         to_loc   = to_raw
-        to_node  = _resolve_node(to_loc, graph, _sys)
+        # Plusieurs candidats ou faute de frappe : liste au joueur (règle 3)
+        to_node  = _pick_node(to_loc, graph, ctx, _sys)
 
-        # Si le lieu saisi ne résout pas en nœud → chercher des candidats
         if not to_node:
-            candidates = _find_candidates(to_loc, graph)
-            if candidates:
-                _show_candidates_choice(to_loc, candidates, graph, ctx)
-                return
             # Tentative d'enrichissement UEX
             to_node = _auto_add_from_uex(to_loc, graph, ctx)
             if not to_node:
@@ -323,7 +331,7 @@ def _find_route(args: list[str], ctx) -> None:
 
         # Si to_node correspond à @local → mode "toutes destinations depuis ce nœud"
         loc = (getattr(ctx.player, "location", None) or "").strip()
-        from_node_local = _resolve_node(loc, graph, _sys) if loc else None
+        from_node_local = _player_node(ctx, graph) if loc else None
 
         if to_node == from_node_local or not loc:
             # L'utilisateur a tapé son propre lieu, ou pas de position définie
@@ -336,7 +344,7 @@ def _find_route(args: list[str], ctx) -> None:
         from_loc = loc
         from_node = from_node_local
         if not from_node:
-            from_node = _auto_add_from_uex(loc, graph, ctx)
+            from_node = _auto_add_from_uex(_expand_alias("@local", ctx), graph, ctx)
 
     # ── Cas 2+ : split heuristique (logique existante) ────────────────────────
     else:
@@ -355,10 +363,10 @@ def _find_route(args: list[str], ctx) -> None:
                 print_error("Position courante non définie — utilisez /go <lieu>")
                 return
 
-            from_node = _resolve_node(from_loc, graph, _sys)
+            from_node = _pick_node(from_loc, graph, ctx, _sys)
 
             # Résoudre destination(s) — virgules + wildcards
-            dest_nodes = _parse_destinations(to_raw, graph, ctx)
+            dest_nodes = _parse_destinations(to_raw, graph, ctx, _sys)
             if not dest_nodes:
                 print_error(f"Destination(s) introuvable(s) : {to_raw!r}")
                 _show_candidates(to_raw.split(",")[0].strip(), graph)
@@ -379,34 +387,24 @@ def _find_route(args: list[str], ctx) -> None:
                 to_node = dest_nodes[0]   # déjà résolu par _parse_destinations
                 to_loc  = to_node
         else:
-            # Essayer de droite à gauche
-            for split in range(len(args_exp) - 1, 0, -1):
+            # Sans « to » : découpage où chaque moitié désigne un lieu autrement que
+            # par ressemblance — de droite à gauche, puis de gauche à droite. Deux
+            # mots seuls = départ et arrivée. Sinon, rien n'est deviné : demander « to ».
+            splits = list(range(len(args_exp) - 1, 0, -1)) + list(range(1, len(args_exp)))
+            for split in splits:
                 fl = " ".join(args_exp[:split]).strip()
                 tl = " ".join(args_exp[split:]).strip()
-                fn = _resolve_node(fl, graph, _sys)
-                tn = _resolve_node(tl, graph, _sys)
-                if fn and tn:
-                    from_node, to_node = fn, tn
+                if _node_found(fl, graph) and _node_found(tl, graph):
                     from_loc, to_loc = fl, tl
                     break
-            # Puis de gauche à droite
-            if not from_node:
-                for split in range(1, len(args_exp)):
-                    fl = " ".join(args_exp[:split]).strip()
-                    tl = " ".join(args_exp[split:]).strip()
-                    fn = _resolve_node(fl, graph, _sys)
-                    tn = _resolve_node(tl, graph, _sys)
-                    if fn and tn:
-                        from_node, to_node = fn, tn
-                        from_loc, to_loc = fl, tl
-                        break
-            # Fallback milieu
-            if not from_node:
-                mid = len(args_exp) // 2
-                from_loc = " ".join(args_exp[:mid]).strip()
-                to_loc   = " ".join(args_exp[mid:]).strip()
-                from_node = _resolve_node(from_loc, graph, _sys)
-                to_node   = _resolve_node(to_loc, graph, _sys)
+            else:
+                if len(args_exp) != 2:
+                    print_error("Départ et arrivée ambigus — séparez-les avec « to » : "
+                                "/nav route <départ> to <arrivée>")
+                    return
+                from_loc, to_loc = args_exp
+            from_node = _pick_node(from_loc, graph, ctx, _sys)
+            to_node   = _pick_node(to_loc, graph, ctx, _sys)
 
     # ── Auto-enrichissement UEX si nœuds introuvables ─────────────────────────
     if not from_node:
@@ -1369,22 +1367,85 @@ def _canonicalize_location(name: str, graph) -> str:
     return name
 
 
+class _Cancelled(Exception):
+    """Le joueur a annulé une liste de choix : la commande s'arrête sans autre message."""
+
+
+def _terminal_node(t, graph) -> str | None:
+    """Nœud du graphe du lieu du terminal `t` (D11) : nœud créé pour ce terminal, ou
+    nom exact de sa station, de sa ville ou du lieu écrit dans son nom — jamais un
+    nom approchant."""
+    for name, node in graph.nodes.items():
+        if (getattr(node, "metadata", None) or {}).get("id_terminal") == t.id:
+            return name
+    for place in (getattr(t, "space_station_name", ""), getattr(t, "city_name", ""),
+                  _terminal_to_location(t.name)):
+        if place:
+            name = _canonicalize_location(place, graph)
+            if name in graph.nodes:
+                return name
+    return None
+
+
+def _player_node(ctx, graph, which: str = "location") -> str | None:
+    """Nœud de la position (`location`) ou de la destination du joueur : par l'identifiant
+    de son terminal, sinon par le nom exact d'une planète ou d'un système enregistré."""
+    from uexinfo.cli.choose import destination_terminal, position_terminal
+    t = (position_terminal if which == "location" else destination_terminal)(ctx)
+    if t is not None:
+        return _terminal_node(t, graph)
+    name = (getattr(ctx.player, which, "") or "").strip()
+    return name if name in graph.nodes else None
+
+
 def _expand_alias(query: str, ctx) -> str:
-    """Expande @local et @dest en noms de lieux réels du joueur."""
+    """@local / @dest → référence du nœud du joueur (`#node:…`), ou de son terminal s'il
+    n'est pas encore dans le graphe (`#terminal:…`) : jamais son nom relu (D11)."""
+    from uexinfo.names import ref
     ql = query.lower().strip()
     if ql in ("@local", "@ici", "@here", "@pos", "@loc"):
-        return (getattr(ctx.player, "location", None) or "").strip() or query
-    if ql in ("@dest", "@destination", "@d"):
-        return (getattr(ctx.player, "destination", None) or "").strip() or query
-    return query
+        which = "location"
+    elif ql in ("@dest", "@destination", "@d"):
+        which = "destination"
+    else:
+        return query
+    node = _player_node(ctx, ctx.cache.transport_graph, which)
+    if node:
+        return "#" + ref("node", node)
+    tid = getattr(ctx.player, f"{which}_id", 0)
+    if tid:
+        return f"#terminal:{tid}"
+    return (getattr(ctx.player, which, None) or "").strip() or query
 
 
 def _resolve_node(query: str, graph, system: str = "") -> str | None:
-    """Nœud du graphe le plus proche de `query` — résolveur unique (uexinfo/names).
-    `system` : système du joueur, préféré en cas d'égalité (gateways homonymes)."""
+    """Nœud du graphe désigné sans doute possible par `query` (D11) : un seul candidat,
+    trouvé par référence, nom exact, début ou partie de nom — jamais par ressemblance.
+    Pour une saisie du joueur, `_pick_node` propose la liste à la place.
+    `system` : système du joueur (ordre de la liste, gateways homonymes)."""
+    from uexinfo.names import FUZZY, graph_index
+    top = graph_index(graph).resolve(query, kinds={"node"}, prefer_system=system).top
+    return top[0].entity.id if len(top) == 1 and top[0].level > FUZZY else None
+
+
+def _node_found(query: str, graph) -> bool:
+    """Vrai si `query` désigne au moins un nœud autrement que par ressemblance."""
+    from uexinfo.names import SUBSTRING, graph_index
+    return bool(graph_index(graph).resolve(query, kinds={"node"}, min_level=SUBSTRING).matches)
+
+
+def _pick_node(query: str, graph, ctx, system: str = "") -> str | None:
+    """Nœud saisi par le joueur, choisi selon la règle 3 (D11) : plusieurs candidats
+    ou faute de frappe ⇒ liste. None si introuvable ; `_Cancelled` si le joueur annule."""
+    from uexinfo.cli.choose import decide
     from uexinfo.names import graph_index
     r = graph_index(graph).resolve(query, kinds={"node"}, prefer_system=system)
-    return r.matches[0].entity.id if r.matches else None
+    if not r.matches:
+        return None
+    node = decide(ctx, r, query, title="Lieu")
+    if node is None:
+        raise _Cancelled
+    return node.name
 
 
 def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
@@ -1396,11 +1457,14 @@ def _auto_add_from_uex(query: str, graph, ctx) -> str | None:
     if not q:
         return None
 
+    from uexinfo.cli.choose import decide
     from uexinfo.names import resolve
-    terminal = resolve(ctx, q, kinds={"terminal"}).best
-
-    if not terminal:
+    r = resolve(ctx, q, kinds={"terminal"})
+    if not r.matches:
         return None
+    terminal = decide(ctx, r, query, title="Lieu")
+    if terminal is None:
+        raise _Cancelled
 
     # Nœud = nom du lieu, pas du terminal (canonicalisé)
     node_name = _canonicalize_location(_terminal_to_location(terminal.name), graph)
@@ -1472,15 +1536,6 @@ def _resolve_node_uex(uex_terminal_name: str, graph) -> str | None:
     return _resolve_node(loc, graph) or _resolve_node(uex_terminal_name, graph)
 
 
-def _find_candidates(query: str, graph) -> list[str]:
-    """Nœuds du graphe dont le nom contient `query` (pas de flou) — résolveur unique."""
-    from uexinfo.names import SUBSTRING, graph_index
-    if len(query.strip()) < 2:
-        return []
-    r = graph_index(graph).resolve(query, kinds={"node"}, min_level=SUBSTRING, limit=200)
-    return [m.entity.id for m in r.matches]
-
-
 def _expand_wildcard(pattern: str, graph) -> list[str]:
     """Développe un pattern avec * vers la liste des nœuds correspondants.
 
@@ -1495,7 +1550,7 @@ def _expand_wildcard(pattern: str, graph) -> list[str]:
     return sorted(n for n in graph.nodes if rx.search(n.lower()))
 
 
-def _parse_destinations(raw: str, graph, ctx) -> list[str]:
+def _parse_destinations(raw: str, graph, ctx, system: str = "") -> list[str]:
     """Parse une chaîne de destinations (virgules + wildcards) → nœuds résolus.
 
     Exemples :
@@ -1515,7 +1570,7 @@ def _parse_destinations(raw: str, graph, ctx) -> list[str]:
         if "*" in part:
             result.extend(_expand_wildcard(part, graph))
         else:
-            node = _resolve_node(part, graph)
+            node = _pick_node(part, graph, ctx, system)
             if node:
                 result.append(node)
     # Dédoublonner tout en conservant l'ordre
@@ -1526,17 +1581,6 @@ def _parse_destinations(raw: str, graph, ctx) -> list[str]:
             seen.add(n)
             unique.append(n)
     return unique
-
-
-def _show_candidates_choice(query: str, candidates: list[str], graph, ctx) -> None:
-    """Quand plusieurs nœuds correspondent, affiche la liste et demande de préciser."""
-    console.print(f"[{C.WARNING}]Plusieurs nœuds correspondent à {query!r} :[/{C.WARNING}]")
-    for name in candidates[:10]:
-        node = graph.nodes[name]
-        console.print(f"  [{C.LABEL}]{name}[/{C.LABEL}]  [{C.DIM}]{node.system}[/{C.DIM}]")
-    if len(candidates) > 10:
-        console.print(f"  [{C.DIM}]… et {len(candidates) - 10} autres[/{C.DIM}]")
-    console.print(f"[{C.DIM}]Précisez le nom, ex : /nav {candidates[0].replace(' ', '_')}[/{C.DIM}]")
 
 
 def _show_candidates(query: str, graph) -> None:

@@ -267,7 +267,7 @@ def _show_commodities_kind(kind_query: str, rest: list[str], ctx) -> None:
         return
 
     # Try as commodity name directly
-    c = _find_commodity(kind_query, ctx)
+    c = _find_commodity(kind_query, ctx, quiet=True)
     if c:
         _show_commodity(c, ctx)
         return

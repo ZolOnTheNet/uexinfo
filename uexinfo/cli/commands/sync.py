@@ -16,9 +16,9 @@ from uexinfo.display.formatter import console, print_error, print_ok, print_warn
 
 
 def _find_terminal(q: str, ctx):
-    """Terminal par nom — résolveur unique (uexinfo/names)."""
-    from uexinfo.names import resolve
-    return resolve(ctx, q, kinds={"terminal"}).best
+    """Terminal saisi par le joueur, choisi selon la règle 3 (D11) ; None si introuvable ou annulé."""
+    from uexinfo.cli.choose import choose
+    return choose(ctx, q, {"terminal"}, what="Terminal")
 
 
 def _invalidate_terminal(t, ctx) -> None:
@@ -60,17 +60,13 @@ def cmd_sync(args: list[str], ctx) -> None:
         q = " ".join(args).replace("_", " ")
         t = _find_terminal(q, ctx)
         if t is None:
-            print_error(f"Terminal introuvable : {q!r}")
             return
     else:
-        # Utiliser la position du joueur
-        pos = getattr(ctx.player, "location", None) if ctx.player else None
-        if not pos:
-            print_error("Position inconnue — précisez un terminal : /sync <lieu>")
-            return
-        t = _find_terminal(pos, ctx)
+        # Position du joueur : par son identifiant (D11)
+        from uexinfo.cli.choose import position_terminal
+        t = position_terminal(ctx)
         if t is None:
-            print_error(f"Terminal introuvable pour la position : {pos!r}")
+            print_error("Position inconnue ou hors terminal — précisez un terminal : /sync <lieu>")
             return
 
     # Récupérer l'ancien état (avant invalidation)

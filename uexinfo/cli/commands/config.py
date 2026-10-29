@@ -516,7 +516,7 @@ def _ship(args: list[str], ctx) -> None:
             return
         names = [n.strip() for n in raw.split(",") if n.strip()] if "," in raw else [raw]
         for name in names:
-            vehicle = _find_vehicle(name, ctx)
+            vehicle = _find_vehicle(name, ctx, quiet=True)   # nom libre accepté
             canon   = vehicle.name_full if vehicle else name
             if any(s.name == canon for s in ctx.player.ships):
                 print_warn(f"{canon} déjà dans la liste")
@@ -556,7 +556,7 @@ def _ship(args: list[str], ctx) -> None:
         )
         if match_name is None:
             # Essayer via _find_vehicle (gère la notation pointée ship.xxx / RSI.xxx)
-            v = _find_vehicle(raw, ctx)
+            v = _find_vehicle(raw, ctx, quiet=True)
             canon_lower = (v.name_full if v else raw).lower()
             match_name = next(
                 (s.name for s in ctx.player.ships if s.name.lower() == canon_lower),

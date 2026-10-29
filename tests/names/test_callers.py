@@ -1,33 +1,82 @@
-"""Les anciennes fonctions de recherche délèguent toutes au résolveur unique (D6)."""
+"""Les commandes choisissent un objet selon D11 : un candidat sûr est accepté ;
+plusieurs candidats, ou une faute de frappe, donnent une liste au joueur ; la
+position et la destination se retrouvent par leur identifiant."""
 from types import SimpleNamespace
 
 import pytest
 
 
+class Picker:
+    """select_fn de test : mémorise chaque liste proposée et choisit l'élément `index`
+    (None = le joueur annule)."""
+
+    def __init__(self, index=0):
+        self.index, self.calls = index, []
+
+    def __call__(self, items, title="", mode="multi", confirm_label=""):
+        self.calls.append((title, [it.label for it in items]))
+        return None if self.index is None else [items[self.index]]
+
+
 @pytest.fixture()
 def ctx(uex_cache):
-    return SimpleNamespace(cache=uex_cache)
+    from uexinfo.models.player import Player
+    return SimpleNamespace(cache=uex_cache, player=Player(), select_fn=None)
 
 
-def test_info_find_terminal(ctx):
+def test_unique_candidate_is_accepted_without_asking(ctx):
     from uexinfo.cli.commands.info import _find_terminal
-    assert _find_terminal("area 18", ctx).name.startswith("TDD - ")
+    ctx.select_fn = Picker()
     assert _find_terminal("seraphim station above crusader", ctx).name == "Admin - Seraphim"
-    # strong : pas de « contient » (ne pas écraser une commodité homonyme)
-    assert _find_terminal("seraphim station above crusader", ctx, strong=True) is None
+    assert ctx.select_fn.calls == []
 
 
-def test_info_find_terminal_candidates_homonyms(ctx):
+def test_several_trade_terminals_give_a_list(ctx):
+    from uexinfo.cli.commands.info import _find_terminal
+    ctx.select_fn = Picker(index=1)
+    assert _find_terminal("area 18", ctx).name == "IO North Tower - Area 18"
+    assert ctx.select_fn.calls[0][1] == ["TDD - Trade and Development Division - Area 18",
+                                         "IO North Tower - Area 18"]
+
+
+def test_homonyms_give_a_list(ctx):
     from uexinfo.cli.commands.info import _find_terminal_candidates
     names = {t.name for t in _find_terminal_candidates("nyx gateway", ctx)}
     assert names == {"Admin - Nyx Gateway (Pyro)", "Admin - Nyx Gateway (Stanton)"}
 
 
-def test_info_find_commodity_and_vehicle(ctx):
-    from uexinfo.cli.commands.info import _find_commodity, _find_vehicle
-    assert _find_commodity("e'tam", ctx).name == "E'tam"
-    assert _find_commodity("larnite", ctx) is None          # pas de flou ici (comme avant)
+def test_typo_is_proposed_never_applied(ctx):
+    from uexinfo.cli.commands.info import _find_vehicle
+    assert _find_vehicle("cutlas blak", ctx) is None          # personne pour choisir : rien d'appliqué
+    ctx.select_fn = Picker()
     assert _find_vehicle("cutlas blak", ctx).name == "Cutlass Black"
+    assert "Vouliez-vous dire" in ctx.select_fn.calls[0][0]
+
+
+def test_cancel_gives_nothing(ctx):
+    from uexinfo.cli.commands.info import _find_terminal
+    ctx.select_fn = Picker(index=None)
+    assert _find_terminal("area 18", ctx) is None
+
+
+def test_background_lookup_never_asks(ctx):
+    from uexinfo.cli.commands.info import _find_commodity
+    ctx.select_fn = Picker()
+    assert _find_commodity("e'tam", ctx, ask=False).name == "E'tam"
+    assert _find_commodity("ship ammunition - size", ctx, ask=False) is None   # plusieurs tailles
+    assert ctx.select_fn.calls == []
+
+
+def test_go_keeps_the_chosen_object_and_its_id(ctx):
+    from uexinfo.cli.commands.go import _place, _resolve
+    t = _resolve("arc-l1", ctx)
+    assert _place(t) == ("Admin - ARC-L1", t.id)
+    assert _place(_resolve("hurston", ctx)) == ("Hurston", 0)
+
+
+def test_unknown_place_is_refused(ctx):
+    from uexinfo.cli.commands.go import _resolve
+    assert _resolve("qqqqqqqqqq", ctx) is None
 
 
 def test_sync_find_terminal(ctx):
@@ -35,20 +84,29 @@ def test_sync_find_terminal(ctx):
     assert _find_terminal("port_tressler", ctx).name == "Admin - Port Tressler"
 
 
-def test_go_resolve(ctx):
-    from uexinfo.cli.commands.go import _resolve
-    assert _resolve("arc-l1", ctx) == "Admin - ARC-L1"
-    assert _resolve("hurston", ctx) == "Hurston"
-
-
 # ── Signalé : « je choisis Seraphim Station, il doit comprendre » ──────────────
 @pytest.mark.parametrize("query", ["Seraphim Station", "seraphim_station", "@Seraphim_Station", "Seraphim"])
 def test_place_always_gives_trading_terminal(ctx, query):
     from uexinfo.cli.commands.go import _resolve
     from uexinfo.cli.commands.player import _resolve_location
-    assert _resolve(query.lstrip("@"), ctx) == "Admin - Seraphim"
+    assert _resolve(query.lstrip("@"), ctx).name == "Admin - Seraphim"
     name, tid = _resolve_location(query, ctx)
     assert tid == 259
+
+
+# ── Règle 1 : la position se retrouve par son identifiant ────────────────────
+def test_position_is_found_by_id_not_by_name(ctx):
+    from uexinfo.cli.choose import position_terminal
+    ctx.player.set_location("nom affiché sans rapport", 259)
+    assert position_terminal(ctx).name == "Admin - Seraphim"
+
+
+def test_old_position_without_id_is_read_once_and_exactly(ctx):
+    from uexinfo.cli.choose import position_terminal
+    ctx.player.set_location("Admin - Seraphim", 0)
+    assert position_terminal(ctx).id == 259 and ctx.player.location_id == 259
+    ctx.player.set_location("seraph", 0)          # pas un nom exact : rien n'est deviné
+    assert position_terminal(ctx) is None
 
 
 def test_shop_terminal_maps_to_trading_terminal(uex_cache):

@@ -42,19 +42,10 @@ _TERM_MAX_SYS = 20  # largeur max avec préfixe système
 
 
 def _resolve_terminal_pick(query: str, ctx, label: str):
-    """Résout un terminal en texte libre ; liste au joueur si plusieurs candidats
-    sont aussi proches (règle b du résolveur unique, uexinfo/names)."""
-    from uexinfo.names import SUBSTRING, resolve
-    r = resolve(ctx, query, kinds={"terminal"}, min_level=SUBSTRING)
-    if not r.ambiguous:
-        return r.best
-    from uexinfo.cli.selector import SelectItem, pick
-    items = [
-        SelectItem(label=_loc(t.name), value=t, meta=t.star_system_name or "")
-        for t in r.candidates[:20]
-    ]
-    chosen = pick(ctx, items, title=f"{label} — «{query}»", mode="single")
-    return chosen[0].value if chosen else None
+    """Terminal saisi en texte libre, choisi selon la règle 3 (D11) : plusieurs
+    candidats ou faute de frappe ⇒ liste au joueur. None si introuvable ou annulé."""
+    from uexinfo.cli.choose import choose
+    return choose(ctx, query, {"terminal"}, what=label)
 
 
 @register("trade", "t")
@@ -144,7 +135,6 @@ def _trade_buy(args: list[str], ctx) -> None:
 
     c = _find_commodity(query, ctx)
     if not c:
-        print_error(f"Commodité introuvable : {query}")
         return
 
     rows = _commodity_prices(c.id, ctx)
@@ -205,7 +195,6 @@ def _trade_sell(args: list[str], ctx) -> None:
 
     c = _find_commodity(query, ctx)
     if not c:
-        print_error(f"Commodité introuvable : {query}")
         return
 
     rows = _commodity_prices(c.id, ctx)
@@ -446,28 +435,25 @@ def _trade_bilan(ctx, origin_override: str = "", dest_override: str = "",
         print_warn("Destination non définie — utilisez /go <terminal>.")
         return
 
-    # Résolution origine : ID stocké en priorité (évite toute re-désambiguation)
-    origin = None
-    if not origin_override and ctx.player.location_id:
-        origin = next(
-            (t for t in ctx.cache.terminals if t.id == ctx.player.location_id), None
-        )
-    if not origin:
+    # Position et destination du joueur : par leur identifiant, jamais en relisant
+    # leur nom (D11) ; une saisie explicite passe par le choix (règle 3).
+    from uexinfo.cli.choose import destination_terminal, position_terminal
+    if origin_override:
         origin = _resolve_terminal_pick(origin_loc, ctx, "Origine")
+    else:
+        origin = position_terminal(ctx)
+        if origin is None:
+            print_error(f"La position n'est pas un terminal : {origin_loc} — /go <terminal>")
     if not origin:
-        print_error(f"Terminal d'origine introuvable : {origin_loc}")
         return
 
-    # Résolution destination : ID stocké en priorité
-    dest = None
-    if not dest_override and ctx.player.destination_id:
-        dest = next(
-            (t for t in ctx.cache.terminals if t.id == ctx.player.destination_id), None
-        )
-    if not dest:
+    if dest_override:
         dest = _resolve_terminal_pick(dest_loc, ctx, "Destination")
+    else:
+        dest = destination_terminal(ctx)
+        if dest is None:
+            print_error(f"La destination n'est pas un terminal : {dest_loc} — /dest <terminal>")
     if not dest:
-        print_error(f"Terminal de destination introuvable : {dest_loc}")
         return
 
     # Une position/destination enregistrée peut pointer une boutique sans prix de

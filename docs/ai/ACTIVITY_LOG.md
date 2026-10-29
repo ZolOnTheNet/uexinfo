@@ -440,3 +440,15 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 **Demande :** noter l'installation et les lanceurs dans `docs/INSTALLATION.md`.
 
 **Fait :** guide Windows et Linux (prérequis, lancement, bouton bureau ou `.desktop`, options, différences Linux, OCR et modèle `eng_sc`, Game.log, emplacement des données, mise à jour, dépannage, installation manuelle). Le README garde les commandes de base et renvoie vers ce guide. Le fichier `.desktop` est donné en exemple, non testé.
+
+## 2026-10-29 — D11, partie 1 : saisie qui ne devine pas, position par identifiant
+
+**Demande :** consolider la base selon trois règles (identité des objets, liens qui désignent un objet, saisie qui ne devine pas). Les deux questions posées (faute de frappe, lieu à plusieurs terminaux) étaient déjà tranchées par la règle 3.
+
+**Fait :**
+- `names/refs.py` : références `#type:id` (et `uex:type:id` pour les liens) ; le résolveur les traite avant tout nom. Lieu → ses terminaux, terminal → son lieu. `Port Tress*` = début de nom.
+- Règle c modifiée (D6 → D11) : un lieu à plusieurs terminaux de commerce donne la liste, principal en tête (Area 18, Lorville, New Babbage, Orison, CRU-L4, CRU-L5).
+- `cli/choose.py` : `choose`/`decide` (un candidat sûr accepté ; plusieurs ⇒ liste ; faute de frappe ⇒ « Vouliez-vous dire… ? » ; `ask=False` en tâche de fond) ; `position_terminal`/`destination_terminal` par identifiant (ancien enregistrement sans id relu une fois, nom exact seulement).
+- Branché : `/go`, `/dest`, `/player @lieu` (objet + id, plus de `_lookup_terminal_id` par nom, plus de lieu inconnu accepté tel quel) ; `/info` (recherche libre unifiée terminal + commodité + vaisseau, position par id) ; `/trade` (bilan par id, buy/sell) ; `/sync` ; `/nav route` (départ et arrivée : `_pick_node` avec liste, `@local`/`@dest` → `#node:…` via l'id du terminal, plus de découpage deviné ni de ressemblance silencieuse) ; calcul de vente de l'overlay (distances par id de terminal).
+- Supprimés (inutilisés) : `nav._find_candidates`, `nav._show_candidates_choice`.
+- Tests : 288 réussis (nouveaux : références, cas « Ship Ammunition - Size 7 », listes, faute de frappe, annulation, position par id).

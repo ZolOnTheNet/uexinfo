@@ -10,8 +10,13 @@ Règles validées :
   a. deux profils de seuil : saisie joueur (« input ») et texte OCR (« ocr ») ;
   b. deux candidats aussi proches (même niveau, même score) ⇒ ambiguous=True,
      l'appelant propose la liste au joueur ;
-  c. un lieu saisi là où un terminal est attendu ⇒ terminal principal du lieu :
+  c. un lieu saisi là où un terminal est attendu ⇒ ses terminaux de commerce
+     ouverts (plusieurs ⇒ liste, D11), sinon son terminal principal :
      Admin > TDD > centre cargo > autre terminal de commerce > autre.
+
+Une référence `#type:id` (D11, `uexinfo/names/refs.py`) désigne un objet sans
+passer par son nom. La décision « accepter, lister ou proposer » appartient à
+`uexinfo/cli/choose.py`.
 """
 from __future__ import annotations
 
@@ -19,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 from uexinfo.names.normalize import norm
+from uexinfo.names.refs import PLACE_KINDS, parse_ref
 
 try:
     from rapidfuzz import fuzz as _fuzz
@@ -181,17 +187,78 @@ class NameIndex:
     def __init__(self, entities: Iterable[Entity] = ()):
         """Crée l'index, éventuellement déjà rempli."""
         self.entities: list[Entity] = list(entities)
+        self._by_ref: dict[tuple[str, str], Entity] | None = None
+        self._by_key: dict[str, list[Entity]] | None = None
 
     def add(self, entity: Entity) -> None:
         """Ajoute une entité à l'index."""
         self.entities.append(entity)
+        self._by_ref = self._by_key = None
+
+    # ── Accès direct (sans ressemblance) ──────────────────────────────────────
+    @staticmethod
+    def _ref_key(kind: str, ident: Any) -> tuple[str, str]:
+        """Clé (type, id) ; l'id d'un nœud est son nom normalisé (`_` = espace)."""
+        return kind, norm(str(ident)) if kind == "node" else str(ident).strip()
+
+    def by_ref(self, kind: str, ident: Any) -> Entity | None:
+        """Entité de type `kind` et d'identifiant `ident`, ou None."""
+        if self._by_ref is None:
+            self._by_ref = {self._ref_key(e.kind, e.id): e for e in self.entities}
+        return self._by_ref.get(self._ref_key(kind, ident))
+
+    def exact(self, name: str, kinds: set[str] | None = None) -> list[Entity]:
+        """Entités dont un nom propre ou un code est exactement `name` (après normalisation)."""
+        if self._by_key is None:
+            self._by_key = {}
+            for e in self.entities:
+                for k in dict.fromkeys(e.keys + e.codes):
+                    self._by_key.setdefault(k, []).append(e)
+        return [e for e in self._by_key.get(norm(name), []) if not kinds or e.kind in kinds]
+
+    def place_terminals(self, kind: str, ident: Any) -> list[Entity]:
+        """c. Terminaux d'un lieu (station, ville, avant-poste) : ceux de commerce
+        ouverts s'il y en a, sinon le principal seul."""
+        attr = {"station": "id_space_station", "city": "id_city", "outpost": "id_outpost"}[kind]
+        terms = [e for e in self.entities if e.kind == "terminal"
+                 and str(getattr(e.obj, attr, "") or "") == str(ident)]
+        trade = [e for e in terms if _is_trade(e.obj)]
+        if trade:
+            return sorted(trade, key=lambda e: e.priority)
+        return [min(terms, key=lambda e: e.priority)] if terms else []
+
+    def _resolve_ref(self, kind: str, ident: str, kinds: set[str] | None) -> Resolution:
+        """Référence `#type:id` : l'objet lui-même, jamais un nom approchant.
+
+        Là où un autre type est attendu, seuls les liens sans ambiguïté sont suivis :
+        lieu → ses terminaux (règle c), terminal → son lieu.
+        """
+        e = self.by_ref(kind, ident)
+        if e is None:
+            return Resolution([])
+        if not kinds or kind in kinds:
+            return Resolution([Match(e, EXACT, 100.0)])
+        if kind in PLACE_KINDS and "terminal" in kinds:
+            return Resolution([Match(t, EXACT, 100.0, via_location=True)
+                               for t in self.place_terminals(kind, ident)])
+        if kind == "terminal":
+            for pk, attr in (("station", "id_space_station"), ("city", "id_city"),
+                             ("outpost", "id_outpost")):
+                pid = getattr(e.obj, attr, 0)
+                if pk in kinds and pid and (pe := self.by_ref(pk, pid)) is not None:
+                    return Resolution([Match(pe, EXACT, 100.0)])
+        return Resolution([])
 
     # ── Recherche ─────────────────────────────────────────────────────────────
     def resolve(self, query: str, kinds: set[str] | None = None, profile: str = "input",
                 min_level: int = FUZZY, limit: int = 20, prefer_system: str = "") -> Resolution:
         """`prefer_system` : à égalité, les entités de ce système passent devant
         (ex. « nyx gateway » vu depuis Stanton → Nyx Gateway (Stanton))."""
-        q = norm(query)
+        r = parse_ref(query)
+        if r is not None:
+            return self._resolve_ref(*r, kinds)
+        # « Faithful* » : nom volontairement tronqué = début de nom
+        q = norm(query).rstrip("*").strip()
         pool = [e for e in self.entities if not kinds or e.kind in kinds]
         if not q or not pool:
             return Resolution([])
@@ -272,20 +339,29 @@ def _expand_filter(f: str) -> str:
     return MFR_ABBREV.get(f, f)
 
 
+def _is_trade(t) -> bool:
+    """Terminal de commerce de marchandises ouvert."""
+    return (getattr(t, "type", "") or "") == "commodity" and getattr(t, "is_available", 1) != 0
+
+
 def _collapse_locations(matches: list[Match]) -> list[Match]:
-    """c. Terminaux trouvés par le nom de leur LIEU : un seul par lieu, le principal."""
+    """c. Terminaux trouvés par le nom de leur LIEU : par lieu, ses terminaux de
+    commerce ouverts (plusieurs ⇒ liste au joueur, D11), sinon le principal seul."""
     keep: list[Match] = []
-    by_group: dict[str, Match] = {}
+    by_group: dict[str, list[Match]] = {}
     for m in matches:
         e = m.entity
         if e.kind == "terminal" and m.via_location and e.group:
-            cur = by_group.get(e.group)
-            if cur is None or (m.level, -e.priority) > (cur.level, -cur.entity.priority):
-                by_group[e.group] = m
+            by_group.setdefault(e.group, []).append(m)
         else:
             keep.append(m)
     kept = {id(m.entity) for m in keep}
-    keep.extend(m for m in by_group.values() if id(m.entity) not in kept)
+    for ms in by_group.values():
+        top = max((m.level, round(m.score, 1)) for m in ms)
+        ms = [m for m in ms if (m.level, round(m.score, 1)) == top]
+        chosen = [m for m in ms if _is_trade(m.entity.obj)] or \
+            [min(ms, key=lambda m: m.entity.priority)]
+        keep.extend(m for m in chosen if id(m.entity) not in kept)
     return keep
 
 
