@@ -884,6 +884,12 @@ def _clear_history(ctx) -> str:
     return f"{history.clear()} commande(s) effacée(s) de l'historique"
 
 
+def _clear_place_choices(ctx) -> str:
+    """Oublie les lieux choisis pour des textes de missions ; renvoie le message de résultat."""
+    from uexinfo.cache import place_aliases
+    return f"{place_aliases.clear()} choix de lieu oublié(s) — ils seront redemandés"
+
+
 # type → (description, fonction). Une seule donnée à la fois : plus d'effacement global
 # du dossier utilisateur (l'ancien `rmtree` emportait missions, voyages, scans et notes).
 _CLEAR_TYPES = {
@@ -893,6 +899,7 @@ _CLEAR_TYPES = {
     "scans":      ("Prix et stocks relevés par tes scans", _clear_scans),
     "notes":      ("Notes par lieu", _clear_notes),
     "historique": ("Historique des commandes", _clear_history),
+    "lieux":      ("Lieux choisis pour des textes de missions (redemandés ensuite)", _clear_place_choices),
 }
 _CLEAR_ALIASES = {"history": "historique", "uex": "api", "cache": "api"}
 

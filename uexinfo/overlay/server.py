@@ -1130,6 +1130,7 @@ class OverlayServer:
         from uexinfo.models.mission import MissionObjective
         mm = self.ctx.mission_manager
         updated: list[int] = []
+        to_check: list[int] = []
 
         for mdata in data.get("missions", []):
             mid = mdata.get("id")
@@ -1163,6 +1164,8 @@ class OverlayServer:
                 existing_commodity = next(
                     (o.commodity for o in m.objectives if o.commodity), None
                 )
+                # Lieux déjà reliés : gardés tels quels si leur nom n'a pas changé (D11)
+                known = m.place_refs()
                 n = max(len(srcs), len(dsts), 1)
                 objs: list[MissionObjective] = []
                 for k in range(n):
@@ -1172,11 +1175,15 @@ class OverlayServer:
                     objs.append(MissionObjective(
                         commodity=existing_commodity, source=src,
                         destination=dst, quantity_scu=qty,
+                        source_ref=known.get(src), destination_ref=known.get(dst),
                     ))
                 m.objectives = objs
             elif total_scu is not None and m.objectives:
                 m.objectives[0].quantity_scu = total_scu
 
+            from uexinfo.cli.places import ensure_mission_places
+            if ensure_mission_places(m, self.ctx, ask=False):
+                to_check.append(mid)
             mm.update(m)
             updated.append(mid)
 
@@ -1185,6 +1192,12 @@ class OverlayServer:
             await ws.send(json.dumps({
                 "type": "output",
                 "ansi": f"\x1b[32m✓ {len(updated)} mission(s) modifiée(s) : {ids_str}\x1b[0m\n",
+            }))
+        if to_check:
+            ids_str = ", ".join(f"#{i}" for i in to_check)
+            await ws.send(json.dumps({
+                "type": "output",
+                "ansi": f"\x1b[33m⚠ Lieu à préciser pour {ids_str} — /mission lieux\x1b[0m\n",
             }))
         await ws.send(json.dumps({"type": "done"}))
         await self._send_status(ws)
@@ -1228,10 +1241,12 @@ class OverlayServer:
                 if not entries:
                     _fmt_mod.console.print(f"[{_WARN_COLOR}]⚠ Aucune mission valide sélectionnée[/{_WARN_COLOR}]")
                 else:
+                    from uexinfo.cli.places import ensure_mission_places
                     mm = self.ctx.mission_manager
                     vm = self.ctx.voyage_manager
                     active = vm.get_active() if add_to_voyage else None
                     added  = 0
+                    to_check = 0
                     for e in entries:
                         mr = entry_to_mission_result(e)
                         if mr is None:
@@ -1240,6 +1255,9 @@ class OverlayServer:
                         kwargs["source_raw"] = source_raw_from_entry(e)
                         kwargs["scanned_at"] = e.file_mtime
                         m = Mission(id=0, **kwargs)
+                        # Lieux sûrs seulement : pas de liste de choix possible ici (D11)
+                        if ensure_mission_places(m, self.ctx, ask=False):
+                            to_check += 1
                         mm.add(m)
                         added += 1
                         _fmt_mod.console.print(
@@ -1256,6 +1274,11 @@ class OverlayServer:
                         )
                     elif added:
                         _fmt_mod.console.print(f"[green]✓ {added} mission(s) ajoutée(s) au catalogue[/green]")
+                    if to_check:
+                        _fmt_mod.console.print(
+                            f"[{_WARN_COLOR}]⚠ {to_check} mission(s) avec un lieu à préciser "
+                            f"— /mission lieux[/{_WARN_COLOR}]"
+                        )
 
             except Exception as exc:
                 _fmt_mod.console.print(f"[red]✗ Erreur : {exc}[/red]")

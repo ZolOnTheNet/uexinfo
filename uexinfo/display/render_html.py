@@ -256,13 +256,15 @@ def _to_blocks(obj: Any) -> list[str]:
         stripped = obj.strip()
         if not stripped:
             return ['<div class="line">&nbsp;</div>']
-        # Peut contenir plusieurs lignes (ex : messages multi-lignes)
+        # Peut contenir plusieurs lignes (ex : messages multi-lignes). Le balisage est
+        # lu sur tout le texte avant le découpage : une couleur ouverte sur une ligne et
+        # fermée sur une autre (print_warn d'un message à deux lignes) reste valide.
         lines_out = []
-        for raw_line in obj.splitlines():
-            if not raw_line.strip():
+        for line in RichText.from_markup(obj).split("\n"):
+            if not line.plain.strip():
                 lines_out.append('<div class="line">&nbsp;</div>')
             else:
-                lines_out.append(f'<div class="line">{_markup_to_inline_html(raw_line)}</div>')
+                lines_out.append(f'<div class="line">{_text_to_inline_html(line)}</div>')
         return lines_out or ['<div class="line">&nbsp;</div>']
 
     # Autres renderables (Panel, Padding…) : fallback via str()

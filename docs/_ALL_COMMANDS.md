@@ -259,6 +259,7 @@
 - `/mission add <nom> ...` : Saisie manuelle avec mots-clés
 - `/mission edit <id> ...` : Modifier une mission du catalogue
 - `/mission remove <id>` : Supprimer du catalogue
+- `/mission lieux [id]` : Préciser les lieux non reconnus (« ? » dans les listes) ; le choix est mémorisé (`/config cache clear lieux` pour l'oublier)
 
 ---
 

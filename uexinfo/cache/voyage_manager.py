@@ -113,12 +113,15 @@ class VoyageManager:
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
-    def new_voyage(self, name: str | None = None, departure: str | None = None) -> Voyage:
-        """Crée un voyage, le rend actif, enregistre et le renvoie."""
+    def new_voyage(self, name: str | None = None, departure: str | None = None,
+                   departure_ref: str | None = None) -> Voyage:
+        """Crée un voyage, le rend actif, enregistre et le renvoie.
+        `departure_ref` : référence du lieu de départ (« node:<nom> », D11)."""
         v = Voyage(
             id=self._next_id,
             name=name or f"trajet-{self._next_id}",
             departure=departure,
+            departure_ref=departure_ref,
             session_id=self._session_id,
         )
         self._next_id += 1
@@ -250,6 +253,28 @@ class VoyageManager:
         """Synchronise mission_ids plat depuis les étapes."""
         voyage.mission_ids = voyage.all_mission_ids
 
+    def get_step_departure_place(self, voyage: Voyage, step_number: int,
+                                 mm) -> tuple[str | None, str | None]:
+        """(nom, référence) du lieu de départ d'une étape, même ordre que
+        `get_step_departure`, mais d'après les références des lieux (D11) : la
+        destination la plus fréquente de l'étape précédente est comptée par référence."""
+        step = voyage.get_step(step_number)
+        if step and step.departure:
+            return step.departure, step.departure_ref
+        if step_number > 1:
+            prev = voyage.get_step(step_number - 1)
+            if prev and prev.mission_ids:
+                from collections import Counter
+                dsts: list[tuple[str, str | None]] = []
+                for mid in prev.mission_ids:
+                    m = mm.get(str(mid))
+                    if m:
+                        dsts.extend((o.destination, o.destination_ref)
+                                    for o in m.objectives if o.destination)
+                if dsts:
+                    return Counter(dsts).most_common(1)[0][0]
+        return voyage.departure, voyage.departure_ref
+
     def get_step_departure(self, voyage: Voyage, step_number: int, mm) -> str | None:
         """Inférence du lieu de départ d'une étape.
 
@@ -298,7 +323,9 @@ class VoyageManager:
             name=new_name,
             mission_ids=list(source.mission_ids),
             departure=source.departure,
+            departure_ref=source.departure_ref,
             arrival=source.arrival,
+            arrival_ref=source.arrival_ref,
             session_id=self._session_id,
         )
         self._next_id += 1

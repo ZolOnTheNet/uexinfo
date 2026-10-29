@@ -469,3 +469,19 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `api/uex_client.py:shared_client()` : un seul client (une session HTTP, un passage Cloudflare) au lieu de 14 `UEXClient()` créés à chaque lecture. `/nav populate` garde son client à délai long.
 - `DataManager.cached(key, method, ctx, **params)` : lecture UEX générique, cache frais → API → cache périmé → []. Branchée sur les prix d'achat et de location des vaisseaux et sur les prix lus par `/scan`. Les caches de résultats transformés (distances `rd_`, conteneurs `cs_`, `tcs_`) gardent leur forme, avec le client partagé. Dette B3 close.
 - Test `tests/cache/test_cached_read.py` ; 294 tests réussis.
+
+## 2026-10-29 — D11, partie 4 : missions et voyages
+
+**Demande :** que les missions et les voyages suivent les mêmes trois règles.
+
+**Constat :** les lieux des missions étaient du texte (OCR ou saisie), relus par nom à chaque calcul avec une heuristique (premier candidat, mots retirés à la fin, gateway choisie par le système majoritaire) ; tableau de bord, `--to`, `--exclude` et filtre « stations » comparaient des morceaux de nom ; `mm.get("x")` prenait la première mission dont le nom contient « x ».
+
+**Fait :**
+- Modèle : `MissionObjective.source_ref`/`destination_ref`, `Voyage.departure_ref`/`arrival_ref`, `VoyageStep.departure_ref` (`node:<nom>`), relus et écrits en JSON (anciens fichiers compatibles).
+- `names/places.py` : texte → nœud (tournures de contrat retirées) : sûr, ou candidats (homonymes, nom approchant, mots retirés à la fin = proposition seulement). `cli/places.py` : `resolve_place` (règle 3, choix mémorisé dans `cache/place_aliases.py`), `ensure_mission_places` (à l'enregistrement : `/mission add`, ajout depuis la liste des scans et formulaire d'édition sans liste possible → lieux sûrs seulement, signalés « à préciser »), `refresh_places` (anciennes missions : lieux devenus sûrs reliés sans rien demander), `mission_node_map`, `place_link` (lien, ou « ? »), `place_area`/`area_ref`.
+- Calculs par référence : distances de `/mission list`/`view` et de la liste de l'overlay, `/voyage` (fiche, analyse, calcul automatique, boucle), cargaison suggérée (terminaux du lieu exact, prix par identifiant), tableau de bord (départ d'étape par référence, missions retenues par référence de départ, départ tapé → liste de nœuds).
+- Filtres de `/voyage calc` par identité : `--to`/`--exclude` désignent un lieu, une planète ou un système (règle 3) et sont comparés à ce qui contient réellement chaque lieu (`place_area`) ; `voyage.calc.exclure` ambigu → ignoré avec un avertissement ; « stations » d'après le type du nœud, plus des mots-clés.
+- `/mission lieux [id]` : départager les lieux à préciser ; `/config cache clear lieux` : oublier les choix mémorisés. Missions désignées par nom : plusieurs ⇒ liste (`MissionManager.find`) ; `/mission view` sans id : sélecteur de l'overlay au lieu de `input()`.
+- Page : lieux de la liste des missions = liens avec référence, « ? » si à préciser.
+- Au passage : rendu HTML d'un texte multi-ligne dont la couleur s'étend sur deux lignes (cassait « Aucune mission ne passe par… ») ; affichage `/voyage calc` hors overlay (balisage coupé). Supprimés : `_resolve_locs`, `_loc_terminals`, `_loc_is_station`/`_STATION_KW`, `_infer_step_departure`, l'ancien `mission._resolve_graph_node`.
+- Essai réel (vrai cache, missions de test dans un dossier temporaire) : tournures de contrat reconnues, « Pyro Gateway » → liste avec Nyx en tête, fautes de frappe proposées, `/mission view livraison` → liste, tableau de bord par référence, `--exclude Stanton` / `--to Nyx` par identité, formulaire d'édition qui garde les références. 309 tests réussis.

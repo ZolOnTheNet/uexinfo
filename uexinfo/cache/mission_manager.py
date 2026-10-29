@@ -54,14 +54,21 @@ class MissionManager:
         self.save()
         return mission
 
+    def find(self, id_or_name: str) -> list[Mission]:
+        """Missions désignées par `id_or_name` : l'id, sinon le nom exact, sinon les noms
+        qui contiennent le texte (plusieurs ⇒ à départager, D11)."""
+        q = (id_or_name or "").strip().lstrip("#")
+        if q.isdigit():
+            return [m for m in self.missions if m.id == int(q)]
+        ql = q.lower()
+        exact = [m for m in self.missions if m.name.lower() == ql]
+        return exact or [m for m in self.missions if ql and ql in m.name.lower()]
+
     def get(self, id_or_name: str) -> Mission | None:
-        """Mission par id, ou par morceau de nom (la première qui contient le texte)."""
-        try:
-            mid = int(id_or_name)
-            return next((m for m in self.missions if m.id == mid), None)
-        except ValueError:
-            q = id_or_name.lower()
-            return next((m for m in self.missions if q in m.name.lower()), None)
+        """Mission par id, nom exact, ou seul nom qui contient le texte ; None si aucune
+        ou plusieurs (jamais la première venue, D11 — voir `find`)."""
+        found = self.find(id_or_name)
+        return found[0] if len(found) == 1 else None
 
     def remove(self, id_or_name: str) -> bool:
         """Supprime la mission désignée par id ou nom ; False si elle n'existe pas."""

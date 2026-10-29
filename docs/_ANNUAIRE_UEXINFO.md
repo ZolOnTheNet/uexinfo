@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-29** (186 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-29** (191 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -99,6 +99,7 @@ uexinfo/                         (racine du dépôt)
 | `cli/parser.py` | Découpe `/cmd args` en `(nom, [args])` avec `shlex`. |
 | `cli/selector.py` | Sélecteur générique (choix entre homonymes…), affiché par l'overlay via `ctx.select_fn`. |
 | `cli/choose.py` | Règle 3 de D11 : un candidat sûr accepté, plusieurs ⇒ liste, faute de frappe ⇒ proposition ; position et destination du joueur retrouvées par identifiant. |
+| `cli/places.py` | Lieux des missions et voyages (D11) : reliés une fois à l'enregistrement (liste ou proposition sinon), calculs par référence, filtres `--to`/`--exclude` par identité. |
 | `cli/completer_data.py` | Données de complétion : sous-commandes et aides par commande. |
 | `cli/history.py` | Historique persistant des commandes (`history.jsonl`). |
 
@@ -150,9 +151,10 @@ uexinfo/                         (racine du dépôt)
 | `cache/scan_prices.py` | Prix et stocks relevés par le joueur, persistants. |
 | `cache/screenshot_db.py` | Base des captures d'écran déjà analysées. |
 | `cache/mission_manager.py` | Groupe de missions actif, synergies. |
-| `cache/mission_scan.py` | Outils partagés pour le scan de missions par lot. |
+| `cache/mission_scan.py` | Outils partagés pour le scan de missions par lot (lieux lus : seulement les sûrs, D11). |
+| `cache/place_aliases.py` | Lieux choisis par le joueur pour un texte de mission (même texte → même lieu, sans redemander) ; effacés par `/config cache clear lieux`. |
 | `cache/contract_catalog.py` | Catalogue des contrats (copie locale scmdb.net, sinon `global.ini` du jeu) pour reconnaître les cartes lues. |
-| `cache/voyage_manager.py` | Voyages : stockage JSON, session, rétention. |
+| `cache/voyage_manager.py` | Voyages : stockage JSON, session, rétention ; départ d'étape par référence (`get_step_departure_place`). |
 | `cache/notes_manager.py` | Notes du joueur par lieu. |
 | `cache/evolution.py` | Mémoire des versions SC et des changements d'univers (D3). |
 
@@ -164,6 +166,7 @@ uexinfo/                         (racine du dépôt)
 | `names/normalize.py` | Normalisation unique des noms (saisie, OCR, UEX). |
 | `names/resolver.py` | Résolveur : lieux, terminaux, commodités, vaisseaux, nœuds du graphe ; homonymes ; références `#type:id`. |
 | `names/refs.py` | Références d'objets `#type:id` et liens `uex:type:id` (décision D11). |
+| `names/places.py` | Texte de lieu de mission → nœud du graphe : tournures de contrat retirées, lieu sûr ou candidats (D11). |
 
 ### Règles métier — `rules/` (pures, sans I/O, chacune testée)
 
@@ -249,6 +252,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | `cache/test_cleanup.py` | Nettoyage de la base sans trou entre versions (D10). |
 | `cache/test_contract_catalog.py` | Reconnaissance des contrats (catalogue **fictif**, aucune donnée scmdb). |
 | `cache/test_evolution.py` | Mémoire des versions et surveillance (D3). |
+| `cache/test_cached_read.py` | Lecture UEX unique avec cache et repli (`DataManager.cached`). |
 | `gamelog/test_events.py` | Reconnaissance des événements. |
 | `gamelog/test_places.py` | Codes de lieu → nom et système. |
 | `gamelog/test_live_crash.py` | Vrai Game.log LIVE 4.10 : crash au hangar, mort. |
@@ -256,6 +260,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | `names/test_resolver.py` | Résolveur unique sur données UEX réelles (D6). |
 | `names/test_callers.py` | Les anciennes fonctions de recherche délèguent toutes au résolveur. |
 | `names/test_graph.py` | Nœuds du vrai graphe de navigation. |
+| `names/test_places.py` | Lieux des missions et voyages : sûrs, proposés, mémorisés, filtres par identité (D11). |
 | `ocr/test_contract_list.py` | Liste des contrats sur des mots OCR réels (20/10). |
 | `ocr/test_datarunner_log.py` | Vrai log SC-Datarunner (Pyro Gateway côté Nyx). |
 | `ocr/test_engine_paths.py` | Ordre de recherche de Tesseract. |
@@ -382,10 +387,10 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 
 | Élément | Nombre |
 |---|---|
-| Fichiers suivis par git | 186 |
-| Fichiers Python du package `uexinfo/` | 96 |
+| Fichiers suivis par git | 191 |
+| Fichiers Python du package `uexinfo/` | 99 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 21 (276 tests réussis au 2026-10-22) |
+| Fichiers de tests | 23 (309 tests réussis au 2026-10-29) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
@@ -399,3 +404,4 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 - **2026-10-29** (suite) : lanceurs `scripts/uexinfogene.ps1` (Windows) et `scripts/uexinfolnx.sh` (Linux) ajoutés.
 - **2026-10-29** (suite) : `docs/INSTALLATION.md` créé.
 - **2026-10-29** (suite) : `names/refs.py` et `cli/choose.py` ajoutés (décision D11).
+- **2026-10-29** (suite) : `tests/cache/test_cached_read.py` ; D11 missions et voyages : `names/places.py`, `cli/places.py`, `cache/place_aliases.py`, `tests/names/test_places.py`.

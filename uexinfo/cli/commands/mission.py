@@ -10,11 +10,12 @@ from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
 from uexinfo.display.adaptive import ColSpec, adaptive_table
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
+from uexinfo.cli.places import ensure_mission_places, mission_node_map, place_link
 from uexinfo.models.mission import Mission, MissionObjective
 
 _SUBS = frozenset({
     "list", "add", "edit", "remove", "scan", "view", "+", "offres", "offers",
-    "clear", "vider", "effacer",
+    "clear", "vider", "effacer", "lieux", "places",
     # alias français
     "liste", "ajouter", "modifier", "supprimer", "voir",
 })
@@ -63,6 +64,43 @@ def cmd_mission(args: list[str], ctx) -> None:
 
     elif sub in ("offres", "offers"):
         _cmd_offers(args[1:], ctx)
+
+    elif sub in ("lieux", "places"):
+        _cmd_places(args[1:], ctx)
+
+
+# ── Lieux à préciser (D11) ────────────────────────────────────────────────────
+
+def _store_places(m, ctx, *, ask: bool = True) -> None:
+    """Relie les lieux de la mission `m` (règle 3 de D11) et signale ceux restés à préciser."""
+    left = ensure_mission_places(m, ctx, ask=ask)
+    if left:
+        print_warn(f"Mission #{m.id or '?'} : lieu(x) à préciser — {', '.join(left)}  (/mission lieux)")
+
+
+def _cmd_places(args: list[str], ctx) -> None:
+    """/mission lieux [id…] — fait départager les lieux de missions restés à préciser.
+
+    Un lieu lu sur un contrat qui ne désigne pas un seul lieu sûr n'est jamais deviné :
+    il reste « à préciser » (« ? » dans les listes) jusqu'au choix du joueur ici.
+    """
+    mm = ctx.mission_manager
+    missions = [m for a in args for m in [_pick_mission(a, ctx)] if m] if args else mm.missions
+    todo = [m for m in missions if m.unresolved_places]
+    if not todo:
+        print_ok("Tous les lieux des missions sont reliés.")
+        return
+    left_total = 0
+    for m in todo:
+        console.print(f"[{C.LABEL}]#{m.id} {m.name}[/{C.LABEL}]  "
+                      f"[{C.DIM}]{', '.join(m.unresolved_places)}[/{C.DIM}]")
+        left = ensure_mission_places(m, ctx, ask=True)
+        mm.update(m)
+        left_total += len(left)
+    if left_total:
+        print_warn(f"{left_total} lieu(x) toujours à préciser.")
+    else:
+        print_ok("Lieux reliés.")
 
 
 # ── Clear catalogue ───────────────────────────────────────────────────────────
@@ -297,6 +335,7 @@ def _add_selected_missions(missions, indices: list[int], add_to_voyage: bool, ct
         kwargs["scanned_at"] = e.file_mtime
         from uexinfo.models.mission import Mission
         m = Mission(id=0, **kwargs)
+        _store_places(m, ctx)
         mm.add(m)
         added += 1
         console.print(f"  [{C.SUCCESS}]✓[/{C.SUCCESS}] [{C.LABEL}]#{m.id}[/{C.LABEL}] {m.name}")
@@ -370,11 +409,13 @@ def _cmd_list(ctx) -> None:
     graph = ctx.cache.transport_graph
     player = getattr(ctx, "player", None)
     player_loc = player.location if player and player.location else None
-    player_node = _resolve_graph_node(player_loc, graph) if player_loc else None
+    player_node = _player_graph_node(ctx, graph)
+    nodes = mission_node_map(mm.missions, graph)     # lieux par référence (D11)
     _dist_cache: dict = {}
     from datetime import datetime as _dt
 
     for m in mm.missions:
+        refs = m.place_refs()
         scu_str    = f"{m.total_scu:.0f}{C.SCU}" if m.total_scu else "—"
         reward_str = f"{m.reward_uec // 1000}K{C.AUEC}" if m.reward_uec >= 1000 else f"{m.reward_uec}{C.AUEC}"
         tags       = " ".join(mm.synergies(m))
@@ -395,14 +436,14 @@ def _cmd_list(ctx) -> None:
 
         srcs_parts = []
         for loc in m.all_sources[:3]:
-            short = _short_loc(loc)
-            d = _player_dist(player_node, loc, graph, _dist_cache) if player_node else None
+            short = place_link(loc, refs.get(loc), _short_loc(loc))
+            d = _player_dist(player_node, nodes.get(loc), graph, _dist_cache) if player_node else None
             srcs_parts.append(f"{short} ({d})" if d else short)
 
         dsts_parts = []
         for loc in m.all_destinations[:3]:
-            short = _short_loc(loc)
-            d = _player_dist(player_node, loc, graph, _dist_cache) if player_node else None
+            short = place_link(loc, refs.get(loc), _short_loc(loc))
+            d = _player_dist(player_node, nodes.get(loc), graph, _dist_cache) if player_node else None
             dsts_parts.append(f"{short} ({d})" if d else short)
 
         srcs_str = "\n".join(srcs_parts) if srcs_parts else "—"
@@ -412,8 +453,8 @@ def _cmd_list(ctx) -> None:
         dist_str = "?"
         for src_loc in m.all_sources[:1]:
             for dst_loc in m.all_destinations[:1]:
-                sn = _resolve_graph_node(src_loc, graph)
-                dn = _resolve_graph_node(dst_loc, graph)
+                sn = nodes.get(src_loc)
+                dn = nodes.get(dst_loc)
                 if sn and dn:
                     try:
                         r = graph.find_shortest_path(sn, dn)
@@ -431,7 +472,7 @@ def _cmd_list(ctx) -> None:
             dist_str, scu_str, reward_str, tags,
         )
 
-    player_hint = f" · depuis {_short_loc(player_loc)}" if player_loc else ""
+    player_hint = f" · depuis {player_node or _short_loc(player_loc)}" if player_loc else ""
     active_voyage = ctx.voyage_manager.get_active() if hasattr(ctx, "voyage_manager") else None
 
     overlay_fn = getattr(ctx, "_overlay_send_fn", None)
@@ -456,7 +497,8 @@ def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
     graph = ctx.cache.transport_graph
     player = getattr(ctx, "player", None)
     player_loc = player.location if player and player.location else None
-    player_node = _resolve_graph_node(player_loc, graph) if player_loc else None
+    player_node = _player_graph_node(ctx, graph)
+    nodes = mission_node_map(mm.missions, graph)     # lieux par référence (D11)
     _dist_cache: dict = {}
 
     # Résoudre les chemins absolus pour les screenshots
@@ -503,8 +545,8 @@ def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
         dist_str = ""
         for src_loc in m.all_sources[:1]:
             for dst_loc in m.all_destinations[:1]:
-                sn = _resolve_graph_node(src_loc, graph)
-                dn = _resolve_graph_node(dst_loc, graph)
+                sn = nodes.get(src_loc)
+                dn = nodes.get(dst_loc)
                 if sn and dn:
                     try:
                         r = graph.find_shortest_path(sn, dn)
@@ -513,6 +555,7 @@ def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
                     except Exception:
                         pass
 
+        refs = m.place_refs()
         items.append({
             "id":              m.id,
             "name":            m.name or "",
@@ -521,6 +564,9 @@ def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
             "reward":          reward_str,
             "sources":         srcs,
             "destinations":    dsts,
+            # Référence de chaque lieu (« node:… ») ; "" = lieu à préciser (D11)
+            "source_refs":      [refs.get(x, "") for x in srcs],
+            "destination_refs": [refs.get(x, "") for x in dsts],
             "dist":            dist_str,
             "synergies":       tags,
             "has_delay":       any(o.time_cost for o in m.objectives),
@@ -535,16 +581,43 @@ def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
     })
 
 
-def _resolve_graph_node(name: str, graph) -> str | None:
-    """Résout un nom de lieu (potentiellement long) vers un nœud du graphe."""
-    from uexinfo.cli.commands.nav import _resolve_node
-    # Essayer le nom complet d'abord, puis les tokens les plus courts
-    node = _resolve_node(name, graph)
-    if node:
-        return node
-    # Extraire le code court : "MIC-L2 Long Forest Station" → "MIC-L2"
-    short = re.split(r"\s+", name.strip())[0]
-    return _resolve_node(short, graph)
+def _player_graph_node(ctx, graph):
+    """Nœud du graphe de la position du joueur, retrouvé par identifiant (D11)."""
+    from uexinfo.cli.commands.nav import _player_node
+    return _player_node(ctx, graph) if graph is not None else None
+
+
+def _pick_among(missions: list, ctx, title: str):
+    """Mission choisie par le joueur dans `missions` (sélecteur de l'overlay) ; None si
+    annulé. Hors overlay : la liste est affichée et rien n'est choisi."""
+    from uexinfo.cli.selector import SelectItem, pick
+    items = [SelectItem(label=f"#{m.id} {m.name}",
+                        value=m,
+                        meta=f"{(m.all_sources or ['?'])[0]} → {(m.all_destinations or ['?'])[0]}")
+             for m in missions]
+    if callable(getattr(ctx, "select_fn", None)):
+        chosen = pick(ctx, items, title=title, mode="single")
+        if chosen:
+            return chosen[0].value
+        print_warn("Choix annulé.")
+        return None
+    console.print(f"[{C.WARNING}]{title} — précisez le numéro :[/{C.WARNING}]")
+    for it in items:
+        console.print(f"  [{C.LABEL}]{it.label}[/{C.LABEL}]  [{C.DIM}]{it.meta}[/{C.DIM}]")
+    return None
+
+
+def _pick_mission(ref: str, ctx, quiet: bool = False):
+    """Mission désignée par `ref` (id, nom exact ou partie de nom), règle 3 (D11) :
+    plusieurs missions ⇒ liste au joueur. None si introuvable (message sauf `quiet`) ou annulé."""
+    found = ctx.mission_manager.find(ref)
+    if len(found) == 1:
+        return found[0]
+    if not found:
+        if not quiet:
+            print_warn(f"Mission introuvable : {ref}")
+        return None
+    return _pick_among(found, ctx, f"Plusieurs missions pour « {ref} »")
 
 
 from uexinfo.display.loc import loc_display as _loc_display
@@ -564,12 +637,12 @@ def _fmt_dist(d_gm: float) -> str:
     return f"{d_gm * 1000:.0f}M"
 
 
-def _player_dist(player_node: str, loc_name: str, graph, cache: dict) -> str | None:
-    """Retourne la distance formatée player_node → loc_name (avec cache)."""
-    key = (player_node, loc_name)
+def _player_dist(player_node: str, node: str | None, graph, cache: dict) -> str | None:
+    """Retourne la distance formatée player_node → node (avec cache) ; None si le lieu
+    n'est pas relié au graphe (à préciser)."""
+    key = (player_node, node)
     if key in cache:
         return cache[key]
-    node = _resolve_graph_node(loc_name, graph)
     result_str = None
     if node:
         try:
@@ -639,6 +712,7 @@ def _add_mission_result(mr, ctx) -> None:
     kwargs = mr.to_mission_kwargs()
     mm = ctx.mission_manager
     m = Mission(id=0, **kwargs)
+    _store_places(m, ctx)
     mm.add(m)
 
     reward_str = f"{m.reward_uec:,}".replace(",", " ")
@@ -713,6 +787,7 @@ def _cmd_add(args: list[str], ctx) -> None:
         objectives.append(MissionObjective(**current))
 
     m = Mission(id=0, name=name, reward_uec=reward, objectives=objectives, source_raw="manual")
+    _store_places(m, ctx)
     mm.add(m)
 
     reward_str = f"{reward:,}".replace(",", " ")
@@ -742,11 +817,9 @@ def _cmd_edit(args: list[str], ctx) -> None:
                 refs.append(a)
         missions = []
         for ref in refs:
-            m = mm.get(ref)
+            m = _pick_mission(ref, ctx)
             if m:
                 missions.append(m)
-            else:
-                print_warn(f"Mission introuvable : {ref}")
         if not missions:
             return
 
@@ -857,33 +930,18 @@ def _cmd_view(args: list[str], ctx) -> None:
         print_warn("Aucune mission dans le catalogue")
         return
 
-    m = None
-    if args:
-        m = mm.get(args[0])
-        if not m:
-            print_error(f"Mission introuvable : {args[0]}")
-            return
-    else:
-        # Picker
-        section("Choisir une mission")
-        for ms in mm.missions:
-            src = _short_loc(ms.all_sources[0]) if ms.all_sources else "?"
-            dst = _short_loc(ms.all_destinations[0]) if ms.all_destinations else "?"
-            console.print(f"  [{C.LABEL}]{ms.id:3}[/{C.LABEL}]  [{C.DIM}]{ms.name}[/{C.DIM}]  {src} → {dst}")
-        console.print(f"[{C.LABEL}]Numéro :[/{C.LABEL}] ", end="")
-        try:
-            raw = input().strip()
-        except (EOFError, KeyboardInterrupt):
-            return
-        m = mm.get(raw)
-        if not m:
-            print_error(f"Mission introuvable : {raw}")
-            return
+    # Mission désignée, sinon choisie dans le sélecteur de l'overlay (pas de saisie terminal)
+    m = (_pick_mission(" ".join(args), ctx) if args
+         else _pick_among(mm.missions, ctx, "Choisir une mission"))
+    if not m:
+        return
 
     graph = ctx.cache.transport_graph
     player = getattr(ctx, "player", None)
     player_loc = player.location if player and player.location else None
-    player_node = _resolve_graph_node(player_loc, graph) if player_loc else None
+    player_node = _player_graph_node(ctx, graph)
+    nodes = mission_node_map([m], graph)     # lieux par référence (D11)
+    refs = m.place_refs()
 
     # ── En-tête mission ────────────────────────────────────────────────────
     section(f"Mission #{m.id} — {m.name}")
@@ -900,7 +958,7 @@ def _cmd_view(args: list[str], ctx) -> None:
         return
 
     _dist_cache: dict = {}
-    from_label = _short_loc(player_loc) if player_loc else "?"
+    from_label = player_node or (_short_loc(player_loc) if player_loc else "?")
 
     # ── Distance joueur → sources (ou destinations si pas de sources) ──────
     locs_for_player = sources if sources else destinations
@@ -909,8 +967,8 @@ def _cmd_view(args: list[str], ctx) -> None:
         console.print()
         console.print(f"  [{C.LABEL}]Distance depuis {from_label} vers {locs_label} :[/{C.LABEL}]")
         for loc in locs_for_player:
-            d = _player_dist(player_node, loc, graph, _dist_cache)
-            console.print(f"    → [{C.UEX}]{_short_loc(loc)}[/{C.UEX}]  {d or '?'}")
+            d = _player_dist(player_node, nodes.get(loc), graph, _dist_cache)
+            console.print(f"    → [{C.UEX}]{place_link(loc, refs.get(loc), _short_loc(loc))}[/{C.UEX}]  {d or '?'}")
 
     # ── Table croisée sources × destinations ──────────────────────────────
     if sources and destinations:
@@ -918,9 +976,9 @@ def _cmd_view(args: list[str], ctx) -> None:
 
         matrix: dict[tuple, tuple[float | None, str]] = {}
         for src in sources:
-            src_node = _resolve_graph_node(src, graph)
+            src_node = nodes.get(src)
             for dst in destinations:
-                dst_node = _resolve_graph_node(dst, graph)
+                dst_node = nodes.get(dst)
                 raw_d, fmt_d = None, "?"
                 if src_node and dst_node:
                     try:
@@ -941,7 +999,7 @@ def _cmd_view(args: list[str], ctx) -> None:
             tbl.add_column(_short_loc(dst), justify="right", min_width=8)
 
         for src in sources:
-            row = [_short_loc(src)]
+            row = [place_link(src, refs.get(src), _short_loc(src))]
             for dst in destinations:
                 raw_d, fmt_d = matrix[(src, dst)]
                 is_min = (raw_d is not None and min_d is not None
@@ -981,9 +1039,10 @@ def _cmd_add_to_voyage(args: list[str], ctx) -> None:
 
     added, not_found = 0, []
     for ref in refs:
-        m = mm.get(ref)
+        m = _pick_mission(ref, ctx, quiet=True)
         if not m:
-            not_found.append(ref)
+            if not mm.find(ref):
+                not_found.append(ref)
             continue
         if m.id not in active.mission_ids:
             active.mission_ids.append(m.id)
@@ -1120,6 +1179,7 @@ def _show_help() -> None:
         ("edit <id>",        "Modifie une mission existante"),
         ("remove <id|a-b>",  "Supprime une mission ou un intervalle (ex: 5-23)"),
         ("+ <id>",           "Ajoute la mission au voyage actif"),
+        ("lieux [id]",       "Fait préciser les lieux non reconnus (« ? » dans les listes)"),
         ("scan",             "Liste les missions des screenshots récents (DB OCR)"),
         ("scan all",         "Toute la base de screenshots"),
         ("scan today",       "Captures d'aujourd'hui"),

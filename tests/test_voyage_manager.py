@@ -167,3 +167,33 @@ class TestGetStepDeparture:
         mm = MagicMock()
         result = vm.get_step_departure(v, 1, mm)
         assert result is None
+
+
+class TestStepDeparturePlace:
+    """get_step_departure_place : la destination de l'étape précédente comptée par référence (D11)."""
+
+    def test_previous_step_destination_with_reference(self):
+        from uexinfo.models.mission import Mission, MissionObjective
+        vm = _make_manager()
+        v = _make_voyage()
+        vm.voyages = [v]
+        m = Mission(id=10, name="m", objectives=[
+            MissionObjective(source="Lorville", source_ref="node:Lorville",
+                             destination="GrimHEX", destination_ref="node:GrimHEX")])
+        v.get_or_create_step(1).mission_ids = [10]
+        v.get_or_create_step(2)
+        mm = MagicMock()
+        mm.get = MagicMock(return_value=m)
+        assert vm.get_step_departure_place(v, 2, mm) == ("GrimHEX", "node:GrimHEX")
+
+    def test_explicit_step_departure_keeps_its_reference(self):
+        vm = _make_manager()
+        v = _make_voyage()
+        step = v.get_or_create_step(1, departure="Lorville")
+        step.departure_ref = "node:Lorville"
+        assert vm.get_step_departure_place(v, 1, MagicMock()) == ("Lorville", "node:Lorville")
+
+    def test_voyage_departure_fallback(self):
+        vm = _make_manager()
+        v = Voyage(id=1, name="t", departure="Area 18", departure_ref="node:Area_18")
+        assert vm.get_step_departure_place(v, 1, MagicMock()) == ("Area 18", "node:Area_18")

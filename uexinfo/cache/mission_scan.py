@@ -406,47 +406,20 @@ def entry_to_mission_result(entry: "ScreenshotEntry") -> "MissionResult | None":
 # ── Calcul de distances ───────────────────────────────────────────────────────
 
 def _resolve_graph_node(name: str, graph, system_hint: str | None = None) -> str | None:
-    """Résout un nom de lieu vers un nœud du graphe (insensible casse, fuzzy).
+    """Nœud du graphe pour un lieu lu sur un contrat, seulement s'il est sûr (D11).
 
-    system_hint : système préféré pour désambiguïser les gateways (ex: "Stanton").
-    Les gateways partagent le même nom de base dans plusieurs systèmes,
-    ex: "Nyx Gateway (Stanton)" vs "Nyx Gateway (Pyro)".
+    Choix déjà fait par le joueur pour ce texte (`place_aliases`), sinon un seul nœud
+    trouvé après retrait des tournures de contrat (`uexinfo.names.places`). Plusieurs
+    candidats ou un nom approchant : None ; le joueur départage à l'enregistrement de
+    la mission (`uexinfo.cli.places`). `system_hint` ne fait que classer ces candidats.
     """
-    if not name:
-        return None
-
-    # Retirer les préfixes service : "Admin - Seraphim" → "Seraphim"
-    clean = re.sub(r"^[A-Za-z]+ - ", "", name).strip()
-
-    # Retirer les suffixes de contexte connus :
-    #   "above X"    → "Seraphim Station above Crusader" → "Seraphim Station"
-    #   "at X"       → "Port Tressler at MicroTech"      → "Port Tressler"
-    clean = re.sub(r"\s+above\s+.*$", "", clean, flags=re.IGNORECASE).strip()
-    clean = re.sub(r"\s+at\s+.*$",    "", clean, flags=re.IGNORECASE).strip()
-
-    from uexinfo.names import SUBSTRING, graph_index
-    gi = graph_index(graph)
-
-    def _match(q: str) -> str | None:
-        """Nœud pour q (résolveur unique, sans flou) ; system_hint départage les gateways."""
-        r = gi.resolve(q, kinds={"node"}, min_level=SUBSTRING, prefer_system=system_hint or "")
-        return r.matches[0].entity.id if r.matches else None
-
-    # Essai avec le nom nettoyé complet
-    result = _match(clean)
-    if result:
-        return result
-
-    # Fallback progressif : retirer un mot à la fois par la droite
-    # "Port Tressler Medical Center" → "Port Tressler Medical" → "Port Tressler"
-    words = clean.split()
-    for n_words in range(len(words) - 1, 0, -1):
-        candidate = " ".join(words[:n_words])
-        result = _match(candidate)
-        if result:
-            return result
-
-    return None
+    from uexinfo.cache import place_aliases
+    from uexinfo.names.places import place_lookup, ref_node
+    known = ref_node(place_aliases.get(name), graph)
+    if known:
+        return known
+    node, _ = place_lookup(name, graph, system_hint or "")
+    return node
 
 
 def _node_system(node_name: str, graph) -> str | None:

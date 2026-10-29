@@ -12,7 +12,7 @@ from uexinfo.models.voyage import Voyage, VoyageStep
 from uexinfo.cli.commands.voyage import (
     _parse_step_number,
     _parse_departure,
-    _infer_step_departure,
+    _step_departure,
 )
 
 
@@ -71,38 +71,33 @@ class TestParseDeparture:
         assert _parse_departure(["-1", "--scu"]) is None
 
 
-class TestInferStepDeparture:
-    def _make_ctx(self, voyage, mm=None, vm=None):
+class TestStepDeparture:
+    """Départ d'une étape (D11) : nom + référence, jamais un morceau de nom."""
+
+    def _make_ctx(self, mm=None, vm=None):
         ctx = MagicMock()
         ctx.mission_manager = mm or MagicMock()
         ctx.voyage_manager = vm or MagicMock()
         return ctx
 
-    def test_uses_explicit_departure(self):
-        v = Voyage(id=1, name="test")
-        step = v.get_or_create_step(1, departure="Lorville")
-        mm = MagicMock()
-        vm_mock = MagicMock()
-        vm_mock.get_step_departure.return_value = "Lorville"
-        ctx = self._make_ctx(v, mm, vm_mock)
-        result = _infer_step_departure(v, 1, ctx)
-        assert result == "Lorville"
-        vm_mock.get_step_departure.assert_called_once_with(v, 1, mm)
-
-    def test_uses_previous_step_when_no_explicit(self):
-        v = Voyage(id=1, name="test", departure="Area18")
-        mm = MagicMock()
-        vm_mock = MagicMock()
-        vm_mock.get_step_departure.return_value = "Area18"
-        ctx = self._make_ctx(v, mm, vm_mock)
-        result = _infer_step_departure(v, 2, ctx)
-        assert result == "Area18"
-
-    def test_returns_none_when_no_info(self):
+    def test_delegates_to_manager_with_references(self):
         v = Voyage(id=1, name="test")
         mm = MagicMock()
         vm_mock = MagicMock()
-        vm_mock.get_step_departure.return_value = None
-        ctx = self._make_ctx(v, mm, vm_mock)
-        result = _infer_step_departure(v, 1, ctx)
-        assert result is None
+        vm_mock.get_step_departure_place.return_value = ("Lorville", "node:Lorville")
+        ctx = self._make_ctx(mm, vm_mock)
+        assert _step_departure(v, 1, None, ctx) == ("Lorville", "node:Lorville")
+        vm_mock.get_step_departure_place.assert_called_once_with(v, 1, mm)
+
+    def test_typed_departure_goes_through_node_choice(self):
+        v = Voyage(id=1, name="test")
+        ctx = self._make_ctx()
+        with patch("uexinfo.cli.commands.nav._pick_node", return_value="Port Tressler") as pick:
+            assert _step_departure(v, 1, "port tress", ctx) == ("Port Tressler", "node:Port_Tressler")
+        pick.assert_called_once()
+
+    def test_typed_departure_not_found(self):
+        v = Voyage(id=1, name="test")
+        ctx = self._make_ctx()
+        with patch("uexinfo.cli.commands.nav._pick_node", return_value=None):
+            assert _step_departure(v, 1, "qqqq", ctx) == (None, None)

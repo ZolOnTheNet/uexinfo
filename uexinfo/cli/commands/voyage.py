@@ -6,11 +6,16 @@ import sys
 from rich.table import Table
 
 from uexinfo.cli.commands import register
+from uexinfo.cli.commands.mission import _pick_mission
 from uexinfo.cli.selector import SelectItem, pick
 from uexinfo.display import colors as C
 from uexinfo.display.adaptive import ColSpec, adaptive_table
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
+from uexinfo.cli.places import (
+    area_ref, mission_node_map, node_terminals, place_area, place_link, player_place,
+)
 from uexinfo.models.voyage import Voyage
+from uexinfo.names.places import node_ref, ref_node
 
 # ── Constantes calc ───────────────────────────────────────────────────────────
 _UNKNOWN_DIST_PENALTY = 500.0  # Gm — pénalité si distance inconnue/injoignable
@@ -62,7 +67,7 @@ def cmd_voyage(args: list[str], ctx) -> None:
             if active:
                 print_ok(f"Voyage déjà actif : [{C.UEX}]{active.name}[/{C.UEX}]")
             else:
-                v = vm.new_voyage(departure=_player_loc(ctx))
+                v = vm.new_voyage(**_player_departure(ctx))
                 print_ok(f"Nouveau voyage créé et activé : [{C.UEX}]{v.name}[/{C.UEX}]")
 
     elif sub in ("off", "désactiver"):
@@ -73,7 +78,7 @@ def cmd_voyage(args: list[str], ctx) -> None:
 
     elif sub in ("new", "nouveau"):
         name = " ".join(rest) if rest else None
-        v = vm.new_voyage(name=name, departure=_player_loc(ctx))
+        v = vm.new_voyage(name=name, **_player_departure(ctx))
         print_ok(f"Nouveau voyage créé et activé : [{C.UEX}]{v.name}[/{C.UEX}]  "
                  f"[{C.DIM}](#{v.id})[/{C.DIM}]")
 
@@ -308,8 +313,6 @@ def _cmd_show(voyage: Voyage, ctx) -> None:
         console.print(f"[{C.DIM}]/voyage add <id|nom>  pour ajouter des missions[/{C.DIM}]")
         return
 
-    graph = ctx.cache.transport_graph
-
     # Colonnes fixes : # 3, → 1, Dist 7, SCU 4, Récompense 12, Tags 6 = 33
     # Colonnes flexibles : Nom (poids 2) / Départ (poids 1) / Arrivée (poids 1)
     tbl = adaptive_table([
@@ -334,8 +337,8 @@ def _cmd_show(voyage: Voyage, ctx) -> None:
                         "—", "→", "—", "—", "—", "—", "")
             continue
 
-        srcs = ", ".join(m.all_sources[:2]) or "—"
-        dsts = ", ".join(m.all_destinations[:2]) or "—"
+        srcs = _place_links(m, m.all_sources[:2]) or "—"
+        dsts = _place_links(m, m.all_destinations[:2]) or "—"
         scu_str = f"{m.total_scu:.0f}□" if m.total_scu else "—"
         rew_str = f"{m.reward_uec:,}".replace(",", " ") + " aUEC"
         total_scu += m.total_scu
@@ -344,15 +347,8 @@ def _cmd_show(voyage: Voyage, ctx) -> None:
         # Synergies depuis manager
         tags = " ".join(mm.synergies_for_voyage(m, voyage.mission_ids))
 
-        dist_str = "?"
-        if m.all_sources and m.all_destinations:
-            try:
-                result = graph.find_shortest_path(m.all_sources[0], m.all_destinations[0])
-                if result is not None and result.total_distance is not None:
-                    d = result.total_distance
-                    dist_str = _fmt_dist(d)
-            except Exception:
-                pass
+        d = _mission_distance(m, ctx)
+        dist_str = _fmt_dist(d) if d is not None else "?"
 
         has_delay = any(o.time_cost for o in m.objectives)
         name_label = m.name + (f" [{C.WARNING}]⏱[/{C.WARNING}]" if has_delay else "")
@@ -418,9 +414,10 @@ def _cmd_add(args: list[str], voyage: Voyage, ctx) -> None:
     added = []
     not_found = []
     for ref in args:
-        m = mm.get(ref)
+        m = _pick_mission(ref, ctx, quiet=True)   # plusieurs missions ⇒ liste (D11)
         if not m:
-            not_found.append(ref)
+            if not mm.find(ref):
+                not_found.append(ref)
             continue
         n = vm.add_missions(voyage, [m.id])
         if n:
@@ -439,14 +436,12 @@ def _cmd_add(args: list[str], voyage: Voyage, ctx) -> None:
 def _cmd_remove(args: list[str], voyage: Voyage, ctx) -> None:
     """/voyage remove <id …> — retire des missions du voyage."""
     vm = ctx.voyage_manager
-    mm = ctx.mission_manager
     if not args:
         print_error("Identifiant de mission manquant")
         return
     for ref in args:
-        m = mm.get(ref)
+        m = _pick_mission(ref, ctx)
         if not m:
-            print_warn(f"Mission introuvable : {ref}")
             continue
         if vm.remove_mission(voyage, m.id):
             print_ok(f"Retiré de [{C.UEX}]{voyage.name}[/{C.UEX}] : {m.name}")
@@ -538,19 +533,6 @@ _AUTO_CRITERIA: dict[str, str] = {
 _SINGLE_CRITERIA = ["dist", "benefice", "roi"]
 
 # Mots-clés identifiant une station spatiale (heuristique)
-_STATION_KW = {
-    "station", "harbor", "port", "terminal", "refinery",
-    "gateway", "hub", "relay", "beacon", "platform",
-    "outpost", "warehouse", "depot",
-}
-
-
-def _loc_is_station(loc: str) -> bool:
-    """Vrai si le nom de lieu ressemble à une station (mots-clés de `_STATION_KW`)."""
-    l = loc.lower()
-    return any(kw in l for kw in _STATION_KW)
-
-
 def _parse_auto_opts(args: list[str]) -> dict:
     """Extrait les options --xxx des arguments bruts."""
     opts: dict = {
@@ -830,6 +812,7 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
     # Fusionner options config + CLI (CLI a priorité)
     merged_args = cfg_opts + list(raw_args)
     opts = _parse_auto_opts(merged_args)
+    cli_excl = list(opts["exclude"])
     if "max_missions" not in raw_args and "--max" not in " ".join(raw_args):
         opts["max_missions"] = cfg_max
     # Injecter exclusions config (s'ajoutent aux exclusions CLI)
@@ -860,6 +843,23 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
         print_warn("Catalogue vide — /mission add pour créer des missions")
         return
 
+    # Lieux des missions : par référence (D11) ; ceux devenus sûrs sont reliés au passage
+    from uexinfo.cli.places import refresh_places
+    refresh_places(ctx, missions)
+    resolved = mission_node_map(missions, graph) if graph else {}
+    _area_cache: dict[str, set[str]] = {}
+
+    def _areas(m) -> set[str]:
+        """Références des lieux de la mission et de ce qui les contient (planète, système…)."""
+        out: set[str] = set()
+        for loc in m.all_sources + m.all_destinations:
+            node = resolved.get(loc)
+            if node:
+                if node not in _area_cache:
+                    _area_cache[node] = place_area(node, ctx)
+                out |= _area_cache[node]
+        return out
+
     # ── Filtre vaisseau ───────────────────────────────────────────────────────
     ship_scu = _resolve_ship_scu(opts.get("ship"), ctx)
     if ship_scu is not None:
@@ -878,35 +878,37 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
     if opts["station"]:
         missions = [
             m for m in missions
-            if all(_loc_is_station(l) for l in m.all_sources + m.all_destinations)
+            if all(_node_is_station(resolved.get(l), graph) for l in m.all_sources + m.all_destinations)
         ]
         if not missions:
             print_warn("Aucune mission entre stations uniquement")
             return
 
     # ── Filtre exclusions ─────────────────────────────────────────────────────
-    excl = [e.lower() for e in opts["exclude"]]
-    if excl:
-        missions = [
-            m for m in missions
-            if not any(
-                any(e in loc.lower() for e in excl)
-                for loc in m.all_sources + m.all_destinations
-            )
-        ]
+    # Lieu, planète ou système désigné (règle 3), jamais un morceau de nom (D11)
+    excl_refs: set[str] = set()
+    for x in cli_excl:
+        r_ = area_ref(x, ctx)
+        if r_:
+            excl_refs.add(r_)
+    for x in cfg_excl:
+        r_ = area_ref(x, ctx, ask=False)
+        if r_:
+            excl_refs.add(r_)
+        else:
+            print_warn(f"Exclusion « {x} » (voyage.calc.exclure) ignorée : lieu introuvable ou ambigu")
+    if excl_refs:
+        missions = [m for m in missions if not (_areas(m) & excl_refs)]
         if not missions:
             print_warn("Aucune mission après exclusion des lieux")
             return
 
     # ── Filtre --to ───────────────────────────────────────────────────────────
-    to_locs = [t.lower() for t in opts["to"]]
-    if to_locs:
+    to_refs = {r_ for r_ in (area_ref(t, ctx) for t in opts["to"]) if r_}
+    if opts["to"]:
         def _touches_to(m) -> bool:
-            """Vrai si la mission part de ou arrive à l'un des lieux de `--to`."""
-            return any(
-                any(t in loc.lower() for t in to_locs)
-                for loc in m.all_sources + m.all_destinations
-            )
+            """Vrai si la mission part de ou arrive à l'un des lieux de `--to` (ou dans leur planète, système…)."""
+            return bool(_areas(m) & to_refs)
         must_have = [m for m in missions if _touches_to(m)]
         others    = [m for m in missions if not _touches_to(m)]
         missions  = must_have + others
@@ -939,32 +941,20 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
             f"  [{C.WARNING}]--favoris : filtrage favoris non encore implémenté[/{C.WARNING}]"
         )
 
-    # ── Collecte des lieux ────────────────────────────────────────────────────
-    start_raw = _player_loc(ctx) or ""
-    all_locs: list[str] = []
-    if start_raw:
-        all_locs.append(start_raw)
-    for m in missions:
-        for loc in m.all_sources + m.all_destinations:
-            if loc and loc not in all_locs:
-                all_locs.append(loc)
-
     in_overlay = getattr(ctx, "_overlay_send_fn", None) is not None
     use_tty    = not in_overlay and hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
-    # ── Résolution des lieux ─────────────────────────────────────────────────
-    _progress(f"Résolution {len(all_locs)} lieux, {len(missions)} mission(s)…", use_tty)
-    resolved = _resolve_locs(all_locs, graph) if graph else {}
-
-    missing = [l for l in all_locs if not resolved.get(l)]
-    _progress_done(use_tty)
+    # ── Lieux : départ = position du joueur (par identifiant), missions par référence ──
+    start_node = player_place(ctx, graph)[0] if graph else None
+    used = {loc for m in missions for loc in m.all_sources + m.all_destinations}
+    missing = [l for l in used if not resolved.get(l)]
     if missing:
         console.print(
-            f"  [{C.WARNING}]{len(missing)} lieu(x) non résolu(s) : "
+            f"  [{C.WARNING}]{len(missing)} lieu(x) à préciser (/mission lieux) : "
             f"{', '.join(missing[:5])}{'…' if len(missing) > 5 else ''}[/{C.WARNING}]"
         )
 
-    node_list = list(dict.fromkeys(v for v in resolved.values() if v))
+    node_list = list(dict.fromkeys(v for v in [start_node, *(resolved[l] for l in used)] if v))
     n_nodes   = len(node_list)
 
     # ── Matrice de distances avec progression ────────────────────────────────
@@ -984,7 +974,6 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
             sys.stdout.flush()
     _progress_done(use_tty)
 
-    start_node = resolved.get(start_raw) if start_raw else None
     if not start_node and missions and missions[0].all_sources:
         start_node = resolved.get(missions[0].all_sources[0])
 
@@ -1150,10 +1139,8 @@ def _cmd_new_auto(criterion: str, raw_args: list[str], ctx) -> None:
 
         if not in_overlay:
             # Missions individuelles avec bouton + (CLI seulement)
-            console.print(f"  [{C.DIM}]Missions : ", end="")
-            for m in prop["missions"]:
-                console.print(f"[bold]+m{m.id}[/bold] #{m.id} ", end="")
-            console.print(f"[/{C.DIM}]")
+            plus = " ".join(f"[bold]+m{m.id}[/bold] #{m.id}" for m in prop["missions"])
+            console.print(f"  [{C.DIM}]Missions : {plus}[/{C.DIM}]")
 
             # Boutons proposition (CLI seulement)
             if active_voyage:
@@ -1340,7 +1327,6 @@ def _save_proposal_by_index(idx: int, proposals: list, ctx, force_new: bool = Fa
     prop      = proposals[idx]
     mission_ids = [prop["missions"][i].id for i in prop["order"]]
     rew_s     = f"{prop['reward']:,}".replace(",", " ")
-    start_raw = _player_loc(ctx) or None
 
     active = vm.get_active()
     if active and not force_new:
@@ -1353,7 +1339,7 @@ def _save_proposal_by_index(idx: int, proposals: list, ctx, force_new: bool = Fa
         )
     else:
         # Créer un nouveau voyage
-        v = vm.new_voyage(name=f"calc-{prop['criterion']}", departure=start_raw)
+        v = vm.new_voyage(name=f"calc-{prop['criterion']}", **_player_departure(ctx))
         v.loop = prop.get("loop", False)
         vm.add_missions(v, mission_ids)
         vm.update(v)
@@ -1383,28 +1369,6 @@ def _path_dist(graph, a: str | None, b: str | None) -> float | None:
         return r.total_distance if r is not None else None
     except Exception:
         return None
-
-
-def _resolve_locs(raw_locs: list[str], graph) -> dict[str, str | None]:
-    """Résout une liste de noms bruts en nœuds du graphe (fuzzy)."""
-    from uexinfo.cache.mission_scan import _resolve_graph_node
-    resolved: dict[str, str | None] = {}
-    # Premier passage : résoudre les non-gateways pour dériver le system_hint
-    from uexinfo.cache.mission_scan import _node_system
-    system_counts: dict[str, int] = {}
-    for loc in raw_locs:
-        node = _resolve_graph_node(loc, graph)
-        resolved[loc] = node
-        if node and "gateway" not in (node or "").lower():
-            sys = _node_system(node, graph)
-            if sys:
-                system_counts[sys] = system_counts.get(sys, 0) + 1
-    system_hint = max(system_counts, key=system_counts.__getitem__) if system_counts else None
-    # Second passage : gateways avec system_hint
-    for loc in raw_locs:
-        if resolved[loc] and "gateway" in resolved[loc].lower():
-            resolved[loc] = _resolve_graph_node(loc, graph, system_hint=system_hint)
-    return resolved
 
 
 def _build_dist_matrix(
@@ -1825,30 +1789,24 @@ def _run_analysis(voyage: Voyage, ctx) -> None:
 
     console.print(f"\n  [{C.DIM}]Résolution des lieux et calcul des distances…[/{C.DIM}]")
 
-    start_raw = voyage.departure or (player.location if player else None) or ""
-    raw_locs: list[str] = []
-    if start_raw:
-        raw_locs.append(start_raw)
-    for m in missions:
-        for loc in m.all_sources + m.all_destinations:
-            if loc and loc not in raw_locs:
-                raw_locs.append(loc)
+    # Départ : celui du voyage, sinon la position du joueur — par référence (D11)
+    from uexinfo.cli.places import refresh_places
+    refresh_places(ctx, missions)
+    start_node = _voyage_start(voyage, ctx, graph)
+    resolved = mission_node_map(missions, graph)
 
-    resolved = _resolve_locs(raw_locs, graph)
-
-    # Afficher les résolutions non trouvées
-    missing = [r for r in raw_locs if not resolved.get(r)]
+    # Lieux restés à préciser : jamais devinés
+    missing = [r for r, node in resolved.items() if not node]
     if missing:
         console.print(
-            f"  [{C.WARNING}]Lieux non résolus dans le graphe : "
+            f"  [{C.WARNING}]Lieux à préciser (/mission lieux) : "
             f"{', '.join(missing)}[/{C.WARNING}]"
         )
 
     # Matrice de distances sur les nœuds résolus (dédupliqués)
-    node_list = list(dict.fromkeys(v for v in resolved.values() if v))
+    node_list = list(dict.fromkeys(v for v in [start_node, *resolved.values()] if v))
     dist = _build_dist_matrix(graph, node_list)
 
-    start_node = resolved.get(start_raw) if start_raw else None
     if not start_node and missions[0].all_sources:
         start_node = resolved.get(missions[0].all_sources[0])
 
@@ -1899,12 +1857,13 @@ def _run_analysis(voyage: Voyage, ctx) -> None:
         cumul += (travel or 0.0) + (leg or 0.0)
         scu_s = f"{m.total_scu:.0f}□" if m.total_scu else "—"
         rew_s = f"{m.reward_uec:,}".replace(",", " ")
+        refs = m.place_refs()
         tbl.add_row(
             str(step),
             m.name,
-            src_raw or "—",
+            place_link(src_raw, refs.get(src_raw)) if src_raw else "—",
             "→",
-            dst_raw or "—",
+            place_link(dst_raw, refs.get(dst_raw)) if dst_raw else "—",
             _fmt_dist(travel),
             _fmt_dist(leg),
             scu_s,
@@ -1947,33 +1906,25 @@ def _suggest_cargo(missions: list, order: list[int], spare_scu: float,
     if not legs:
         return
 
-    def _get_prices(terminal_name: str) -> list[dict]:
-        """Fetch terminal prices : cache d'abord (stale OK), API en dernier recours."""
-        key = f"tl_{terminal_name.lower().replace(' ', '_')}"
-        cached = ctx._price_cache.get(key) or ctx._price_cache.get_stale(key)
-        if cached:
-            return cached[1]
-        try:
-            from uexinfo.api.uex_client import shared_client
-            data = shared_client().get_prices(terminal_name=terminal_name)
-            ctx._price_cache[key] = (__import__("time").time(), data)
-            return data
-        except Exception:
-            return []
+    def _get_prices(t) -> list[dict]:
+        """Prix UEX du terminal `t`, par son identifiant (lecture unique avec cache)."""
+        from uexinfo.cache.data_manager import DataManager
+        return DataManager.cached(f"t{t.id}", "get_prices", ctx, warn=False, id_terminal=t.id)
 
     # Pour chaque leg, chercher les meilleures routes commerciales
     suggestions: list[tuple[float, str, str, str, float, float]] = []
     # (profit_par_scu, commodity, from, to, buy_price, sell_price)
 
     for from_loc, to_loc in legs[:3]:  # limiter aux 3 premiers legs
-        from_terminals = _loc_terminals(from_loc, cache)
-        to_terminals   = _loc_terminals(to_loc,   cache)
+        # Terminaux des lieux de l'étape, par référence (D11)
+        from_terminals = node_terminals(resolved.get(from_loc), ctx)[:3]
+        to_terminals   = node_terminals(resolved.get(to_loc), ctx)[:3]
         if not from_terminals or not to_terminals:
             continue
         for ft in from_terminals[:2]:
             for tt in to_terminals[:2]:
-                prices  = _get_prices(ft.name)
-                prices2 = _get_prices(tt.name)
+                prices  = _get_prices(ft)
+                prices2 = _get_prices(tt)
                 if not prices or not prices2:
                     continue
                 buys  = {p["commodity_name"]: p for p in prices  if p.get("price_buy")}
@@ -2022,21 +1973,44 @@ def _suggest_cargo(missions: list, order: list[int], spare_scu: float,
         console.print(tbl)
 
 
-def _loc_terminals(loc_name: str, cache) -> list:
-    """Retourne les terminaux proches d'un lieu (par nom)."""
-    name_l = loc_name.lower()
-    return [
-        t for t in (cache.terminals or [])
-        if (t.name or "").lower() == name_l
-        or name_l in (t.name or "").lower()
-    ][:3]
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _player_loc(ctx) -> str | None:
-    """Position actuelle du joueur, ou None."""
-    return (getattr(ctx.player, "location", None) or "").strip() or None
+def _player_departure(ctx) -> dict:
+    """Départ d'un nouveau voyage : la position du joueur, avec la référence de son lieu
+    retrouvée par identifiant (D11) ; sans lieu connu dans le graphe, le nom seul."""
+    node, ref = player_place(ctx)
+    if node:
+        return {"departure": node, "departure_ref": ref}
+    return {"departure": (getattr(ctx.player, "location", None) or "").strip() or None}
+
+
+def _voyage_start(voyage, ctx, graph) -> str | None:
+    """Nœud de départ du voyage : sa référence, sinon (ancien voyage sans référence)
+    son nom s'il désigne un seul lieu sûr — retenu alors —, sinon la position du joueur."""
+    node = ref_node(voyage.departure_ref, graph)
+    if not node and voyage.departure and not voyage.departure_ref:
+        from uexinfo.cli.places import resolve_place
+        node = resolve_place(voyage.departure, ctx, ask=False, graph=graph)
+        if node:
+            voyage.departure, voyage.departure_ref = node, node_ref(node)
+            ctx.voyage_manager.update(voyage)
+    return node or player_place(ctx, graph)[0]
+
+
+def _place_links(m, names: list[str]) -> str:
+    """Lieux de la mission `m`, séparés par des virgules, chacun cliquable par sa référence
+    (« ? » pour un lieu à préciser)."""
+    refs = m.place_refs()
+    return ", ".join(place_link(n, refs.get(n)) for n in names)
+
+
+def _node_is_station(node: str | None, graph) -> bool:
+    """Vrai si le lieu (nœud du graphe) n'est ni une ville ni un corps céleste : on s'y
+    pose sans atterrir. Un lieu à préciser ne compte pas comme station."""
+    from uexinfo.models.transport_network import NodeType
+    n = graph.nodes.get(node) if (graph is not None and node) else None
+    return n is not None and n.type not in (NodeType.CITY, NodeType.PLANET,
+                                            NodeType.MOON, NodeType.SYSTEM)
 
 
 def _infer_arrival(missions) -> str | None:
@@ -2105,20 +2079,35 @@ def _show_help() -> None:
 
 # ── Tableau de bord (/voyage tb) ──────────────────────────────────────────────
 
-def _infer_step_departure(voyage: "Voyage", step_number: int, ctx) -> str | None:
-    """Infère le lieu de départ d'une étape."""
-    mm = ctx.mission_manager
-    vm = ctx.voyage_manager
-    return vm.get_step_departure(voyage, step_number, mm)
+def _step_departure(voyage: "Voyage", step_number: int, override: str | None,
+                    ctx) -> tuple[str | None, str | None]:
+    """(nom, référence) du lieu de départ d'une étape (D11) : le lieu saisi (règle 3 :
+    liste si plusieurs), sinon celui de l'étape, déduit des références des missions."""
+    if override:
+        from uexinfo.cli.commands.nav import _Cancelled, _pick_node
+        try:
+            node = _pick_node(override, ctx.cache.transport_graph, ctx)
+        except _Cancelled:
+            return None, None
+        if not node:
+            print_warn(f"Lieu introuvable : {override}")
+            return None, None
+        return node, node_ref(node)
+    return ctx.voyage_manager.get_step_departure_place(voyage, step_number, ctx.mission_manager)
 
 
 def _mission_distance(m, ctx) -> float | None:
-    """Calcule la distance source → destination d'une mission (Gm)."""
+    """Distance source → destination d'une mission (Gm), entre les lieux reliés (D11) ;
+    None si l'un des deux est à préciser."""
     graph = ctx.cache.transport_graph
     if not graph or not m.all_sources or not m.all_destinations:
         return None
+    nodes = mission_node_map([m], graph)
+    src, dst = nodes.get(m.all_sources[0]), nodes.get(m.all_destinations[0])
+    if not src or not dst:
+        return None
     try:
-        result = graph.find_shortest_path(m.all_sources[0], m.all_destinations[0])
+        result = graph.find_shortest_path(src, dst)
         if result is not None and result.total_distance is not None:
             return result.total_distance
     except Exception:
@@ -2197,32 +2186,36 @@ def _dashboard_main(voyage: "Voyage", step_num: int, departure_override: str | N
     vm = ctx.voyage_manager
     in_overlay = getattr(ctx, "_overlay_send_fn", None) is not None
 
-    # Déterminer le lieu de départ
-    departure = departure_override or _infer_step_departure(voyage, step_num, ctx)
+    # Déterminer le lieu de départ — par référence (D11)
+    from uexinfo.cli.places import refresh_places
+    refresh_places(ctx)
+    departure, dep_ref = _step_departure(voyage, step_num, departure_override, ctx)
     if not departure:
-        print_warn(
-            "Aucun point de départ évident, veuillez le préciser : "
-            "/voyage tb <lieu> -N"
-        )
+        if not departure_override:
+            print_warn(
+                "Aucun point de départ évident, veuillez le préciser : "
+                "/voyage tb <lieu> -N"
+            )
+        return
+    if not dep_ref:
+        print_warn(f"Départ « {departure} » à préciser — /voyage tb <lieu> -{step_num}")
         return
 
-    # S'assurer que l'étape existe
+    # S'assurer que l'étape existe, avec la référence de son départ
     step = voyage.get_or_create_step(step_num, departure)
+    if step.departure_ref != dep_ref and (step.departure == departure or not step.departure_ref):
+        step.departure, step.departure_ref = departure, dep_ref
+        vm.update(voyage)
 
-    section(f"Tableau de bord — départ : {departure}  (Étape {step_num})")
+    section(f"Tableau de bord — départ : {place_link(departure, dep_ref)}  (Étape {step_num})")
 
-    # Chercher les missions qui partent de ce lieu
+    # Missions qui partent de ce lieu : même référence, jamais un morceau de nom
     all_missions = mm.missions
     if not all_missions:
         print_warn("Catalogue vide — /mission add pour créer des missions")
         return
 
-    dep_lower = departure.lower()
-    matching = [
-        m for m in all_missions
-        if any(dep_lower in src.lower() or src.lower() in dep_lower
-               for src in m.all_sources)
-    ]
+    matching = [m for m in all_missions if any(o.source_ref == dep_ref for o in m.objectives)]
 
     if not matching:
         console.print(
@@ -2234,7 +2227,9 @@ def _dashboard_main(voyage: "Voyage", step_num: int, departure_override: str | N
 
     # Grouper par destination, trier par récompense décroissante
     by_dest: dict[str, list] = defaultdict(list)
+    dst_refs: dict[str, str] = {}
     for m in matching:
+        dst_refs.update(m.place_refs())
         for dst in (m.all_destinations or ["(destination inconnue)"]):
             by_dest[dst].append(m)
 
@@ -2263,7 +2258,7 @@ def _dashboard_main(voyage: "Voyage", step_num: int, departure_override: str | N
                 break
 
         dist_label = f"  [{C.DIM}]({_fmt_dist(dst_dist)})[/{C.DIM}]" if dst_dist else ""
-        console.print(f"\n[bold {C.UEX}]── Destination : {dst}{dist_label}[/bold {C.UEX}]")
+        console.print(f"\n[bold {C.UEX}]── Destination : {place_link(dst, dst_refs.get(dst))}{dist_label}[/bold {C.UEX}]")
 
         tbl = Table(show_header=True, box=None, padding=(0, 1))
         tbl.add_column("[+]",      width=3)
@@ -2305,6 +2300,7 @@ def _dashboard_main(voyage: "Voyage", step_num: int, departure_override: str | N
                     break
             groups.append({
                 "destination":  dst,
+                "destination_ref": dst_refs.get(dst, ""),
                 "distance_gm":  round(dst_dist, 2) if dst_dist else None,
                 "missions": [
                     {
@@ -2416,8 +2412,8 @@ def _dashboard_list(voyage: "Voyage", step_num: int | None, ctx) -> None:
             console.print(f"  [{C.WARNING}]#{mid} introuvable[/{C.WARNING}]")
             continue
 
-        srcs = ", ".join(m.all_sources[:2]) or "?"
-        dsts = ", ".join(m.all_destinations[:2]) or "?"
+        srcs = _place_links(m, m.all_sources[:2]) or "?"
+        dsts = _place_links(m, m.all_destinations[:2]) or "?"
         scu_s = f"{m.total_scu:.0f}□" if m.total_scu else "?"
         rew_s = f"{m.reward_uec:,}α".replace(",", " ") if m.reward_uec else "?"
 

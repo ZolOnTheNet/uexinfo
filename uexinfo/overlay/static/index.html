@@ -3986,6 +3986,14 @@ function appendMissionActions(msg) {
     `<th></th>`;
   tbl.appendChild(hdr);
 
+  // Lieu de mission : lien qui porte sa référence (D11), ou « ? » s'il reste à préciser
+  const _placeCell = (name, ref) => {
+    if (!name) return '—';
+    if (ref) return `<span class="cw cw-location" data-ref="${_meEsc(ref)}" data-type="location"`
+                  + ` data-word="${_meEsc(name)}">${_meEsc(name)}</span>`;
+    return `${_meEsc(name)} <span style="color:#ffd600" title="Lieu à préciser : /mission lieux">?</span>`;
+  };
+
   for (const m of _maiMissions) {
     const tr = document.createElement('tr');
     tr.id = `mai-row-${m.id}`;
@@ -4009,8 +4017,8 @@ function appendMissionActions(msg) {
       `<td class="mai-c-id r">${m.id}</td>` +
       `<td class="mai-c-scan">${scanTxt}</td>` +
       `<td class="mai-c-name" title="${_meEsc(m.name||'')}">${_meEsc(m.name||'—')}${delay}</td>` +
-      `<td class="mai-c-loc"  title="${_meEsc(srcTip)}">${_meEsc((m.sources||[])[0]||'—')}</td>` +
-      `<td class="mai-c-loc"  title="${_meEsc(dstTip)}">${_meEsc((m.destinations||[])[0]||'—')}</td>` +
+      `<td class="mai-c-loc"  title="${_meEsc(srcTip)}">${_placeCell((m.sources||[])[0], (m.source_refs||[])[0])}</td>` +
+      `<td class="mai-c-loc"  title="${_meEsc(dstTip)}">${_placeCell((m.destinations||[])[0], (m.destination_refs||[])[0])}</td>` +
       `<td class="mai-c-dist r">${_meEsc(m.dist||'')}</td>` +
       `<td class="mai-c-scu  r">${m.scu ? m.scu+'□' : ''}</td>` +
       `<td class="mai-c-rew  r">${m.reward ? m.reward+'α' : ''}</td>` +

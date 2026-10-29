@@ -33,6 +33,7 @@
 | Règles métier pures (testées) | `uexinfo/rules/` (`stock.py` quantités, `risk.py` risque D2, `version.py` versions D3) — décisions dans `docs/ai/DECISIONS.md` |
 | Formatage (prix, SCU, distance, nom court terminal) | `display/formatter.py` (`fmt_distance_gm`, `terminal_short_name`) — **réutiliser** |
 | **Reconnaissance de noms (UNIQUE)** | `uexinfo/names/` : `resolve(ctx, query, kinds, profile, min_level)` → `.best`, `.ambiguous`, `.candidates`. Ne jamais réécrire de recherche floue ailleurs |
+| **Lieux des missions et voyages (D11)** | `uexinfo/cli/places.py` : `ensure_mission_places` (à l'enregistrement), `mission_node_map` (calculs), `place_link` (affichage), `area_ref`/`place_area` (filtres) ; lecture d'un texte : `names/places.py` ; choix mémorisés : `cache/place_aliases.py` |
 | **Choisir un objet saisi (D11)** | `uexinfo/cli/choose.py` : `choose`/`decide` (un candidat sûr, sinon liste ; faute de frappe proposée) ; position/destination : `position_terminal(ctx)`, jamais `player.location` relu. Lien cliquable : `uexinfo.names.link(type, id, texte)` ; référence tapée `#type:id` |
 | Classement des routes de vente | `info._route_rank_key` (prix puis distance) |
 | Prix fusionnés UEX + scans | `cache/data_manager.py:terminal_prices`, `fetch_prices` (fallback : cache → API → périmé → vide) ; toute autre lecture UEX avec cache : `DataManager.cached` ; client unique : `uex_client.shared_client()` |
@@ -77,7 +78,7 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
   - Menu contextuel au clic gauche refermé dans le même clic (`index.html:2436` + `:2547`, pas de `stopPropagation`).
   - Serveur WS sans jeton ni contrôle d'origine ; `open_file` → `os.startfile` sur tout chemin (`server.py:350-365`).
   - ~~`/config cache clear` fait `rmtree` de tout `user_data_dir`~~ — **corrigé le 2026-10-22** : `/config cache clear <type>` (api, missions, voyages, scans, notes, historique), sans type la liste des choix.
-  - `/mission view` sans id appelle `input()` (`mission.py:864`).
+  - ~~`/mission view` sans id appelle `input()`~~ — corrigé le 2026-10-29 : sélecteur de l'overlay.
   - ~~`display/result.py` jamais importé~~ — supprimé le 2026-10-29. Messages orphelins : `voyage_dashboard`, `opacity` (non traités par la page), `hint`, `scan_edit`, `mission_list_actions` (jamais émis).
   - État propre à une commande stocké en global (`ctx.select_fn`, `_overlay_send_fn`, `_select_event`, console de capture sans verrou) : bloque les fenêtres multiples.
   - Minage : aucune commande ; endpoints UEX existants non utilisés : `refineries_methods`, `refineries_yields`, `refineries_capacities`, `commodities_raw_prices`.

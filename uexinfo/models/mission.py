@@ -9,11 +9,15 @@ class MissionObjective:
     """Un objectif dans une mission (livraison, escorte, etc.)."""
 
     commodity: str | None = None       # Commodité à transporter
-    source: str | None = None          # Lieu de départ (brut ou résolu)
-    destination: str | None = None     # Lieu d'arrivée (brut ou résolu)
+    source: str | None = None          # Lieu de départ : nom du nœud, ou texte brut à préciser
+    destination: str | None = None     # Lieu d'arrivée : nom du nœud, ou texte brut à préciser
     quantity_scu: float | None = None  # Volume SCU
     time_cost: str | None = None       # Pénalité : "tdd", "shop", texte libre
     notes: str | None = None           # Texte libre (type élimination, investigation…)
+    # Référence du lieu (« node:<nom> », décision D11), posée une seule fois à l'enregistrement ;
+    # None = texte pas encore relié à un lieu (« à préciser »), jamais deviné ensuite.
+    source_ref: str | None = None
+    destination_ref: str | None = None
 
     def to_dict(self) -> dict:
         """Dictionnaire pour le JSON, sans les champs vides."""
@@ -23,7 +27,8 @@ class MissionObjective:
     def from_dict(cls, d: dict) -> "MissionObjective":
         """Recrée l'objectif depuis le JSON, en ignorant les clés inconnues."""
         valid = {f for f in ("commodity", "source", "destination",
-                              "quantity_scu", "time_cost", "notes")}
+                              "quantity_scu", "time_cost", "notes",
+                              "source_ref", "destination_ref")}
         return cls(**{k: v for k, v in d.items() if k in valid})
 
 
@@ -49,6 +54,25 @@ class Mission:
     def all_destinations(self) -> list[str]:
         """Lieux d'arrivée des objectifs, sans doublon, dans l'ordre."""
         return list(dict.fromkeys(o.destination for o in self.objectives if o.destination))
+
+    @property
+    def unresolved_places(self) -> list[str]:
+        """Lieux écrits mais pas encore reliés à un lieu du graphe (à préciser), sans doublon."""
+        out: list[str] = []
+        for o in self.objectives:
+            for text, r in ((o.source, o.source_ref), (o.destination, o.destination_ref)):
+                if text and not r and text not in out:
+                    out.append(text)
+        return out
+
+    def place_refs(self) -> dict[str, str]:
+        """Nom affiché → référence, pour chaque lieu relié de la mission."""
+        refs: dict[str, str] = {}
+        for o in self.objectives:
+            for text, r in ((o.source, o.source_ref), (o.destination, o.destination_ref)):
+                if text and r:
+                    refs[text] = r
+        return refs
 
     @property
     def total_scu(self) -> float:

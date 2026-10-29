@@ -13,12 +13,14 @@ class VoyageStep:
     departure: str | None = None          # Lieu de départ (déduit ou explicite)
     mission_ids: list[int] = field(default_factory=list)
     empty_display_count: int = 0          # Compteur affichages vide (auto-purge à 3)
+    departure_ref: str | None = None      # Référence du lieu de départ (« node:<nom> », D11)
 
     def to_dict(self) -> dict:
         """Dictionnaire pour `voyages.json`."""
         return {
             "number":              self.number,
             "departure":           self.departure,
+            "departure_ref":       self.departure_ref,
             "mission_ids":         self.mission_ids,
             "empty_display_count": self.empty_display_count,
         }
@@ -29,6 +31,7 @@ class VoyageStep:
         return cls(
             number=d.get("number", 1),
             departure=d.get("departure"),
+            departure_ref=d.get("departure_ref"),
             mission_ids=d.get("mission_ids", []),
             empty_display_count=d.get("empty_display_count", 0),
         )
@@ -49,6 +52,9 @@ class Voyage:
     session_id: int = 0
     notes: str | None = None
     loop: bool = False                # --boucle : retour au départ inclus
+    # Références des lieux (« node:<nom> », D11) ; le texte ci-dessus ne sert qu'à l'affichage
+    departure_ref: str | None = None
+    arrival_ref: str | None = None
 
     def to_dict(self) -> dict:
         """Dictionnaire pour `voyages.json`."""
@@ -58,7 +64,9 @@ class Voyage:
             "steps":       [s.to_dict() for s in self.steps],
             "mission_ids": self.mission_ids,
             "departure":   self.departure,
+            "departure_ref": self.departure_ref,
             "arrival":     self.arrival,
+            "arrival_ref": self.arrival_ref,
             "created_at":  self.created_at,
             "session_id":  self.session_id,
             "notes":       self.notes,
@@ -83,7 +91,9 @@ class Voyage:
             steps=steps,
             mission_ids=mission_ids,
             departure=d.get("departure"),
+            departure_ref=d.get("departure_ref"),
             arrival=d.get("arrival"),
+            arrival_ref=d.get("arrival_ref"),
             created_at=d.get("created_at", time.time()),
             session_id=d.get("session_id", 0),
             notes=d.get("notes"),

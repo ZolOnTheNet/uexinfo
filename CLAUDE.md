@@ -100,7 +100,7 @@ Toujours utiliser les constantes de `uexinfo/display/colors.py`, jamais de coule
 
 ## Règles métier
 
-**D11 — les 3 règles de base, à respecter dans tout code :** (1) un objet choisi est retenu par son identifiant, jamais relu depuis son nom (`position_terminal(ctx)`, pas `ctx.player.location`) ; (2) un nom affiché est un lien vers l'objet : `uexinfo.names.link(type, id, texte)`, surtout s'il est raccourci ; (3) une saisie passe par `uexinfo.cli.choose.choose` : jamais de premier candidat pris en silence, jamais de nom inconnu enregistré tel quel. Reste à appliquer : missions et voyages (lieux encore stockés en texte).
+**D11 — les 3 règles de base, à respecter dans tout code :** (1) un objet choisi est retenu par son identifiant, jamais relu depuis son nom (`position_terminal(ctx)`, pas `ctx.player.location`) ; (2) un nom affiché est un lien vers l'objet : `uexinfo.names.link(type, id, texte)`, surtout s'il est raccourci ; (3) une saisie passe par `uexinfo.cli.choose.choose` : jamais de premier candidat pris en silence, jamais de nom inconnu enregistré tel quel. Missions et voyages : un lieu est relié une fois, à l'enregistrement, et gardé sous sa référence `node:<nom>` (`source_ref`, `destination_ref`, `departure_ref`) ; les calculs passent par `uexinfo/cli/places.py` (`mission_node_map`), jamais par le texte.
 
 Règles pures et testées dans `uexinfo/rules/` (quantités, risque, versions). Décisions validées : `docs/ai/DECISIONS.md`. Ne jamais changer une valeur métier sans le signaler.
 

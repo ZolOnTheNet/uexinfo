@@ -93,6 +93,7 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("scans",      "Prix et stocks scannés"),
         ("notes",      "Notes par lieu"),
         ("historique", "Historique des commandes"),
+        ("lieux",      "Lieux choisis pour des textes de missions"),
     ],
     "config scan": [
         ("mode",         "Mode de scan (ocr/log/confirm)"),
@@ -262,6 +263,7 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("clear",  "Efface toutes les missions"),
         ("scan",   "Scanne des captures d'écran"),
         ("view",   "Affiche le détail d'une mission"),
+        ("lieux",  "Fait préciser les lieux non reconnus"),
         ("offres", "Contrats lus dans les captures de la liste du mobiGlas"),
     ],
     "mission offres": [

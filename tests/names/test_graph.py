@@ -55,10 +55,13 @@ def test_homonym_gateways_give_a_list_player_system_first(graph, system, expecte
     assert len(ctx.select_fn.calls[0][1]) == 2
 
 
-def test_mission_scan_cleanup_and_hint(graph):
+def test_mission_scan_cleanup_and_hint(graph, monkeypatch, tmp_path):
+    from uexinfo.cache import place_aliases
     from uexinfo.cache.mission_scan import _resolve_graph_node
+    monkeypatch.setattr(place_aliases, "_STORE_FILE", tmp_path / "aliases.json")
     assert _resolve_graph_node("Admin - Seraphim Station above Crusader", graph) == "Seraphim"
-    assert _resolve_graph_node("Pyro Gateway", graph, system_hint="Nyx") == "Pyro Gateway (Nyx)"
+    # Deux gateways homonymes : rien de sûr, le système ne fait que classer (D11)
+    assert _resolve_graph_node("Pyro Gateway", graph, system_hint="Nyx") is None
 
 
 def test_node_found_no_fuzzy(graph):
