@@ -17,7 +17,7 @@ Avant toute tâche, lire `docs/ai/NOTES.md` (objectifs, carte du code, dette vé
 ## Commands
 
 ```bash
-# Lanceurs : créent .venv et installent les dépendances au premier lancement
+# Lanceurs : créent .venv et installent les dépendances au premier lancement (détails : docs/INSTALLATION.md)
 scripts/uexinfolnx.sh                                   # Linux (venv --system-site-packages pour WebKitGTK)
 powershell -ExecutionPolicy Bypass -File scripts\uexinfogene.ps1   # Windows
 

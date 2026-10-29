@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-29** (183 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-29** (184 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -19,7 +19,8 @@
 | Besoin | Fichier |
 |---|---|
 | **Comprendre le projet en 2 minutes** | `CLAUDE.md`, puis `docs/ai/NOTES.md` |
-| **Lancer l'application** | `uexinfo/__main__.py` → `uexinfo/overlay/__init__.py:run_overlay` |
+| **Installer et lancer** | `docs/INSTALLATION.md` ; lanceurs `scripts/uexinfogene.ps1` (Windows), `scripts/uexinfolnx.sh` (Linux) |
+| **Démarrage dans le code** | `uexinfo/__main__.py` → `uexinfo/overlay/__init__.py:run_overlay` |
 | **Liste de toutes les commandes** | `docs/_ALL_COMMANDS.md` (⚠️ avril) ; source exacte : les `@register` dans `uexinfo/cli/commands/` |
 | **Ajouter une commande** | `CLAUDE.md` § « Ajouter une nouvelle commande » |
 | **Protocole WebSocket overlay ↔ page** | `uexinfo/overlay/server.py` (`_dispatch`) |
@@ -280,6 +281,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | Fichier | Date | Statut | Contenu |
 |---|---|---|---|
 | `_ANNUAIRE_UEXINFO.md` | 2026-10-29 | ✅ | Ce fichier. |
+| `INSTALLATION.md` | 2026-10-29 | ✅ | Installer et lancer sous Windows et Linux (scripts, options, OCR, Game.log, données, dépannage). |
 | `ai/NOTES.md` | 2026-10-29 | ✅ | **À lire en premier** : objectifs, carte du code, dette vérifiée, pistes. |
 | `ai/ACTIVITY_LOG.md` | 2026-10-29 | ✅ | Journal de chaque étape notable. |
 | `ai/DECISIONS.md` | 2026-10-07 | ✅ | Décisions métier validées (D1 à D10). |
@@ -377,11 +379,11 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 
 | Élément | Nombre |
 |---|---|
-| Fichiers suivis par git | 183 |
+| Fichiers suivis par git | 184 |
 | Fichiers Python du package `uexinfo/` | 94 |
 | Commandes (`@register`) | 25, toutes chargées |
 | Fichiers de tests | 21 (276 tests réussis au 2026-10-22) |
-| Documents `docs/` | 36 (dont 14 dans `archive/`, 7 dans `ai/`) |
+| Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
 
@@ -392,3 +394,4 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 - **2026-10-29** (suite) : docstrings ajoutées dans tout le code Python ; descriptions des `__init__.py` mises à jour.
 - **2026-10-29** (suite) : code mort supprimé (`route.py`, `display/result.py`, `select_editor.py`), `scripts/dev/` et dossiers vides `data/` retirés, `command_result_schema.md` archivé.
 - **2026-10-29** (suite) : lanceurs `scripts/uexinfogene.ps1` (Windows) et `scripts/uexinfolnx.sh` (Linux) ajoutés.
+- **2026-10-29** (suite) : `docs/INSTALLATION.md` créé.

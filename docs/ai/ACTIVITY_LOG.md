@@ -434,3 +434,9 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Lancement réel sous GNOME Wayland : serveur prêt, page connectée au WebSocket, géométrie sauvegardée, copie vérifiée avec `xclip`.
 - `uexinfo/widgets/` supprimé du disque (hors git : seulement des `.pyc` de l'époque Textual).
 - `pytest` installé dans `.venv` ; 276 tests réussis.
+
+## 2026-10-29 — `docs/INSTALLATION.md`
+
+**Demande :** noter l'installation et les lanceurs dans `docs/INSTALLATION.md`.
+
+**Fait :** guide Windows et Linux (prérequis, lancement, bouton bureau ou `.desktop`, options, différences Linux, OCR et modèle `eng_sc`, Game.log, emplacement des données, mise à jour, dépannage, installation manuelle). Le README garde les commandes de base et renvoie vers ce guide. Le fichier `.desktop` est donné en exemple, non testé.

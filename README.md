@@ -61,19 +61,7 @@ scripts/uexinfolnx.sh
 Le raccourci global (alt+shift+u par défaut) ne répond que lorsque la fenêtre active
 passe par X11/XWayland, ce qui est le cas de Star Citizen sous Wine/Proton.
 
-### Options des scripts
-
-| Windows | Linux | Effet |
-|---|---|---|
-| `--hotkey f9`, `--port 8091` | idem | Options transmises à `python -m uexinfo` |
-| `-Installer` | `--installer` | Prépare l'environnement sans lancer |
-| `-Reinstaller` | `--reinstaller` | Recrée l'environnement de zéro |
-
-### Installation manuelle
-
-`pip install -e .` dans un environnement virtuel, puis `uexinfo`. Sous Linux, créer
-l'environnement avec `python3 -m venv --system-site-packages .venv` : la fenêtre a besoin
-de WebKitGTK, fourni par le système.
+Options, OCR, Game.log, emplacement des données, dépannage : [`docs/INSTALLATION.md`](docs/INSTALLATION.md).
 
 Au premier démarrage, les données statiques (terminaux, commodités, systèmes)
 sont téléchargées et mises en cache dans `~/.uexinfo/`.
