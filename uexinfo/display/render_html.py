@@ -24,6 +24,7 @@ _RENDER_CONSOLE: Any = None
 
 
 def _render_console():
+    """Console Rich sans terminal, créée une seule fois, qui sert à mesurer et découper les rendus."""
     global _RENDER_CONSOLE
     if _RENDER_CONSOLE is None:
         from rich.console import Console
@@ -97,6 +98,7 @@ def _style_to_css(style: Any) -> str:
 
 
 def _esc(text: str) -> str:
+    """Échappe le texte pour le HTML (sans toucher aux guillemets)."""
     return _html_mod.escape(text, quote=False)
 
 

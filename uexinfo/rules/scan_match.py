@@ -15,6 +15,11 @@ from uexinfo.names import norm
 
 
 def match_score(scanned: list[tuple[str, int]], rows: list[dict], mode: str) -> tuple[int, float]:
+    """Score d'un terminal candidat pour un scan : (marchandises reconnues, −écart de prix moyen).
+
+    `scanned` : couples (nom, prix) lus à l'écran ; `rows` : prix UEX du candidat ;
+    `mode` : « buy » ou « sell ». Plus le tuple est grand, plus le candidat est probable.
+    """
     key = "price_sell" if mode == "sell" else "price_buy"
     uex = {norm(r.get("commodity_name")): float(r.get(key) or 0) for r in rows if r.get(key)}
     hits, gaps = 0, []

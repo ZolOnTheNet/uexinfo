@@ -5,6 +5,7 @@ import requests
 
 
 class SCTradeError(Exception):
+    """Erreur d'accès à sc-trade.tools (réseau ou réponse HTTP en erreur)."""
     pass
 
 
@@ -17,9 +18,11 @@ class SCTradeClient:
     BASE_URL = "https://sc-trade.tools"
 
     def __init__(self, timeout: int = 15):
+        """`timeout` : délai maximal d'une requête, en secondes."""
         self._timeout = timeout
 
     def _get(self, path: str, params: dict | None = None) -> list | dict:
+        """GET sur `path` ; renvoie le JSON décodé ou lève SCTradeError."""
         url = f"{self.BASE_URL}{path}"
         try:
             r = requests.get(url, headers={"Content-Type": "application/json"},

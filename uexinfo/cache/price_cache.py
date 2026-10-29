@@ -44,6 +44,7 @@ _TTL_RARE     = 72 * 3600   # consulté rarement                     → 3j
 
 
 def _is_version_tagged(key: str) -> bool:
+    """Vrai si la clé désigne des données liées à la version du jeu (périmées par un changement d'univers, pas par le temps)."""
     return any(key.startswith(p) for p in _VERSION_TAGGED)
 
 
@@ -67,6 +68,7 @@ class PriceCache:
     """Cache de prix UEX persistant, remplace ctx._price_cache."""
 
     def __init__(self):
+        """Cache vide ; le fichier n'est lu qu'au premier accès."""
         self.current_version: str = ""          # version SC observée (tag des écritures)
         self.universe_version: str | None = None  # dernier changement d'univers déclaré
         self._mem: dict = {}   # clé → {data, fetched_at, game_version, query_times}
@@ -76,6 +78,7 @@ class PriceCache:
     # ── Persistence ───────────────────────────────────────────────────────────
 
     def _ensure_loaded(self) -> None:
+        """Lit `price_cache.json` au premier accès ; un fichier illisible donne un cache vide."""
         if self._loaded:
             return
         self._loaded = True
@@ -106,6 +109,7 @@ class PriceCache:
     # ── Validation d'une entrée ───────────────────────────────────────────────
 
     def _is_valid(self, key: str, entry: dict) -> bool:
+        """Vrai si l'entrée est utilisable : même univers pour les données liées à la version, sinon âge sous le TTL adaptatif."""
         if not entry or "data" not in entry:
             return False
         fetched_at = entry.get("fetched_at", 0)
@@ -137,6 +141,7 @@ class PriceCache:
         return entry.get("fetched_at", 0.0), entry["data"]
 
     def __contains__(self, key: str) -> bool:
+        """Vrai si la clé a une entrée encore valide."""
         self._ensure_loaded()
         entry = self._mem.get(key)
         return bool(entry and self._is_valid(key, entry))
@@ -156,6 +161,7 @@ class PriceCache:
         self._save()
 
     def __getitem__(self, key: str) -> tuple[float, list]:
+        """(horodatage, données) de la clé ; KeyError si absente ou périmée."""
         result = self.get(key)
         if result is None:
             raise KeyError(key)
@@ -198,6 +204,7 @@ class PriceCache:
     # ── Fréquence d'usage ─────────────────────────────────────────────────────
 
     def _record_query(self, key: str) -> None:
+        """Note l'heure de consultation (30 derniers jours gardés) : sert au TTL adaptatif."""
         entry = self._mem.get(key)
         if not entry:
             return

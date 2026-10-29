@@ -15,6 +15,10 @@ from uexinfo.gamelog.state import GameState
 
 
 def main(argv=None) -> int:
+    """Rejoue un Game.log et affiche les événements reconnus puis l'état final du joueur.
+
+    `--debug` détaille la reconnaissance, `--all` montre aussi les lignes non reconnues.
+    """
     ap = argparse.ArgumentParser(prog="python -m uexinfo.gamelog", description="Rejoue un Game.log")
     ap.add_argument("log")
     ap.add_argument("--debug", action="store_true")

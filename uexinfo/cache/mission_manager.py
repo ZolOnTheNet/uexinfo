@@ -15,6 +15,7 @@ class MissionManager:
     """Stocke et analyse un groupe de missions en cours."""
 
     def __init__(self) -> None:
+        """Charge les missions enregistrées (`missions.json`)."""
         self.missions: list[Mission] = []
         self._next_id: int = 1
         self._load()
@@ -22,6 +23,7 @@ class MissionManager:
     # ── Persistance ───────────────────────────────────────────────────────────
 
     def _load(self) -> None:
+        """Lit les missions sur disque ; un fichier absent ou illisible laisse la liste vide."""
         if not DATA_FILE.exists():
             return
         try:
@@ -32,6 +34,7 @@ class MissionManager:
             pass
 
     def save(self) -> None:
+        """Écrit toutes les missions et le prochain id sur disque."""
         DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
         DATA_FILE.write_text(
             json.dumps({
@@ -44,6 +47,7 @@ class MissionManager:
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
     def add(self, mission: Mission) -> Mission:
+        """Ajoute la mission avec un nouvel id, enregistre, et la renvoie."""
         mission.id = self._next_id
         self._next_id += 1
         self.missions.append(mission)
@@ -51,6 +55,7 @@ class MissionManager:
         return mission
 
     def get(self, id_or_name: str) -> Mission | None:
+        """Mission par id, ou par morceau de nom (la première qui contient le texte)."""
         try:
             mid = int(id_or_name)
             return next((m for m in self.missions if m.id == mid), None)
@@ -59,6 +64,7 @@ class MissionManager:
             return next((m for m in self.missions if q in m.name.lower()), None)
 
     def remove(self, id_or_name: str) -> bool:
+        """Supprime la mission désignée par id ou nom ; False si elle n'existe pas."""
         m = self.get(id_or_name)
         if not m:
             return False
@@ -67,6 +73,7 @@ class MissionManager:
         return True
 
     def clear(self) -> int:
+        """Supprime toutes les missions et remet les id à 1 ; renvoie le nombre supprimé."""
         n = len(self.missions)
         self.missions.clear()
         self._next_id = 1
@@ -74,6 +81,7 @@ class MissionManager:
         return n
 
     def update(self, mission: Mission) -> None:
+        """Remplace la mission de même id et enregistre."""
         for i, m in enumerate(self.missions):
             if m.id == mission.id:
                 self.missions[i] = mission
@@ -94,6 +102,10 @@ class MissionManager:
         return self._compute_synergies(mission, others)
 
     def _compute_synergies(self, mission: Mission, others: list) -> list[str]:
+        """Symboles de synergie entre `mission` et `others`.
+
+        ⊙ même lieu de départ, ⊕ même destination, ⇄ l'arrivée de l'une est le départ de l'autre.
+        """
         if not others:
             return []
         flags: list[str] = []

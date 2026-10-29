@@ -15,6 +15,7 @@ FALLBACK_ENCODING = "cp1252"
 
 
 def decode(data: bytes) -> str:
+    """Décode une ligne en UTF-8, sinon en cp1252 (le jeu écrit certaines lignes dans la page de code Windows)."""
     try:
         return data.decode(ENCODING)
     except UnicodeDecodeError:
@@ -30,11 +31,13 @@ def game_log_path(cfg: dict) -> Path | None:
 
 
 def read_lines(path: Path | str) -> list[str]:
+    """Toutes les lignes du fichier, décodées, sans fin de ligne."""
     with open(path, "rb") as f:
         return [decode(l).rstrip("\r\n") for l in f]
 
 
 def tail_lines(path: Path | str, n: int) -> list[str]:
+    """Les `n` dernières lignes du fichier, décodées, sans fin de ligne."""
     with open(path, "rb") as f:
         return [decode(l).rstrip("\r\n") for l in deque(f, maxlen=n)]
 
@@ -43,6 +46,7 @@ class LogFollower:
     """Suivi « tail -f » : `poll()` renvoie les lignes complètes ajoutées depuis l'appel précédent."""
 
     def __init__(self, path: Path | str, from_end: bool = True):
+        """`from_end` : commencer à la fin actuelle du fichier (ne pas relire l'historique)."""
         self.path = Path(path)
         self.offset = 0
         self._partial = b""
@@ -50,6 +54,11 @@ class LogFollower:
             self.offset = self.path.stat().st_size
 
     def poll(self) -> list[str]:
+        """Nouvelles lignes complètes écrites depuis le dernier appel.
+
+        Une ligne encore incomplète est gardée pour l'appel suivant. Si le fichier a
+        rétréci, le jeu a été relancé : on repart du début.
+        """
         if not self.path.is_file():
             return []
         size = self.path.stat().st_size

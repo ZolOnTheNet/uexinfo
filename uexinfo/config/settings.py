@@ -112,6 +112,7 @@ DEFAULT: dict = {
 
 
 def load() -> dict:
+    """Lit `config.toml` et le fusionne sur les valeurs par défaut ; renvoie les défauts si le fichier n'existe pas."""
     if not CONFIG_PATH.exists():
         return deepcopy(DEFAULT)
     with open(CONFIG_PATH, "rb") as f:
@@ -122,12 +123,14 @@ def load() -> dict:
 
 
 def save(cfg: dict) -> None:
+    """Écrit la configuration complète dans `config.toml` (crée le dossier si besoin)."""
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(CONFIG_PATH, "wb") as f:
         tomli_w.dump(cfg, f)
 
 
 def _deep_merge(base: dict, override: dict) -> None:
+    """Fusionne `override` dans `base` (modifié sur place), sous-dictionnaire par sous-dictionnaire."""
     for k, v in override.items():
         if k in base and isinstance(base[k], dict) and isinstance(v, dict):
             _deep_merge(base[k], v)

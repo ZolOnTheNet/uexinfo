@@ -92,6 +92,7 @@ def diff_ids(old: dict[str, list[int]], new: dict[str, list[int]]) -> dict[str, 
 
 
 def _mm(text: str | None) -> tuple[int, int] | None:
+    """Couple (majeur, mineur) d'une version SC, ou None si le texte n'est pas une version."""
     v = parse_version(text)
     return v[:2] if v else None
 

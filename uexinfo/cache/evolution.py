@@ -39,7 +39,9 @@ _DEFAULT = {
 
 
 class EvolutionStore:
+    """État persistant des versions de Star Citizen (`evolution.json`) : dernière version vue, changement d'univers, surveillance."""
     def __init__(self, path: Path | str | None = None):
+        """Charge l'état depuis `path` (par défaut `evolution.json` du dossier de données)."""
         if path is None:
             from uexinfo.cache.manager import DATA_DIR
             path = DATA_DIR / "evolution.json"
@@ -49,6 +51,7 @@ class EvolutionStore:
 
     # ── Persistance ──────────────────────────────────────────────────────────
     def _load(self) -> None:
+        """Lit l'état sur disque ; un fichier absent ou illisible laisse les valeurs par défaut."""
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             self.state.update({k: data[k] for k in _DEFAULT if k in data})
@@ -56,6 +59,7 @@ class EvolutionStore:
             pass
 
     def save(self) -> None:
+        """Écrit l'état sur disque via un fichier temporaire (pas de fichier à moitié écrit en cas de coupure)."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.state, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -64,14 +68,17 @@ class EvolutionStore:
     # ── Version ──────────────────────────────────────────────────────────────
     @property
     def current_version(self) -> str:
+        """Dernière version de Star Citizen vue dans les données UEX."""
         return self.state["last_seen_version"]
 
     @property
     def universe_version(self) -> str | None:
+        """Version du dernier changement d'univers déclaré par le joueur, ou None."""
         return self.state["universe_version"]
 
     @property
     def pending(self) -> str:
+        """Version (majeur.mineur) pour laquelle une question « l'univers a-t-il changé ? » attend sa réponse, ou « »."""
         return self.state["pending"]
 
     def observe_version(self, version: str) -> bool:
@@ -104,6 +111,7 @@ class EvolutionStore:
 
     # ── Surveillance ─────────────────────────────────────────────────────────
     def watching(self, now: float | None = None) -> bool:
+        """Vrai si la période de surveillance qui suit un changement d'univers est en cours."""
         started = self.state["watch_started_at"]
         if started is None:
             return False
@@ -111,6 +119,7 @@ class EvolutionStore:
         return watch_active(started, self.state["last_change_at"], now)
 
     def watch_days_left(self, now: float | None = None) -> float:
+        """Jours restants de surveillance (0 si elle est terminée)."""
         if not self.watching(now):
             return 0.0
         now = time.time() if now is None else now

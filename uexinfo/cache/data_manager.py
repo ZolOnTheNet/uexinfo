@@ -121,6 +121,7 @@ def all_terminal_keys(query: str, terminals: list) -> list[str]:
 
 
 class Source:
+    """Origine des prix renvoyés : API fraîche, cache périmé (API hors ligne), scan joueur ou rien."""
     API   = "api"     # données fraîches UEX Corp
     STALE = "stale"   # cache périmé (API offline)
     SCAN  = "scan"    # données joueur (scan confirmé)
@@ -166,6 +167,7 @@ def clean_price_rows(rows: list[dict], ctx) -> list[dict]:
 
 class DataManager:
 
+    """Accès unique aux prix : cache, API UEX, repli sur le cache périmé, puis fusion avec les scans du joueur."""
     @staticmethod
     def fetch_prices(key: str, api_kwargs: dict, ctx) -> tuple[list[dict], str]:
         """Fetch prix avec chaîne de fallback : cache frais → API → cache périmé → vide.
@@ -177,6 +179,11 @@ class DataManager:
 
     @staticmethod
     def _fetch_raw(key: str, api_kwargs: dict, ctx) -> tuple[list[dict], str]:
+        """Prix bruts pour la clé de cache `key`, et leur origine.
+
+        Cache frais, sinon API (le résultat non vide est mis en cache et la version du jeu
+        vérifiée), sinon cache périmé, sinon liste vide. Met à jour `ctx._api_offline`.
+        """
         cached = ctx._price_cache.get(key)
         if cached:
             _ts, data = cached
@@ -208,6 +215,7 @@ class DataManager:
     def terminal_prices(t, ctx) -> tuple[list[dict], str]:
         """Prix d'un terminal : fallback id → code → loc → slug, puis merge scan joueur."""
         def _slug(name: str) -> str:
+            """Nom de terminal en identifiant d'URL : minuscules, tirets à la place des espaces et symboles."""
             s = name.lower().replace(" - ", "-")
             s = re.sub(r"[^a-z0-9-]+", "-", s)
             return s.strip("-")

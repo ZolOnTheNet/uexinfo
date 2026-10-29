@@ -23,6 +23,7 @@ class ScanPriceStore:
     # ── I/O ───────────────────────────────────────────────────────────────────
 
     def _load(self) -> dict:
+        """Contenu du fichier des scans ; vide s'il est absent ou illisible."""
         if _STORE_FILE.exists():
             try:
                 with open(_STORE_FILE, encoding="utf-8") as f:
@@ -32,6 +33,7 @@ class ScanPriceStore:
         return {}
 
     def _write(self, data: dict) -> None:
+        """Écrit tout le contenu dans le fichier des scans."""
         _STORE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_STORE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)

@@ -13,11 +13,21 @@ TIMEOUT = 15
 
 
 class UEXError(Exception):
+    """Erreur d'accès à l'API UEX : réseau, délai dépassé, HTTP ou statut « error » renvoyé par l'API."""
     pass
 
 
 class UEXClient:
+    """Client REST de l'API UEX Corp 2.0 (lecture publique, sans jeton).
+
+    Chaque méthode `get_*` appelle un endpoint et renvoie la liste `data` de la réponse.
+    """
     def __init__(self, timeout: int = TIMEOUT):
+        """Prépare la session HTTP.
+
+        cloudscraper est utilisé s'il est installé : il passe la protection anti-robot de
+        Cloudflare qui bloque parfois les requêtes `requests` simples.
+        """
         self.timeout = timeout
         if _HAS_CLOUDSCRAPER:
             self.session = _cloudscraper.create_scraper(
@@ -30,6 +40,7 @@ class UEXClient:
         })
 
     def _get(self, endpoint: str, params: dict | None = None) -> list:
+        """GET sur `endpoint` ; renvoie le champ `data` de la réponse ou lève UEXError avec un message lisible."""
         url = f"{BASE_URL}/{endpoint.lstrip('/')}"
         try:
             r = self.session.get(url, params=params or None, timeout=self.timeout)
@@ -51,33 +62,43 @@ class UEXClient:
     # ── Données statiques ─────────────────────────────────────────────────
 
     def get_commodities(self) -> list[dict]:
+        """Toutes les commodités (`/commodities`)."""
         return self._get("commodities")
 
     def get_terminals(self) -> list[dict]:
+        """Tous les terminaux (`/terminals`)."""
         return self._get("terminals")
 
     def get_star_systems(self) -> list[dict]:
+        """Systèmes stellaires (`/star_systems`)."""
         return self._get("star_systems")
 
     def get_planets(self) -> list[dict]:
+        """Planètes (`/planets`)."""
         return self._get("planets")
 
     def get_moons(self) -> list[dict]:
+        """Lunes (`/moons`)."""
         return self._get("moons")
 
     def get_orbits(self) -> list[dict]:
+        """Orbites (`/orbits`)."""
         return self._get("orbits")
 
     def get_space_stations(self) -> list[dict]:
+        """Stations spatiales (`/space_stations`)."""
         return self._get("space_stations")
 
     def get_outposts(self) -> list[dict]:
+        """Avant-postes (`/outposts`)."""
         return self._get("outposts")
 
     def get_cities(self) -> list[dict]:
+        """Villes (`/cities`)."""
         return self._get("cities")
 
     def get_factions(self) -> list[dict]:
+        """Factions (`/factions`)."""
         return self._get("factions")
 
     # ── Données dynamiques (prix) ─────────────────────────────────────────
@@ -89,6 +110,10 @@ class UEXClient:
         terminal_code: str | None = None,
         terminal_name: str | None = None,
     ) -> list[dict]:
+        """Prix des commodités (`/commodities_prices`).
+
+        L'API exige au moins un filtre : commodité, ou terminal (par id, code ou nom).
+        """
         if not any([id_commodity, id_terminal, terminal_code, terminal_name]):
             raise UEXError("id_commodity, id_terminal, terminal_code ou terminal_name requis")
         params: dict = {}
@@ -103,18 +128,22 @@ class UEXClient:
         return self._get("commodities_prices", params)
 
     def get_vehicles(self) -> list[dict]:
+        """Vaisseaux et véhicules (`/vehicles`)."""
         return self._get("vehicles")
 
     def get_vehicles_purchases_prices(self, id_vehicle: int | None = None) -> list[dict]:
+        """Prix d'achat des vaisseaux (`/vehicles_purchases_prices`), pour un seul si `id_vehicle`."""
         params = {"id_vehicle": id_vehicle} if id_vehicle else {}
         return self._get("vehicles_purchases_prices", params)
 
     def get_vehicles_rentals_prices(self, id_vehicle: int | None = None) -> list[dict]:
+        """Prix de location des vaisseaux (`/vehicles_rentals_prices`), pour un seul si `id_vehicle`."""
         params = {"id_vehicle": id_vehicle} if id_vehicle else {}
         return self._get("vehicles_rentals_prices", params)
 
     def get_routes(self, id_terminal_origin: int | None = None,
                    id_commodity: int | None = None) -> list[dict]:
+        """Routes commerciales calculées par UEX (`/commodities_routes`), filtrables par terminal de départ et commodité."""
         params: dict = {}
         if id_terminal_origin is not None:
             params["id_terminal_origin"] = id_terminal_origin

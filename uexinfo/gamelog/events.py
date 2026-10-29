@@ -16,6 +16,11 @@ from uexinfo.gamelog.lines import LogLine, is_spam, parse_line
 
 @dataclass
 class GameEvent:
+    """Un événement reconnu dans une ligne de Game.log.
+
+    `kind` : type (login, spawn, qt_target…) ; `data` : champs extraits ;
+    `raw` : ligne d'origine.
+    """
     kind: str
     ts: datetime | None
     summary: str                     # phrase lisible (fr)
@@ -26,6 +31,11 @@ class GameEvent:
 
 @dataclass(frozen=True)
 class Recognizer:
+    """Règle de reconnaissance d'un type d'événement.
+
+    `marker` filtre vite les lignes candidates, `regex` extrait les champs, `build`
+    fabrique le résumé et les données. `verified` : format confirmé sur un vrai Game.log.
+    """
     kind: str
     marker: str | tuple[str, ...]    # pré-filtre : une sous-chaîne ou plusieurs variantes
     regex: re.Pattern
@@ -34,6 +44,7 @@ class Recognizer:
     strict: bool = True              # marqueur présent ⇒ la regex doit réussir (sinon : format changé ?)
 
     def seen(self, raw: str) -> bool:
+        """Vrai si la ligne contient l'un des marqueurs (filtre rapide avant la regex)."""
         markers = (self.marker,) if isinstance(self.marker, str) else self.marker
         return any(m in raw for m in markers)
 
@@ -52,11 +63,13 @@ _RE_VEH_SEGMENT = re.compile(r"\|\s*(?P<veh>[A-Za-z][A-Za-z0-9_]*?)\[\d+\]\s*\|"
 
 
 def _vehicle_in(raw: str) -> dict:
+    """Modèle de vaisseau lu dans le segment « | MODELE_id[id] | » de la ligne, ou {} s'il est absent."""
     m = _RE_VEH_SEGMENT.search(raw)
     return {"vehicle": _vehicle_model(m["veh"])} if m else {}
 
 
 def _num(text: str) -> float:
+    """Nombre lu dans le texte, 0.0 s'il n'est pas lisible."""
     try:
         return float(text)
     except ValueError:
@@ -89,7 +102,9 @@ def _fields(msg: str) -> dict:
 
 
 def _trade(kind_fr: str):
+    """Fabrique la fonction `build` des achats ou ventes en boutique ; `kind_fr` : « Achat de » ou « Vente de »."""
     def build(m: re.Match) -> tuple[str, dict]:
+        """Résumé lisible et données (boutique, prix, quantité) d'une ligne d'achat ou de vente."""
         f = _fields(m.string)
         d = {"shop": f.get("shopName", ""), "price": _num(f.get("price", "0")),
              "resource_guid": f.get("resourceGUID", ""), **_qty(f.get("quantity", ""))}
@@ -230,11 +245,17 @@ def recognize(line: str | LogLine, debug: Callable[[str], None] | None = None) -
 
 
 def recognize_all(lines: Iterable[str], debug=None) -> list[GameEvent]:
+    """Événements reconnus dans une suite de lignes (les lignes non reconnues sont ignorées)."""
     return [ev for ev in (recognize(l, debug) for l in lines) if ev]
 
 
 @dataclass
 class AuditRow:
+    """Bilan d'un type d'événement sur un Game.log entier (audit de format de `/game`).
+
+    Sert à repérer un format changé par une mise à jour du jeu : marqueur présent
+    mais regex qui n'aboutit plus.
+    """
     kind: str
     verified: bool
     marker_lines: int = 0            # lignes contenant le marqueur

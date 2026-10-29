@@ -7,6 +7,7 @@ from datetime import datetime
 
 @dataclass
 class ScannedCommodity:
+    """Une ligne de marchandise lue sur un terminal : prix, stock, quantité et confiance OCR par champ."""
     name: str
     commodity_id: int = 0
     quantity: int | None = None
@@ -45,6 +46,7 @@ class ScannedCommodity:
 
 @dataclass
 class ScanResult:
+    """Un scan de terminal : toutes les marchandises lues sur un écran, dans un mode (achat ou vente)."""
     terminal: str
     timestamp: datetime = field(default_factory=datetime.now)
     commodities: list[ScannedCommodity] = field(default_factory=list)
@@ -60,4 +62,5 @@ class ScanResult:
 
     @property
     def log_incomplete(self) -> bool:
+        """Vrai si Datarunner a envoyé à UEX un autre nombre de lignes que celles du log (corrections faites à la main)."""
         return bool(self.reported_count) and self.reported_count != len(self.commodities)

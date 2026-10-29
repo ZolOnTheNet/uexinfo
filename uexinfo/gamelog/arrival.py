@@ -41,12 +41,14 @@ class ArrivalTracker:
     """État cumulatif sur une session : à nourrir en continu via `feed()`."""
 
     def __init__(self) -> None:
+        """Recharge les noms de lieux déjà appris lors des sessions précédentes."""
         self.known_names: dict[str, str] = self._load_known_names()   # loc_id -> nom en clair
         self.pending_target: str | None = None    # loc_id de la dernière cible QT sélectionnée
         self._last_docking_ts: datetime | None = None
 
     @staticmethod
     def _load_known_names() -> dict[str, str]:
+        """Table loc_id → nom en clair lue sur disque ; vide si le fichier est absent ou illisible."""
         if _KNOWN_NAMES_FILE.exists():
             try:
                 with open(_KNOWN_NAMES_FILE, encoding="utf-8") as f:
@@ -58,6 +60,7 @@ class ArrivalTracker:
         return {}
 
     def _save_known_names(self) -> None:
+        """Écrit la table loc_id → nom sur disque ; une erreur d'écriture est ignorée (simple cache)."""
         try:
             _KNOWN_NAMES_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(_KNOWN_NAMES_FILE, "w", encoding="utf-8") as f:

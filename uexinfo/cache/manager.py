@@ -49,7 +49,13 @@ def _flag(value, default: int = 0) -> int:
 
 
 class CacheManager:
+    """Données statiques UEX (commodités, terminaux, géographie, vaisseaux) en mémoire et sur disque.
+
+    `load()` télécharge si le cache disque a plus de `ttl_static` secondes, sinon relit
+    le disque ; en cas d'échec réseau, garde les fichiers existants.
+    """
     def __init__(self, ttl_static: int = 86400):
+        """Listes vides et graphe de transport vide ; `ttl_static` : durée de validité du cache disque, en secondes."""
         self.ttl_static = ttl_static
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.commodities: list[Commodity] = []
@@ -68,6 +74,7 @@ class CacheManager:
 
     @property
     def is_loaded(self) -> bool:
+        """Vrai si des données ont été chargées."""
         return bool(self.commodities or self.terminals)
 
     def load(self, force: bool = False) -> None:
@@ -107,15 +114,22 @@ class CacheManager:
         self.factions       = []
 
     def _is_expired(self, key: str) -> bool:
+        """Vrai si le fichier de cache de `key` est absent ou plus vieux que `ttl_static`."""
         path = DATA_DIR / _STATIC_FILES[key]
         if not path.exists():
             return True
         return (time.time() - path.stat().st_mtime) > self.ttl_static
 
     def _has_disk_data(self) -> bool:
+        """Vrai si au moins un fichier de cache existe sur disque."""
         return any((DATA_DIR / f).exists() for f in _STATIC_FILES.values())
 
     def _download(self) -> None:
+        """Télécharge les 11 endpoints statiques, les enregistre et les charge, avec une barre de progression.
+
+        Les quatre premiers (commodités, terminaux, systèmes, planètes) sont indispensables ;
+        un échec sur les autres est signalé sans bloquer le chargement.
+        """
         from uexinfo.api.uex_client import UEXClient
         client = UEXClient()
 
@@ -181,6 +195,7 @@ class CacheManager:
         )
 
     def _load_from_disk(self) -> None:
+        """Charge tous les fichiers de cache présents sur disque, puis met à part les terminaux fermés."""
         mapping = {
             "commodities": (self._parse_commodity,   "commodities"),
             "terminals":   (self._parse_terminal,    "terminals"),
@@ -216,6 +231,7 @@ class CacheManager:
         self.closed_terminals = [t for t in everything if t.is_available == 0]
 
     def _save(self, key: str, data: list) -> None:
+        """Écrit la réponse brute de l'API pour `key` dans son fichier de cache."""
         path = DATA_DIR / _STATIC_FILES[key]
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
@@ -271,6 +287,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_commodity(d: dict) -> Commodity:
+        """Commodité depuis un enregistrement UEX brut."""
         return Commodity(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -300,6 +317,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_terminal(d: dict) -> Terminal:
+        """Terminal depuis un enregistrement UEX brut."""
         return Terminal(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -342,6 +360,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_star_system(d: dict) -> StarSystem:
+        """Système stellaire depuis un enregistrement UEX brut."""
         return StarSystem(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -351,6 +370,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_planet(d: dict) -> Planet:
+        """Planète depuis un enregistrement UEX brut."""
         return Planet(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -360,6 +380,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_moon(d: dict) -> Moon:
+        """Lune depuis un enregistrement UEX brut."""
         return Moon(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -377,6 +398,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_orbit(d: dict) -> Orbit:
+        """Orbite depuis un enregistrement UEX brut."""
         return Orbit(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -394,6 +416,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_space_station(d: dict) -> SpaceStation:
+        """Station spatiale depuis un enregistrement UEX brut."""
         return SpaceStation(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -427,6 +450,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_outpost(d: dict) -> Outpost:
+        """Avant-poste depuis un enregistrement UEX brut."""
         return Outpost(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -459,6 +483,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_city(d: dict) -> City:
+        """Ville depuis un enregistrement UEX brut."""
         return City(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",
@@ -487,6 +512,7 @@ class CacheManager:
 
     @staticmethod
     def _parse_faction(d: dict) -> Faction:
+        """Faction depuis un enregistrement UEX brut."""
         return Faction(
             id=int(d.get("id") or 0),
             name=d.get("name") or "",

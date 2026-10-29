@@ -17,10 +17,16 @@ _STATE_FILE = Path(appdirs.user_data_dir("uexinfo")) / "game_log_state.json"
 
 
 class GameLogTail:
+    """Lecture incrémentale de Game.log, reprise là où la précédente s'est arrêtée.
+
+    La position de lecture est enregistrée sur disque : elle survit au redémarrage de l'overlay.
+    """
     def __init__(self, log_path: Path | str):
+        """`log_path` : chemin du Game.log à suivre."""
         self.log_path = Path(log_path)
 
     def _load_state(self) -> dict:
+        """Positions de lecture enregistrées, par fichier ; {} si absentes ou illisibles."""
         if _STATE_FILE.exists():
             try:
                 with open(_STATE_FILE, encoding="utf-8") as f:
@@ -30,6 +36,7 @@ class GameLogTail:
         return {}
 
     def _save_state(self, offset: int, mtime: float) -> None:
+        """Enregistre la position de lecture et la date de modification de ce fichier."""
         state = self._load_state()
         state[str(self.log_path)] = {"offset": offset, "mtime": mtime}
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -37,6 +44,7 @@ class GameLogTail:
             json.dump(state, f)
 
     def reset_offset(self) -> None:
+        """Repart du début du fichier au prochain `parse_new()`."""
         self._save_state(0, 0.0)
 
     def parse_new(self) -> list[GameLogEvent]:

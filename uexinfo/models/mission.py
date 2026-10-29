@@ -16,10 +16,12 @@ class MissionObjective:
     notes: str | None = None           # Texte libre (type élimination, investigation…)
 
     def to_dict(self) -> dict:
+        """Dictionnaire pour le JSON, sans les champs vides."""
         return {k: v for k, v in self.__dict__.items() if v is not None}
 
     @classmethod
     def from_dict(cls, d: dict) -> "MissionObjective":
+        """Recrée l'objectif depuis le JSON, en ignorant les clés inconnues."""
         valid = {f for f in ("commodity", "source", "destination",
                               "quantity_scu", "time_cost", "notes")}
         return cls(**{k: v for k, v in d.items() if k in valid})
@@ -40,17 +42,21 @@ class Mission:
 
     @property
     def all_sources(self) -> list[str]:
+        """Lieux de départ des objectifs, sans doublon, dans l'ordre."""
         return list(dict.fromkeys(o.source for o in self.objectives if o.source))
 
     @property
     def all_destinations(self) -> list[str]:
+        """Lieux d'arrivée des objectifs, sans doublon, dans l'ordre."""
         return list(dict.fromkeys(o.destination for o in self.objectives if o.destination))
 
     @property
     def total_scu(self) -> float:
+        """Volume total à transporter, en SCU."""
         return sum(o.quantity_scu or 0 for o in self.objectives)
 
     def to_dict(self) -> dict:
+        """Dictionnaire pour le JSON (`missions.json`)."""
         return {
             "id":          self.id,
             "name":        self.name,
@@ -64,6 +70,7 @@ class Mission:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Mission":
+        """Recrée la mission depuis le JSON."""
         objs = [MissionObjective.from_dict(o) for o in d.get("objectives", [])]
         return cls(
             id=d.get("id", 0),

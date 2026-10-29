@@ -213,9 +213,11 @@ def recover_source_from_blue_text(
     dests_low = {normalize_location(d).lower() for d in (known_destinations or [])}
 
     def _is_noise(s: str) -> bool:
+        """Vrai pour les fragments OCR sans intérêt (minuteurs, en-têtes, texte trop court)."""
         return bool(_RE_BLUE_NOISE.match(s))
 
     def _extract(station_raw: str, planet_raw: str, lnum: str) -> str | None:
+        """Lieu normalisé depuis le nom de station lu, ou à défaut code « <planète>-L<n> » d'un point de Lagrange ; None sinon."""
         station_raw = station_raw.strip()
         if _is_noise(station_raw):
             return None

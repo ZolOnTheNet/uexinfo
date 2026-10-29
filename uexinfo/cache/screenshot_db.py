@@ -57,41 +57,51 @@ class ScreenshotEntry:
 
     @property
     def timestamp(self) -> datetime:
+        """Date de la capture (date de modification du fichier)."""
         return datetime.fromtimestamp(self.file_mtime)
 
     @property
     def is_mission(self) -> bool:
+        """Vrai pour une capture d'écran de mission."""
         return self.type == "mission"
 
     @property
     def is_terminal(self) -> bool:
+        """Vrai pour une capture de terminal de commerce (achat ou vente)."""
         return self.type in ("terminal_buy", "terminal_sell", "terminal")
 
     @property
     def is_processed(self) -> bool:
+        """Vrai si la capture a déjà été analysée."""
         return self.type != "pending"
 
     @property
     def title(self) -> str:
+        """Titre de mission extrait, ou « »."""
         return self.data.get("title", "")
 
     @property
     def reward(self) -> int:
+        """Récompense de mission extraite, en aUEC (0 si inconnue)."""
         return self.data.get("reward", 0)
 
     @property
     def total_scu(self) -> float:
+        """Volume total de la mission, en SCU."""
         return self.data.get("total_scu", 0.0)
 
     @property
     def sources(self) -> list[str]:
+        """Lieux de départ extraits."""
         return self.data.get("sources", [])
 
     @property
     def destinations(self) -> list[str]:
+        """Lieux d'arrivée extraits."""
         return self.data.get("destinations", [])
 
     def to_dict(self) -> dict:
+        """Dictionnaire pour le JSON."""
         return {
             "file":         self.file,
             "path":         self.path,
@@ -108,6 +118,7 @@ class ScreenshotEntry:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ScreenshotEntry":
+        """Recrée l'objet depuis le JSON."""
         return cls(
             file         = d.get("file", ""),
             path         = d.get("path", ""),
@@ -160,6 +171,7 @@ class ScreenshotDB:
     _save_lock = threading.Lock()
 
     def __init__(self, path: Path | None = None) -> None:
+        """Charge la base depuis `path` (par défaut celle du dossier de données)."""
         self._path: Path = path or _DB_PATH
         self._entries: dict[str, ScreenshotEntry] = {}
         self._load()
@@ -167,16 +179,20 @@ class ScreenshotDB:
     # ── Accès ──────────────────────────────────────────────────────────────────
 
     def has(self, filename: str) -> bool:
+        """Vrai si la capture est déjà dans la base."""
         return filename in self._entries
 
     def is_processed(self, filename: str) -> bool:
+        """Vrai si la capture est dans la base et déjà analysée."""
         e = self._entries.get(filename)
         return e is not None and e.is_processed
 
     def get(self, filename: str) -> ScreenshotEntry | None:
+        """Entrée de la capture, ou None."""
         return self._entries.get(filename)
 
     def all(self) -> list[ScreenshotEntry]:
+        """Toutes les entrées, de la plus ancienne à la plus récente."""
         return sorted(self._entries.values(), key=lambda e: e.file_mtime)
 
     # ── Écriture ───────────────────────────────────────────────────────────────
@@ -436,6 +452,7 @@ class ScreenshotDB:
             raise last_exc
 
     def _load(self) -> None:
+        """Lit la base sur disque."""
         if not self._path.exists():
             return
         try:
@@ -448,7 +465,9 @@ class ScreenshotDB:
             self._entries = {}
 
     def __len__(self) -> int:
+        """Nombre de captures dans la base."""
         return len(self._entries)
 
     def __repr__(self) -> str:
+        """Représentation de débogage : nombre d'entrées et chemin."""
         return f"<ScreenshotDB {len(self)} entries @ {self._path}>"

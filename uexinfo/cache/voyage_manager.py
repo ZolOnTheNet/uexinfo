@@ -35,6 +35,7 @@ class VoyageManager:
     """Stocke et gère les voyages de l'utilisateur."""
 
     def __init__(self, retention=24) -> None:
+        """Charge les voyages enregistrés ; `retention` : règle de conservation des anciens voyages (voir `_prune`)."""
         self.voyages: list[Voyage] = []
         self.active_id: int | None = None
         self._next_id: int = 1
@@ -45,6 +46,7 @@ class VoyageManager:
     # ── Persistance ───────────────────────────────────────────────────────────
 
     def _load(self) -> None:
+        """Lit les voyages sur disque ; un fichier absent ou illisible laisse la liste vide."""
         if not DATA_FILE.exists():
             return
         try:
@@ -60,6 +62,7 @@ class VoyageManager:
             pass
 
     def save(self) -> None:
+        """Écrit les voyages, le voyage actif et les compteurs sur disque."""
         DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
         DATA_FILE.write_text(
             json.dumps({
@@ -111,6 +114,7 @@ class VoyageManager:
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
     def new_voyage(self, name: str | None = None, departure: str | None = None) -> Voyage:
+        """Crée un voyage, le rend actif, enregistre et le renvoie."""
         v = Voyage(
             id=self._next_id,
             name=name or f"trajet-{self._next_id}",
@@ -124,6 +128,7 @@ class VoyageManager:
         return v
 
     def get(self, id_or_name: str) -> Voyage | None:
+        """Voyage par id, ou par nom exact (sans tenir compte de la casse)."""
         try:
             vid = int(id_or_name)
             return next((v for v in self.voyages if v.id == vid), None)
@@ -132,11 +137,13 @@ class VoyageManager:
             return next((v for v in self.voyages if v.name.lower() == q), None)
 
     def get_active(self) -> Voyage | None:
+        """Voyage actif, ou None."""
         if self.active_id is None:
             return None
         return next((v for v in self.voyages if v.id == self.active_id), None)
 
     def activate(self, id_or_name: str) -> Voyage | None:
+        """Rend actif le voyage désigné ; None s'il n'existe pas."""
         v = self.get(id_or_name)
         if v:
             self.active_id = v.id
@@ -144,10 +151,12 @@ class VoyageManager:
         return v
 
     def deactivate(self) -> None:
+        """Plus aucun voyage actif."""
         self.active_id = None
         self.save()
 
     def remove(self, id_or_name: str) -> bool:
+        """Supprime le voyage désigné ; False s'il n'existe pas."""
         v = self.get(id_or_name)
         if not v:
             return False
@@ -158,6 +167,7 @@ class VoyageManager:
         return True
 
     def update(self, voyage: Voyage) -> None:
+        """Remplace le voyage de même id et enregistre."""
         for i, v in enumerate(self.voyages):
             if v.id == voyage.id:
                 self.voyages[i] = voyage
@@ -178,6 +188,7 @@ class VoyageManager:
         return added
 
     def remove_mission(self, voyage: Voyage, mission_id: int) -> bool:
+        """Retire une mission du voyage ; False si elle n'y était pas."""
         if mission_id in voyage.mission_ids:
             voyage.mission_ids.remove(mission_id)
             self.update(voyage)
@@ -298,4 +309,5 @@ class VoyageManager:
     # ── Noms pour le vocab overlay ────────────────────────────────────────────
 
     def voyage_names(self) -> list[str]:
+        """Noms de tous les voyages."""
         return [v.name for v in self.voyages]

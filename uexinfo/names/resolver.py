@@ -24,11 +24,13 @@ try:
     from rapidfuzz import fuzz as _fuzz
 
     def _similarity(a: str, b: str) -> float:
+        """Score de ressemblance 0-100 entre deux noms normalisés."""
         return float(_fuzz.WRatio(a, b))
 except ImportError:  # pragma: no cover
     import difflib
 
     def _similarity(a: str, b: str) -> float:
+        """Score de ressemblance 0-100 entre deux noms normalisés."""
         return difflib.SequenceMatcher(None, a, b).ratio() * 100
 
 EXACT, PREFIX, SUBSTRING, FUZZY = 4, 3, 2, 1
@@ -41,6 +43,11 @@ THRESHOLDS = {"input": 70, "ocr": 60}
 
 @dataclass(frozen=True)
 class Entity:
+    """Une chose nommable (lieu, terminal, commodité, vaisseau, nœud) et toutes ses clés de recherche.
+
+    Les clés sont déjà normalisées. `priority` et `group` servent à la règle c
+    (terminal principal d'un lieu).
+    """
     kind: str                         # system|planet|moon|station|city|outpost|terminal|commodity|vehicle|node
     id: Any
     name: str
@@ -56,6 +63,11 @@ class Entity:
 
 @dataclass
 class Match:
+    """Correspondance entre la saisie et une entité.
+
+    `level` : EXACT, PREFIX, SUBSTRING ou FUZZY ; `score` : ressemblance 0-100 ;
+    `via_location` : trouvée par le nom de son lieu et non par son propre nom.
+    """
     entity: Entity
     level: int
     score: float
@@ -64,6 +76,7 @@ class Match:
 
 @dataclass
 class Resolution:
+    """Résultat d'une recherche : correspondances triées, de la plus sûre à la moins sûre."""
     matches: list[Match]
 
     @property
@@ -94,9 +107,11 @@ class Resolution:
 
     @property
     def candidates(self) -> list[Any]:
+        """Objets métier des candidats à égalité (liste à proposer au joueur)."""
         return [m.entity.obj for m in self.top]
 
     def objects(self) -> list[Any]:
+        """Objets métier de toutes les correspondances, dans l'ordre."""
         return [m.entity.obj for m in self.matches]
 
 
@@ -110,6 +125,7 @@ def terminal_priority(t) -> int:
 
 
 def _service_priority(t) -> int:
+    """Rang du service d'un terminal ouvert, selon la règle c (0 = Admin, le plus prioritaire)."""
     name = (getattr(t, "name", "") or "").lower()
     service = name.split(" - ", 1)[0].strip() if " - " in name else ""
     if service == "admin":
@@ -151,6 +167,7 @@ def trading_terminal(terminals, t):
 # ── Index ─────────────────────────────────────────────────────────────────────
 
 def _uniq(items: Iterable[str]) -> tuple[str, ...]:
+    """Normalise les noms et retire les vides et les doublons, en gardant l'ordre."""
     out: list[str] = []
     for it in items:
         n = norm(it)
@@ -160,10 +177,13 @@ def _uniq(items: Iterable[str]) -> tuple[str, ...]:
 
 
 class NameIndex:
+    """Index de toutes les entités nommables, interrogé par `resolve()`."""
     def __init__(self, entities: Iterable[Entity] = ()):
+        """Crée l'index, éventuellement déjà rempli."""
         self.entities: list[Entity] = list(entities)
 
     def add(self, entity: Entity) -> None:
+        """Ajoute une entité à l'index."""
         self.entities.append(entity)
 
     # ── Recherche ─────────────────────────────────────────────────────────────
@@ -210,6 +230,12 @@ class NameIndex:
 
     @staticmethod
     def _match_entity(q: str, e: Entity, dotted: bool) -> Match | None:
+        """Meilleur niveau non flou (EXACT, PREFIX, SUBSTRING) de la saisie `q` pour l'entité `e`.
+
+        Les codes UEX ne valent qu'en correspondance exacte. `dotted` : la saisie est le
+        dernier segment d'une notation pointée, les `dot_keys` (nom du service) comptent alors.
+        Renvoie None si aucune clé ne correspond : le flou est traité à part.
+        """
         if q in e.codes:
             return Match(e, EXACT, 100.0)
         found: Match | None = None
@@ -266,6 +292,11 @@ def _collapse_locations(matches: list[Match]) -> list[Match]:
 # ── Construction depuis le cache UEX ─────────────────────────────────────────
 
 def build_index(cache, graph=None) -> NameIndex:
+    """Construit l'index à partir du cache UEX et, si fourni, du graphe de navigation.
+
+    Une entité par système, planète, lune, station, ville, avant-poste, terminal,
+    commodité, vaisseau et nœud du graphe, avec ses clés de recherche.
+    """
     from uexinfo.display.formatter import terminal_short_name
 
     idx = NameIndex()
@@ -346,6 +377,12 @@ def get_index(ctx) -> NameIndex:
 
 def resolve(ctx, query: str, kinds: set[str] | None = None, profile: str = "input",
             min_level: int = FUZZY, limit: int = 20, prefer_system: str = "") -> Resolution:
+    """Point d'entrée unique de la reconnaissance de noms (D6).
+
+    Cherche `query` parmi les entités de `kinds` (toutes si None). `profile` choisit
+    le seuil flou (« input » saisie joueur, « ocr » texte lu à l'écran) ; `prefer_system`
+    départage les homonymes en faveur du système du joueur.
+    """
     return get_index(ctx).resolve(query, kinds=kinds, profile=profile, min_level=min_level,
                                   limit=limit, prefer_system=prefer_system)
 

@@ -29,6 +29,7 @@ CATEGORY_FR = {"Transport": "Transport", "Defense": "Défense", "Collection": "C
 
 @dataclass
 class CatalogContract:
+    """Un contrat du jeu tel que décrit par le catalogue : titre, récompense, points de réputation par catégorie."""
     title: str
     debug_name: str = ""
     reward: int | None = None                       # aUEC
@@ -39,15 +40,18 @@ class CatalogContract:
 
     @property
     def xp(self) -> int | None:
+        """Points de réputation gagnés : le total s'il est connu, sinon la plus forte catégorie."""
         return self.points.get("Total") or (max(self.points.values()) if self.points else None)
 
     @property
     def category(self) -> str:
+        """Catégorie de réputation (Transport, Défense…), ou « » si seul le total est connu."""
         return next((c for c in self.points if c != "Total"), "")
 
 
 @dataclass
 class RecognizedContract:
+    """Une carte lue à l'écran rapprochée de son contrat dans le catalogue, avec le score de ressemblance."""
     card: object                                    # ContractCard (ou équivalent : title, xp, reward…)
     contract: CatalogContract | None
     score: float
@@ -55,16 +59,19 @@ class RecognizedContract:
 
     @property
     def recognized(self) -> bool:
+        """Vrai si un contrat a été trouvé avec un score suffisant (MATCH_MIN)."""
         return self.contract is not None and self.score >= MATCH_MIN
 
     @property
     def reward(self) -> int | None:
+        """Récompense à afficher : celle du catalogue si le montant lu est absent ou incohérent, sinon celle lue."""
         if self.reward_from_catalog and self.contract:
             return self.contract.reward
         return getattr(self.card, "reward", None)
 
     @property
     def xp(self) -> int | None:
+        """Points à afficher : ceux du catalogue si le contrat est reconnu, sinon ceux lus sur la carte."""
         if self.recognized and self.contract.xp:
             return self.contract.xp
         return getattr(self.card, "xp", None)
@@ -85,7 +92,9 @@ def _without_placeholders(title: str) -> str:
 
 
 class ContractCatalog:
+    """Catalogue des contrats, indexé par titre normalisé pour reconnaître les cartes lues par OCR."""
     def __init__(self, contracts: list[CatalogContract], source: str, version: str = ""):
+        """Indexe les contrats par titre complet et par titre sans préfixe ; `source` : « scmdb » ou « global.ini »."""
         self.contracts = contracts
         self.source = source
         self.version = version
@@ -102,12 +111,14 @@ class ContractCatalog:
         self._suffix_keys = list(self._by_suffix)
 
     def __len__(self) -> int:
+        """Nombre de contrats du catalogue."""
         return len(self.contracts)
 
     # ── Construction ─────────────────────────────────────────────────────────
 
     @classmethod
     def from_scmdb(cls, data: dict) -> "ContractCatalog":
+        """Catalogue depuis la copie locale de scmdb.net (points par catégorie, partage en groupe, récompense)."""
         scopes = data.get("eventScopes") or {}
         out = []
         for c in data.get("contracts") or []:
@@ -129,6 +140,11 @@ class ContractCatalog:
 
     @classmethod
     def from_global_ini(cls, path: Path) -> "ContractCatalog":
+        """Catalogue depuis le `global.ini` du jeu (textes traduits).
+
+        Seuls les titres qui portent un nombre d'XP (« <EM4>625 exp.</EM4> ») sont des
+        titres de contrat ; la récompense n'y figure pas.
+        """
         out, seen = [], set()
         with open(path, encoding="utf-8-sig", errors="replace") as f:
             for line in f:
@@ -205,6 +221,7 @@ class ContractCatalog:
 
     @staticmethod
     def _result(card, contract, score) -> RecognizedContract:
+        """Construit le résultat et décide si la récompense du catalogue doit remplacer celle lue."""
         r = RecognizedContract(card, contract, score)
         if r.recognized and contract.reward:
             read = getattr(card, "reward", None)
@@ -216,10 +233,12 @@ class ContractCatalog:
 # ── Fichiers ──────────────────────────────────────────────────────────────────
 
 def scmdb_cache_dir() -> Path:
+    """Dossier des copies locales de scmdb.net (cache utilisateur, jamais dans le dépôt)."""
     return Path(appdirs.user_cache_dir("uexinfo")) / "scmdb"
 
 
 def cached_scmdb_files() -> list[Path]:
+    """Fichiers scmdb téléchargés, du plus ancien au plus récent."""
     d = scmdb_cache_dir()
     return sorted(d.glob("merged-*.json"), key=lambda p: p.stat().st_mtime) if d.is_dir() else []
 

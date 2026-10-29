@@ -15,6 +15,7 @@ class VoyageStep:
     empty_display_count: int = 0          # Compteur affichages vide (auto-purge à 3)
 
     def to_dict(self) -> dict:
+        """Dictionnaire pour `voyages.json`."""
         return {
             "number":              self.number,
             "departure":           self.departure,
@@ -24,6 +25,7 @@ class VoyageStep:
 
     @classmethod
     def from_dict(cls, d: dict) -> "VoyageStep":
+        """Recrée l'étape depuis le JSON."""
         return cls(
             number=d.get("number", 1),
             departure=d.get("departure"),
@@ -49,6 +51,7 @@ class Voyage:
     loop: bool = False                # --boucle : retour au départ inclus
 
     def to_dict(self) -> dict:
+        """Dictionnaire pour `voyages.json`."""
         return {
             "id":          self.id,
             "name":        self.name,
@@ -64,6 +67,7 @@ class Voyage:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Voyage":
+        """Recrée le voyage depuis le JSON ; un ancien voyage sans étapes reçoit une étape 1 avec toutes ses missions."""
         steps_data = d.get("steps", [])
         mission_ids = d.get("mission_ids", [])
 
@@ -88,6 +92,7 @@ class Voyage:
 
     @property
     def default_name(self) -> str:
+        """Nom affiché quand le voyage n'en a pas : « trajet-<id> »."""
         return f"trajet-{self.id}"
 
     @property

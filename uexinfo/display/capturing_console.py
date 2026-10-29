@@ -24,6 +24,7 @@ class CapturingConsole(Console):
     """
 
     def __init__(self, width: int = 100, **kwargs) -> None:
+        """Console Rich qui écrit dans un tampon mémoire ; `width` : largeur de rendu en caractères."""
         self._ansi_buf = io.StringIO()
         kwargs.setdefault("force_terminal", True)
         kwargs.setdefault("markup", True)
@@ -34,6 +35,7 @@ class CapturingConsole(Console):
     # ── Interception ──────────────────────────────────────────────────────────
 
     def print(self, *objects: Any, **kwargs) -> None:
+        """Garde les objets imprimés (None pour une ligne vide) pour le rendu HTML, et écrit aussi le texte ANSI dans le tampon."""
         if not objects:
             self._renderables.append(None)   # ligne vide
         else:

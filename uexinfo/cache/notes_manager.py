@@ -14,6 +14,7 @@ class NoteStore:
     """Lit/écrit les notes par lieu dans un fichier JSON persistant."""
 
     def _load(self) -> dict:
+        """Contenu de `notes.json` ; vide s'il est absent ou illisible."""
         if _STORE_FILE.exists():
             try:
                 with open(_STORE_FILE, encoding="utf-8") as f:
@@ -23,6 +24,7 @@ class NoteStore:
         return {"next_id": 1, "notes": []}
 
     def _write(self, data: dict) -> None:
+        """Écrit tout le contenu dans `notes.json`."""
         _STORE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_STORE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -42,12 +44,14 @@ class NoteStore:
         return note_id
 
     def get(self, note_id: int) -> dict | None:
+        """Copie de la note `note_id`, ou None."""
         for n in self._load().get("notes", []):
             if n["id"] == note_id:
                 return dict(n)
         return None
 
     def update(self, note_id: int, *, message: str | None = None, location: str | None = None) -> bool:
+        """Modifie le texte (et l'horodatage) ou le lieu d'une note ; False si elle n'existe pas."""
         data = self._load()
         for n in data.get("notes", []):
             if n["id"] == note_id:
@@ -61,6 +65,7 @@ class NoteStore:
         return False
 
     def delete_by_id(self, note_id: int) -> bool:
+        """Supprime une note ; False si elle n'existe pas."""
         data = self._load()
         notes = data.get("notes", [])
         new_notes = [n for n in notes if n["id"] != note_id]
@@ -71,6 +76,7 @@ class NoteStore:
         return True
 
     def delete_by_location(self, location: str) -> int:
+        """Supprime toutes les notes d'un lieu (sans tenir compte de la casse) ; renvoie leur nombre."""
         data = self._load()
         notes = data.get("notes", [])
         loc_lo = location.lower().strip()
@@ -88,6 +94,7 @@ class NoteStore:
         return n
 
     def list_all(self) -> list[dict]:
+        """Toutes les notes, triées par lieu puis par id."""
         return sorted(
             self._load().get("notes", []),
             key=lambda n: (n["location"].lower(), n["id"]),

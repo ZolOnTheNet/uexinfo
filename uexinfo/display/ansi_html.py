@@ -22,6 +22,7 @@ _RE_ANSI = re.compile(r'\x1b\[([0-9;]*)([mKJH])')
 
 
 def _c256(n: int) -> str:
+    """Couleur CSS d'un index de la palette ANSI 256 couleurs (16 de base, cube 6×6×6, puis 24 gris)."""
     if n < 16:
         return _C256_BASE[n] if n < len(_C256_BASE) else '#888'
     if n >= 232:
@@ -34,6 +35,7 @@ def _c256(n: int) -> str:
 
 
 def _esc(t: str) -> str:
+    """Échappe &, < et > pour insérer le texte dans du HTML."""
     return t.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 
@@ -45,6 +47,7 @@ def ansi_to_html(raw: str) -> str:
     st: dict = {'b': False, 'd': False, 'i': False, 'u': False, 'fg': None, 'bg': None}
 
     def style() -> str:
+        """Attribut CSS `style` correspondant à l'état ANSI courant (couleurs, gras, atténué, italique, souligné)."""
         s = []
         if st['fg']: s.append(f"color:{st['fg']}")
         if st['bg']: s.append(f"background:{st['bg']}")

@@ -17,6 +17,7 @@ SPAM_MARKERS = ("OnEntityEnterZone", "OnEntityLeaveZone")
 
 @dataclass(frozen=True)
 class LogLine:
+    """Une ligne de Game.log découpée : horodatage, niveau, catégorie <…> et message."""
     ts: datetime | None
     level: str          # "Notice", "Trace"… ou ""
     category: str       # contenu de <…> après le niveau, ou ""
@@ -25,6 +26,7 @@ class LogLine:
 
 
 def parse_line(raw: str) -> LogLine:
+    """Découpe une ligne brute ; une ligne sans en-tête reconnu garde tout dans `message`."""
     raw = raw.rstrip("\r\n")
     m = _RE_HEAD.match(raw)
     if not m:
@@ -38,4 +40,5 @@ def parse_line(raw: str) -> LogLine:
 
 
 def is_spam(raw: str) -> bool:
+    """Vrai pour les lignes d'entrée et de sortie de zone, très nombreuses et inutiles, ignorées avant toute analyse."""
     return any(s in raw for s in SPAM_MARKERS)

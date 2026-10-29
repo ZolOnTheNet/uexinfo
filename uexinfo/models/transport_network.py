@@ -74,12 +74,15 @@ class LocationNode:
     terminal_ids: list = field(default_factory=list)
 
     def __hash__(self):
+        """Un nœud est identifié par son nom."""
         return hash(self.name)
 
     def __eq__(self, other):
+        """Deux nœuds sont égaux s'ils ont le même nom."""
         return isinstance(other, LocationNode) and self.name == other.name
 
     def to_dict(self) -> dict:
+        """Dictionnaire pour `transport_network.json` ; les champs v3 ne sont écrits que si le nœud a un id."""
         d: dict = {
             "name": self.name,
             "type": self.type.value,
@@ -103,6 +106,7 @@ class LocationNode:
 
     @classmethod
     def from_dict(cls, d: dict) -> LocationNode:
+        """Recrée le nœud depuis le JSON (type inconnu → terminal)."""
         type_str = d.get("type", "terminal")
         try:
             node_type = NodeType(type_str)
@@ -142,9 +146,11 @@ class RouteEdge:
 
     @property
     def age_days(self) -> float:
+        """Âge de la donnée de distance, en jours."""
         return (time.time() - self.updated_at) / 86400
 
     def to_dict(self) -> dict:
+        """Dictionnaire pour `transport_network.json`."""
         return {
             "from": self.from_node,
             "to": self.to_node,
@@ -158,6 +164,7 @@ class RouteEdge:
 
     @classmethod
     def from_dict(cls, d: dict) -> RouteEdge:
+        """Recrée l'arête depuis le JSON."""
         return cls(
             from_node=d["from"],
             to_node=d["to"],
@@ -183,6 +190,7 @@ class JumpPoint:
     notes: str = ""
 
     def to_dict(self) -> dict:
+        """Dictionnaire pour `transport_network.json`."""
         return {
             "name": self.name,
             "from_system": self.from_system,
@@ -196,6 +204,7 @@ class JumpPoint:
 
     @classmethod
     def from_dict(cls, d: dict) -> JumpPoint:
+        """Recrée le point de saut depuis le JSON."""
         return cls(
             name=d["name"],
             from_system=d["from_system"],
@@ -250,6 +259,7 @@ class TransportGraph:
     """Graphe de transport de l'univers Star Citizen."""
 
     def __init__(self):
+        """Graphe vide ; le remplir avec `from_json()` ou `add_node()` / `add_edge()`."""
         self.nodes: dict[str, LocationNode] = {}
         self.edges: list[RouteEdge] = []
         self.jump_points: dict[str, JumpPoint] = {}
@@ -598,12 +608,14 @@ class TransportGraph:
         parent = {n: n for n in node_names}
 
         def find(x: str) -> str:
+            """Représentant du groupe de `x` (union-find, avec compression de chemin)."""
             while parent[x] != x:
                 parent[x] = parent[parent[x]]
                 x = parent[x]
             return x
 
         def union(x: str, y: str) -> None:
+            """Réunit les groupes de `x` et `y`."""
             px, py = find(x), find(y)
             if px != py:
                 parent[px] = py

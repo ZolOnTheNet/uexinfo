@@ -14,22 +14,27 @@ console = CapturingConsole()
 
 
 def print_error(msg: str) -> None:
+    """Affiche un message d'erreur (✗, couleur d'erreur)."""
     console.print(f"[{C.ERROR}]✗ {msg}[/{C.ERROR}]")
 
 
 def print_ok(msg: str) -> None:
+    """Affiche un message de réussite (✓, couleur de succès)."""
     console.print(f"[{C.SUCCESS}]✓ {msg}[/{C.SUCCESS}]")
 
 
 def print_warn(msg: str) -> None:
+    """Affiche un avertissement (⚠)."""
     console.print(f"[{C.WARNING}]⚠ {msg}[/{C.WARNING}]")
 
 
 def print_info(msg: str) -> None:
+    """Affiche une information secondaire, atténuée."""
     console.print(f"[{C.DIM}]{msg}[/{C.DIM}]")
 
 
 def section(title: str) -> None:
+    """Affiche un titre de section, précédé d'une ligne vide."""
     console.print(f"\n[{C.TITLE}]{title}[/{C.TITLE}]")
 
 

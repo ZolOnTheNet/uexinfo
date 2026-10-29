@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Ship:
+    """Un vaisseau du joueur : nom, capacité en SCU et conteneurs disponibles par taille."""
     name: str
     scu: int = 0
     cargo_config: dict[int, int] = field(default_factory=dict)  # {taille_scu: quantité}
@@ -13,6 +14,7 @@ class Ship:
 
 @dataclass
 class Player:
+    """Le joueur : vaisseaux, position, destination et contexte lu dans Game.log (zone, shard)."""
     username: str = ""
     ships: list[Ship] = field(default_factory=list)
     active_ship: str = ""
@@ -56,19 +58,23 @@ class Player:
         self.location_id = terminal_id
 
     def clear_location(self) -> None:
+        """Oublie la position courante (nom et id ensemble)."""
         self.location = ""
         self.location_id = 0
 
     def set_destination(self, name: str, terminal_id: int = 0) -> None:
+        """Destination : nom et id du terminal, toujours écrits ensemble."""
         self.destination = name
         self.destination_id = terminal_id
 
     def clear_destination(self) -> None:
+        """Oublie la destination (nom et id ensemble)."""
         self.destination = ""
         self.destination_id = 0
 
     @classmethod
     def from_config(cls, cfg_player: dict) -> "Player":
+        """Recrée le joueur depuis la section `player` de config.toml."""
         ships = []
         for s in cfg_player.get("ships", []):
             # Convertir cargo_config de dict[str, int] → dict[int, int]
@@ -96,6 +102,7 @@ class Player:
         )
 
     def to_config(self) -> dict:
+        """Section `player` de config.toml (clés TOML en texte : les tailles de conteneur sont converties)."""
         return {
             "username": self.username,
             "ships": [

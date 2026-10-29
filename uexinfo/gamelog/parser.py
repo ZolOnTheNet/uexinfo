@@ -64,6 +64,7 @@ RE_JOIN_PU = re.compile(
 
 @dataclass
 class GameLogEvent:
+    """Événement de l'ancien extracteur, utilisé par la position automatique (`arrival.py`)."""
     kind: str        # "login"|"spawn"|"zone"|"location"|"qt_target"|"routing_names"|"docking"|"shard"
     text: str        # contenu principal (nom, texte de zone, lieu…) ; vide si non pertinent
     timestamp: datetime
@@ -71,6 +72,7 @@ class GameLogEvent:
 
 
 def _parse_timestamp(line: str) -> datetime | None:
+    """Horodatage ISO en tête de ligne, ou None."""
     m = RE_TIMESTAMP.match(line)
     if not m:
         return None

@@ -14,6 +14,7 @@ _DEATH_DEDUP_S = 180
 
 @dataclass
 class GameState:
+    """État du joueur reconstitué en appliquant les événements dans l'ordre : identité, version du jeu, shard, lieu, vaisseau, morts."""
     player: str = ""
     game_version: str = ""        # FileVersion de l'en-tête (ex. 4.10.193.11644)
     build: str = ""
@@ -44,12 +45,14 @@ class GameState:
         self.system = system_of(code) or self.system
 
     def _count_death(self, ts: datetime | None) -> None:
+        """Compte une mort, sauf si une autre a été comptée il y a moins de 3 minutes (même mort signalée deux fois)."""
         if ts and self._last_death and (ts - self._last_death).total_seconds() < _DEATH_DEDUP_S:
             return
         self.deaths += 1
         self._last_death = ts
 
     def apply(self, ev: GameEvent) -> None:
+        """Met à jour l'état avec un événement et compte les événements par type."""
         self.counts[ev.kind] = self.counts.get(ev.kind, 0) + 1
         self.last_event = ev.ts or self.last_event
         d = ev.data
@@ -122,6 +125,7 @@ class GameState:
 
 
 def build_state(events) -> GameState:
+    """État obtenu en appliquant tous les événements, dans l'ordre."""
     st = GameState()
     for ev in events:
         st.apply(ev)

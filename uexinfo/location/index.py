@@ -22,6 +22,7 @@ from uexinfo.names import terminal_priority as _trading_priority  # règle uniqu
 
 @dataclass
 class LocationEntry:
+    """Un lieu proposé par la complétion `@lieu`, avec son chemin pointé complet."""
     name: str
     type: str           # "system"|"planet"|"moon"|"station"|"city"|"outpost"|"terminal"
     system: str         # nom du système parent
@@ -30,12 +31,19 @@ class LocationEntry:
 
 
 class LocationIndex:
+    """Liste de tous les lieux connus, pour la complétion `@lieu` et la recherche par chemin pointé."""
     def __init__(self, cache: "CacheManager"):
+        """Construit l'index à partir du cache UEX."""
         self._entries: list[LocationEntry] = []
         self._build(cache)
 
     def _build(self, cache: "CacheManager") -> None:
         # StarSystems
+        """Remplit l'index : systèmes, planètes, puis un lieu par station ou ville.
+
+        Pour les terminaux, une seule entrée par lieu, portée par son terminal de commerce
+        principal (voir le commentaire ci-dessous).
+        """
         for sys in cache.star_systems:
             self._entries.append(LocationEntry(
                 name=sys.name,
@@ -133,6 +141,7 @@ class LocationIndex:
         result: list[LocationEntry] = []
 
         def _add(e: LocationEntry) -> None:
+            """Ajoute `e` au résultat s'il n'y est pas déjà."""
             if id(e) not in seen:
                 seen.add(id(e))
                 result.append(e)
@@ -161,6 +170,7 @@ class LocationIndex:
     def _fuzzy_search(
         self, query: str, entries: list[LocationEntry], limit: int
     ) -> list[LocationEntry]:
+        """Recherche floue (rapidfuzz si installé, sinon difflib) ; au plus `limit` entrées, sans doublon."""
         if not entries or limit <= 0:
             return []
 
@@ -190,4 +200,5 @@ class LocationIndex:
             return out
 
     def all_names(self) -> list[str]:
+        """Noms de tous les lieux de l'index."""
         return [e.name for e in self._entries]

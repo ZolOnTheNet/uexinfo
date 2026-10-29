@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 @dataclass
 class StarSystem:
+    """Système stellaire UEX (Stanton, Pyro, Nyx…)."""
     id: int
     name: str
     code: str = ""
@@ -14,6 +15,7 @@ class StarSystem:
 
 @dataclass
 class Planet:
+    """Planète UEX."""
     id: int
     name: str
     id_star_system: int = 0
@@ -22,6 +24,7 @@ class Planet:
 
 @dataclass
 class Moon:
+    """Lune UEX, rattachée à sa planète."""
     id: int
     name: str
     code: str = ""
@@ -55,6 +58,7 @@ class Orbit:
 
 @dataclass
 class SpaceStation:
+    """Station spatiale UEX (et ses services : raffinerie, cargo, carburant…)."""
     id: int
     name: str
     nickname: str = ""
@@ -87,6 +91,7 @@ class SpaceStation:
 
 @dataclass
 class Outpost:
+    """Avant-poste UEX en surface."""
     id: int
     name: str
     nickname: str = ""
@@ -118,6 +123,7 @@ class Outpost:
 
 @dataclass
 class City:
+    """Ville UEX (Lorville, Area 18…)."""
     id: int
     name: str
     code: str = ""
@@ -145,6 +151,7 @@ class City:
 
 @dataclass
 class Faction:
+    """Faction UEX ; les listes d'id liés sont des textes séparés par des virgules, comme dans l'API."""
     id: int
     name: str
     wiki: str = ""
@@ -157,6 +164,7 @@ class Faction:
 
 @dataclass
 class Terminal:
+    """Terminal UEX (commerce, administration, boutique…) avec sa position et ses services."""
     id: int
     name: str
     code: str = ""
@@ -199,6 +207,7 @@ class Terminal:
 
     @property
     def location(self) -> str:
+        """Chemin lisible du terminal : « système / planète / orbite / station ou ville »."""
         parts = [p for p in [
             self.star_system_name,
             self.planet_name,
@@ -209,12 +218,14 @@ class Terminal:
 
     @property
     def display_name(self) -> str:
+        """Nom du terminal suivi de son chemin entre crochets."""
         loc = self.location
         return f"{self.name}  [{loc}]" if loc else self.name
 
 
 @dataclass
 class Vehicle:
+    """Vaisseau ou véhicule UEX : constructeur, capacité cargo, équipage, rôles."""
     id: int
     name: str           # court : "Cutlass Black"
     name_full: str      # complet : "Drake Cutlass Black"
@@ -253,6 +264,7 @@ class Vehicle:
 
 @dataclass
 class Commodity:
+    """Commodité UEX : prix de référence et propriétés (achetable, illégale, minerai, volatile…)."""
     id: int
     name: str
     code: str = ""
