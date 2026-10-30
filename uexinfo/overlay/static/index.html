@@ -1638,7 +1638,10 @@ function dispatch(msg) {
     case 'set_clock':
       applyClockMode(msg.value);
       break;
-    case 'echo':        appendEcho(msg.text); startSpin(); break;
+    case 'echo':
+      // Commande d'un clic : l'historique (↑) garde le nom affiché, pas la référence
+      if (msg.raw && msg.raw !== msg.text && history[0] === msg.raw) history[0] = msg.text;
+      appendEcho(msg.text); startSpin(); break;
     case 'output':      appendAnsi(msg.ansi); break;   // spinner continue jusqu'au 'done'
     case 'output_html': appendHtml(msg.html); break;  // HTML déjà converti (historique stocké)
     case 'done':
@@ -2433,11 +2436,27 @@ document.addEventListener('click', () => {
   const tb = document.getElementById('titlebar');
   let startSX, startSY, startWX, startWY, pending = false;
 
+  // Linux (WebKitGTK) : le gestionnaire de fenêtres déplace la fenêtre (marche aussi sous
+  // Wayland) ; si c'est impossible, la page la déplace elle-même, en calculant sa position
+  // d'après le pointeur (window.screenX n'est pas fiable sous WebKitGTK).
+  const _isLinux = /Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
+
   tb.addEventListener('mousedown', e => {
     if (e.target.classList.contains('tb-close')) return;
     e.preventDefault();
+    if (_isLinux && window.pywebview && window.pywebview.api && window.pywebview.api.begin_drag) {
+      window.pywebview.api.begin_drag()
+        .then(ok => { if (!ok) startPageDrag(e); })
+        .catch(() => startPageDrag(e));
+      return;
+    }
+    startPageDrag(e);
+  });
+
+  function startPageDrag(e) {
     startSX = e.screenX; startSY = e.screenY;
-    startWX = window.screenX; startWY = window.screenY;
+    startWX = _isLinux ? e.screenX - e.clientX : window.screenX;
+    startWY = _isLinux ? e.screenY - e.clientY : window.screenY;
 
     function onMove(me) {
       if (pending) return;
@@ -2454,7 +2473,7 @@ document.addEventListener('click', () => {
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup',   onUp);
-  });
+  }
 })();
 
 // ── Raccourcis globaux ────────────────────────────────────────────────────────

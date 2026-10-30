@@ -112,8 +112,11 @@ Avec `Terminal=true`, un terminal s'ouvre et affiche le journal de l'overlay.
 
 - **Raccourci clavier global** (alt+shift+u par défaut) : il ne répond que si la
   fenêtre active passe par X11/XWayland. Star Citizen sous Wine/Proton est dans ce cas ;
-  une application Wayland native ne l'est pas. Sous Wayland, le script lance donc
-  l'overlay via XWayland (`GDK_BACKEND=x11`), ce qui garde aussi « toujours au-dessus ».
+  une application Wayland native ne l'est pas. Sous Wayland, l'overlay passe donc par
+  XWayland (`GDK_BACKEND=x11`), qu'il soit lancé par le script ou par `python -m uexinfo` :
+  cela garde aussi « toujours au-dessus ».
+- **Déplacer la fenêtre** : glisser la barre de titre ; sous Linux, c'est le gestionnaire
+  de fenêtres qui la déplace (fonctionne aussi en Wayland natif).
 - Pas de focus forcé quand l'overlay réapparaît : cliquer dans la fenêtre si la saisie
   ne répond pas.
 - La retouche de transparence propre à Windows (DWM) n'existe pas sous Linux.

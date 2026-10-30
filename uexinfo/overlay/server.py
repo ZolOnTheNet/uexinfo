@@ -404,17 +404,22 @@ class OverlayServer:
                 await asyncio.sleep(2)    # attendre le os._exit(0) du thread
             os._exit(0)  # fallback au cas où on_quit ne tue pas
 
-        # Mémoriser la commande originale (avant résolution des abréviations)
-        original_line = line
+        # Ligne affichée et mémorisée : les références « #type:id » d'un clic deviennent
+        # le nom de l'objet (D11) ; la commande s'exécute, elle, sur la référence.
+        try:
+            from uexinfo.cli.choose import display_line
+            original_line = display_line(line, self.ctx)
+        except Exception:
+            original_line = line
 
         # Mise à jour de l'historique en mémoire (navigation ↑/↓)
-        if not self._history or self._history[0] != line:
-            self._history.insert(0, line)
+        if not self._history or self._history[0] != original_line:
+            self._history.insert(0, original_line)
             if len(self._history) > 500:
                 self._history.pop()
 
         # Écho
-        await ws.send(json.dumps({"type": "echo", "text": line}))
+        await ws.send(json.dumps({"type": "echo", "text": original_line, "raw": line}))
 
         # Capturer la longueur de l'historique AVANT exec pour détecter les nouveaux scans
         prev_history_len = len(getattr(self.ctx, "scan_history", []))

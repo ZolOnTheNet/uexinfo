@@ -485,3 +485,13 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Page : lieux de la liste des missions = liens avec référence, « ? » si à préciser.
 - Au passage : rendu HTML d'un texte multi-ligne dont la couleur s'étend sur deux lignes (cassait « Aucune mission ne passe par… ») ; affichage `/voyage calc` hors overlay (balisage coupé). Supprimés : `_resolve_locs`, `_loc_terminals`, `_loc_is_station`/`_STATION_KW`, `_infer_step_departure`, l'ancien `mission._resolve_graph_node`.
 - Essai réel (vrai cache, missions de test dans un dossier temporaire) : tournures de contrat reconnues, « Pyro Gateway » → liste avec Nyx en tête, fautes de frappe proposées, `/mission view livraison` → liste, tableau de bord par référence, `--exclude Stanton` / `--to Nyx` par identité, formulaire d'édition qui garde les références. 309 tests réussis.
+
+## 2026-10-30 — retours d'essai sous Linux
+
+**Signalé :** fenêtre impossible à déplacer ; un clic sur un lieu affiche « /dest #station:6 » ; `/ship add MISC_Hull_B` → « _find_vehicle() got an unexpected keyword argument 'quiet' ».
+
+**Fait :**
+- `/ship add` : le relais `config._find_vehicle` transmet `quiet` (oubli de la partie 1 de D11). Test ajouté ; audit des autres appels `quiet=`/`ask=` : aucun autre relais en cause.
+- Commande d'un clic : exécutée sur la référence, mais affichée (écho, historique ↑, `history.jsonl`) avec le nom de l'objet (`choose.display_line`) : « /dest Port Tressler ».
+- Déplacement de la fenêtre sous Linux : vérifié qu'en Wayland natif la fenêtre ne connaît pas sa position (0, 0) et que GTK ignore le déplacement demandé par l'application. Désormais la barre de titre appelle `begin_drag` (GTK `begin_move_drag` : le gestionnaire de fenêtres déplace, X11 comme Wayland), avec repli sur le calcul de la page d'après le pointeur. `run_overlay` passe aussi par XWayland sous Wayland quand il est lancé directement (`python -m uexinfo`), comme le script. Appel GTK vérifié sans erreur dans les deux modes ; le geste à la souris reste à confirmer par l'utilisateur.
+- 311 tests réussis.

@@ -94,6 +94,20 @@ def choose(ctx, query: str, kinds: set[str] | None = None, *, what: str = "",
     return decide(ctx, r, query, title=title or what, ask=ask)
 
 
+def display_line(line: str, ctx) -> str:
+    """Ligne de commande telle qu'on l'affiche : chaque référence `#type:id` (envoyée par
+    un clic) remplacée par le nom de l'objet. La commande, elle, s'exécute sur la référence."""
+    import re
+    from uexinfo.names.refs import KINDS
+
+    def _name(m) -> str:
+        """Nom de l'objet désigné par la référence, ou la référence telle quelle s'il est inconnu."""
+        e = get_index(ctx).by_ref(m.group(1), m.group(2))
+        return e.name if e is not None else m.group(0)
+
+    return re.sub(rf"#({'|'.join(KINDS)}):(\S+)", _name, line)
+
+
 # ── Position et destination du joueur : par identifiant ──────────────────────
 
 def terminal_by_id(ctx, tid: int) -> Any:

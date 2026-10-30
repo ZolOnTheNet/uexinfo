@@ -128,6 +128,35 @@ class _WindowApi:
                 pass
         return {"w": 500, "h": 880}
 
+    def begin_drag(self) -> bool:
+        """Hors Windows : confie le déplacement de la fenêtre au gestionnaire de fenêtres
+        (GTK `begin_move_drag`), appelé par la page au clic sur la barre de titre.
+
+        C'est le seul moyen qui marche aussi sous Wayland, où une application ne peut pas
+        placer elle-même sa fenêtre ; sous X11, il évite de dépendre de `window.screenX`,
+        que WebKitGTK ne fournit pas toujours. Renvoie False si ce n'est pas possible :
+        la page déplace alors la fenêtre elle-même.
+        """
+        gw = getattr(self._win, "native", None) if self._win else None
+        if sys.platform == "win32" or not hasattr(gw, "begin_move_drag"):
+            return False
+        try:
+            from gi.repository import Gdk, GLib
+        except ImportError:
+            return False
+
+        def _drag() -> bool:
+            """Lance le déplacement géré par le gestionnaire de fenêtres (thread GTK)."""
+            try:
+                _screen, x, y = Gdk.Display.get_default().get_default_seat().get_pointer().get_position()
+                gw.begin_move_drag(1, x, y, Gdk.CURRENT_TIME)
+            except Exception as exc:
+                print(f"[overlay] Déplacement impossible : {exc}", flush=True)
+            return False   # une seule fois (GLib.idle_add)
+
+        GLib.idle_add(_drag)
+        return True
+
     def hide_window(self) -> None:
         """Masque la fenêtre (raccourci clavier, ou clic simple sur ✕ en mode close=dblclick)."""
         if self._win:
@@ -326,6 +355,13 @@ def _replace_previous_instance(port: int, wait_s: float = 6.0) -> bool:
 
 def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     """Point d'entrée de l'overlay (appelé par __main__.py)."""
+
+    # Linux sous Wayland : passer par XWayland, comme le fait scripts/uexinfolnx.sh, même
+    # lancé directement (python -m uexinfo). En Wayland natif, la fenêtre ne connaît pas
+    # sa position, « toujours au-dessus » est ignoré et le raccourci global ne voit rien.
+    # À poser avant le chargement de GTK (import de webview ci-dessous).
+    if sys.platform.startswith("linux") and os.environ.get("XDG_SESSION_TYPE") == "wayland":
+        os.environ.setdefault("GDK_BACKEND", "x11")
 
     # ── Vérifier les dépendances optionnelles ────────────────────────────────
     try:

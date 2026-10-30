@@ -155,3 +155,21 @@ def test_default_system_filter_comes_only_from_select(uex_cache):
     assert _default_system_filter(ctx, "stanton") == ["pyro"]
     ctx.cfg = {"filters": {"system": {"include": [], "exclude": ["Pyro"]}}}
     assert set(_default_system_filter(ctx, "stanton")) == {"stanton", "nyx"}
+
+
+# ── Signalé le 2026-10-30 ─────────────────────────────────────────────────────
+def test_ship_add_vehicle_lookup_accepts_quiet(ctx):
+    """/ship add MISC_Hull_B : le relais de config.py transmet `quiet` (TypeError avant)."""
+    from uexinfo.cli.commands.config import _find_vehicle
+    v = _find_vehicle("Cutlass Black", ctx, quiet=True)
+    assert v is not None and v.name == "Cutlass Black"
+    assert _find_vehicle("qqqqqqqq", ctx, quiet=True) is None
+
+
+def test_clicked_command_is_shown_with_object_name(ctx):
+    """Un clic envoie « /dest #station:… » : on affiche le nom, on exécute la référence."""
+    from uexinfo.cli.choose import display_line
+    t = next(t for t in ctx.cache.terminals if t.name == "Admin - Port Tressler")
+    assert display_line(f"/dest #station:{t.id_space_station}", ctx) == "/dest Port Tressler"
+    assert display_line(f"/info #terminal:{t.id}", ctx) == "/info Admin - Port Tressler"
+    assert display_line("/note #3 et #truc:1", ctx) == "/note #3 et #truc:1"   # pas des références

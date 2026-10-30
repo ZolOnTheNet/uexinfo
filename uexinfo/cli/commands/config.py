@@ -451,10 +451,11 @@ def _cmdhistory(args: list[str], ctx) -> None:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _find_vehicle(name: str, ctx):
-    """Vaisseau par nom — résolveur unique (uexinfo/names)."""
+def _find_vehicle(name: str, ctx, quiet: bool = False):
+    """Vaisseau par nom — résolveur unique (uexinfo/names), règle 3 (D11) ; `quiet` tait
+    le message « introuvable » (un nom libre de vaisseau reste accepté)."""
     from uexinfo.cli.commands.info import _find_vehicle as _fv
-    return _fv(name, ctx)
+    return _fv(name, ctx, quiet=quiet)
 
 
 def _save_player(ctx) -> None:
