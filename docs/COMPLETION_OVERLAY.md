@@ -156,7 +156,10 @@ Le JS doit gérer :
 
 **Navigation dans le dropdown :**
 - `↑` / `↓` → sélectionner une suggestion
-- `Tab` ou `Entrée` sur une suggestion → insérer `insert`, fermer le dropdown
+- `Tab` → insérer la suggestion sélectionnée (la première si aucune), fermer le dropdown
+- `Entrée` → insérer la suggestion **sélectionnée** ; si la liste s'est ouverte en
+  tapant et qu'aucune n'est sélectionnée, envoyer la ligne telle quelle (2026-10-30 :
+  plus de double Entrée pour `info …`, `dest …`)
 - `Echap` → fermer le dropdown
 
 **Format d'affichage :**

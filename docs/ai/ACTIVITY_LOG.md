@@ -507,3 +507,16 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Flotte selon D11 (`config.py`) : `_add_ship` (un seul ajout pour `/ship add` et `/player ship add` : vaisseau UEX reconnu, nom complet retenu ; liste ou proposition sinon, rien d'ajouté si annulé ; nom inconnu de UEX accepté comme vaisseau perso) et `_pick_ship` (nom enregistré, nom UEX court ou complet, début ou partie d'un seul nom ; plusieurs ⇒ liste).
 - Barre d'état : distance position → destination calculée entre les lieux retrouvés par l'identifiant des terminaux (avant : noms de terminaux passés au graphe, qui ne les connaît pas).
 - 313 tests réussis.
+
+## 2026-10-30 — double Entrée après `info …`, `dest …`
+
+**Signalé :** taper `info dest` (ou autre) affiche la liste avec `/info` : il faut valider deux fois de suite.
+
+**Cause :** la liste de complétion qui s'ouvre en tapant pré-sélectionnait sa première ligne, et Entrée appliquait cette ligne au lieu d'envoyer la commande. Une réponse de complétion arrivée après l'envoi pouvait aussi rouvrir la liste sur une saisie vide.
+
+**Fait (`overlay/static/index.html`) :**
+- Liste ouverte en tapant : rien de pré-sélectionné, Entrée envoie la ligne telle quelle (le serveur ajoute le `/` aux commandes connues, et la règle 3 de D11 tranche les noms). Tab prend l'item sélectionné, ou le premier ; les flèches en choisissent un, et Entrée l'applique alors.
+- Liste demandée (Tab, Ctrl+Espace) : premier item pré-sélectionné, comme avant.
+- `sendCmd` annule la complétion en attente ; une réponse tardive sur saisie vide est ignorée.
+- `docs/COMPLETION_OVERLAY.md` : touches mises à jour.
+- Rappel donné au joueur : les SCU d'un vaisseau ajouté viennent de la fiche UEX du vaisseau (`/vehicles`, cache local), retrouvée par `/ship add`.

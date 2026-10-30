@@ -1787,6 +1787,7 @@ function sendCmd(text) {
   if (!history.length || history[0] !== text) history.unshift(text);
   if (history.length > 500) history.pop();
   histIdx = -1; histSave = '';
+  clearTimeout(elInput._t);   // pas de complétion pour la ligne qui vient de partir
   elInput.value = '';
   closeComps();
   elHint.textContent = '';
@@ -2109,7 +2110,7 @@ elInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
     e.preventDefault();
     if (compVisible && compIdx >= 0) {
-      acceptComp();          // applique la complétion sélectionnée (flèches)
+      acceptComp();          // applique l'item choisi (flèches, Tab, Ctrl+Espace)
       return;                // ne soumet pas encore, l'utilisateur confirme
     }
     closeComps();
@@ -2181,7 +2182,7 @@ elInput.addEventListener('keydown', e => {
   }
   if (e.key === 'Tab') {
     e.preventDefault();
-    if (compVisible && compIdx >= 0) { acceptComp(); return; }
+    if (compVisible) { if (compIdx < 0) compIdx = 0; acceptComp(); return; }
     _tabTriggered = true;
     send({type:'complete', text:elInput.value, cursor:elInput.selectionStart});
     return;
@@ -2209,6 +2210,8 @@ function showComps(items, commonPrefix) {
   compIdx = -1;
   elComp.innerHTML = '';
   if (!items.length) { closeComps(); return; }
+  // Réponse arrivée après l'envoi de la ligne (saisie vidée) : plus rien à compléter
+  if (!fromTab && !fromIntellisense && !elInput.value) { closeComps(); return; }
 
   elComp.classList.toggle('intellisense', fromIntellisense);
 
@@ -2243,9 +2246,13 @@ function showComps(items, commonPrefix) {
   });
   elComp.style.display = 'block';
 
-  // Pré-sélectionner le premier item (visible mais non inséré dans l'input)
-  compIdx = 0;
-  elComp.querySelectorAll('.ci')[0]?.classList.add('sel');
+  // Liste demandée (Tab, Ctrl+Espace) : premier item pré-sélectionné, Entrée l'applique.
+  // Liste ouverte en tapant : rien de sélectionné, Entrée envoie la ligne telle quelle
+  // (Tab prend le premier item, les flèches en choisissent un autre).
+  if (fromTab || fromIntellisense) {
+    compIdx = 0;
+    elComp.querySelectorAll('.ci')[0]?.classList.add('sel');
+  }
 }
 
 function moveComp(d) {
