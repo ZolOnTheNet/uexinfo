@@ -4,9 +4,10 @@
 //
 // Trois modes, choisis par le bouton à côté de ⚙ (ou /config mode) :
 //   console : la ligne de commande seule ;
-//   mixte   : la barre des thèmes au-dessus de la sortie, la ligne de commande gardée ;
+//   mixte   : la colonne des thèmes à droite de la sortie, la ligne de commande gardée ;
 //             un thème ouvre son groupe, un second clic dessus (ou Échap) le referme ;
 //   souris  : un groupe toujours ouvert, sans ligne de commande.
+// Le panneau est une colonne à droite, en haut : la sortie garde toute sa hauteur.
 // Chaque bouton envoie une commande existante, tirée du catalogue reçu du serveur
 // (uexinfo/overlay/menus.py, message « menus ») : boutons et saisie passent par le
 // même dispatch. Les fonctions du script principal (sendCmd, send, esc…) ne sont
@@ -24,7 +25,7 @@ window.MousePanel = (() => {
   const elThemes = document.getElementById('mp-themes');
   const elPath   = document.getElementById('mp-path');
   const elGroup  = document.getElementById('mp-group');
-  const elBusy   = document.getElementById('mp-busy');
+  const elPrev   = document.getElementById('mp-preview');
   const elBtn    = document.getElementById('sb-mode');
 
   let mode = 'console';
@@ -77,14 +78,11 @@ window.MousePanel = (() => {
     return b;
   }
 
-  function _preview(cmd) {
-    const el = document.getElementById('mp-preview');
-    if (el) el.textContent = cmd ? '› ' + cmd : '';
-  }
+  function _preview(cmd) { elPrev.textContent = cmd ? '› ' + cmd : ''; }
 
   function render() {
-    // Barre des thèmes (l'indicateur « en cours » reste en dernier)
-    elThemes.querySelectorAll('.mp-theme').forEach(b => b.remove());
+    // Colonne des thèmes
+    elThemes.innerHTML = '';
     themes.forEach((th, i) => {
       const b = _button('mp-theme' + (i === themeIdx ? ' active' : ''),
         `<span class="mp-ic">${_html(th.icon || '')}</span>` +
@@ -92,12 +90,13 @@ window.MousePanel = (() => {
         `<span class="mp-short">${_html(th.short || th.label)}</span>`,
         th.label,
         () => (i === themeIdx && mode !== 'souris') ? closeGroup() : openTheme(i));
-      elThemes.insertBefore(b, elBusy);
+      elThemes.appendChild(b);
     });
 
     elPanel.classList.toggle('open', isOpen());
     elPath.innerHTML = '';
     elGroup.innerHTML = '';
+    _preview('');
     if (!isOpen()) return;
 
     // Chemin cliquable : remonte au thème ou à un groupe
@@ -116,7 +115,6 @@ window.MousePanel = (() => {
       if (!last) s.addEventListener('click', () => { path = p; render(); });
       elPath.appendChild(s);
     });
-    elPath.appendChild(Object.assign(document.createElement('span'), {id: 'mp-preview'}));
 
     // Boutons du groupe ouvert
     node.kids.forEach((k, i) => {

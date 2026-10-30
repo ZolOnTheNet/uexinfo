@@ -2,7 +2,7 @@
 
 Trois modes d'affichage, choisis par le bouton à côté de ⚙ ou par `/config mode` :
 - console : la ligne de commande seule ;
-- mixte   : la barre des thèmes au-dessus de la sortie, et la ligne de commande ;
+- mixte   : la colonne des thèmes à droite de la sortie, et la ligne de commande ;
 - souris  : les boutons toujours ouverts, sans ligne de commande.
 
 Un bouton envoie une commande qui existe déjà : boutons et saisie passent par le même

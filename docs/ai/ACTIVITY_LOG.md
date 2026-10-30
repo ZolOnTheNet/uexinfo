@@ -535,3 +535,13 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `static/menu.js` + `static/menu.css` insérés par `_load_html` (premier découpage de `index.html`).
 - `tests/test_menus.py` : chaque bouton vise une commande chargée par l'overlay et une sous-commande connue. 360 tests réussis. Rendu des trois modes vérifié en capture (Chromium headless) ; à confirmer dans l'overlay.
 - Pas encore : boutons à paramètre (listes tirées de `vocab`, filtre/saisie libre), double-clic, minage, « Remplir la ligne ».
+
+## 2026-10-30 — mode souris : panneau en colonne à droite
+
+**Demandé :** les boutons en haut à droite plutôt qu'en bandeau au-dessus de la sortie, qui réduisait la partie utile.
+
+**Fait :**
+- `#output` et `#mouse-panel` dans une rangée `#main-row` : le panneau est une colonne à droite, calée en haut, et la sortie garde toute sa hauteur. Mode mixte, groupe fermé : seulement la colonne étroite des thèmes. Groupe ouvert : colonne de 250 px (45 % de la largeur au plus), thèmes, chemin, boutons empilés, commande survolée en dessous (rien ne bouge au survol).
+- « ⏳ en cours ■ Arrêter » en bas de la colonne, en mode souris seulement (en mixte, la ligne de commande a déjà ⏳ et Échap×2).
+- La largeur de rendu envoyée au serveur (`cols`) se mesure sur la zone de sortie, plus sur toute la fenêtre : les tableaux ne passent pas sous la colonne.
+- Rendu vérifié en capture (Chromium headless, port fermé). Incident : une première capture, lancée sur le port 8090, s'est connectée à l'overlay ouvert de l'utilisateur ; aucune commande envoyée (historique vérifié), seule la largeur de rendu a pu changer jusqu'au prochain redimensionnement ou redémarrage. Les captures se font désormais sur un port fermé.
