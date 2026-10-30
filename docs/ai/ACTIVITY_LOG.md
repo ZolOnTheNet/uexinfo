@@ -495,3 +495,15 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Commande d'un clic : exécutée sur la référence, mais affichée (écho, historique ↑, `history.jsonl`) avec le nom de l'objet (`choose.display_line`) : « /dest Port Tressler ».
 - Déplacement de la fenêtre sous Linux : vérifié qu'en Wayland natif la fenêtre ne connaît pas sa position (0, 0) et que GTK ignore le déplacement demandé par l'application. Désormais la barre de titre appelle `begin_drag` (GTK `begin_move_drag` : le gestionnaire de fenêtres déplace, X11 comme Wayland), avec repli sur le calcul de la page d'après le pointeur. `run_overlay` passe aussi par XWayland sous Wayland quand il est lancé directement (`python -m uexinfo`), comme le script. Appel GTK vérifié sans erreur dans les deux modes ; le geste à la souris reste à confirmer par l'utilisateur.
 - 311 tests réussis.
+
+## 2026-10-30 — vaisseaux ajoutés pas reconnus comme les autres
+
+**Signalé :** après `/ship add MISC_Hull_B` (512 SCU bien repris), le Hull B n'est pas reconnu comme les vaisseaux déjà présents.
+
+**Cause :** la page reçoit la liste des vaisseaux (noms reconnus, colorés, cliquables) au démarrage seulement ; elle n'était renvoyée qu'après `/refresh`, `/voyage` et `/mission`. Par ailleurs, `/ship set|remove|cargo` et `/player ship set|scu|remove` ne trouvaient un vaisseau de la flotte que par son nom enregistré exact (« Hull B » → « Vaisseau inconnu »), et `/player ship add` enregistrait le texte tapé sans reconnaître le vaisseau.
+
+**Fait :**
+- Vocabulaire renvoyé aussi après `/ship`, `/player` et `/config`.
+- Flotte selon D11 (`config.py`) : `_add_ship` (un seul ajout pour `/ship add` et `/player ship add` : vaisseau UEX reconnu, nom complet retenu ; liste ou proposition sinon, rien d'ajouté si annulé ; nom inconnu de UEX accepté comme vaisseau perso) et `_pick_ship` (nom enregistré, nom UEX court ou complet, début ou partie d'un seul nom ; plusieurs ⇒ liste).
+- Barre d'état : distance position → destination calculée entre les lieux retrouvés par l'identifiant des terminaux (avant : noms de terminaux passés au graphe, qui ne les connaît pas).
+- 313 tests réussis.

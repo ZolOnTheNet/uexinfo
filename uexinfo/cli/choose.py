@@ -19,6 +19,7 @@ KIND_LABELS = {
     "system": "système", "planet": "planète", "moon": "lune", "station": "station",
     "city": "ville", "outpost": "avant-poste", "terminal": "terminal",
     "commodity": "commodité", "vehicle": "vaisseau", "node": "lieu",
+    "ship": "vaisseau de la flotte",
 }
 
 
@@ -32,6 +33,8 @@ def describe(e: Entity) -> tuple[str, str]:
         return e.name, g("code")
     if e.kind == "vehicle":
         return e.name, g("manufacturer")
+    if e.kind == "ship":
+        return e.name, f"{o.scu} SCU" if getattr(o, "scu", 0) else ""
     if e.kind == "node":
         return e.name, g("system")
     where = " · ".join(x for x in (g("planet_name"), g("star_system_name")) if x and x != e.name)

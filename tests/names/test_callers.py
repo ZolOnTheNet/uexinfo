@@ -173,3 +173,33 @@ def test_clicked_command_is_shown_with_object_name(ctx):
     assert display_line(f"/dest #station:{t.id_space_station}", ctx) == "/dest Port Tressler"
     assert display_line(f"/info #terminal:{t.id}", ctx) == "/info Admin - Port Tressler"
     assert display_line("/note #3 et #truc:1", ctx) == "/note #3 et #truc:1"   # pas des références
+
+
+# ── Flotte du joueur : un ajout, une recherche (D11, signalé le 2026-10-30) ───
+@pytest.fixture()
+def fleet_ctx(ctx, monkeypatch):
+    import uexinfo.config.settings as settings
+    monkeypatch.setattr(settings, "save", lambda *a, **k: None)
+    ctx.cfg = {}
+    from uexinfo.cli.commands.config import _add_ship
+    _add_ship("Cutlass Black", ctx)
+    return ctx
+
+
+def test_ship_found_by_short_or_full_name(fleet_ctx):
+    from uexinfo.cli.commands.config import _pick_ship
+    assert [s.name for s in fleet_ctx.player.ships] == ["Drake Cutlass Black"]
+    for q in ("Drake Cutlass Black", "cutlass black", "Cutlass_Black".replace("_", " "), "cutlass"):
+        assert _pick_ship(q, fleet_ctx).name == "Drake Cutlass Black"
+    assert _pick_ship("qqqqqq", fleet_ctx, quiet=True) is None
+
+
+def test_player_ship_add_and_set_use_the_same_rules(fleet_ctx):
+    from uexinfo.cli.commands.player import cmd_player
+    cmd_player(["ship", "add", "Cutlass_Black", "50"], fleet_ctx)          # déjà là : pas de doublon
+    assert len(fleet_ctx.player.ships) == 1
+    cmd_player(["ship", "scu", "cutlass", "50"], fleet_ctx)
+    assert fleet_ctx.player.ships[0].scu == 50
+    fleet_ctx.player.active_ship = ""
+    cmd_player(["ship", "set", "cutlass_black"], fleet_ctx)
+    assert fleet_ctx.player.active_ship == "Drake Cutlass Black"

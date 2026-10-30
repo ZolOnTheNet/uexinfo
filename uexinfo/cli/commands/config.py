@@ -451,6 +451,67 @@ def _cmdhistory(args: list[str], ctx) -> None:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+def _add_ship(name: str, ctx, scu: int = 0):
+    """Ajoute un vaisseau à la flotte, règle 3 (D11) ; renvoie le vaisseau ajouté, ou None.
+
+    Vaisseau UEX reconnu : son nom complet est retenu, avec le SCU du cache (`scu` > 0 le
+    remplace). Plusieurs vaisseaux ou faute de frappe : liste, et rien n'est ajouté si le
+    joueur annule. Nom inconnu de UEX : accepté comme vaisseau perso, SCU à configurer.
+    """
+    from uexinfo.cli.choose import decide
+    from uexinfo.models.player import Ship
+    from uexinfo.names import resolve
+    r = resolve(ctx, name, kinds={"vehicle"})
+    vehicle = decide(ctx, r, name, title="Vaisseau") if r.matches else None
+    if r.matches and vehicle is None:
+        return None
+    canon = vehicle.name_full if vehicle else name
+    if any(s.name.lower() == canon.lower() for s in ctx.player.ships):
+        print_warn(f"{canon} déjà dans la liste")
+        return None
+    ship = Ship(name=canon, scu=scu or (vehicle.scu if vehicle else 0))
+    ctx.player.ships.append(ship)
+    if not ctx.player.active_ship:
+        ctx.player.active_ship = canon
+    if vehicle:
+        info = f"  [{C.DIM}]{ship.scu} {C.SCU} · pad {vehicle.pad_type}[/{C.DIM}]"
+    else:
+        info = f"  [{C.WARNING}]vaisseau non trouvé dans le cache — SCU à configurer manuellement[/{C.WARNING}]"
+    print_ok(f"Vaisseau ajouté : {canon}{info}")
+    return ship
+
+
+def _pick_ship(query: str, ctx, quiet: bool = False):
+    """Vaisseau de la flotte du joueur désigné par `query`, règle 3 (D11).
+
+    Nom enregistré, nom UEX court ou complet (« Hull B » = MISC Hull B), début ou partie
+    d'un seul nom : accepté ; plusieurs : liste ; faute de frappe : proposition. None si
+    introuvable (message, sauf `quiet`) ou annulé.
+    """
+    from uexinfo.cli.choose import decide
+    from uexinfo.names import Entity, NameIndex, norm
+    vehicles = {}
+    for v in ctx.cache.vehicles or []:
+        for k in (v.name_full, v.name):
+            if k:
+                vehicles.setdefault(norm(k), v)
+    ents = []
+    for i, s in enumerate(ctx.player.ships):
+        v = vehicles.get(norm(s.name))
+        keys = [s.name] + ([v.name, v.name_full] if v else [])
+        ents.append(Entity("ship", i, s.name, s,
+                           keys=tuple(dict.fromkeys(norm(k) for k in keys if k))))
+    r = NameIndex(ents).resolve(query)
+    if not r.matches:
+        if not quiet:
+            print_error(f"Vaisseau introuvable dans votre flotte : {query}")
+            if ctx.player.ships:
+                console.print(f"[{C.DIM}]Vaisseaux : {', '.join(s.name for s in ctx.player.ships)}"
+                              f"  ·  /ship add <nom> pour en ajouter[/{C.DIM}]")
+        return None
+    return decide(ctx, r, query, title="Vaisseau")
+
+
 def _find_vehicle(name: str, ctx, quiet: bool = False):
     """Vaisseau par nom — résolveur unique (uexinfo/names), règle 3 (D11) ; `quiet` tait
     le message « introuvable » (un nom libre de vaisseau reste accepté)."""
@@ -468,8 +529,6 @@ def _save_player(ctx) -> None:
 
 def _ship(args: list[str], ctx) -> None:
     """Gestion vaisseaux via ctx.player (source unique de vérité)."""
-    from uexinfo.models.player import Ship
-
     if not args or args[0].lower() == "list":
         if not ctx.player.ships:
             print_warn("Aucun vaisseau configuré — /config ship add <nom>")
@@ -516,21 +575,8 @@ def _ship(args: list[str], ctx) -> None:
                     console.print(f"[{C.DIM}]Utilisez /explore ship pour voir tous les vaisseaux[/{C.DIM}]")
             return
         names = [n.strip() for n in raw.split(",") if n.strip()] if "," in raw else [raw]
-        for name in names:
-            vehicle = _find_vehicle(name, ctx, quiet=True)   # nom libre accepté
-            canon   = vehicle.name_full if vehicle else name
-            if any(s.name == canon for s in ctx.player.ships):
-                print_warn(f"{canon} déjà dans la liste")
-                continue
-            scu = vehicle.scu if vehicle else 0
-            ctx.player.ships.append(Ship(name=canon, scu=scu))
-            if not ctx.player.active_ship:
-                ctx.player.active_ship = canon
-            info = f"  [{C.DIM}]{vehicle.scu} {C.SCU} · pad {vehicle.pad_type}[/{C.DIM}]" if vehicle else ""
-            if not vehicle:
-                info = f"  [{C.WARNING}]vaisseau non trouvé dans le cache — SCU à configurer manuellement[/{C.WARNING}]"
-            print_ok(f"Vaisseau ajouté : {canon}{info}")
-        _save_player(ctx)
+        if any([_add_ship(name, ctx) for name in names]):
+            _save_player(ctx)
 
     elif sub == "remove":
         raw  = " ".join(rest).replace("_", " ").strip()
@@ -549,27 +595,10 @@ def _ship(args: list[str], ctx) -> None:
                 for s in ctx.player.ships:
                     console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
                 return
-        # Chercher d'abord un nom exact dans la flotte (avec normalisation casse + dot-notation)
-        raw_lower = raw.lower()
-        match_name = next(
-            (s.name for s in ctx.player.ships if s.name.lower() == raw_lower),
-            None,
-        )
-        if match_name is None:
-            # Essayer via _find_vehicle (gère la notation pointée ship.xxx / RSI.xxx)
-            v = _find_vehicle(raw, ctx, quiet=True)
-            canon_lower = (v.name_full if v else raw).lower()
-            match_name = next(
-                (s.name for s in ctx.player.ships if s.name.lower() == canon_lower),
-                None,
-            )
-        if match_name is None:
-            print_error(f"Vaisseau introuvable dans votre flotte : {raw}")
-            if ctx.player.ships:
-                console.print(f"[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
-                for s in ctx.player.ships:
-                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
+        match = _pick_ship(raw, ctx)        # règle 3 (D11) : « Hull B » = MISC Hull B
+        if match is None:
             return
+        match_name = match.name
         ctx.player.ships = [s for s in ctx.player.ships if s.name != match_name]
         if ctx.player.active_ship.lower() == match_name.lower():
             ctx.player.active_ship = ctx.player.ships[0].name if ctx.player.ships else ""
@@ -601,14 +630,8 @@ def _ship(args: list[str], ctx) -> None:
                     marker = f"  [{C.SUCCESS}]◄ actif[/{C.SUCCESS}]" if s.name == ctx.player.active_ship else ""
                     console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]{marker}")
                 return
-        match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
+        match = _pick_ship(name.replace("_", " "), ctx)
         if match is None:
-            print_error(f"{name} n'est pas dans la liste")
-            if ctx.player.ships:
-                console.print(f"[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
-                for s in ctx.player.ships:
-                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
-            console.print(f"[{C.DIM}]Ajoutez-le d'abord avec /ship add <nom>[/{C.DIM}]")
             return
         ctx.player.active_ship = match.name
         _save_player(ctx)
@@ -730,14 +753,8 @@ def _ship(args: list[str], ctx) -> None:
             return
 
         # ── Mode normal : afficher ou modifier le VAISSEAU du joueur ────────
-        match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
+        match = _pick_ship(name, ctx)
         if match is None:
-            print_error(f"Vaisseau introuvable dans votre flotte : {name}")
-            console.print(f"[{C.DIM}]Ajoutez-le d'abord avec /ship add <nom>[/{C.DIM}]")
-            if ctx.player.ships:
-                console.print(f"\n[{C.DIM}]Vaisseaux disponibles :[/{C.DIM}]")
-                for s in ctx.player.ships:
-                    console.print(f"  [{C.UEX}]{s.name}[/{C.UEX}]")
             return
 
         # Si pas d'args : afficher la config du vaisseau

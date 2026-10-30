@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from uexinfo.cli.commands import register
-from uexinfo.models.player import Ship
 import uexinfo.config.settings as settings
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
 from uexinfo.display import colors as C
@@ -132,22 +131,19 @@ def cmd_player(args: list[str], ctx) -> None:
                 except ValueError:
                     pass
             name = " ".join(rest).replace("_", " ")
-            # Vérifier doublon
-            if any(s.name.lower() == name.lower() for s in ctx.player.ships):
-                print_warn(f"Vaisseau déjà présent : {name}")
-                return
-            ctx.player.ships.append(Ship(name=name, scu=scu))
-            _save_player(ctx)
-            print_ok(f"Vaisseau ajouté : {name}" + (f" ({scu} {C.SCU})" if scu else ""))
+            # Même ajout que /ship add : vaisseau UEX reconnu, règle 3 (D11)
+            from uexinfo.cli.commands.config import _add_ship
+            if _add_ship(name, ctx, scu=scu):
+                _save_player(ctx)
 
         elif action in ("set", "select"):
             if len(args) < 3:
                 print_error("Usage : /player ship set <nom>")
                 return
             name = " ".join(args[2:]).replace("_", " ")
-            match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
+            from uexinfo.cli.commands.config import _pick_ship
+            match = _pick_ship(name, ctx)
             if match is None:
-                print_error(f"Vaisseau inconnu : {name}")
                 return
             ctx.player.active_ship = match.name
             _save_player(ctx)
@@ -163,9 +159,9 @@ def cmd_player(args: list[str], ctx) -> None:
                 print_error("SCU doit être un entier")
                 return
             name = " ".join(args[2:-1]).replace("_", " ")
-            match = next((s for s in ctx.player.ships if s.name.lower() == name.lower()), None)
+            from uexinfo.cli.commands.config import _pick_ship
+            match = _pick_ship(name, ctx)
             if match is None:
-                print_error(f"Vaisseau inconnu : {name}")
                 return
             match.scu = scu
             _save_player(ctx)
@@ -176,15 +172,15 @@ def cmd_player(args: list[str], ctx) -> None:
                 print_error("Usage : /player ship remove <nom>")
                 return
             name = " ".join(args[2:]).replace("_", " ")
-            before = len(ctx.player.ships)
-            ctx.player.ships = [s for s in ctx.player.ships if s.name.lower() != name.lower()]
-            if len(ctx.player.ships) == before:
-                print_error(f"Vaisseau introuvable : {name}")
+            from uexinfo.cli.commands.config import _pick_ship
+            match = _pick_ship(name, ctx)
+            if match is None:
                 return
-            if ctx.player.active_ship.lower() == name.lower():
+            ctx.player.ships = [s for s in ctx.player.ships if s is not match]
+            if ctx.player.active_ship == match.name:
                 ctx.player.active_ship = ""
             _save_player(ctx)
-            print_ok(f"Vaisseau supprimé : {name}")
+            print_ok(f"Vaisseau supprimé : {match.name}")
 
         else:
             print_error(f"Action inconnue : {action}  —  add|set|scu|remove")

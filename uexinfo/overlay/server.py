@@ -529,9 +529,11 @@ class OverlayServer:
             await ws.send(json.dumps(msg))
         self.ctx._overlay_msgs = []
 
-        # Après un refresh, le cache change → re-envoyer le vocabulaire
+        # Le vocabulaire de la page (noms reconnus, cliquables) change après un refresh,
+        # un voyage, une mission, ou un vaisseau ajouté ou retiré : le renvoyer
         first = line.strip().lstrip("/").split()[0].lower() if line.strip() else ""
-        if first in ("refresh", "r", "voyage", "v", "mission", "m"):
+        if first in ("refresh", "r", "voyage", "v", "mission", "m",
+                     "ship", "sh", "player", "p", "config", "c"):
             await self._send_vocab(ws)
 
     def _exec_sync(self, line: str) -> tuple[str, bool]:
@@ -582,8 +584,11 @@ class OverlayServer:
         dist = None
         if p.location and p.destination and p.location != p.destination:
             try:
-                path = self.ctx.cache.transport_graph.find_shortest_path(
-                    p.location, p.destination
+                # Lieux du graphe retrouvés par l'identifiant des terminaux (D11)
+                from uexinfo.cli.commands.nav import _player_node
+                graph = self.ctx.cache.transport_graph
+                path = graph.find_shortest_path(
+                    _player_node(self.ctx, graph), _player_node(self.ctx, graph, "destination")
                 )
                 if path is not None and path.total_distance is not None:
                     dist = round(path.total_distance, 1)
