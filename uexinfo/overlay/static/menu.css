@@ -1,0 +1,89 @@
+/* ── Mode souris : panneau de boutons (menu.js) ───────────────────────────
+   Inséré dans index.html par overlay/__init__.py:_load_html.
+   body.mode-console : rien ; mode-mixte : panneau + saisie ; mode-souris : panneau seul. */
+#mouse-panel {
+  display: none;
+  flex-shrink: 0;
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border);
+  padding: 3px 8px 4px;
+}
+body.mode-mixte #mouse-panel,
+body.mode-souris #mouse-panel { display: block; }
+body.mode-souris #prompt-area { display: none; }
+
+#mp-themes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+#mp-path, #mp-group { display: none; }
+#mouse-panel.open #mp-path  { display: flex; }
+#mouse-panel.open #mp-group { display: flex; }
+
+.mp-theme, .mp-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.92em;
+  padding: 2px 10px;
+  line-height: 1.35;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mp-theme:hover, .mp-btn:hover { border-color: var(--accent); background: rgba(0,188,212,0.10); }
+.mp-theme.active { border-color: var(--accent); color: var(--accent); background: rgba(0,188,212,0.16); }
+.mp-theme .mp-ic { margin-right: 5px; display: inline-block; line-height: 1; font-size: 0.95em; }
+
+/* Libellés : longs, courts sous 380 px, icônes seules sous 260 px */
+.mp-theme .mp-short { display: none; }
+@media (max-width: 379px) {
+  .mp-theme .mp-long  { display: none; }
+  .mp-theme .mp-short { display: inline; }
+}
+@media (max-width: 259px) {
+  .mp-theme .mp-short { display: none; }
+  .mp-theme .mp-ic    { margin-right: 0; }
+}
+
+#mp-path {
+  align-items: baseline;
+  gap: 6px;
+  margin: 4px 0 3px;
+  font-size: 0.88em;
+  color: var(--dim);
+  min-width: 0;
+}
+.mp-seg { color: var(--accent); cursor: pointer; }
+.mp-seg:hover { text-decoration: underline; }
+.mp-seg.cur { color: var(--text); cursor: default; text-decoration: none; }
+#mp-preview {
+  margin-left: auto;
+  color: var(--yellow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#mp-group {
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.mp-btn.mp-grp { color: var(--accent); }
+.mp-arrow { opacity: 0.7; }
+body.busy .mp-btn.mp-run { opacity: 0.4; cursor: wait; }
+
+/* Commande en cours : visible et annulable même sans ligne de commande */
+#mp-busy { display: none; margin-left: auto; color: var(--yellow); font-size: 0.88em; white-space: nowrap; }
+body.busy #mp-busy { display: inline; }
+#mp-stop {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 3px;
+  font-family: var(--font);
+  font-size: 0.95em;
+  padding: 0 8px;
+  margin-left: 4px;
+  cursor: pointer;
+}

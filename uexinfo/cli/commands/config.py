@@ -80,6 +80,8 @@ def _dispatch_space(sub: str, rest: list[str], ctx) -> bool | None:
         return _overlay_close(rest, ctx)
     if sub == "clock":
         return _clock(rest, ctx)
+    if sub == "mode":
+        return _ui_mode(rest, ctx)
     if sub in ("magasins", "restaurants", "services"):
         return _display_toggle(sub, rest, ctx)
     if sub == "info":
@@ -222,6 +224,7 @@ def _show(cfg: dict, ctx=None) -> None:
     config_items.append(config_item("overlay.opacity", str(ov.get('opacity', 0.95))))
     clock_val = ov.get('clock', True)
     config_items.append(config_item("overlay.clock", "on" if clock_val else "off"))
+    config_items.append(config_item("overlay.mode", ov.get("mode", "console"), "console · mixte · souris"))
     config_items.append(config_item("overlay.cmdhistory", str(ov.get('cmdhistory', 5)), "commandes conservées"))
 
     # Séparateur
@@ -1085,6 +1088,23 @@ def _clock(args: list[str], ctx) -> None:
     send_fn = getattr(ctx, "_overlay_send_fn", None)
     if send_fn:
         send_fn({"type": "set_clock", "value": enabled})
+
+
+def _ui_mode(args: list[str], ctx) -> None:
+    """/config mode console|mixte|souris — ligne de commande, boutons, ou les deux."""
+    from uexinfo.overlay.menus import MODES
+    mode = args[0].lower() if args else ""
+    if mode not in MODES:
+        current = ctx.cfg.get("overlay", {}).get("mode", "console")
+        print_error("Usage : /config mode console|mixte|souris")
+        console.print(f"  [{C.DIM}]Valeur actuelle : {current}[/{C.DIM}]")
+        return
+    ctx.cfg.setdefault("overlay", {})["mode"] = mode
+    settings.save(ctx.cfg)
+    print_ok(f"Mode de l'overlay : {mode}")
+    send_fn = getattr(ctx, "_overlay_send_fn", None)
+    if send_fn:
+        send_fn({"type": "set_mode", "value": mode})
 
 
 # ── Clés pointées génériques  (ex: voyage.calc.nbsaut) ───────────────────────

@@ -44,7 +44,7 @@
 | Tesseract | copie stable `extprg/tesseract/` (cherchée en premier par `ocr/engine.py`, voir LISEZMOI.txt) |
 | **Game.log** | `gamelog/` : `lines.py` + `events.py` (parseur pur), `state.py` (position, système, morts, menu), `places.py` (codes de lieu → nom + système, **unique**), `follow.py` (tail), `/game`, `python -m uexinfo.gamelog` ; spec `docs/ai/GAMELOG_SPEC.md` ; ancien `parser.py`/`reader.py`/`arrival.py` (auto-position) |
 | Données utilisateur | `~/.uexinfo/` (JSON caches, `config.toml`, `scan_prices.json`, `missions.json`, `voyages.json`) |
-| **Interface souris (proposition)** | `docs/PROPOSITION_MENUS_SOURIS.html` (2026-10-21) : menus par thème, maquette, fenêtres multiples, plan par lots — en attente des réponses de l'utilisateur |
+| **Interface souris** | Proposition `docs/PROPOSITION_MENUS_SOURIS.html` (2026-10-21). Commencé le 2026-10-30 : modes console / mixte / souris (bouton à côté de ⚙, `/config mode`), catalogue des boutons `overlay/menus.py` (testé par `tests/test_menus.py`), panneau `static/menu.js` + `menu.css` insérés par `_load_html`. Reste : boutons à paramètre (listes tirées de `vocab`, saisie libre via un filtre), clic/double-clic, minage, « Remplir la ligne » |
 
 ## 3. Taille des fichiers (points chauds du refactoring)
 

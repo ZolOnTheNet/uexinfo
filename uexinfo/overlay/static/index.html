@@ -1082,6 +1082,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   background: none; border-color: transparent; color: var(--dim); padding: 3px 6px;
 }
 </style>
+<style>/*__MENU_CSS__*/</style>
 </head>
 <body>
 
@@ -1090,6 +1091,13 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 <div id="titlebar">
   <span class="tb-title">UEXInfo</span>
   <span id="tb-close-btn" class="tb-close" title="Fermer (ou /quit)" onclick="handleCloseClick()">✕</span>
+</div>
+<div id="mouse-panel">
+  <div id="mp-themes" role="toolbar" aria-label="Thèmes">
+    <span id="mp-busy">⏳ en cours <button id="mp-stop" title="Annuler la commande en cours">■ Arrêter</button></span>
+  </div>
+  <div id="mp-path"></div>
+  <div id="mp-group"></div>
 </div>
 <div id="output"></div>
 <div id="game-live">
@@ -1147,6 +1155,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   <span id="sb-alpha-minus" class="sb-btn" title="Moins opaque (−5%)">−</span>
   <span id="sb-alpha-plus"  class="sb-btn" title="Plus opaque (+5%)">+</span>
   <span class="sb-sep"> │ </span>
+  <span id="sb-mode" class="sb-btn" title="Mode d'affichage">⌨</span>
   <span id="sb-config" class="sb-btn" onclick="sendCmd('/config')" title="Configuration">⚙</span>
   <span class="sb-sep"> </span>
   <span id="sb-help"   class="sb-btn" onclick="sendCmd('/help')"   title="Aide">?</span>
@@ -1302,6 +1311,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 <div id="ship-menu"></div>
 <div id="ctx-menu"></div>
 
+<script>/*__MENU_JS__*/</script>
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
 // ANSI → HTML parser (couvre les codes émis par Rich)
@@ -1565,6 +1575,7 @@ function startSpin() {
     el.textContent = SPIN_CHARS[i++ % SPIN_CHARS.length];
   }, 80);
   document.getElementById('busy-indicator').style.display = '';
+  document.body.classList.add('busy');
 }
 
 function stopSpin() {
@@ -1575,6 +1586,7 @@ function stopSpin() {
   el.classList.remove('spin');
   el.textContent = '›';
   document.getElementById('busy-indicator').style.display = 'none';
+  document.body.classList.remove('busy');
   if (_escTimer) { clearTimeout(_escTimer); _escTimer = null; }
 }
 
@@ -1634,7 +1646,10 @@ function dispatch(msg) {
       if (msg.opacity !== undefined) setAlpha(msg.opacity);
       if (msg.close_mode !== undefined) applyCloseMode(msg.close_mode);
       if (msg.clock !== undefined) applyClockMode(msg.clock);
+      if (msg.ui_mode !== undefined && window.MousePanel) MousePanel.setMode(msg.ui_mode);
       break;
+    case 'set_mode': if (window.MousePanel) MousePanel.setMode(msg.value); break;
+    case 'menus':    if (window.MousePanel) MousePanel.load(msg.themes || []); break;
     case 'set_clock':
       applyClockMode(msg.value);
       break;
@@ -1779,7 +1794,7 @@ function handleCloseClick() {
   }
 }
 
-function sendCmd(text) {
+function sendCmd(text, keepInput = false) {
   text = text.trim();
   if (!text) return;
   if (_QUIT_RE.test(text)) _quitting = true;
@@ -1787,6 +1802,7 @@ function sendCmd(text) {
   if (!history.length || history[0] !== text) history.unshift(text);
   if (history.length > 500) history.pop();
   histIdx = -1; histSave = '';
+  if (keepInput) return;      // bouton du mode souris : la saisie en cours reste
   clearTimeout(elInput._t);   // pas de complétion pour la ligne qui vient de partir
   elInput.value = '';
   closeComps();
@@ -2518,8 +2534,10 @@ document.addEventListener('keydown', e => {
   if (e.key === 'F1') { e.preventDefault(); sendCmd('/help'); }
 
   // Toute touche imprimable redirige vers l'input de commande,
-  // SAUF si le focus est déjà dans un champ de formulaire (scan inline, select, etc.)
-  if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+  // SAUF si le focus est déjà dans un champ de formulaire (scan inline, select, etc.),
+  // ou en mode souris (pas de ligne de commande)
+  if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1
+      && !document.body.classList.contains('mode-souris')) {
     const tag = (document.activeElement || {}).tagName || '';
     if (document.activeElement !== elInput
         && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {

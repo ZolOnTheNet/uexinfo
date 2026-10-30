@@ -205,6 +205,9 @@ class OverlayServer:
 
             await self._send_status(websocket)
             await self._send_vocab(websocket)
+            # Boutons du mode souris (catalogue fixe, uexinfo/overlay/menus.py)
+            from uexinfo.overlay import menus as _menus
+            await websocket.send(json.dumps({"type": "menus", "themes": _menus.THEMES}))
 
             # Envoyer l'historique de saisie (navigation ↑/↓)
             await websocket.send(json.dumps({"type": "history", "items": self._history}))
@@ -226,6 +229,7 @@ class OverlayServer:
                 "opacity":    opacity,
                 "close_mode": close_mode,
                 "clock":      clock,
+                "ui_mode":    ov_cfg.get("mode", "console"),
             }))
 
             # Boucle principale : asyncio.wait permet de traiter "cancel"
@@ -332,6 +336,8 @@ class OverlayServer:
             await self._send_status(ws)
         elif t == "opacity":
             await self._handle_opacity(msg.get("value", 0.76))
+        elif t == "ui_mode":
+            await self._handle_ui_mode(msg.get("value", ""))
         elif t == "cols":
             cols = max(40, int(msg.get("value", 100)))
             _fmt_mod.console._width = cols
@@ -565,6 +571,13 @@ class OverlayServer:
             _settings.save(self.ctx.cfg)
         except Exception:
             pass
+
+    async def _handle_ui_mode(self, value: str) -> None:
+        """Enregistre le mode choisi dans la page : console, mixte ou souris."""
+        from uexinfo.overlay.menus import MODES
+        if value in MODES:
+            self.ctx.cfg.setdefault("overlay", {})["mode"] = value
+            _settings.save(self.ctx.cfg)
 
     # ── Statut ────────────────────────────────────────────────────────────────
 

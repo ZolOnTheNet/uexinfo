@@ -44,7 +44,7 @@ L'app est un **overlay PyWebView** : une fenêtre transparente/toujours-au-dessu
 | Layer | Location | Rôle |
 |---|---|---|
 | Point d'entrée | `uexinfo/__main__.py` | Boot, vérifie les dépendances (webview/pynput/websockets), lance l'overlay |
-| Overlay | `uexinfo/overlay/` | `server.py` (serveur WebSocket, exécute les commandes, pousse le statut), `static/index.html` (UI, JS) |
+| Overlay | `uexinfo/overlay/` | `server.py` (serveur WebSocket, exécute les commandes, pousse le statut), `static/index.html` (UI, JS) ; mode souris : `menus.py` (catalogue des boutons, une commande existante par bouton) et `static/menu.js` + `menu.css` (insérés par `_load_html`) |
 | État partagé | `uexinfo/cli/context.py` | `AppContext` — config, cache, player, historique de scan, etc. Instancié une fois, partagé entre toutes les commandes et le serveur overlay |
 | Routage commande | `uexinfo/cli/runner.py` | `normalize_command` → `parser.py` → `dispatch()` |
 | Parser | `uexinfo/cli/parser.py` | `/cmd args` → `(name, [args])` via `shlex` |

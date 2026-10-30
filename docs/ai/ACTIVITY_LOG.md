@@ -524,3 +524,14 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 ## 2026-10-30 — `/info dest`
 
 **Fait :** `/info dest` (ou `destination`) affiche la fiche du terminal de destination, retrouvé par son identifiant (`destination_terminal`, D11 règle 1). Aide, complétion et `_ALL_COMMANDS.md` mis à jour ; test ajouté (314 tests réussis).
+
+## 2026-10-30 — mode souris, premier pas : bouton de mode et panneau de boutons
+
+**Demandé :** un petit bouton à côté de ⚙ pour passer de la console pure à un « tableau de boutons », avec la possibilité de mélanger les deux (d'après `docs/PROPOSITION_MENUS_SOURIS.html`).
+
+**Fait :**
+- Trois modes : **console** (comme avant), **mixte** (barre des thèmes au-dessus de la sortie + ligne de commande ; un thème ouvre son groupe, un second clic ou Échap le referme), **souris** (un groupe toujours ouvert, ligne de commande masquée, « ⏳ en cours ■ Arrêter » dans le panneau). Bouton `sb-mode` juste avant ⚙ (la roue dentée est en bas à droite) ; aussi `/config mode console|mixte|souris`. Mode enregistré dans `[overlay] mode`.
+- Catalogue `uexinfo/overlay/menus.py` (Info, Trade, Missions, Vaisseaux, Réglages), envoyé à la connexion (message `menus`) ; chaque bouton envoie une commande existante (même dispatch que la saisie). Premier pas : commandes sans paramètre et groupes ; chemin cliquable pour remonter ; la commande d'un bouton s'affiche au survol. Un clic de bouton ne vide pas la saisie en cours (`sendCmd(text, keepInput)`), et un bouton ne part pas pendant qu'une commande tourne.
+- `static/menu.js` + `static/menu.css` insérés par `_load_html` (premier découpage de `index.html`).
+- `tests/test_menus.py` : chaque bouton vise une commande chargée par l'overlay et une sous-commande connue. 360 tests réussis. Rendu des trois modes vérifié en capture (Chromium headless) ; à confirmer dans l'overlay.
+- Pas encore : boutons à paramètre (listes tirées de `vocab`, filtre/saisie libre), double-clic, minage, « Remplir la ligne ».

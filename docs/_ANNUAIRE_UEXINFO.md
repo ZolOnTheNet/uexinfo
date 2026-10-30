@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-29** (191 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-30** (195 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -86,8 +86,11 @@ uexinfo/                         (racine du dépôt)
 | `__init__.py` | Version du package, `build_id()` (commit git en cours). |
 | `__main__.py` | Point d'entrée unique : vérifie les dépendances (webview, pynput, websockets), lance l'overlay. |
 | `overlay/__init__.py` | Fenêtre PyWebView transparente, raccourci clavier global (Win32, pynput hors Windows), presse-papiers, remplacement d'une instance déjà lancée, `run_overlay()`. |
+| `overlay/menus.py` | Mode souris : modes (console, mixte, souris) et catalogue des boutons envoyé à la page (message `menus`) ; chaque bouton envoie une commande existante. |
 | `overlay/server.py` | Serveur WebSocket : reçoit les commandes de la page, les exécute, renvoie le HTML ; complétion, statut, confirmation des scans, suivi Game.log. Importe toutes les commandes. |
-| `overlay/static/index.html` | Toute l'interface (HTML + CSS + JS, ~4 400 lignes) : console, complétion, menus, mots cliquables (référence `#type:id` au clic, D11), formulaires de scan. |
+| `overlay/static/index.html` | L'interface (HTML + CSS + JS, ~4 400 lignes) : console, complétion, menus, mots cliquables (référence `#type:id` au clic, D11), formulaires de scan. |
+| `overlay/static/menu.js` | Panneau de boutons du mode souris : thèmes, chemin cliquable, groupes, bouton de mode. Inséré dans la page par `_load_html`. |
+| `overlay/static/menu.css` | Styles du panneau de boutons (libellés longs, courts ou icônes selon la largeur). Inséré par `_load_html`. |
 
 ### Routage des commandes — `cli/`
 
@@ -239,7 +242,7 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (276 tests réussis au 2026-10-22).
+Lancer : `pytest` (360 tests réussis au 2026-10-30).
 
 | Fichier | Ce qui est testé |
 |---|---|
@@ -247,6 +250,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | `conftest.py` | Fixtures partagées : sous-ensemble réel des données UEX (octobre 2026). |
 | `test_config_cache_clear.py` | `/config cache clear <type>` n'efface qu'un type à la fois. |
 | `test_dashboard.py` | Fonctions du tableau de bord `/voyage tb`. |
+| `test_menus.py` | Catalogue du mode souris : chaque bouton vise une commande et une sous-commande connues. |
 | `test_voyage_manager.py` | `VoyageManager` : gestion des étapes. |
 | `test_voyage_model.py` | Modèles `Voyage` et `VoyageStep`. |
 | `cache/test_cleanup.py` | Nettoyage de la base sans trou entre versions (D10). |
@@ -297,7 +301,7 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 | `ai/ETUDES_RISQUE_VERSION.md` | 2026-10-06 | ✅ | Études préalables aux décisions D2 (risque) et D3 (versions). |
 | `ai/GAMELOG_SPEC.md` | 2026-10-19 | ✅ | Lignes du Game.log exploitées, formats confirmés. |
 | `ai/MISSION_STELLIVERSE.md` | 2026-10-06 | ✅ | Consignes de la mission « s'inspirer de Stelliverse ». |
-| `PROPOSITION_MENUS_SOURIS.html` | 2026-10-21 | ✅ | Proposition d'interface souris v2 (menus, fenêtres multiples, minage), en attente de réponses. |
+| `PROPOSITION_MENUS_SOURIS.html` | 2026-10-21 | ✅ | Proposition d'interface souris v2 (menus, fenêtres multiples, minage). Mise en œuvre commencée le 2026-10-30 : modes et premiers boutons (`overlay/menus.py`). |
 | `scmdb_demande_autorisation.md` | 2026-10-22 | ✅ | Demande d'autorisation envoyée à scmdb.net, et suivi. |
 | `TODO_zol.md` | 2026-08-03 | ✅ | Liste de choses à faire tenue par Zol. |
 | `api-uex.md` | 2026-03-02 | ✅ | Référence de l'API UEX Corp 2.0 (endpoints, champs). |
@@ -383,14 +387,14 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 
 ---
 
-## 📊 **STATISTIQUES (2026-10-29)**
+## 📊 **STATISTIQUES (2026-10-30)**
 
 | Élément | Nombre |
 |---|---|
-| Fichiers suivis par git | 191 |
-| Fichiers Python du package `uexinfo/` | 99 |
+| Fichiers suivis par git | 195 |
+| Fichiers Python du package `uexinfo/` | 100 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 23 (309 tests réussis au 2026-10-29) |
+| Fichiers de tests | 24 (360 tests réussis au 2026-10-30) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
@@ -405,3 +409,4 @@ Lancer : `pytest` (276 tests réussis au 2026-10-22).
 - **2026-10-29** (suite) : `docs/INSTALLATION.md` créé.
 - **2026-10-29** (suite) : `names/refs.py` et `cli/choose.py` ajoutés (décision D11).
 - **2026-10-29** (suite) : `tests/cache/test_cached_read.py` ; D11 missions et voyages : `names/places.py`, `cli/places.py`, `cache/place_aliases.py`, `tests/names/test_places.py`.
+- **2026-10-30** : mode souris — `overlay/menus.py`, `overlay/static/menu.js`, `overlay/static/menu.css`, `tests/test_menus.py` ajoutés.

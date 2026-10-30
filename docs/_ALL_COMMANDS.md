@@ -48,6 +48,7 @@
 - `/config scan session_gap <min>` : Gap entre sessions en minutes
 - `/config close normal|dblclick` : Comportement du bouton ✕ de l'overlay
 - `/config clock on|off` : Horloge en fond de l'overlay
+- `/config mode console|mixte|souris` : Ligne de commande seule, boutons et ligne de commande, ou boutons seuls (aussi par le bouton à côté de ⚙)
 - `/config cmdhistory <n>` : Nombre de commandes+résultats conservés
 - `/config player` : Afficher la config joueur
 
