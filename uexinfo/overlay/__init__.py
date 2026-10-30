@@ -80,14 +80,14 @@ def _parse_hotkey(hotkey_str: str) -> str:
     return "+".join(parts)
 
 
-def _load_html(port: int) -> str:
-    """Lire index.html, y insérer le mode souris (menu.css, menu.js) et le port WebSocket."""
+def _load_html(port: int, token: str = "") -> str:
+    """Lire index.html, y insérer le mode souris (menu.css, menu.js), le port et le jeton WebSocket."""
     from pathlib import Path
     static = Path(__file__).parent / "static"
     html = (static / "index.html").read_text(encoding="utf-8")
     html = html.replace("/*__MENU_CSS__*/", (static / "menu.css").read_text(encoding="utf-8"))
     html = html.replace("/*__MENU_JS__*/", (static / "menu.js").read_text(encoding="utf-8"))
-    return html.replace("__WS_PORT__", str(port))
+    return html.replace("__WS_PORT__", str(port)).replace("__WS_TOKEN__", token)
 
 
 class _WindowApi:
@@ -335,9 +335,10 @@ def _replace_previous_instance(port: int, wait_s: float = 6.0) -> bool:
     Renvoie True si le port s'est libéré.
     """
     import json as _json
+    from uexinfo.overlay.auth import read_token
     try:
         from websockets.sync.client import connect
-        with connect(f"ws://127.0.0.1:{port}", open_timeout=2, close_timeout=1) as ws:
+        with connect(f"ws://127.0.0.1:{port}/?t={read_token()}", open_timeout=2, close_timeout=1) as ws:
             print(f"[overlay] Une instance tourne déjà sur le port {port} — demande de fermeture…", flush=True)
             ws.send(_json.dumps({"type": "cmd", "text": "/quit"}))
             try:
@@ -420,7 +421,9 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     # L'import de server.py redirige console AVANT les commandes → doit être
     # le tout premier import uexinfo après les modules stdlib/tiers.
     from uexinfo.overlay.server import OverlayServer
+    from uexinfo.overlay.auth import new_token
     server = OverlayServer()
+    server.token = new_token()    # après la fermeture de l'ancienne instance, qui lisait l'ancien jeton
     server.init_context()
     server.start_background(host="localhost", port=port)
 
@@ -429,7 +432,7 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     print("[overlay] Serveur WebSocket prêt.")
 
     # ── 2. Créer la fenêtre PyWebView ────────────────────────────────────────
-    html = _load_html(port)
+    html = _load_html(port, server.token)
     print(f"[overlay] frameless={frameless}  transparent={frameless}  {width}×{height}", flush=True)
     x = ov_cfg.get("x", None)   # None = position OS par défaut
     y = ov_cfg.get("y", 40)

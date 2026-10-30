@@ -1404,6 +1404,7 @@ const ANSI = (() => {
 // Application
 // ═══════════════════════════════════════════════════════════════════════════════
 const WS_PORT = __WS_PORT__;   // injecté par Python
+const WS_TOKEN = '__WS_TOKEN__';   // injecté par Python : le serveur refuse toute connexion sans lui
 
 let ws = null;
 let history = [];
@@ -1628,7 +1629,7 @@ let _quitting = false;   // true dès qu'une sortie est demandée (/quit, ✕)
 const _QUIT_RE = /^\/?(quit|exit|bye|quitter)\b/i;
 
 function connect() {
-  ws = new WebSocket(`ws://localhost:${WS_PORT}`);
+  ws = new WebSocket(`ws://localhost:${WS_PORT}/?t=${WS_TOKEN}`);
   ws.onopen    = () => { /* le serveur envoie status + vocab + history + banner au connect */ };
   ws.onmessage = e  => dispatch(JSON.parse(e.data));
   ws.onclose   = () => {

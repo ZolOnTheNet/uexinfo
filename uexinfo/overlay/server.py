@@ -108,6 +108,7 @@ class OverlayServer:
         self._lock = threading.Lock()
         self._history: list[str] = []
         self.on_quit: callable | None = None  # callback appelé avant os._exit
+        self.token = ""               # jeton exigé à la connexion (overlay/auth.py) ; "" = refus de tout
         self._arrival_tracker = None  # ArrivalTracker (gamelog), créé à la demande
 
         # ── Sélecteur interactif ──────────────────────────────────────────────
@@ -363,12 +364,15 @@ class OverlayServer:
             await ws.send(json.dumps({"type": "done"}))
             await self._send_status(ws)
         elif t == "open_file":
-            path = msg.get("path", "")
-            if path:
+            # Captures d'écran seulement : jamais un exécutable ou un script (overlay/auth.py).
+            from uexinfo.overlay.auth import openable
+            target = openable(msg.get("path", ""))
+            if target is None:
+                print(f"[overlay] open_file refusé : {msg.get('path', '')!r}", flush=True)
+            else:
                 import os, subprocess, sys
-                from pathlib import Path as _Path
                 try:
-                    abs_path = str(_Path(path).resolve())
+                    abs_path = str(target)
                     print(f"[overlay] open_file: {abs_path}", flush=True)
                     if sys.platform == "win32":
                         os.startfile(abs_path)
@@ -2023,7 +2027,16 @@ class OverlayServer:
 
     async def serve(self, host: str = "localhost", port: int = 8090) -> None:
         """Sert les WebSockets sur `host:port` et pousse le statut périodiquement, sans fin."""
-        async with websockets.serve(self.handler, host, port):
+        from http import HTTPStatus
+        from uexinfo.overlay.auth import token_ok
+
+        def _check_token(connection, request):
+            """Refuse la connexion (403) sans le jeton de cette instance : une page web ouverte ailleurs ne peut pas piloter l'overlay."""
+            if not token_ok(request.path, self.token):
+                return connection.respond(HTTPStatus.FORBIDDEN, "jeton absent ou invalide\n")
+            return None
+
+        async with websockets.serve(self.handler, host, port, process_request=_check_token):
             asyncio.create_task(self._periodic_status())
             await asyncio.Future()  # tourne indéfiniment
 

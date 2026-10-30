@@ -564,3 +564,14 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - « ⏳ en cours ■ Arrêter » en bas de la colonne, en mode souris seulement (en mixte, la ligne de commande a déjà ⏳ et Échap×2).
 - La largeur de rendu envoyée au serveur (`cols`) se mesure sur la zone de sortie, plus sur toute la fenêtre : les tableaux ne passent pas sous la colonne.
 - Rendu vérifié en capture (Chromium headless, port fermé). Incident : une première capture, lancée sur le port 8090, s'est connectée à l'overlay ouvert de l'utilisateur ; aucune commande envoyée (historique vérifié), seule la largeur de rendu a pu changer jusqu'au prochain redimensionnement ou redémarrage. Les captures se font désormais sur un port fermé.
+
+## 2026-10-30 — sécurité de l'overlay : jeton WebSocket, `open_file` limité
+
+**Demandé :** commencer par la faille notée « Haute » dans NOTES §4 (accord du 2026-10-21 sur le jeton).
+
+**Fait :**
+- `uexinfo/overlay/auth.py` : à chaque lancement, un jeton aléatoire (`secrets.token_urlsafe`) est inséré dans la page (`__WS_TOKEN__`) et exigé à la connexion (`ws://localhost:8090/?t=…`). Sans lui, le serveur répond 403 avant la poignée de main (`process_request`) : une page web ouverte dans un navigateur ne peut plus envoyer de commande ni lire la sortie. L'incident de capture noté plus haut (une page de test connectée à l'overlay ouvert) n'est plus possible.
+- Le jeton est aussi écrit dans `overlay.token` (dossier de config de l'utilisateur) : la relance suivante le lit pour demander à l'ancienne instance de se fermer. Le nouveau jeton n'est écrit qu'après cette fermeture. Une ancienne version, sans jeton, accepte encore la demande.
+- `open_file` n'ouvre plus que des images existantes (`.png .jpg .jpeg .bmp .webp`) ; tout autre chemin est refusé et journalisé (avant : `os.startfile` sur n'importe quel chemin, donc un exécutable).
+- Pas de contrôle d'origine : la page est chargée depuis une chaîne HTML (origine variable selon le moteur), le jeton suffit.
+- `tests/test_overlay_auth.py` (vrai serveur sur un port libre : 403 sans jeton ou avec un faux, connexion avec le bon). 364 tests réussis. À confirmer dans l'overlay réel.

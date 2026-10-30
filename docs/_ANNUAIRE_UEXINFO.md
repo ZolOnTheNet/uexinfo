@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-30** (195 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-30** (197 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -86,6 +86,7 @@ uexinfo/                         (racine du dépôt)
 | `__init__.py` | Version du package, `build_id()` (commit git en cours). |
 | `__main__.py` | Point d'entrée unique : vérifie les dépendances (webview, pynput, websockets), lance l'overlay. |
 | `overlay/__init__.py` | Fenêtre PyWebView transparente, raccourci clavier global (Win32, pynput hors Windows), presse-papiers, remplacement d'une instance déjà lancée, `run_overlay()`. |
+| `overlay/auth.py` | Garde-fous du serveur WebSocket : jeton de connexion de l'instance (aussi écrit dans `overlay.token`, dossier de config), extensions que `open_file` peut ouvrir (images). |
 | `overlay/menus.py` | Mode souris : modes (console, mixte, souris) et catalogue des boutons envoyé à la page (message `menus`) ; chaque bouton envoie une commande existante. |
 | `overlay/server.py` | Serveur WebSocket : reçoit les commandes de la page, les exécute, renvoie le HTML ; complétion, statut, confirmation des scans, suivi Game.log. Importe toutes les commandes. |
 | `overlay/static/index.html` | L'interface (HTML + CSS + JS, ~4 400 lignes) : console, complétion, menus, mots cliquables (référence `#type:id` au clic, D11), formulaires de scan. |
@@ -242,7 +243,7 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (360 tests réussis au 2026-10-30).
+Lancer : `pytest` (364 tests réussis au 2026-10-30).
 
 | Fichier | Ce qui est testé |
 |---|---|
@@ -250,6 +251,7 @@ Lancer : `pytest` (360 tests réussis au 2026-10-30).
 | `conftest.py` | Fixtures partagées : sous-ensemble réel des données UEX (octobre 2026). |
 | `test_config_cache_clear.py` | `/config cache clear <type>` n'efface qu'un type à la fois. |
 | `test_dashboard.py` | Fonctions du tableau de bord `/voyage tb`. |
+| `test_overlay_auth.py` | Serveur WebSocket : connexion refusée (403) sans le jeton ; `open_file` limité aux images existantes. |
 | `test_menus.py` | Catalogue du mode souris : chaque bouton vise une commande et une sous-commande connues. |
 | `test_voyage_manager.py` | `VoyageManager` : gestion des étapes. |
 | `test_voyage_model.py` | Modèles `Voyage` et `VoyageStep`. |
@@ -392,9 +394,9 @@ Lancer : `pytest` (360 tests réussis au 2026-10-30).
 | Élément | Nombre |
 |---|---|
 | Fichiers suivis par git | 195 |
-| Fichiers Python du package `uexinfo/` | 100 |
+| Fichiers Python du package `uexinfo/` | 101 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 24 (360 tests réussis au 2026-10-30) |
+| Fichiers de tests | 25 (364 tests réussis au 2026-10-30) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
@@ -410,3 +412,4 @@ Lancer : `pytest` (360 tests réussis au 2026-10-30).
 - **2026-10-29** (suite) : `names/refs.py` et `cli/choose.py` ajoutés (décision D11).
 - **2026-10-29** (suite) : `tests/cache/test_cached_read.py` ; D11 missions et voyages : `names/places.py`, `cli/places.py`, `cache/place_aliases.py`, `tests/names/test_places.py`.
 - **2026-10-30** : mode souris — `overlay/menus.py`, `overlay/static/menu.js`, `overlay/static/menu.css`, `tests/test_menus.py` ajoutés.
+- **2026-10-30** (suite) : sécurité de l'overlay — `overlay/auth.py`, `tests/test_overlay_auth.py` ajoutés.
