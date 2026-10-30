@@ -203,3 +203,13 @@ def test_player_ship_add_and_set_use_the_same_rules(fleet_ctx):
     fleet_ctx.player.active_ship = ""
     cmd_player(["ship", "set", "cutlass_black"], fleet_ctx)
     assert fleet_ctx.player.active_ship == "Drake Cutlass Black"
+
+
+def test_info_dest_shows_destination_terminal_by_id(ctx, monkeypatch):
+    from uexinfo.cli.commands import info
+    shown = []
+    monkeypatch.setattr(info, "_show_terminal", lambda t, c, **k: shown.append(t.id))
+    monkeypatch.setattr(info, "_player_system", lambda c: "")
+    ctx.player.set_destination("nom affiché sans rapport", 259)
+    info.cmd_info(["dest"], ctx)
+    assert shown == [259]

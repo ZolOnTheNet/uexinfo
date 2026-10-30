@@ -231,6 +231,7 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("commodity",   "Infos sur une commodité"),
         ("ship",        "Infos sur un vaisseau"),
         ("list",        "Liste des commodités"),
+        ("dest",        "Terminal de la destination"),
         ("reset-list",  "Effacer + recharger la liste des commodités"),
         ("reset-price", "Effacer + recharger les prix d'un terminal"),
         ("reset-scan",  "Supprimer les données scan joueur d'un terminal"),

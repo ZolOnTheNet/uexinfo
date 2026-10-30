@@ -333,6 +333,7 @@ _DETAILS = {
     ),
     "info": (
         "/info <nom>                  Recherche libre (terminal, commodité, vaisseau)\n"
+        "/info dest                   Terminal de la destination\n"
         "/info terminal <nom>         Détail d'un terminal (lieu, système…)\n"
         "/info commodity <nom>        Détail d'une commodité (prix UEX, flags…)\n"
         "/info ship <nom>             Fiche vaisseau (achat, location, cargo)\n"

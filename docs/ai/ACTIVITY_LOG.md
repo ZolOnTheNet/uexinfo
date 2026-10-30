@@ -520,3 +520,7 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `sendCmd` annule la complétion en attente ; une réponse tardive sur saisie vide est ignorée.
 - `docs/COMPLETION_OVERLAY.md` : touches mises à jour.
 - Rappel donné au joueur : les SCU d'un vaisseau ajouté viennent de la fiche UEX du vaisseau (`/vehicles`, cache local), retrouvée par `/ship add`.
+
+## 2026-10-30 — `/info dest`
+
+**Fait :** `/info dest` (ou `destination`) affiche la fiche du terminal de destination, retrouvé par son identifiant (`destination_terminal`, D11 règle 1). Aide, complétion et `_ALL_COMMANDS.md` mis à jour ; test ajouté (314 tests réussis).

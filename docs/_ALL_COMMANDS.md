@@ -196,6 +196,7 @@
 
 **Sous-commandes :**
 - `/info <lieu>` : Recherche libre (terminal, commodité, vaisseau)
+- `/info dest` : Terminal de la destination (par identifiant)
 - `/info terminal <nom>` : Détail d'un terminal
 - `/info commodity <nom>` : Détail d'une commodité
 - `/info ship <nom>` : Fiche vaisseau (achat, location, cargo)

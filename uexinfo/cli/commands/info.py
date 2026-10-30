@@ -2269,7 +2269,7 @@ def _show_vehicle(v: Vehicle, ctx) -> None:
 
 # ── Recherche — délègue au résolveur unique (uexinfo/names, décision D6) ──────
 
-from uexinfo.cli.choose import choose as _choose, decide as _decide, position_terminal
+from uexinfo.cli.choose import choose as _choose, decide as _decide, destination_terminal, position_terminal
 from uexinfo.names import PREFIX as _PREFIX, SUBSTRING as _SUBSTRING
 from uexinfo.names import resolve as _resolve_name, terminal_priority as _trading_priority
 
@@ -2535,10 +2535,11 @@ def _info_reset_scan(args: list[str], ctx) -> None:
 @register("info", "i", "?")
 def cmd_info(args: list[str], ctx) -> None:
     # Extraire les flags système (--all, --Sys,Sys) avant de router
-    """/info [terminal | commodity | ship | list | reset-…] <nom> — fiche d'un terminal, d'une commodité ou d'un vaisseau.
+    """/info [terminal | commodity | ship | list | dest | reset-…] <nom> — fiche d'un terminal, d'une commodité ou d'un vaisseau.
 
-    Sans argument : le terminal de la position actuelle. `--all` ou `--Sys,Sys`
-    choisissent les systèmes affichés.
+    Sans argument : le terminal de la position actuelle ; `dest` : celui de la
+    destination (retrouvés par identifiant). `--all` ou `--Sys,Sys` choisissent
+    les systèmes affichés.
     """
     player_sys = _player_system(ctx)
     sys_filter, args = _parse_sys_filter(args, player_sys)
@@ -2558,6 +2559,16 @@ def cmd_info(args: list[str], ctx) -> None:
 
     if first == "list":
         _show_commodity_list(args[1:], ctx)
+        return
+
+    if first in ("dest", "destination") and len(args) == 1:
+        t = destination_terminal(ctx)
+        if t:
+            _show_terminal(t, ctx, sys_filter=sys_filter)
+        elif (ctx.player.destination or "").strip():
+            print_warn(f"La destination n'est pas un terminal : {ctx.player.destination}")
+        else:
+            print_warn("Pas de destination — /dest <lieu>")
         return
 
     if first in ("reset-list", "reset-price"):
