@@ -3,8 +3,10 @@
 <2026-10-30T20:31:06.276Z> [Trace] Environment:   PUB
 <2026-10-30T20:31:18.401Z> [Notice] <AccountLoginCharacterStatus_Character> Character: createdAt 1791547211939 - updatedAt 1791547212361 - geid 100000000001 - accountId 1 - name JOUEUR - state STATE_CURRENT [Team_GameServices][Login]
 <2026-10-30T20:31:18.951Z> [Notice] <Legacy login response> [CIG-net] User Login Success - Handle[JOUEUR] - Time[195060810] [Team_GameServices][Login]
+<2026-10-30T20:31:23.263Z> [CLoadingScreenComponent::Enter]
 <2026-10-30T20:31:25.347Z> [CSessionManager::OnClientSpawned] Spawned!
 <2026-10-30T20:31:34.696Z> [Notice] <Join PU> address[0.0.0.0] port[64301] shard[pub_euw1b_12881860_060] locationId[-281470681677823] [Team_GameServices][GIM][Matchmaking]
+<2026-10-30T20:31:34.876Z> [CLoadingScreenComponent::Enter]
 <2026-10-30T20:32:04.027Z> [Notice] <CSCLoadingPlatformManager::LoadEntitiesReference> Loading references for platform manager 'LoadingPlatformManager_ShipElevator_HangarSmallTop' [907638321852] [Team_CoreGameplayFeatures][Cargo]
 <2026-10-30T20:32:04.385Z> [Notice] <CSCLoadingPlatformManager::LoadEntitiesReference> Loading references for platform manager 'LoadingPlatformManager_ShipElevator_HangarSmallTop' [909050404668] [Team_CoreGameplayFeatures][Cargo]
 <2026-10-30T20:32:05.787Z> [Notice] <CDockingAnimatorComponent::OnSetCurrentState> Station_DockingTube_Reststop-arm [862315096568] - OnSetCurrentState - current state eES_Unready previous state eES_Unready [Team_CGP4][ATC][Vehicle]

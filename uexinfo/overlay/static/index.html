@@ -1694,7 +1694,7 @@ function dispatch(msg) {
     case 'terminal_buy_pick': showTerminalBuyPick(msg); break;
     case 'select':      showSelectPanel(msg); break;
     case 'location_confirm': showLocationConfirm(msg.new, msg.old, msg.source); break;
-    case 'presence':         appendSystem(msg.text, msg.kind === 'departure' ? 'var(--warn, #e5a030)' : 'var(--accent, #4fc3f7)'); break;
+    case 'presence':         appendSystem(msg.text, msg.kind === 'death' ? 'var(--red)' : msg.kind === 'departure' ? 'var(--warn, #e5a030)' : 'var(--accent, #4fc3f7)'); break;
     case 'shard_changed': showShardChanged(msg.new, msg.old); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items, msg.common_prefix || ''); break;

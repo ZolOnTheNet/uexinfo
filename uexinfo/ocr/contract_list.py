@@ -19,7 +19,9 @@ LIST_BOX = (0.075, 0.14, 0.31, 0.835)
 _RIGHT_COL = 0.78          # au-delà de 78 % de la largeur du panneau : colonne récompense/minuteur
 _SCALE = 2                 # agrandissement avant OCR
 
-_RE_XP = re.compile(r"(\d{2,5})\s*EXP\b\.?", re.I)
+_RE_XP = re.compile(r"\b([\dSO]{2,5})\s*EXP\b\.?", re.I)      # « S0 EXP » : 50 mal lu
+# Préfixe « [BP] » (le contrat rapporte un plan de fabrication), souvent mal lu : « IBP1 », « [8P1 », « I8P] ».
+_RE_BP = re.compile(r"^[\[(|Il1]?\s*[B8]P\s*[\])|Il1]\s*")
 _RE_REWARD = re.compile(r"^[^\d]{0,2}(\d{1,4}(?:[.,]\d{1,3})?)\s*[kK]$")
 _RE_TIMER = re.compile(r"^\d{1,3}[hms]$")
 
@@ -32,6 +34,7 @@ class ContractCard:
     contractor: str = ""           # donneur d'ordre (dernière ligne de la carte)
     reward: int | None = None      # aUEC (« 124k » → 124000), None si non lu
     timer: str = ""                # « 5m 20s »
+    blueprint: bool = False        # préfixe « [BP] » : plan de fabrication en récompense
     raw: str = ""                  # texte complet de la colonne gauche
     top: float = 0.0               # position verticale dans le panneau (px)
     bottom: float = 0.0
@@ -84,6 +87,8 @@ def cards_from_words(words: list[dict], panel_w: float) -> list[ContractCard]:
         if not raw.strip():
             continue
         m = _RE_XP.search(raw)
+        if m and not re.search(r"\d", m.group(1)):
+            m = None                                       # « SOS EXP… » : pas un nombre
         if m:
             title = raw[:m.start()]
             contractor = raw[m.end():]
@@ -93,8 +98,13 @@ def cards_from_words(words: list[dict], panel_w: float) -> list[ContractCard]:
             title, contractor = raw, ""
         reward = next((r for r in map(parse_reward, right) if r is not None), None)
         timer = " ".join(t for t in right if _RE_TIMER.match(t))
+        title = _clean(title)
+        bp = _RE_BP.match(title)
+        if bp:
+            title = title[bp.end():]
+        xp = int(m.group(1).upper().replace("S", "5").replace("O", "0")) if m else None
         cards.append(ContractCard(
-            title=_clean(title), xp=int(m.group(1)) if m else None, contractor=_clean(contractor),
+            title=title, xp=xp, contractor=_clean(contractor), blueprint=bool(bp),
             reward=reward, timer=timer, raw=raw,
             top=g[0]["y"], bottom=g[-1]["y"] + g[-1]["h"],
         ))

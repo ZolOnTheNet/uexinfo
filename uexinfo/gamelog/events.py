@@ -188,7 +188,12 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
                re.compile(r"Actor '(?P<name>[^']+)'"),
                lambda m: (f"Mort de {m['name']}"
                           + (" (vaisseau détruit)" if "destroyed vehicle" in m.string else ""),
-                          {"name": m["name"]}), True),
+                          {"name": m["name"], "ship_destroyed": "destroyed vehicle" in m.string}), True),
+    # Écran de chargement : toujours avant l'apparition à la connexion, jamais avant la
+    # réapparition après une mort (9 morts vérifiées, 4.10, 15-28/10/2026).
+    Recognizer("loading_screen", "CLoadingScreenComponent::Enter",
+               re.compile(r"CLoadingScreenComponent::Enter"),
+               lambda m: ("Écran de chargement", {}), True),
     # Équipement du joueur mis en récupération : une ligne par objet, on ne garde que le corps.
     # Écrit à la mise à terre comme à la mort ; la réapparition qui suit confirme la mort.
     Recognizer("down", "ItemRecoveryEntitlement]> Item 'body_",

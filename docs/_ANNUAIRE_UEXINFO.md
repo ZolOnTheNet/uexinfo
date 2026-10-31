@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-31** (199 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-31** (200 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -157,7 +157,7 @@ uexinfo/                         (racine du dépôt)
 | `cache/mission_manager.py` | Groupe de missions actif, synergies. |
 | `cache/mission_scan.py` | Outils partagés pour le scan de missions par lot (lieux lus : seulement les sûrs, D11). |
 | `cache/place_aliases.py` | Lieux choisis par le joueur pour un texte de mission (même texte → même lieu, sans redemander) ; effacés par `/config cache clear lieux`. |
-| `cache/contract_catalog.py` | Catalogue des contrats (copie locale scmdb.net, sinon `global.ini` du jeu) pour reconnaître les cartes lues. |
+| `cache/contract_catalog.py` | Catalogue des contrats (copie locale scmdb.net, `contracts` et `legacyContracts`, sinon `global.ini` du jeu) pour reconnaître les cartes lues ; variantes départagées par donneur d'ordre, en-tête de liste et montant. |
 | `cache/voyage_manager.py` | Voyages : stockage JSON, session, rétention ; départ d'étape par référence (`get_step_departure_place`). |
 | `cache/notes_manager.py` | Notes du joueur par lieu. |
 | `cache/evolution.py` | Mémoire des versions SC et des changements d'univers (D3). |
@@ -191,11 +191,11 @@ uexinfo/                         (racine du dépôt)
 | `gamelog/lines.py` | Découpage d'une ligne brute (pur). |
 | `gamelog/events.py` | Reconnaissance des événements (pur). |
 | `gamelog/state.py` | État du joueur déduit des événements : position, système, morts, menu (pur). |
-| `gamelog/places.py` | Codes de lieu internes → nom affiché et système. Table **unique** (pur). |
+| `gamelog/places.py` | Codes de lieu internes → nom affiché et système ; noms des avant-postes (`outpost_label`). Table **unique** (pur). |
 | `gamelog/follow.py` | Lecture du fichier : dernières lignes, suivi incrémental, chemin. |
 | `gamelog/parser.py` | Ancien extracteur d'événements : lieu de départ de route, zone, shard (statut de l'overlay). |
 | `gamelog/reader.py` | Ancien suivi incrémental, utilisé par le serveur overlay ; codes de lieu appris par zone (`game_log_zone_codes.json`). |
-| `gamelog/presence.py` | Arrivée, hangar ou pad attribué, posé, départ d'une station ou d'une ville, déduits des événements (zone `Landing`) ; dans l'overlay, la position suit l'arrivée (`[gamelog] position`) (pur). |
+| `gamelog/presence.py` | Arrivée, hangar ou pad attribué, posé, départ d'une station, d'une ville ou d'un avant-poste, mort et réveil, déduits des événements (zone `Landing`) ; dans l'overlay, la position suit l'arrivée et le réveil (`[gamelog] position`) (pur). |
 
 ### OCR et SC-Datarunner — `ocr/`
 
@@ -203,7 +203,7 @@ uexinfo/                         (racine du dépôt)
 |---|---|
 | `ocr/__init__.py` | Docstring du package seulement. |
 | `ocr/engine.py` | Moteur Tesseract : lecture des terminaux et des écrans de mission. Cherche Tesseract d'abord dans `extprg/tesseract/`. |
-| `ocr/contract_list.py` | Panneau des contrats du mobiGlas → cartes (titre, XP, donneur d'ordre, récompense). |
+| `ocr/contract_list.py` | Panneau des contrats du mobiGlas → cartes (titre, XP, donneur d'ordre, récompense, préfixe `[BP]`). |
 | `ocr/log_parser.py` | Lecture du log de SC-Datarunner (mode A). |
 | `ocr/watcher.py` | Surveillance du dossier de captures (mode B). |
 | `ocr/ocr_worker.py` | OCR en arrière-plan des captures. |
@@ -243,7 +243,7 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (375 tests réussis au 2026-10-31).
+Lancer : `pytest` (381 tests réussis au 2026-10-31).
 
 | Fichier | Ce qui est testé |
 |---|---|
@@ -263,7 +263,7 @@ Lancer : `pytest` (375 tests réussis au 2026-10-31).
 | `gamelog/test_places.py` | Codes de lieu → nom et système. |
 | `gamelog/test_live_crash.py` | Vrai Game.log LIVE 4.10 : crash au hangar, mort. |
 | `gamelog/test_live_extract.py` | Vrai Game.log LIVE 4.10 : Seraphim → Nyx. |
-| `gamelog/test_presence.py` | Arrivée, hangar, posé, départ sur un vrai Game.log (Baijini Point → Terra Gateway) ; terminal du lieu ; position suivie par l'overlay. |
+| `gamelog/test_presence.py` | Arrivée, hangar, posé, départ, mort et réveil sur de vrais Game.log (Baijini Point → Terra Gateway ; deux morts le 19/10) ; terminal du lieu ; position et lieu affiché suivis par l'overlay. |
 | `names/test_resolver.py` | Résolveur unique sur données UEX réelles (D6). |
 | `names/test_callers.py` | Les anciennes fonctions de recherche délèguent toutes au résolveur. |
 | `names/test_graph.py` | Nœuds du vrai graphe de navigation. |
@@ -285,6 +285,7 @@ Lancer : `pytest` (375 tests réussis au 2026-10-31).
 | `gamelog/live_4.10_crash_cru_l1.log` | Game.log réel du 2026-10-19. |
 | `gamelog/live_4.10_seraphim_nyx.log` | Game.log réel du 2026-10-07. |
 | `gamelog/live_4.10_baijini_terra.log` | Game.log réel du 2026-10-30 (extrait anonymisé : zones, hangars, transactions). |
+| `gamelog/live_4.10_morts_seraphim.log` | Game.log réel du 2026-10-19 (extrait anonymisé : vaisseau détruit au hangar, mort à pied, réveils à Seraphim, reconnexion). |
 | `datarunner/app_2026-10-07_pyro_gateway_nyx.log` | Log SC-Datarunner réel. |
 | `ocr/contract_list_words_2026-10-20.json` | Mots OCR d'une vraie capture de la liste des contrats. |
 
@@ -398,7 +399,7 @@ Lancer : `pytest` (375 tests réussis au 2026-10-31).
 | Fichiers suivis par git | 195 |
 | Fichiers Python du package `uexinfo/` | 101 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 26 (375 tests réussis au 2026-10-31) |
+| Fichiers de tests | 26 (381 tests réussis au 2026-10-31) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
@@ -416,3 +417,4 @@ Lancer : `pytest` (375 tests réussis au 2026-10-31).
 - **2026-10-30** : mode souris — `overlay/menus.py`, `overlay/static/menu.js`, `overlay/static/menu.css`, `tests/test_menus.py` ajoutés.
 - **2026-10-30** (suite) : sécurité de l'overlay — `overlay/auth.py`, `tests/test_overlay_auth.py` ajoutés.
 - **2026-10-31** : arrivée et départ automatiques — `gamelog/presence.py`, `tests/gamelog/test_presence.py`, `tests/fixtures/gamelog/live_4.10_baijini_terra.log` ajoutés ; `gamelog/arrival.py` supprimé.
+- **2026-10-31** (suite) : mort et réveil, avant-postes — `tests/fixtures/gamelog/live_4.10_morts_seraphim.log` ajouté ; rôles de `presence.py`, `places.py`, `contract_catalog.py`, `contract_list.py` étendus.

@@ -596,3 +596,16 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `names.place_trade_terminal` : lieu du Game.log → terminal de commerce principal (règle c) ; « Terra Gateway » → `Admin - Terra Gateway (Stanton)`, « Area18 » → TDD Area 18, « Grim HEX » → `Admin - GrimHEX` (nom UEX de la station : Green Imperial Housing Exchange).
 - Overlay (`server.py:_presence_update`) : messages dans la console, position mise à jour à l'arrivée par identifiant (D11), réglage `[gamelog] position = auto|propose|off` (défaut auto) ; identifiants de zone appris gardés dans `game_log_zone_codes.json`. Remplace la proposition [MàJ]/[Ign] déclenchée par l'amarrage (`gamelog/arrival.py`, supprimé : l'amarrage apparaît aussi à pied).
 - Tests : `tests/gamelog/test_presence.py` sur un extrait anonymisé du log du 30/10 (`live_4.10_baijini_terra.log`). Rejoué sur les 6 sessions sauvegardées : toutes les arrivées nommées. 375 tests réussis. Rejoué sur la session en cours : « Apparition à Terra Gateway ». À confirmer dans l'overlay en jeu.
+
+## 2026-10-31 — mort et réveil, avant-postes, contrats Covalex, lieu affiché
+
+**Demandé :** repérer la mort et remettre la position à la station ou ville du réveil ; reconnaître la dernière capture de contrats ; corriger « (Baijini Point) » affiché en gris à côté de la position.
+
+**Fait :**
+- Mort : `[ActorState] Dead` au nom du joueur (vaisseau détruit) ; mort à pied (aucune ligne) déduite d'une réapparition **sans écran de chargement** (`CLoadingScreenComponent::Enter`, nouveau reconnaisseur `loading_screen`). Vérifié sur 9 morts (15-28/10) : chaque mort suivie de « 🏥 Réveil à Seraphim Station » ; rien en Arena Commander (pas de `<Join PU>` depuis le menu) ni pour les PNJ. « ClearDriver » juste après un crash n'est plus un « Posé ». Le retour au menu remet le suivi à zéro.
+- Au lancement de l'overlay, la session déjà lue est rejouée sans annonce (`GameLogTail.read_seen`), pour reconnaître une mort à pied dès la première réapparition vue.
+- Zone déjà connue : l'arrivée attend « Spawned! » (quelques ms) avant d'être annoncée (une réapparition passait pour une arrivée).
+- Avant-postes : `places.outpost_label` (Rayari, ArcCorp Mining Area, Shubin, HDMS), noms vérifiés contre UEX ; retour dans la zone quittée en moins de 2 min non annoncé.
+- Lieu gris de la barre d'état : suit arrivées, réveils, départs ; masqué s'il date d'une session précédente ou répète la position (venait d'un départ de route QT de la veille, gardé dans la config).
+- Contrats : catalogue scmdb étendu aux `legacyContracts` (1 565 → 1 856 ; Covalex « Rookie Rank - … Cargo Haul ») ; préfixe `[BP]` mal lu retiré du titre ; « S0 EXP » lu 50 ; variantes départagées par donneur d'ordre et en-tête de liste. Capture du 31/10 17h08 : 7/7 reconnus (2/7 avant).
+- 381 tests réussis. Observé : erreur 30000 à 17h53 (serveur muet 30 s, `Channel Process Disconnection cause=30000`), pas liée à uexinfo.

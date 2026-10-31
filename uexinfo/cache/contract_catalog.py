@@ -37,6 +37,9 @@ class CatalogContract:
     event: str = ""                                  # nom de code de l'événement (ex. « Iasi »)
     split_party: bool = False                        # points divisés entre les membres du groupe
     source: str = "scmdb"
+    mission_type: str = ""                           # « Hauling - Stellar » (en-tête de la liste en jeu)
+    contractor: str = ""                             # « Covalex Independent Contractors »
+    blueprint: bool = False                          # rapporte un plan de fabrication (« [BP] » en jeu)
 
     @property
     def xp(self) -> int | None:
@@ -121,7 +124,9 @@ class ContractCatalog:
         """Catalogue depuis la copie locale de scmdb.net (points par catégorie, partage en groupe, récompense)."""
         scopes = data.get("eventScopes") or {}
         out = []
-        for c in data.get("contracts") or []:
+        # « legacyContracts » : contrats toujours proposés en jeu (Covalex « Rookie Rank - … Cargo
+        # Haul », vérifié sur une capture du 2026-10-31), absents de « contracts ».
+        for c in (data.get("contracts") or []) + (data.get("legacyContracts") or []):
             title = (c.get("title") or "").strip()
             if not title or title.startswith("@"):
                 continue
@@ -135,7 +140,10 @@ class ContractCatalog:
                 split = split or bool(t.get("splitPointsForParty"))
             out.append(CatalogContract(title=title, debug_name=c.get("debugName") or "",
                                        reward=c.get("rewardUEC"), points=points, event=event,
-                                       split_party=split, source="scmdb"))
+                                       split_party=split, source="scmdb",
+                                       mission_type=c.get("missionType") or "",
+                                       contractor=c.get("contractorName") or "",
+                                       blueprint=bool(c.get("blueprintRewards"))))
         return cls(out, "scmdb", str(data.get("version") or ""))
 
     @classmethod
@@ -162,7 +170,8 @@ class ContractCatalog:
 
     # ── Reconnaissance ───────────────────────────────────────────────────────
 
-    def match(self, text: str, reward: int | None = None, xp: int | None = None):
+    def match(self, text: str, reward: int | None = None, xp: int | None = None,
+              contractor: str = "", mission_type: str = ""):
         """Meilleur contrat pour un titre lu → (contrat | None, score 0-100)."""
         from rapidfuzz import fuzz, process
         if not normalize(text) or not self._keys:
@@ -186,10 +195,17 @@ class ContractCatalog:
             return None, 0.0
         top = max(sc for sc, _ in scored)
         cands = list({id(c): c for sc, c in scored if sc >= top - 0.01}.values())
-        # Ex-aequo (variantes au même titre, version d'événement ou non) : la récompense puis
-        # l'XP affichées départagent.
-        if len(cands) > 1 and (reward or xp):
-            cands.sort(key=lambda c: (abs((c.reward or 0) - (reward or c.reward or 0)),
+        # Ex-aequo (variantes au même titre : donneur d'ordre, type, version d'événement) : le
+        # donneur d'ordre et l'en-tête de la liste lus, puis la récompense et l'XP départagent.
+        if len(cands) > 1:
+            def off(read: str, known: str) -> float:
+                """0 si le texte lu correspond au catalogue (ou n'a pas été lu), sinon jusqu'à 1."""
+                if not read or not known:
+                    return 0.0
+                return 1 - fuzz.token_set_ratio(normalize(read), normalize(known)) / 100
+            cands.sort(key=lambda c: (round(off(contractor, c.contractor), 1),
+                                      round(off(mission_type, c.mission_type), 1),
+                                      abs((c.reward or 0) - (reward or c.reward or 0)),
                                       abs((c.xp or 0) - (xp or c.xp or 0))))
         return cands[0], top
 
@@ -197,21 +213,28 @@ class ContractCatalog:
         """Cartes lues → contrats. Recolle une carte coupée en haut d'écran à la suivante et
         écarte les en-têtes de catégorie (cartes sans récompense ni minuteur, non reconnues)."""
         out: list[RecognizedContract] = []
+        mission_type = ""                       # en-tête de catégorie courant (« HAULING STELLAR »)
         i = 0
         while i < len(cards):
             card = cards[i]
             fragment = not (card.reward is not None or getattr(card, "timer", ""))
+            if fragment and not card.title and getattr(card, "contractor", ""):
+                mission_type = card.contractor  # en-tête seul sur sa ligne, lu comme dernière ligne
+                i += 1
+                continue
             if fragment and i + 1 < len(cards):
                 nxt = cards[i + 1]
-                alone = self.match(nxt.title, nxt.reward, nxt.xp)
-                merged = self.match(f"{card.title} {nxt.title}", nxt.reward, nxt.xp)
+                who = getattr(nxt, "contractor", "")
+                alone = self.match(nxt.title, nxt.reward, nxt.xp, who, mission_type)
+                merged = self.match(f"{card.title} {nxt.title}", nxt.reward, nxt.xp, who, mission_type)
                 if merged[1] >= alone[1] + _MERGE_GAIN:
                     from dataclasses import replace
                     out.append(self._result(replace(nxt, title=f"{card.title} {nxt.title}",
                                                     raw=f"{card.raw} {nxt.raw}"), *merged))
                     i += 2
                     continue
-            res = self._result(card, *self.match(card.title, card.reward, card.xp))
+            res = self._result(card, *self.match(card.title, card.reward, card.xp,
+                                                 getattr(card, "contractor", ""), mission_type))
             # En-tête de catégorie (« RSI DISCOVERY EVENT 27 ») : ni montant, ni XP, ni donneur d'ordre.
             header = fragment and not res.recognized and card.xp is None and not getattr(card, "contractor", "")
             if not header:

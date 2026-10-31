@@ -103,6 +103,35 @@ def place_label(code: str) -> str:
     return ""
 
 
+# Avant-postes : nom UEX reconstruit depuis le code d'inventaire (codes relevés sur les Game.log
+# de l'utilisateur, 2026-10-31 ; « McGarth » est l'orthographe du code, le jeu affiche McGrath).
+_RE_RAYARI = re.compile(r"_RayariHydro_(?P<name>[A-Za-z]+)$")
+_RAYARI_NAMES = {"McGarth": "Rayari McGrath Research Outpost", "DeakinsResearch": "Deakins Research"}
+_RE_ARCCORP_AREA = re.compile(r"_ArcCorp(?:Mining)?_Area(?P<n>\d+)$")
+_RE_SHUBIN = re.compile(r"_Shubin(?:Mining)?_(?P<kind>[A-Z]+?0?)_?(?P<n>\d+)$")
+
+
+def outpost_label(code: str) -> str:
+    """Nom d'un avant-poste (« ArcCorp Mining Area 141 ») d'après son code d'inventaire ; « » sinon.
+
+    `place_label` ne donne pour eux que le corps céleste, comme le calcul de route du jeu.
+    """
+    code = (code or "").strip()
+    m = _RE_RAYARI.search(code)
+    if m:
+        return _RAYARI_NAMES.get(m["name"], f"Rayari {m['name']} Research Outpost")
+    m = _RE_ARCCORP_AREA.search(code)
+    if m:
+        return f"ArcCorp Mining Area {m['n']}"
+    m = _RE_SHUBIN.search(code)
+    if m:
+        return f"Shubin Mining Facility {m['kind']}-{m['n']}"
+    m = _RE_HDMS.search(code)
+    if m:
+        return f"HDMS-{m['name']}"
+    return ""
+
+
 def system_of(code: str) -> str:
     """Système d'un code de lieu ou de cible QT (`Stanton`, `Pyro`, `Nyx`) ; « » si inconnu."""
     if not code:

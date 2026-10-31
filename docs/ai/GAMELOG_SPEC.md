@@ -99,3 +99,11 @@ Table et règles : `uexinfo/gamelog/places.py`. Noms relevés en associant un co
 ## Résistance aux changements de format
 
 `/game stats` audite chaque reconnaisseur : lignes portant le marqueur / lignes reconnues. Marqueur vu mais **jamais** reconnu ⇒ alerte « format probablement changé » avec des exemples (`events.audit`). Le vaisseau est cherché à part (segment `|…|`) : s'il disparaît, l'événement reste reconnu.
+
+## Mort, réveil, déconnexion (vérifié 4.10, 15-31/10/2026)
+
+- **Vaisseau détruit** : `<[ActorState] Dead> … Actor '<pseudo>' … due to previous zone being in a destroyed vehicle`. Aussi écrit pour les PNJ (`PU_…_<id>`) : filtrer sur le pseudo.
+- **Mort à pied** : aucune ligne propre. `CSCActorCorpseUtils … Item 'body_…'` apparaît à la mort mais aussi sans mort (pillage d'un corps).
+- **Réveil** : entrée de zone (`Landing [0] -> [n]. Location [0] -> [85446772]`) puis `Spawned!` quelques ms après, **sans** `CLoadingScreenComponent::Enter` depuis l'apparition précédente (la connexion en a toujours un). 9 morts sur 9 réveillées à Seraphim (`RR_CRU_LEO`).
+- **Arena Commander** : `Dead` et réapparitions aussi, mais pas de `<Join PU>` depuis le dernier `RequestFrontEnd`.
+- **Erreur 30000** : `<Channel Process Disconnection> cause=30000 reason="CNetChannel::InactivityTimerCallback connection has timed out (timeSinceRecv 30.0 > net_inactivitytimeout 30.0)"`, puis `RequestFrontEnd … OnLobbyPostGameUnload` et `<Error Popup Opened> errorCode=30000`. Serveur muet 30 s.

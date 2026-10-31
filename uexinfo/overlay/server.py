@@ -655,7 +655,7 @@ class OverlayServer:
             "type":          "status",
             "pos":           p.location    or "",
             "dest":          p.destination or "",
-            "zone":          getattr(p, "zone", "") or "",
+            "zone":          self._zone_label(p),
             "zone_status":   getattr(p, "zone_status", "") or "",
             "shard":         getattr(p, "shard", "") or "",
             "ship":          p.active_ship or "",
@@ -668,6 +668,25 @@ class OverlayServer:
             "scan_log": scan_log,
             "ships":    ships,
         }))
+
+    def _zone_label(self, p) -> str:
+        """Lieu lu dans le Game.log, affiché en gris après la position ; « » s'il n'apporte rien.
+
+        Masqué s'il date d'une session précédente (avant la connexion au shard actuel) ou s'il
+        désigne le lieu même de la position (« Seraphim Station » pour « Admin - Seraphim »).
+        """
+        zone = getattr(p, "zone", "") or ""
+        if not zone or (p.shard_ts and (p.zone_ts or 0) < p.shard_ts):
+            return ""
+        if p.location_id:
+            try:
+                from uexinfo.names import place_trade_terminal
+                t = place_trade_terminal(self.ctx.cache.terminals, zone)
+                if t is not None and t.id == p.location_id:
+                    return ""
+            except Exception:
+                pass
+        return zone
 
     # ── Scan éditable ────────────────────────────────────────────────────────
 
@@ -1959,6 +1978,9 @@ class OverlayServer:
                         from uexinfo.gamelog.reader import GameLogTail
                         from uexinfo.gamelog.parser import parse_lines
                         tail = GameLogTail(log_path)
+                        # Au premier passage, le suivi de présence relit la session déjà lue
+                        # (connexion, lieu actuel) sans rien annoncer.
+                        seen = tail.read_seen() if self._presence is None else None
                         new_lines = tail.read_new()
                         events = parse_lines(new_lines) if new_lines else []
 
@@ -2006,7 +2028,7 @@ class OverlayServer:
 
                         # Arrivée, hangar, posé, départ (gamelog/presence.py) : annoncés,
                         # et la position suit l'arrivée sans confirmation (D11 : par identifiant).
-                        await self._presence_update(new_lines)
+                        await self._presence_update(new_lines, seen)
                 except Exception:
                     pass
 
@@ -2016,10 +2038,12 @@ class OverlayServer:
                 except Exception:
                     pass
 
-    async def _presence_update(self, new_lines: list[str]) -> None:
-        """Annonce arrivées, hangars, posés et départs lus dans les nouvelles lignes du Game.log.
+    async def _presence_update(self, new_lines: list[str], seen: list[str] | None = None) -> None:
+        """Annonce arrivées, hangars, posés, départs, morts et réveils lus dans les nouvelles lignes.
 
-        À une arrivée, la position devient le terminal de commerce principal du lieu
+        `seen` : lignes déjà lues avant le lancement, rejouées sans annonce à la création du suivi
+        (pseudo, connexion, lieu actuel : une mort à pied se reconnaît à l'apparition qui suit).
+        À une arrivée ou un réveil, la position devient le terminal de commerce principal du lieu
         (`[gamelog] position = "auto"`, défaut), est proposée (`"propose"`) ou ne bouge pas (`"off"`).
         """
         from datetime import datetime, timezone
@@ -2029,6 +2053,8 @@ class OverlayServer:
 
         if self._presence is None:
             self._presence = PresenceTracker(known_codes=load_zone_codes())
+            if seen:
+                self._presence.feed(recognize_all(seen))
         known = len(self._presence.known_codes)
         now = datetime.now(timezone.utc).replace(tzinfo=None)     # heures du Game.log : UTC
         notices = self._presence.feed(recognize_all(new_lines)) + self._presence.flush(now)
@@ -2036,9 +2062,18 @@ class OverlayServer:
             save_zone_codes(self._presence.known_codes)
 
         mode = self.ctx.cfg.get("gamelog", {}).get("position", "auto")
+        p = self.ctx.player
         for n in notices:
             await self._broadcast_raw(json.dumps({"type": "presence", "kind": n.kind, "text": n.text}))
-            if n.kind not in ("arrival", "respawn") or not n.place or mode == "off":
+            # Lieu affiché à côté de la position : celui où l'on est, rien en vol ou après une mort
+            # (le départ de route QT, plus ancien, ne doit pas rester affiché).
+            if n.kind in ("arrival", "respawn", "regen", "departure", "death") and n.ts:
+                p.zone = n.place if n.kind in ("arrival", "respawn", "regen") else ""
+                p.zone_ts = n.ts.replace(tzinfo=timezone.utc).timestamp()
+                self.ctx.cfg["player"] = p.to_config()
+                from uexinfo.config import settings
+                settings.save(self.ctx.cfg)
+            if n.kind not in ("arrival", "respawn", "regen") or not n.place or mode == "off":
                 continue
             from uexinfo.cli.choose import position_terminal
             from uexinfo.names import place_trade_terminal

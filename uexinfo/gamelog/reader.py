@@ -104,6 +104,20 @@ class GameLogTail:
         self._save_state(new_offset, stat.st_mtime)
         return new_lines
 
+    def read_seen(self) -> list[str]:
+        """Lignes déjà lues (du début à l'offset enregistré), sans toucher l'offset.
+
+        Sert à remettre un suivi d'état au courant de la session en cours au lancement de
+        l'overlay (connexion, lieu actuel) ; [] si le fichier a été recommencé depuis.
+        """
+        if not self.log_path.is_file():
+            return []
+        offset = self._load_state().get(str(self.log_path), {}).get("offset", 0)
+        if not offset or self.log_path.stat().st_size < offset:
+            return []
+        with open(self.log_path, "rb") as f:
+            return f.read(offset).decode("utf-8", errors="replace").splitlines(keepends=True)
+
     def parse_all(self) -> list[GameLogEvent]:
         """Relit tout le fichier sans toucher l'offset persisté.
 
