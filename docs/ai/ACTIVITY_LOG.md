@@ -575,3 +575,13 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `open_file` n'ouvre plus que des images existantes (`.png .jpg .jpeg .bmp .webp`) ; tout autre chemin est refusé et journalisé (avant : `os.startfile` sur n'importe quel chemin, donc un exécutable).
 - Pas de contrôle d'origine : la page est chargée depuis une chaîne HTML (origine variable selon le moteur), le jeton suffit.
 - `tests/test_overlay_auth.py` (vrai serveur sur un port libre : 403 sans jeton ou avec un faux, connexion avec le bon). 364 tests réussis. À confirmer dans l'overlay réel.
+
+## 2026-10-31 — session de jeu : approche, transactions, Datarunner (observation, pas de code)
+
+**Demandé :** automatiser uexinfo quand le jeu tourne (arrivée et départ sans confirmation, hangar ou pad), comprendre l'échec du chargement automatique, lire la fenêtre de SC-Datarunner pour avoir les corrections du joueur.
+
+**Observé en direct (Game.log, `app.log`, UI Automation) :**
+- Six achats avec chargement automatique refusés (`AutoLoadStartFailed`, `CargoCreationFailed`), quelle que soit la quantité ; le même achat livré au fret passe. Bug du jeu (build du 30/10), pas de uexinfo.
+- Trajet Baijini Point → Terra Gateway : départ, arrivée, hangar attribué, posé, tous datés (`docs/ai/GAMELOG_SPEC.md`). Vente : +102 012 aUEC sur la session.
+- Fenêtre SC-Datarunner (Qt 6) entièrement lisible ; corrections vues (produit, prix) ; envoi et suppression distingués avec `app.log`. Fenêtre uexinfo (WebView2) lisible aussi.
+- Chantiers notés dans `docs/ai/NOTES.md` §6 (arrivée/départ automatiques, encart soute, transactions refusées, lecture Datarunner).
