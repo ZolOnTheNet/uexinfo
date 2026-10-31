@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-10-30** (197 fichiers suivis par git).
+> Dernière mise à jour : **2026-10-31** (199 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -193,9 +193,9 @@ uexinfo/                         (racine du dépôt)
 | `gamelog/state.py` | État du joueur déduit des événements : position, système, morts, menu (pur). |
 | `gamelog/places.py` | Codes de lieu internes → nom affiché et système. Table **unique** (pur). |
 | `gamelog/follow.py` | Lecture du fichier : dernières lignes, suivi incrémental, chemin. |
-| `gamelog/parser.py` | Ancien extracteur d'événements, encore utilisé par la position automatique. |
-| `gamelog/reader.py` | Ancien suivi incrémental, utilisé par le serveur overlay. |
-| `gamelog/arrival.py` | Corrélation d'événements pour proposer une arrivée fiable (position automatique). |
+| `gamelog/parser.py` | Ancien extracteur d'événements : lieu de départ de route, zone, shard (statut de l'overlay). |
+| `gamelog/reader.py` | Ancien suivi incrémental, utilisé par le serveur overlay ; codes de lieu appris par zone (`game_log_zone_codes.json`). |
+| `gamelog/presence.py` | Arrivée, hangar ou pad attribué, posé, départ d'une station ou d'une ville, déduits des événements (zone `Landing`) ; dans l'overlay, la position suit l'arrivée (`[gamelog] position`) (pur). |
 
 ### OCR et SC-Datarunner — `ocr/`
 
@@ -243,7 +243,7 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (364 tests réussis au 2026-10-30).
+Lancer : `pytest` (375 tests réussis au 2026-10-31).
 
 | Fichier | Ce qui est testé |
 |---|---|
@@ -263,6 +263,7 @@ Lancer : `pytest` (364 tests réussis au 2026-10-30).
 | `gamelog/test_places.py` | Codes de lieu → nom et système. |
 | `gamelog/test_live_crash.py` | Vrai Game.log LIVE 4.10 : crash au hangar, mort. |
 | `gamelog/test_live_extract.py` | Vrai Game.log LIVE 4.10 : Seraphim → Nyx. |
+| `gamelog/test_presence.py` | Arrivée, hangar, posé, départ sur un vrai Game.log (Baijini Point → Terra Gateway) ; terminal du lieu ; position suivie par l'overlay. |
 | `names/test_resolver.py` | Résolveur unique sur données UEX réelles (D6). |
 | `names/test_callers.py` | Les anciennes fonctions de recherche délèguent toutes au résolveur. |
 | `names/test_graph.py` | Nœuds du vrai graphe de navigation. |
@@ -283,6 +284,7 @@ Lancer : `pytest` (364 tests réussis au 2026-10-30).
 | `gamelog/format_reference.log` | Lignes de référence du format Game.log. |
 | `gamelog/live_4.10_crash_cru_l1.log` | Game.log réel du 2026-10-19. |
 | `gamelog/live_4.10_seraphim_nyx.log` | Game.log réel du 2026-10-07. |
+| `gamelog/live_4.10_baijini_terra.log` | Game.log réel du 2026-10-30 (extrait anonymisé : zones, hangars, transactions). |
 | `datarunner/app_2026-10-07_pyro_gateway_nyx.log` | Log SC-Datarunner réel. |
 | `ocr/contract_list_words_2026-10-20.json` | Mots OCR d'une vraie capture de la liste des contrats. |
 
@@ -396,7 +398,7 @@ Lancer : `pytest` (364 tests réussis au 2026-10-30).
 | Fichiers suivis par git | 195 |
 | Fichiers Python du package `uexinfo/` | 101 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 25 (364 tests réussis au 2026-10-30) |
+| Fichiers de tests | 26 (375 tests réussis au 2026-10-31) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
@@ -413,3 +415,4 @@ Lancer : `pytest` (364 tests réussis au 2026-10-30).
 - **2026-10-29** (suite) : `tests/cache/test_cached_read.py` ; D11 missions et voyages : `names/places.py`, `cli/places.py`, `cache/place_aliases.py`, `tests/names/test_places.py`.
 - **2026-10-30** : mode souris — `overlay/menus.py`, `overlay/static/menu.js`, `overlay/static/menu.css`, `tests/test_menus.py` ajoutés.
 - **2026-10-30** (suite) : sécurité de l'overlay — `overlay/auth.py`, `tests/test_overlay_auth.py` ajoutés.
+- **2026-10-31** : arrivée et départ automatiques — `gamelog/presence.py`, `tests/gamelog/test_presence.py`, `tests/fixtures/gamelog/live_4.10_baijini_terra.log` ajoutés ; `gamelog/arrival.py` supprimé.

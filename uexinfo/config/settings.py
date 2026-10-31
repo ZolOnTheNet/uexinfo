@@ -97,6 +97,7 @@ DEFAULT: dict = {
         "install_path_live": "",   # ex: C:\...\StarCitizen\LIVE — dossier contenant Game.log
         "install_path_ptu":  "",   # idem pour le build PTU, optionnel
         "enabled": "off",          # activer le tail de Game.log (zone/connexion/spawn) — on|off
+        "position": "auto",        # à une arrivée : auto (position suivie) | propose (bandeau) | off
     },
     "voyage": {
         "calc": {

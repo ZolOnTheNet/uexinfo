@@ -5,9 +5,8 @@ connexion, spawn, zone/juridiction, lieu de départ de route QT, cible QT
 sélectionnée, correspondance identifiant↔nom de lieu en clair, et docking
 (déclencheur, sans dépendre des noms de code internes des tubes d'accostage —
 vérifié non fiables : mêmes noms génériques "Reststop-arm"/"Secdock-arm"
-réutilisés à plusieurs stations différentes). La confirmation d'arrivée
-(uexinfo.gamelog.arrival.ArrivalTracker) corrèle cible QT + nom en clair +
-docking pour proposer un lieu précis sans jamais décoder les codes internes.
+réutilisés à plusieurs stations différentes, et écrits aussi quand la station se
+charge autour du joueur à pied). Arrivées et départs : uexinfo.gamelog.presence.
 Mort/destruction reste hors scope (regex non observée sur un vrai log).
 """
 from __future__ import annotations
@@ -36,7 +35,7 @@ _ZONE_PREFIXES = ("Entered ", "Entering ")
 
 # Identifiant interne de la cible QT sélectionnée (ex: LOC_rs_ext_stan-pyro_jp1) —
 # sert de clé pour associer plus tard un nom en clair (RE_ROUTING_NAMES) et pour
-# savoir "vers où" un docking ultérieur correspond probablement (ArrivalTracker).
+# savoir vers où va le joueur.
 RE_QT_TARGET = re.compile(r"Player has selected point (?P<loc_id>\S+) as their destination")
 
 # Seule ligne qui donne origine ET destination en clair dans la même phrase — sert à
@@ -64,7 +63,7 @@ RE_JOIN_PU = re.compile(
 
 @dataclass
 class GameLogEvent:
-    """Événement de l'ancien extracteur, utilisé par la position automatique (`arrival.py`)."""
+    """Événement de l'ancien extracteur : lieu de départ de route, zone, shard (statut de l'overlay)."""
     kind: str        # "login"|"spawn"|"zone"|"location"|"qt_target"|"routing_names"|"docking"|"shard"
     text: str        # contenu principal (nom, texte de zone, lieu…) ; vide si non pertinent
     timestamp: datetime

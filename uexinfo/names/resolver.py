@@ -170,6 +170,36 @@ def trading_terminal(terminals, t):
     return min(same, key=terminal_priority) if same else t
 
 
+def place_trade_terminal(terminals, place: str, system: str = ""):
+    """Terminal de commerce principal (règle c) de la station ou de la ville `place`, ou None.
+
+    `place` est le nom affiché en jeu (Game.log) : « Terra Gateway » désigne la station
+    « Terra Gateway (Stanton) » d'UEX, « Area18 » la ville « Area 18 ». `system` départage les
+    stations homonymes (les Gateways existent dans deux systèmes). La fin du nom du terminal
+    compte aussi : Grim HEX est « Green Imperial Housing Exchange » chez UEX, mais son terminal
+    s'appelle « Admin - GrimHEX ».
+    """
+    import re
+
+    def key(name: str) -> str:
+        """Nom sans « (Système) » final ni espaces."""
+        return norm(re.sub(r"\s*\([^)]*\)\s*$", "", name or "")).replace(" ", "")
+
+    want = key(place)
+    if not want:
+        return None
+    def keys(t) -> set[str]:
+        """Noms du lieu d'un terminal : station ou ville, sinon fin de son nom (« Admin - GrimHEX »)."""
+        name = getattr(t, "name", "") or ""
+        return {key(getattr(t, "space_station_name", "") or getattr(t, "city_name", "")),
+                key(name.rsplit(" - ", 1)[-1])}
+
+    same = [t for t in terminals or [] if (getattr(t, "type", "") or "") == "commodity"
+            and want in keys(t)
+            and (not system or norm(getattr(t, "star_system_name", "") or "") == norm(system))]
+    return min(same, key=terminal_priority) if same else None
+
+
 # ── Index ─────────────────────────────────────────────────────────────────────
 
 def _uniq(items: Iterable[str]) -> tuple[str, ...]:

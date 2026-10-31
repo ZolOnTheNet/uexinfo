@@ -109,7 +109,7 @@ class OverlayServer:
         self._history: list[str] = []
         self.on_quit: callable | None = None  # callback appelé avant os._exit
         self.token = ""               # jeton exigé à la connexion (overlay/auth.py) ; "" = refus de tout
-        self._arrival_tracker = None  # ArrivalTracker (gamelog), créé à la demande
+        self._presence = None         # PresenceTracker (gamelog/presence.py), créé à la demande
 
         # ── Sélecteur interactif ──────────────────────────────────────────────
         # Utilisé pour suspendre _exec_sync en attendant la réponse JS.
@@ -1957,8 +1957,10 @@ class OverlayServer:
                     log_path = _resolve_game_log_path(self.ctx.cfg)
                     if log_path:
                         from uexinfo.gamelog.reader import GameLogTail
+                        from uexinfo.gamelog.parser import parse_lines
                         tail = GameLogTail(log_path)
-                        events = tail.parse_new()
+                        new_lines = tail.read_new()
+                        events = parse_lines(new_lines) if new_lines else []
 
                         # Rattrapage shard uniquement : le shard PU n'est écrit qu'une
                         # fois par connexion ("<Join PU>") — si l'offset incrémental l'a
@@ -1967,7 +1969,7 @@ class OverlayServer:
                         # revoit plus tant que le jeu ne se reconnecte pas. Ne réinjecter
                         # que les événements "shard" du replay complet (une fois, tant que
                         # le shard est inconnu) — pas le reste (zone/qt_target/docking…),
-                        # pour ne pas rejouer de vieux événements dans l'ArrivalTracker.
+                        # pour ne pas rejouer de vieux événements (arrivées, départs).
                         if not self.ctx.player.shard:
                             backfill = [e for e in tail.parse_all() if e.kind == "shard"]
                             if backfill:
@@ -2002,20 +2004,9 @@ class OverlayServer:
                                         "old":  old_shard,
                                     }))
 
-                        # Confirmation d'arrivée (cible QT + nom en clair + docking
-                        # corrélés — cf. gamelog/arrival.py) : proposition réelle, jamais
-                        # appliquée directement — même bandeau [MàJ]/[Ign] que l'autopos
-                        # scan existant.
-                        if self._arrival_tracker is None:
-                            from uexinfo.gamelog.arrival import ArrivalTracker
-                            self._arrival_tracker = ArrivalTracker()
-                        for arrival in self._arrival_tracker.feed(events):
-                            await self._broadcast_raw(json.dumps({
-                                "type":   "location_confirm",
-                                "new":    arrival.text,
-                                "old":    self.ctx.player.location or "",
-                                "source": "gamelog",  # Game.log (le jeu) — distingue du scan SC-Datarunner
-                            }))
+                        # Arrivée, hangar, posé, départ (gamelog/presence.py) : annoncés,
+                        # et la position suit l'arrivée sans confirmation (D11 : par identifiant).
+                        await self._presence_update(new_lines)
                 except Exception:
                     pass
 
@@ -2024,6 +2015,53 @@ class OverlayServer:
                     await self._send_status(ws)
                 except Exception:
                     pass
+
+    async def _presence_update(self, new_lines: list[str]) -> None:
+        """Annonce arrivées, hangars, posés et départs lus dans les nouvelles lignes du Game.log.
+
+        À une arrivée, la position devient le terminal de commerce principal du lieu
+        (`[gamelog] position = "auto"`, défaut), est proposée (`"propose"`) ou ne bouge pas (`"off"`).
+        """
+        from datetime import datetime, timezone
+        from uexinfo.gamelog.events import recognize_all
+        from uexinfo.gamelog.presence import PresenceTracker
+        from uexinfo.gamelog.reader import load_zone_codes, save_zone_codes
+
+        if self._presence is None:
+            self._presence = PresenceTracker(known_codes=load_zone_codes())
+        known = len(self._presence.known_codes)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)     # heures du Game.log : UTC
+        notices = self._presence.feed(recognize_all(new_lines)) + self._presence.flush(now)
+        if len(self._presence.known_codes) != known:
+            save_zone_codes(self._presence.known_codes)
+
+        mode = self.ctx.cfg.get("gamelog", {}).get("position", "auto")
+        for n in notices:
+            await self._broadcast_raw(json.dumps({"type": "presence", "kind": n.kind, "text": n.text}))
+            if n.kind not in ("arrival", "respawn") or not n.place or mode == "off":
+                continue
+            from uexinfo.cli.choose import position_terminal
+            from uexinfo.names import place_trade_terminal
+            t = place_trade_terminal(self.ctx.cache.terminals, n.place, n.system)
+            if t is None:
+                await self._broadcast_raw(json.dumps({
+                    "type": "presence", "kind": "info",
+                    "text": f"   (aucun terminal de commerce connu à {n.place} : position inchangée)"}))
+                continue
+            current = position_terminal(self.ctx)
+            if current is not None and current.id == t.id:
+                continue
+            if mode == "propose":
+                await self._broadcast_raw(json.dumps({
+                    "type": "location_confirm", "new": t.name,
+                    "old": self.ctx.player.location or "", "source": "gamelog"}))
+                continue
+            from uexinfo.config import settings
+            self.ctx.player.set_location(t.name, t.id)
+            self.ctx.cfg["player"] = self.ctx.player.to_config()
+            settings.save(self.ctx.cfg)
+            await self._broadcast_raw(json.dumps({
+                "type": "presence", "kind": "position", "text": f"   Position : {t.name}"}))
 
     async def serve(self, host: str = "localhost", port: int = 8090) -> None:
         """Sert les WebSockets sur `host:port` et pousse le statut périodiquement, sans fin."""

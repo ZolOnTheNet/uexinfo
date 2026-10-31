@@ -40,8 +40,11 @@ def test_follower_decodes_cp1252(tmp_path):
 def test_kinds_in_order(events):
     assert [e.kind for e in events] == [
         "build", "game_version", "environment", "login", "handle", "spawn", "shard",
+        "place_zone",                                   # apparition dans la zone de Seraphim
         "zone", "spawn", "zone", "docking", "docking", "docking", "zone", "near_location",
-        "ship_leave", "qt_target", "location", "qt_arrived", "near_location", "near_location",
+        "ship_leave", "qt_target", "location",
+        "place_zone",                                   # départ de Seraphim
+        "qt_arrived", "near_location", "near_location",
         "qt_target", "location", "qt_arrived", "near_location", "ship_leave", "session_end",
     ]
 

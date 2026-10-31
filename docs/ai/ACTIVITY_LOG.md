@@ -585,3 +585,14 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Trajet Baijini Point → Terra Gateway : départ, arrivée, hangar attribué, posé, tous datés (`docs/ai/GAMELOG_SPEC.md`). Vente : +102 012 aUEC sur la session.
 - Fenêtre SC-Datarunner (Qt 6) entièrement lisible ; corrections vues (produit, prix) ; envoi et suppression distingués avec `app.log`. Fenêtre uexinfo (WebView2) lisible aussi.
 - Chantiers notés dans `docs/ai/NOTES.md` §6 (arrivée/départ automatiques, encart soute, transactions refusées, lecture Datarunner).
+
+## 2026-10-31 — arrivée et départ automatiques
+
+**Demandé :** que uexinfo sache tout seul, avec le jeu ouvert, où est le joueur : approcher une station ou une ville vaut arrêt, et le départ doit se voir ; messages d'arrivée, de départ, d'atterrissage, hangar ou pad.
+
+**Fait :**
+- `gamelog/events.py` : trois reconnaisseurs vérifiés — `place_zone` (`Update Inventory Location … Landing [a] -> [b]`), `landing_request` (« Hangar Request Completed »), `ship_elevator` (taille du hangar).
+- `gamelog/presence.py` (pur) : `PresenceTracker` → « 📍 Arrivée / Apparition », « 🅷 Hangar attribué (hangar moyen) », « 🅿 Pad attribué », « ⬇ Posé », « 🛫 Départ ». Pièges vus sur les vrais logs : lieu nommé 11 à 55 s après une apparition ; « Hangar Request Completed » aussi au départ (n'est une attribution que dans les 3 min après l'arrivée).
+- `names.place_trade_terminal` : lieu du Game.log → terminal de commerce principal (règle c) ; « Terra Gateway » → `Admin - Terra Gateway (Stanton)`, « Area18 » → TDD Area 18, « Grim HEX » → `Admin - GrimHEX` (nom UEX de la station : Green Imperial Housing Exchange).
+- Overlay (`server.py:_presence_update`) : messages dans la console, position mise à jour à l'arrivée par identifiant (D11), réglage `[gamelog] position = auto|propose|off` (défaut auto) ; identifiants de zone appris gardés dans `game_log_zone_codes.json`. Remplace la proposition [MàJ]/[Ign] déclenchée par l'amarrage (`gamelog/arrival.py`, supprimé : l'amarrage apparaît aussi à pied).
+- Tests : `tests/gamelog/test_presence.py` sur un extrait anonymisé du log du 30/10 (`live_4.10_baijini_terra.log`). Rejoué sur les 6 sessions sauvegardées : toutes les arrivées nommées. 375 tests réussis. Rejoué sur la session en cours : « Apparition à Terra Gateway ». À confirmer dans l'overlay en jeu.

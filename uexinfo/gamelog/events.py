@@ -145,6 +145,24 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
                lambda m: (f"Lieu proche (inventaire) : {m['loc']}", {"loc_code": m["loc"]}), True),
     Recognizer("session_end", "<SystemQuit>", re.compile(r"<SystemQuit>"),
                lambda m: ("Fin de session", {}), True),
+    # Zone d'un lieu (station, ville) : `Landing [a] -> [b]`, b ≠ 0 = entrée, b = 0 = sortie
+    # (a garde le lieu quitté). Vérifié 4.10 (2026-10-22, 2026-10-31), voir GAMELOG_SPEC.md.
+    Recognizer("place_zone", "<Update Inventory Location>",
+               re.compile(r"Landing \[(?P<a>\d+)\] -> \[(?P<b>\d+)\]\. Location \[(?P<c>\d+)\] -> \[(?P<d>\d+)\]"),
+               lambda m: (("Entrée dans la zone d'un lieu" if m["b"] != "0" else "Sortie de la zone d'un lieu"),
+                          {"from": int(m["a"]), "to": int(m["b"])}), True),
+    # Réponse du contrôle aérien : « Hangar Request Completed » (vérifié 2026-10-31, à l'arrivée
+    # comme au départ) ; la forme pour un pad n'a pas encore été vue.
+    Recognizer("landing_request", "Added notification",
+               re.compile(r'Added notification "(?P<text>[^"]*\b(?:Hangar|Landing|Pad)\b[^"]*\bRequest[^"]*)"', re.I),
+               lambda m: (lambda t: (f"Contrôle aérien : {t}",
+                                     {"text": t, "hangar": "hangar" in t.lower()}))(_clean_notification(m["text"])),
+               True, strict=False),
+    # Ascenseur à vaisseau d'un hangar chargé : sa taille est celle du hangar attribué quand la ligne
+    # précède de quelques secondes « Hangar Request Completed » (les hangars voisins se chargent aussi).
+    Recognizer("ship_elevator", "LoadingPlatformManager_ShipElevator_Hangar",
+               re.compile(r"Loading references for platform manager 'LoadingPlatformManager_ShipElevator_Hangar(?P<size>XL|Large|Medium|Small)"),
+               lambda m: (f"Ascenseur de hangar ({m['size']})", {"size": m["size"]}), True, strict=False),
     Recognizer("qt_target", "as their destination",
                re.compile(r"selected point (?P<loc_id>\S+) as their destination"),
                lambda m: (lambda v: (f"Cible QT : {m['loc_id']}"

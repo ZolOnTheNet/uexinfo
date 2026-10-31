@@ -14,6 +14,27 @@ import appdirs
 from uexinfo.gamelog.parser import GameLogEvent, parse_lines
 
 _STATE_FILE = Path(appdirs.user_data_dir("uexinfo")) / "game_log_state.json"
+# Identifiant de zone (`Landing [id]`) → code de lieu, appris aux arrivées (gamelog/presence.py).
+_ZONE_CODES_FILE = Path(appdirs.user_data_dir("uexinfo")) / "game_log_zone_codes.json"
+
+
+def load_zone_codes() -> dict[int, str]:
+    """Codes de lieu déjà appris par identifiant de zone ; {} si absents ou illisibles."""
+    try:
+        with open(_ZONE_CODES_FILE, encoding="utf-8") as f:
+            return {int(k): v for k, v in json.load(f).items()}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def save_zone_codes(codes: dict[int, str]) -> None:
+    """Enregistre les codes appris ; une erreur d'écriture est ignorée (simple cache)."""
+    try:
+        _ZONE_CODES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_ZONE_CODES_FILE, "w", encoding="utf-8") as f:
+            json.dump({str(k): v for k, v in codes.items()}, f, indent=1)
+    except OSError:
+        pass
 
 
 class GameLogTail:
@@ -48,7 +69,12 @@ class GameLogTail:
         self._save_state(0, 0.0)
 
     def parse_new(self) -> list[GameLogEvent]:
-        """Lit les nouvelles lignes depuis le dernier offset et retourne les événements.
+        """Événements des nouvelles lignes depuis le dernier offset (voir `read_new`)."""
+        new_lines = self.read_new()
+        return parse_lines(new_lines) if new_lines else []
+
+    def read_new(self) -> list[str]:
+        """Nouvelles lignes depuis le dernier offset, qui avance.
 
         Si le fichier a rétréci depuis le dernier appel (le jeu retruncate
         Game.log à chaque lancement, l'ancien contenu partant dans
@@ -76,10 +102,7 @@ class GameLogTail:
             new_offset = f.tell()
 
         self._save_state(new_offset, stat.st_mtime)
-
-        if not new_lines:
-            return []
-        return parse_lines(new_lines)
+        return new_lines
 
     def parse_all(self) -> list[GameLogEvent]:
         """Relit tout le fichier sans toucher l'offset persisté.
