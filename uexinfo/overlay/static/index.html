@@ -1081,6 +1081,15 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 .pos-update-btns .btn-close-pos {
   background: none; border-color: transparent; color: var(--dim); padding: 3px 6px;
 }
+#offers-board { margin: 6px 0; padding: 4px 6px; border: 1px solid var(--border); }
+#offers-board .offers-head { color: var(--accent); font-weight: bold; margin-bottom: 3px; }
+#offers-board .dim { color: var(--dim); font-weight: normal; }
+#offers-board table.offers { border-collapse: collapse; width: 100%; }
+#offers-board th { color: var(--dim); text-align: left; font-weight: normal; padding: 0 6px 0 0; }
+#offers-board td { padding: 0 6px 0 0; vertical-align: top; }
+#offers-board td.num { text-align: right; white-space: nowrap; }
+#offers-board tr.obj td { color: var(--dim); padding-left: 12px; }
+#offers-board .bp { color: var(--yellow); }
 </style>
 <style>/*__MENU_CSS__*/</style>
 </head>
@@ -1136,6 +1145,8 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   <span id="sb-dest"  class="sb click shrink"        title="Clic : changer la destination · Double-clic : afficher le terminal">DEST: —</span>
   <span class="sb-sep"> │ </span>
   <span id="sb-ship"  class="sb sb-ship click"  title="Changer de vaisseau">V: —</span>
+  <span id="sb-balance-sep" class="sb-sep" style="display:none"> │ </span>
+  <span id="sb-balance" class="sb shrink" style="display:none"></span>
   <span class="sb-sep"> │ </span>
   <input type="number" id="sb-cargo" class="sb-cargo-input" min="1" placeholder="□"
          title="Cargo (SCU) pour le calcul /trade — pré-rempli avec le vaisseau actif, modifiable">
@@ -1694,8 +1705,9 @@ function dispatch(msg) {
     case 'terminal_buy_pick': showTerminalBuyPick(msg); break;
     case 'select':      showSelectPanel(msg); break;
     case 'location_confirm': showLocationConfirm(msg.new, msg.old, msg.source); break;
-    case 'presence':         appendSystem(msg.text, msg.kind === 'death' ? 'var(--red)' : msg.kind === 'departure' ? 'var(--warn, #e5a030)' : 'var(--accent, #4fc3f7)'); break;
+    case 'presence':         appendSystem(msg.text, (msg.kind === 'death' || msg.kind === 'disconnect') ? 'var(--red)' : msg.kind === 'departure' ? 'var(--warn, #e5a030)' : 'var(--accent, #4fc3f7)'); break;
     case 'shard_changed': showShardChanged(msg.new, msg.old); break;
+    case 'offers':        showOffers(msg.html); break;
     case 'status':      updateStatus(msg); break;
     case 'completions': showComps(msg.items, msg.common_prefix || ''); break;
     case 'hint':        elHint.textContent = msg.text; break;
@@ -1890,6 +1902,19 @@ function appendSystem(text, color) {
   elOutput.scrollTop = elOutput.scrollHeight;
 }
 
+// Encart des offres de contrats (ocr/contract_watch.py) : un seul, mis à jour sur place
+// et ramené en bas de la sortie à chaque mise à jour.
+function showOffers(html) {
+  let el = document.getElementById('offers-board');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'offers-board';
+  }
+  el.innerHTML = html;
+  elOutput.appendChild(el);
+  elOutput.scrollTop = elOutput.scrollHeight;
+}
+
 function appendEcho(text) {
   const d = document.createElement('div');
   d.className = 'line echo'; d.textContent = text;
@@ -1980,6 +2005,21 @@ function updateStatus(s) {
 
   document.getElementById('sb-dest').textContent =
     `DEST: ${currentDest || '—'}${currentDest && s.dist != null ? ` ${s.dist}Gm` : ''}`;
+  // Solde : lu sur le terminal de marchandises (≈ = estimé depuis avec le Game.log)
+  const balEl = document.getElementById('sb-balance');
+  if (s.balance) {
+    const n = v => Math.round(v).toLocaleString('fr-FR');
+    const g = s.session_gain || 0;
+    balEl.innerHTML = `${s.balance_approx ? '≈ ' : ''}${n(s.balance)} ¤` +
+      (g ? ` <span style="color:var(${g > 0 ? '--green' : '--red'})">${g > 0 ? '+' : '−'}${n(Math.abs(g))}</span>` : '');
+    const when = s.balance_ts ? new Date(s.balance_ts * 1000).toLocaleString('fr-FR') : '?';
+    balEl.title = `Solde lu sur le terminal le ${when}` +
+      (s.balance_approx ? ', estimé depuis avec le Game.log (récompenses, amendes, achats, ventes)' : '') +
+      (g ? `\nGain de la session : ${g > 0 ? '+' : '−'}${n(Math.abs(g))} aUEC` : '');
+    balEl.style.display = ''; document.getElementById('sb-balance-sep').style.display = '';
+  } else {
+    balEl.style.display = 'none'; document.getElementById('sb-balance-sep').style.display = 'none';
+  }
   document.getElementById('sb-ship').textContent =
     `V: ${s.ship || '—'} / ${s.cargo ? s.cargo+' □' : '— □'}`;
 

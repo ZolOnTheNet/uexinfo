@@ -131,6 +131,24 @@ def _img_size(image_path: Path) -> tuple[int, int]:
 _RE_REWARD      = re.compile(r"Reward[^\d\n]{0,8}([\d][0-9,\s]*)", re.IGNORECASE)
 _RE_CONTRACTED  = re.compile(r"Contracted\s+By\s+(.+)", re.IGNORECASE)
 _RE_AVAIL       = re.compile(r"Contract\s+Availability\s+(.+)", re.IGNORECASE)
+def _objective_sentences(raw_lines: list[str]) -> list[str]:
+    """Lignes OCR des objectifs → une phrase par objectif.
+
+    Un objectif commence par « Deliver » ou « Collect », précédé parfois d'une puce mal lue
+    (« 9 », « © », « 4 ») ; les lignes suivantes, coupées par la largeur du panneau, le
+    complètent (« … to N8 » + « Int. Spaceport on microTech. »). « N8 » est « NB » mal lu.
+    """
+    out: list[str] = []
+    for raw in raw_lines:
+        line = re.sub(r"^.{0,4}?(?=(?:deliver|collect)\b)", "", raw.strip(), flags=re.IGNORECASE)
+        line = re.sub(r"\bN8\b", "NB", line)
+        if re.match(r"(?:deliver|collect)\b", line, re.IGNORECASE) or not out:
+            out.append(line)
+        elif not _RE_OBJ_UI.match(line.strip()):
+            out[-1] = f"{out[-1].rstrip()} {line.strip()}"
+    return out
+
+
 _RE_BULLET      = re.compile(r"^[•◇◆\-\*\u25c6\u2666\u00b7]\s*")
 
 # ── Patterns parsing structuré des objectifs ──────────────────────────────────
@@ -326,6 +344,11 @@ class TesseractEngine:
 
         lines       = self._tsv_to_lines(tsv)
         commodities = self._parse_commodity_lines(lines)
+        try:
+            from uexinfo.ocr.balance import read_balance
+            balance, balance_alts = read_balance(self, img)
+        except Exception:
+            balance, balance_alts = None, []
 
         # Détecter le mode depuis les lignes OCR
         mode = "sell" if any(
@@ -338,6 +361,8 @@ class TesseractEngine:
             commodities = commodities,
             source      = "ocr",
             mode        = mode,
+            balance     = balance or 0,
+            balance_alts = balance_alts,
         )
 
     # ── OCR interne ───────────────────────────────────────────────────────────
@@ -501,10 +526,15 @@ class TesseractEngine:
 
     # ── Extraction mission ─────────────────────────────────────────────────────
 
-    def extract_mission(self, image_path: Path) -> MissionResult:
-        """Extrait les données d'un screenshot de l'écran Contrats."""
+    def extract_mission(self, image_path, full: bool = True) -> MissionResult:
+        """Extrait les données d'un screenshot de l'écran Contrats.
+
+        `image_path` : chemin ou image PIL déjà en mémoire (capture faite par uexinfo).
+        `full=False` : panneau de droite seulement (titre, récompense, objectifs), sans le texte
+        des détails, les liens bleus ni la liste de gauche — environ deux fois plus rapide.
+        """
         from PIL import Image, ImageOps
-        img = Image.open(image_path)
+        img = image_path if hasattr(image_path, "crop") else Image.open(image_path)
         w, h = img.size
 
         def _ocr(crop_box, psm=6) -> str:
@@ -545,7 +575,7 @@ class TesseractEngine:
         reward, availability, contracted_by = self._parse_mission_info(info_text)
 
         # ── Détails (colonne gauche du contenu) ───────────────────────────────
-        details_text = _ocr((int(w*.33), int(h*.25), int(w*.62), int(h*.86)), psm=4)
+        details_text = _ocr((int(w*.33), int(h*.25), int(w*.62), int(h*.86)), psm=4) if full else ""
 
         # ── Objectifs (colonne droite) ────────────────────────────────────────
         objectives_text = _ocr((int(w*.62), int(h*.25), int(w*.93), int(h*.86)), psm=4)
@@ -555,13 +585,13 @@ class TesseractEngine:
         # ── Liste des contrats, panneau gauche (découpage par position des mots) ──
         from uexinfo.ocr.contract_list import read_contract_list
         try:
-            contracts = read_contract_list(self, img)
+            contracts = read_contract_list(self, img) if full else []
         except Exception:
             contracts = []
         mission_list = [(c.title, c.reward or 0) for c in contracts]
 
         # ── Texte bleu (liens importants) ─────────────────────────────────────
-        blue_text = self._extract_blue_text(img)
+        blue_text = self._extract_blue_text(img) if full else []
 
         return MissionResult(
             title=title,
@@ -645,7 +675,7 @@ class TesseractEngine:
         results: list[ParsedObjective] = []
         pending: ParsedObjective | None = None
 
-        for raw in raw_lines:
+        for raw in _objective_sentences(raw_lines):
             # Nettoyer bullet + préfixes OCR parasites
             line = _RE_BULLET.sub("", raw).strip()
             line = _RE_OBJ_NOISE.sub("", line).strip()

@@ -272,6 +272,8 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("offres", "Contrats lus dans les captures de la liste du mobiGlas"),
     ],
     "mission offres": [
+        ("on",    "Mode scan : lire les offres à chaque clic dans l'écran Contrats"),
+        ("off",   "Arrêter le mode scan"),
         ("today", "Captures d'aujourd'hui"),
         ("all",   "Toute la base de captures"),
         ("maj",   "Télécharge les données de contrats scmdb.net"),

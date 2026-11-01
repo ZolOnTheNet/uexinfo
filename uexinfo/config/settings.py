@@ -99,6 +99,13 @@ DEFAULT: dict = {
         "enabled": "off",          # activer le tail de Game.log (zone/connexion/spawn) — on|off
         "position": "auto",        # à une arrivée : auto (position suivie) | propose (bandeau) | off
     },
+    "contracts": {
+        # Mode scan des offres au lancement (sinon bouton ou /mission offres on) : après chaque
+        # clic ou coup de molette dans l'écran Contrats (onglet OFFERS, Star Citizen au premier
+        # plan), uexinfo capture l'écran en mémoire — on|off
+        "auto_capture": "off",
+        "beep": "on",              # bip quand la page est entièrement lue (passer à l'offre suivante) — on|off
+    },
     "voyage": {
         "calc": {
             "nbsaut":  5,    # Nb max de missions dans une proposition (--max)

@@ -1106,6 +1106,9 @@ def _scan_image_file(ctx, image_path: Path):
     # ── Centraliser dans ScreenshotDB ────────────────────────────────────────
     if result is not None:
         _upsert_to_db(result, image_path, ctx)
+    if isinstance(result, ScanResult):
+        from uexinfo.ocr.ocr_worker import _record_balance
+        _record_balance(ctx, result, image_path)
 
     return result
 

@@ -23,7 +23,7 @@ _RE_XP = re.compile(r"\b([\dSO]{2,5})\s*EXP\b\.?", re.I)      # « S0 EXP » : 5
 # Préfixe « [BP] » (le contrat rapporte un plan de fabrication), souvent mal lu : « IBP1 », « [8P1 », « I8P] ».
 _RE_BP = re.compile(r"^[\[(|Il1]?\s*[B8]P\s*[\])|Il1]\s*")
 _RE_REWARD = re.compile(r"^[^\d]{0,2}(\d{1,4}(?:[.,]\d{1,3})?)\s*[kK]$")
-_RE_TIMER = re.compile(r"^\d{1,3}[hms]$")
+_RE_TIMER = re.compile(r"^[\dSO]{1,3}[hms]$")      # « Sm » : 5m mal lu
 
 
 @dataclass
@@ -97,7 +97,7 @@ def cards_from_words(words: list[dict], panel_w: float) -> list[ContractCard]:
         else:
             title, contractor = raw, ""
         reward = next((r for r in map(parse_reward, right) if r is not None), None)
-        timer = " ".join(t for t in right if _RE_TIMER.match(t))
+        timer = " ".join(t[:-1].replace("S", "5").replace("O", "0") + t[-1] for t in right if _RE_TIMER.match(t))
         title = _clean(title)
         bp = _RE_BP.match(title)
         if bp:

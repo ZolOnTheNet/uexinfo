@@ -64,6 +64,9 @@ THEMES: list[dict] = [
     ]},
     {"id": "miss", "label": "Missions", "short": "Miss.", "icon": "◎", "kids": [
         _run("Mes missions", "/mission list"),
+        _run("Scanner les offres (au clic)", "/mission offres on",
+             "Ouvre Contrats et clique sur les offres : uexinfo les lit sans capture."),
+        _run("Arrêter le scan des offres", "/mission offres off"),
         _run("Offres du mobiGlas", "/mission offres"),
         _run("Missions capturées", "/mission scan"),
         _run("Ajouter depuis le scan", "/mission add"),

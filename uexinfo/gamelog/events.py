@@ -106,7 +106,8 @@ def _trade(kind_fr: str):
     def build(m: re.Match) -> tuple[str, dict]:
         """Résumé lisible et données (boutique, prix, quantité) d'une ligne d'achat ou de vente."""
         f = _fields(m.string)
-        d = {"shop": f.get("shopName", ""), "price": _num(f.get("price", "0")),
+        # Achat : price[…] ; vente : amount[…] (vérifié 4.10, 2026-10-31)
+        d = {"shop": f.get("shopName", ""), "price": _num(f.get("price") or f.get("amount") or "0"),
              "resource_guid": f.get("resourceGUID", ""), **_qty(f.get("quantity", ""))}
         q = f"{d['scu']:g} SCU" if "scu" in d else f.get("quantity", "?")
         return f"{kind_fr} {q} au shop {d['shop']} pour {d['price']:,.0f} aUEC".replace(",", " "), d
@@ -191,6 +192,15 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
                           {"name": m["name"], "ship_destroyed": "destroyed vehicle" in m.string}), True),
     # Écran de chargement : toujours avant l'apparition à la connexion, jamais avant la
     # réapparition après une mort (9 morts vérifiées, 4.10, 15-28/10/2026).
+    # Déconnexion : la raison (cause=30010 « Nub destroyed » et 30016 sont des sorties normales),
+    # puis la fenêtre d'erreur, écrite seulement quand le jeu l'affiche (vérifié sur 340 Game.log).
+    Recognizer("disconnect", "<Channel Process Disconnection>",
+               re.compile(r'cause=(?P<cause>\d+) reason="(?P<reason>[^"]*)"'),
+               lambda m: (f"Déconnexion (cause {m['cause']}) : {m['reason']}",
+                          {"cause": int(m["cause"]), "reason": m["reason"]}), True),
+    Recognizer("error_popup", "<Error Popup Opened>",
+               re.compile(r"errorCode=(?P<code>\d+)"),
+               lambda m: (f"Erreur {m['code']} affichée", {"code": int(m["code"])}), True),
     Recognizer("loading_screen", "CLoadingScreenComponent::Enter",
                re.compile(r"CLoadingScreenComponent::Enter"),
                lambda m: ("Écran de chargement", {}), True),
@@ -213,7 +223,23 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
                _trade("Achat de")),
     Recognizer("commodity_sell", "SendCommoditySellRequest", re.compile(r"SendCommoditySellRequest"),
                _trade("Vente de")),
-    Recognizer("item_buy", "SendStandardItemBuyRequest", re.compile(r"SendStandardItemBuyRequest"),
+    # Refus d'une demande d'achat ou de vente, écrit < 1 s après elle (vérifié 4.10, 2026-10-31) ;
+    # sans cette ligne, la transaction a réussi.
+    Recognizer("trade_refused", "Commodity Transaction Response Error",
+               re.compile(r"result\[(?P<res>\w+)\] type\[(?P<type>\w+)\]"),
+               lambda m: (f"Transaction refusée ({m['res']})",
+                          {"result": m["res"], "selling": m["type"] == "Selling"}), True),
+    # Argent reçu ou retiré, annoncé dans le HUD (vérifié 4.10) : « Awarded 50250 aUEC », « Fined 500 UEC ».
+    Recognizer("reward", 'Added notification "Awarded',
+               re.compile(r'"Awarded (?P<n>[\d,]+) a?UEC'),
+               lambda m: (lambda n: (f"Récompense : {n:,} aUEC".replace(",", " "), {"amount": n}))(int(m["n"].replace(",", ""))),
+               True),
+    Recognizer("fine", 'Added notification "Fined',
+               re.compile(r'"Fined (?P<n>[\d,]+) a?UEC'),
+               lambda m: (lambda n: (f"Amende : {n:,} aUEC".replace(",", " "), {"amount": n}))(int(m["n"].replace(",", ""))),
+               True),
+    # client_price[…] = prix total (3 soins : 795 = 3 × 265, vérifié 2026-11-01)
+    Recognizer("item_buy", ("SendStandardItemBuyRequest", "SendShopBuyRequest"), re.compile(r"Send(?:StandardItem|Shop)BuyRequest"),
                lambda m: (lambda f: (f"Achat d'objet {f.get('itemName', '?')} au shop {f.get('shopName', '?')}"
                                      f" pour {_num(f.get('client_price', '0')):,.0f} aUEC".replace(",", " "),
                                      {"item": f.get("itemName", ""), "shop": f.get("shopName", ""),

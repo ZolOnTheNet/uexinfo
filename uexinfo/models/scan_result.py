@@ -59,6 +59,9 @@ class ScanResult:
     # réponses). Différent du nombre de marchandises lues dans le log ⇒ le joueur a
     # corrigé/complété dans Datarunner, et ces corrections ne sont PAS journalisées.
     reported_count: int = 0
+    # Solde du joueur lu en haut à droite (ocr/balance.py) : sûr, ou montants possibles
+    balance: int = 0
+    balance_alts: list[int] = field(default_factory=list)
 
     @property
     def log_incomplete(self) -> bool:

@@ -39,6 +39,17 @@ _DEATH_WAIT_S = 300       # une mort annoncée moins longtemps avant une apparit
 _RETURN_WAIT_S = 120      # retour dans la zone quittée moins longtemps après : on n'était pas parti
 _CRASH_WAIT_S = 2         # « ClearDriver » juste après un crash : éjection, pas un atterrissage
 
+# Erreurs de déconnexion relevées dans les Game.log de l'utilisateur (raison lue juste avant).
+_ERRORS_FR = {
+    30000: "le serveur ne répond plus depuis 30 s (serveur ou réseau)",
+    30013: "le serveur du shard a planté",
+    30028: "inactivité du joueur",
+    70003: "authentification expirée pendant le chargement",
+    19000: "connexion au compte impossible (services du jeu)",
+    19005: "connexion au compte impossible (délai dépassé)",
+}
+_DISCONNECT_WAIT_S = 60   # raison de déconnexion lue au plus ce délai avant la fenêtre d'erreur
+
 _SIZES_FR = {"Small": "petit", "Medium": "moyen", "Large": "grand", "XL": "très grand"}
 
 
@@ -47,7 +58,7 @@ class PresenceNotice:
     """Fait à annoncer au joueur.
 
     `kind` : arrival, respawn, regen (réveil après une mort), hangar, pad, landed, departure,
-    death. `place` : nom affiché en jeu
+    death, disconnect. `place` : nom affiché en jeu
     (« » si inconnu), `system` : son système, `code` : code interne du lieu.
     """
     kind: str
@@ -71,6 +82,7 @@ class PresenceNotice:
             "death":     "💀 Mort" + (f" à {self.place}" if self.place else "")
                          + (f" ({self.detail})" if self.detail else ""),
             "regen":     f"🏥 Réveil à {where}",
+            "disconnect": "⚠ Déconnexion du serveur" + (f" ({self.detail})" if self.detail else ""),
         }.get(self.kind, self.kind)
 
 
@@ -97,6 +109,7 @@ class PresenceTracker:
     _in_pu: bool | None = None     # dans l'univers persistant ; None = inconnu (lecture commencée en cours)
     _dead_at: datetime | None = None
     _crash_at: datetime | None = None
+    _disconnect: tuple[str, datetime | None] | None = None   # dernière raison de déconnexion lue
     _left: tuple[int, datetime | None] | None = None   # dernière zone quittée, et quand
     _quiet: bool = False           # revenu aussitôt dans la zone quittée : sa sortie n'est pas annoncée
 
@@ -126,6 +139,18 @@ class PresenceTracker:
             self._in_pu = True
         elif k == "menu":                                      # déconnexion : plus nulle part
             self._in_pu, self._loading = False, True
+            self.phase, self.zone_id, self._pending = "away", 0, None
+        elif k == "disconnect":
+            self._disconnect = (d["reason"], ev.ts)
+        elif k == "error_popup":
+            code = d["code"]
+            reason = ""
+            if self._disconnect and 0 <= _elapsed(self._disconnect[1], ev.ts) <= _DISCONNECT_WAIT_S:
+                reason = re.sub(r"^Remote Disconnect - ", "", self._disconnect[0]).split(" (", 1)[0]
+            why = _ERRORS_FR.get(code) or reason
+            out.append(PresenceNotice("disconnect", ev.ts, self.place if self.phase != "away" else "",
+                                      detail=f"erreur {code}" + (f" : {why}" if why else "")))
+            self._disconnect = None
             self.phase, self.zone_id, self._pending = "away", 0, None
         elif k == "loading_screen":
             self._loading = True

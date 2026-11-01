@@ -110,6 +110,7 @@ class OverlayServer:
         self.on_quit: callable | None = None  # callback appelé avant os._exit
         self.token = ""               # jeton exigé à la connexion (overlay/auth.py) ; "" = refus de tout
         self._presence = None         # PresenceTracker (gamelog/presence.py), créé à la demande
+        self._wallet = None           # WalletTracker (gamelog/wallet.py) : mouvements d'argent
 
         # ── Sélecteur interactif ──────────────────────────────────────────────
         # Utilisé pour suspendre _exec_sync en attendant la réponse JS.
@@ -178,6 +179,7 @@ class OverlayServer:
         self._ocr_worker.on_processed(self._on_screenshot_processed)
         # Exposer la DB dans le contexte pour les commandes CLI
         self.ctx.screenshot_db = self._screenshot_db
+        self._contract_watch = None     # offres de contrats lues au clic (ocr/contract_watch.py)
 
     # ── Handler WebSocket ─────────────────────────────────────────────────────
 
@@ -667,7 +669,16 @@ class OverlayServer:
             "scan_sc":  scan_sc and not scan_log,
             "scan_log": scan_log,
             "ships":    ships,
+            **self._balance_status(p),
         }))
+
+    def _balance_status(self, p) -> dict:
+        """Solde (lu, ou estimé avec le Game.log) et gain de la session pour la barre d'état."""
+        from uexinfo.gamelog.wallet import estimate
+        value, approx = estimate(getattr(p, "balance", 0), getattr(p, "balance_ts", 0.0), self._wallet)
+        gain = self._wallet.session_gain() if self._wallet else 0
+        return {"balance": value, "balance_approx": approx, "balance_ts": getattr(p, "balance_ts", 0.0),
+                "session_gain": round(gain)}
 
     def _zone_label(self, p) -> str:
         """Lieu lu dans le Game.log, affiché en gris après la position ; « » s'il n'apporte rien.
@@ -2051,13 +2062,19 @@ class OverlayServer:
         from uexinfo.gamelog.presence import PresenceTracker
         from uexinfo.gamelog.reader import load_zone_codes, save_zone_codes
 
+        from uexinfo.gamelog.wallet import WalletTracker
         if self._presence is None:
             self._presence = PresenceTracker(known_codes=load_zone_codes())
+            self._wallet = WalletTracker()
             if seen:
-                self._presence.feed(recognize_all(seen))
+                old = recognize_all(seen)
+                self._presence.feed(old)
+                self._wallet.feed(old)
         known = len(self._presence.known_codes)
         now = datetime.now(timezone.utc).replace(tzinfo=None)     # heures du Game.log : UTC
-        notices = self._presence.feed(recognize_all(new_lines)) + self._presence.flush(now)
+        events = recognize_all(new_lines)
+        self._wallet.feed(events)
+        notices = self._presence.feed(events) + self._presence.flush(now)
         if len(self._presence.known_codes) != known:
             save_zone_codes(self._presence.known_codes)
 
@@ -2067,7 +2084,7 @@ class OverlayServer:
             await self._broadcast_raw(json.dumps({"type": "presence", "kind": n.kind, "text": n.text}))
             # Lieu affiché à côté de la position : celui où l'on est, rien en vol ou après une mort
             # (le départ de route QT, plus ancien, ne doit pas rester affiché).
-            if n.kind in ("arrival", "respawn", "regen", "departure", "death") and n.ts:
+            if n.kind in ("arrival", "respawn", "regen", "departure", "death", "disconnect") and n.ts:
                 p.zone = n.place if n.kind in ("arrival", "respawn", "regen") else ""
                 p.zone_ts = n.ts.replace(tzinfo=timezone.utc).timestamp()
                 self.ctx.cfg["player"] = p.to_config()
@@ -2111,7 +2128,59 @@ class OverlayServer:
 
         async with websockets.serve(self.handler, host, port, process_request=_check_token):
             asyncio.create_task(self._periodic_status())
+            threading.Thread(target=self._start_contract_watch, daemon=True, name="contract-watch-init").start()
             await asyncio.Future()  # tourne indéfiniment
+
+    def _start_contract_watch(self) -> None:
+        """Prépare le mode scan des offres et l'expose aux commandes (`ctx.offers_scan`).
+
+        Démarré au lancement seulement si `[contracts] auto_capture = "on"` ; sinon par le bouton
+        ou `/mission offres on`. Windows seulement (fenêtre active, capture d'écran).
+        """
+        if not self.ctx:
+            return
+        self.ctx.offers_scan = self._offers_scan
+        if str(self.ctx.cfg.get("contracts", {}).get("auto_capture", "off")).lower() == "on":
+            print(f"[overlay] {self._offers_scan(True)}", flush=True)
+
+    def _offers_scan(self, on: bool | None = None) -> str:
+        """Met le mode scan des offres en marche (`True`), l'arrête (`False`) ou donne son état ; phrase d'état."""
+        import sys
+        if sys.platform != "win32":
+            return "Mode scan des offres : Windows seulement (capture de la fenêtre du jeu)."
+        try:
+            if self._contract_watch is None and on:
+                from uexinfo.cache import contract_catalog as cc
+                from uexinfo.ocr.contract_watch import ContractWatcher, beep
+                from uexinfo.ocr.engine import TesseractEngine
+                on_read = beep if str(self.ctx.cfg.get("contracts", {}).get("beep", "on")).lower() != "off" else None
+                self._contract_watch = ContractWatcher(TesseractEngine(), cc.load_catalog(self.ctx.cfg),
+                                                       self._on_offers, self._on_offers_idle, on_read)
+                self.ctx.offers_board = self._contract_watch.board
+            w = self._contract_watch
+            if w is not None and on is not None:
+                w.start() if on else w.stop()
+        except Exception as e:
+            return f"Mode scan des offres indisponible : {e}"
+        if self._contract_watch is not None and self._contract_watch.active:
+            return ("Mode scan des offres en marche : ouvre Contrats (onglet OFFERS) et clique sur les offres. "
+                    "Arrêt : /mission offres off")
+        return "Mode scan des offres arrêté."
+
+    def _on_offers_idle(self) -> None:
+        """Mode scan arrêté seul (20 min sans écran Contrats) : prévenir le joueur."""
+        if self._loop:
+            msg = json.dumps({"type": "presence", "kind": "info",
+                              "text": "Mode scan des offres arrêté (20 min sans écran Contrats)."})
+            asyncio.run_coroutine_threadsafe(self._broadcast_raw(msg), self._loop)
+
+    def _on_offers(self, board) -> None:
+        """Tableau des offres mis à jour (thread de lecture) → encart de l'overlay."""
+        if not self._loop:
+            return
+        import time as _t
+        msg = json.dumps({"type": "offers", "html": board.html(_t.time())})
+        asyncio.run_coroutine_threadsafe(self._broadcast_raw(msg), self._loop)
 
     def start_background(self, host: str = "localhost", port: int = 8090) -> None:
         """Lance le serveur WebSocket dans un thread daemon."""

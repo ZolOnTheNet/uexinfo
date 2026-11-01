@@ -1097,9 +1097,18 @@ def _entry_cards(entry) -> list:
 
 
 def _cmd_offers(args: list[str], ctx) -> None:
-    """/mission offres [today|all|maj] — contrats vus dans la liste du mobiGlas, reconnus via le catalogue."""
+    """/mission offres [on|off|today|all|maj] — mode scan des offres, ou contrats vus dans les captures."""
     from datetime import datetime
     from uexinfo.cache import contract_catalog as cc
+
+    if args and args[0].lower() in ("on", "off", "scan", "etat", "état"):
+        control = getattr(ctx, "offers_scan", None)
+        if control is None:
+            print_warn("Mode scan des offres disponible seulement dans l'overlay.")
+            return
+        word = args[0].lower()
+        print_ok(control(True if word in ("on", "scan") else False if word == "off" else None))
+        return
 
     if args and args[0].lower() in ("maj", "update"):
         try:
@@ -1185,6 +1194,7 @@ def _show_help() -> None:
         ("scan today",       "Captures d'aujourd'hui"),
         ("scan terminal",    "Terminaux scannés"),
         ("offres",           "Contrats lus dans les captures de la liste (catégorie, points, partage)"),
+        ("offres on|off",    "Mode scan : uexinfo lit les offres à chaque clic dans l'écran Contrats"),
         ("offres today|all", "Idem sur la journée / toute la base"),
         ("offres maj",       "Télécharge les données de contrats scmdb.net (une fois par version du jeu)"),
     ]

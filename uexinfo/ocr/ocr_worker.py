@@ -207,6 +207,19 @@ def _scan_result_to_dict(sr) -> dict:  # sr: ScanResult
 
 # ── Worker OCR ────────────────────────────────────────────────────────────────
 
+
+def _record_balance(ctx, sr, path) -> None:
+    """Solde lu sur la capture → joueur (config sauvée) ; heure = date du fichier."""
+    if ctx is None or not (sr.balance or sr.balance_alts):
+        return
+    try:
+        if ctx.player.read_balance(sr.balance or None, sr.balance_alts, path.stat().st_mtime):
+            from uexinfo.config import settings
+            ctx.cfg["player"] = ctx.player.to_config()
+            settings.save(ctx.cfg)
+    except Exception:
+        pass
+
 class OcrWorker:
     """Thread de fond qui traite les screenshots en attente dans ScreenshotDB.
 
@@ -374,6 +387,7 @@ class OcrWorker:
             try:
                 sr = engine.extract_from_image(path)
                 if sr is not None:
+                    _record_balance(self._ctx, sr, path)
                     data       = _scan_result_to_dict(sr)
                     entry_type = f"terminal_{sr.mode}"  # terminal_buy / terminal_sell
                     category   = entry_type

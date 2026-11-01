@@ -224,3 +224,31 @@ def test_zone_label_hides_stale_or_redundant_place():
     assert srv._zone_label(p) == "Baijini Point"        # lieu récent, différent de la position
     p.zone = "Seraphim Station"
     assert srv._zone_label(p) == ""                     # le lieu même de la position
+
+
+def test_disconnect_30000_real_lines():
+    lines = [
+        '<2026-10-31T16:53:41.141Z> [Notice] <Channel Process Disconnection> cause=30000 reason="CNetChannel::'
+        'InactivityTimerCallback connection has timed out (timeSinceRecv 30.000011 > net_inactivitytimeout 30.000000)" '
+        'frame=442112 isRemote=0 map="megamap" [Team_Network][Network]',
+        '<2026-10-31T16:53:41.145Z> [CSessionManager::RequestFrontEnd] Started - RequestFrontEndReason="OnLobbyPostGameUnload"!',
+        '<2026-10-31T16:53:41.155Z> [Notice] <Error Popup Opened> errorCode=30000 [Team_UI][Disconnection]',
+    ]
+    t = PresenceTracker(known_codes={7: "RR_CRU_LEO"})
+    t.feed([_ev("place_zone", 0, **{"from": 0, "to": 7}), _ev("near_location", 1, loc_code="RR_CRU_LEO")])
+    out = t.feed(recognize_all(lines))
+    assert [n.text for n in out] == [
+        "⚠ Déconnexion du serveur (erreur 30000 : le serveur ne répond plus depuis 30 s (serveur ou réseau))"]
+    assert t.phase == "away"
+
+
+def test_disconnect_unknown_code_uses_reason():
+    t = PresenceTracker()
+    out = t.feed([_ev("disconnect", 0, cause=30010, reason="Remote Disconnect - Nub destroyed"),
+                  _ev("error_popup", 5, code=60016)])
+    assert [n.text for n in out] == ["⚠ Déconnexion du serveur (erreur 60016 : Nub destroyed)"]
+
+
+def test_normal_exit_not_announced():
+    t = PresenceTracker()
+    assert t.feed([_ev("disconnect", 0, cause=30016, reason="Remote Disconnect - Player requested disconnect")]) == []

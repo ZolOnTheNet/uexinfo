@@ -40,6 +40,10 @@ class CatalogContract:
     mission_type: str = ""                           # « Hauling - Stellar » (en-tête de la liste en jeu)
     contractor: str = ""                             # « Covalex Independent Contractors »
     blueprint: bool = False                          # rapporte un plan de fabrication (« [BP] » en jeu)
+    scu_min: int | None = None                       # cargaison totale (transport), bornes de scmdb
+    scu_max: int | None = None
+    container: int | None = None                     # plus grande caisse acceptée (SCU)
+    rank: str = ""                                   # rang de réputation demandé (« Rookie »)
 
     @property
     def xp(self) -> int | None:
@@ -78,6 +82,17 @@ class RecognizedContract:
         if self.recognized and self.contract.xp:
             return self.contract.xp
         return getattr(self.card, "xp", None)
+
+
+def _hauling(c: dict) -> dict:
+    """Cargaison d'un contrat scmdb (somme des commandes), plus grande caisse et rang demandé."""
+    orders = [o for o in c.get("haulingOrders") or [] if isinstance(o, dict)]
+    lo = sum(o.get("minSCU") or 0 for o in orders)
+    hi = sum(o.get("maxSCU") or 0 for o in orders)
+    sizes = [o.get("maxContainerSize") for o in orders if o.get("maxContainerSize")]
+    standing = c.get("minStanding")
+    return {"scu_min": lo or None, "scu_max": hi or None, "container": max(sizes) if sizes else None,
+            "rank": standing.get("name", "") if isinstance(standing, dict) else ""}
 
 
 def normalize(title: str) -> str:
@@ -143,7 +158,8 @@ class ContractCatalog:
                                        split_party=split, source="scmdb",
                                        mission_type=c.get("missionType") or "",
                                        contractor=c.get("contractorName") or "",
-                                       blueprint=bool(c.get("blueprintRewards"))))
+                                       blueprint=bool(c.get("blueprintRewards")),
+                                       **_hauling(c)))
         return cls(out, "scmdb", str(data.get("version") or ""))
 
     @classmethod

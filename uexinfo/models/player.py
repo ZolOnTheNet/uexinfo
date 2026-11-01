@@ -43,6 +43,25 @@ class Player:
     # instabilité serveur — signal important pour repérer un shard HS.
     shard: str = ""
     shard_ts: float = 0.0
+    # Solde lu à l'écran du terminal de marchandises (« CURRENT BALANCE », ocr/balance.py) et
+    # heure de la capture ; entre deux lectures, estimé avec le Game.log (gamelog/wallet.py).
+    balance: int = 0
+    balance_ts: float = 0.0
+
+    def read_balance(self, sure: int | None, alts: list[int], ts: float) -> bool:
+        """Retient le solde lu sur une capture prise à `ts` ; vrai s'il a changé.
+
+        Une capture plus ancienne que le solde connu est ignorée ; une lecture incertaine
+        (¤ lu comme un chiffre) n'est gardée que proche du solde connu (`ocr.balance.choose`).
+        """
+        from uexinfo.ocr.balance import choose
+        if ts <= self.balance_ts:
+            return False
+        value = choose(sure, alts, self.balance)
+        if not value:
+            return False
+        self.balance, self.balance_ts = value, ts
+        return True
 
     def set_location(self, name: str, terminal_id: int = 0) -> None:
         """Position courante — nom et id terminal toujours écrits ensemble.
@@ -99,6 +118,8 @@ class Player:
             zone_status_ts=float(cfg_player.get("zone_status_ts", 0) or 0),
             shard=cfg_player.get("shard", ""),
             shard_ts=float(cfg_player.get("shard_ts", 0) or 0),
+            balance=int(cfg_player.get("balance", 0) or 0),
+            balance_ts=float(cfg_player.get("balance_ts", 0) or 0),
         )
 
     def to_config(self) -> dict:
@@ -124,4 +145,6 @@ class Player:
             "zone_status_ts": self.zone_status_ts,
             "shard": self.shard,
             "shard_ts": self.shard_ts,
+            "balance": self.balance,
+            "balance_ts": self.balance_ts,
         }

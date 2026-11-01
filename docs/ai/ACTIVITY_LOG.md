@@ -609,3 +609,27 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Lieu gris de la barre d'état : suit arrivées, réveils, départs ; masqué s'il date d'une session précédente ou répète la position (venait d'un départ de route QT de la veille, gardé dans la config).
 - Contrats : catalogue scmdb étendu aux `legacyContracts` (1 565 → 1 856 ; Covalex « Rookie Rank - … Cargo Haul ») ; préfixe `[BP]` mal lu retiré du titre ; « S0 EXP » lu 50 ; variantes départagées par donneur d'ordre et en-tête de liste. Capture du 31/10 17h08 : 7/7 reconnus (2/7 avant).
 - 381 tests réussis. Observé : erreur 30000 à 17h53 (serveur muet 30 s, `Channel Process Disconnection cause=30000`), pas liée à uexinfo.
+
+## 2026-10-31 — déconnexions, offres de contrats lues au clic
+
+**Demandé :** annoncer l'erreur 30000 et les autres déconnexions ; avoir la liste des contrats sans faire une capture par contrat (« pour une vingtaine de contrats c'est déjà 20 captures, c'est beaucoup »).
+
+**Fait :**
+- Déconnexion : reconnaisseurs `disconnect` (`<Channel Process Disconnection> cause=… reason=…`) et `error_popup` (`<Error Popup Opened> errorCode=…`, écrit seulement quand le jeu affiche l'erreur) ; message « ⚠ Déconnexion du serveur (erreur 30000 : le serveur ne répond plus depuis 30 s (serveur ou réseau)) » ; codes expliqués 30000, 30013, 30028, 70003, 19000, 19005, sinon la raison lue. Rejoué sur 340 Game.log : les 12 fenêtres d'erreur trouvées, aucune sortie normale annoncée.
+- `ocr/contract_watch.py` : après chaque clic ou coup de molette, si Star Citizen est au premier plan (jeu en fenêtré sans bordure, `WindowMode=2`) et l'onglet OFFERS actif (bouton vert, sans OCR), uexinfo capture l'écran en mémoire (0,1 s), relit la liste si elle a changé et le panneau de droite s'il a changé (1,5 s chacun, `extract_mission(img, full=False)`), et met à jour l'encart « Offres » de l'overlay : montant, SCU (catalogue, puis détail), caisse max, rang, [BP], temps restant, objectifs. Réglage `[contracts] auto_capture = on|off`.
+- Catalogue : cargaison, caisse, rang tirés de scmdb (`haulingOrders`, `minStanding`).
+- OCR : minuteur « Sm 11s » lu 5m 11s (les offres expiraient à tort) ; objectifs coupés sur deux lignes ou précédés d'une puce mal lue regroupés (`_objective_sentences`), « N8 » → « NB ». Capture du 20/10 : 6 objectifs sur 6 (une quantité lue 986 au lieu de 96).
+- 390 tests réussis. **À tester en jeu.**
+- Suite (remarque du joueur : « un bouton permettant de lancer le scan », « il y a des animations des textes, plus il y a de texte, plus cela prend de temps ») : **mode scan des offres** lancé par un bouton (Missions → « Scanner les offres (au clic) ») ou `/mission offres on|off`, arrêté seul après 20 min sans écran Contrats ; `[contracts] auto_capture` (défaut off) le lance au démarrage. Plus de délai fixe après le clic : une image toutes les 0,4 s jusqu'à deux images identiques (texte fini d'écrire), 8 s au plus ; un nouveau clic annule l'attente en cours (`stable_frame`). 394 tests réussis.
+
+## 2026-11-01 — solde du joueur, bip du mode scan
+
+**Demandé :** « as tu un moyen de connaitre la somme d'argent que possède le joueur ? » puis « oui, essayons aussi de gérer cette info » ; un bip quand la page des offres est entièrement lue.
+
+**Fait :**
+- Le Game.log n'écrit jamais le solde (342 logs). `ocr/balance.py` lit « CURRENT BALANCE » sur chaque capture de terminal de marchandises (0,5 s de plus) : sur 70 captures d'août à octobre, toutes lues ; le ¤ lu comme un chiffre (4 fois) est départagé par le solde connu ; un 5 lu 8 sur l'ancienne interface d'août, corrigé à la capture suivante.
+- `gamelog/wallet.py` : récompenses, amendes, achats et ventes (refus retirés), achats d'objets ; solde estimé (≈) depuis la dernière lecture, gain de la session. Reconnaisseurs `reward`, `fine`, `trade_refused` ; vente lue dans `amount[…]` (le montant était à 0) ; `SendShopBuyRequest` reconnu comme achat d'objet.
+- Barre d'état : « 11 350 555 ¤ +50 250 » (≈ si estimé, gain de la session en vert ou rouge, date de lecture au survol). Solde gardé dans `config.toml` (`player.balance`, `balance_ts`).
+- Écart constaté le 30-31/10 entre demandes et solde lu (vente de 439 642 non créditée) : l'estimation reste une estimation.
+- Mode scan des offres : bip court (`winsound`) quand la dernière image en attente est lue ; `[contracts] beep = on|off`.
+- 401 tests réussis. **À tester en jeu.**
