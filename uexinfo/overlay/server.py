@@ -7,6 +7,8 @@ utilise `uexinfo.display.formatter.console`, car il remplace cette console.
 from __future__ import annotations
 
 # ── 1. Remplace console AVANT l'import des commandes ─────────────────────────
+import logging as _logging
+_applog = _logging.getLogger("uexinfo.overlay")
 import uexinfo.display.formatter as _fmt_mod
 from uexinfo.display.capturing_console import CapturingConsole as _CapturingConsole
 
@@ -331,7 +333,12 @@ class OverlayServer:
     async def _dispatch(self, ws, msg: dict) -> None:
         """Aiguille un message de la page selon son `type` (cmd, complete, status, scan_confirm…)."""
         t = msg.get("type")
+        if t not in ("cmd", "complete", "status", "cols", "opacity"):
+            _applog.info("page : %s %s", t, json.dumps({k: v for k, v in msg.items() if k != "type"},
+                                                        ensure_ascii=False)[:300])
         if t == "cmd":
+            src = msg.get("src") or "saisie"
+            _applog.info("commande (%s) : %s", src, msg.get("text", "").strip())
             await self._handle_cmd(ws, msg.get("text", "").strip())
         elif t == "complete":
             await self._handle_complete(ws, msg.get("text", ""), msg.get("cursor", -1))
@@ -464,11 +471,14 @@ class OverlayServer:
             )
         self.ctx._overlay_progress_fn = _sync_progress
 
+        import time as _tm
+        _t0 = _tm.time()
         try:
             output, needs_status = await loop.run_in_executor(
                 None, self._exec_sync, line
             )
         except asyncio.CancelledError:
+            _applog.info("commande annulée : %s", line)
             raise
 
         # Générer HTML depuis les renderables capturés (ou fallback ANSI→HTML)
@@ -482,6 +492,9 @@ class OverlayServer:
 
         # Sauvegarder la commande + son output HTML dans l'historique persistant
         _history_mod.append(original_line, html_output=html_output)
+        from uexinfo.applog import text_of
+        _applog.info("réponse à %s (%.1f s) :\n%s", line, _tm.time() - _t0,
+                     text_of(html_output) or "(vide)")
 
         self.ctx.select_fn = None
         self.ctx._overlay_send_fn = None
@@ -670,6 +683,7 @@ class OverlayServer:
             "scan_log": scan_log,
             "ships":    ships,
             **self._balance_status(p),
+            "offers_scan": bool(self._contract_watch is not None and self._contract_watch.active),
         }))
 
     def _balance_status(self, p) -> dict:
@@ -2081,6 +2095,7 @@ class OverlayServer:
         mode = self.ctx.cfg.get("gamelog", {}).get("position", "auto")
         p = self.ctx.player
         for n in notices:
+            _applog.info("jeu (%s) : %s", n.kind, n.text.strip())
             await self._broadcast_raw(json.dumps({"type": "presence", "kind": n.kind, "text": n.text}))
             # Lieu affiché à côté de la position : celui où l'on est, rien en vol ou après une mort
             # (le départ de route QT, plus ancien, ne doit pas rester affiché).
@@ -2163,8 +2178,10 @@ class OverlayServer:
         except Exception as e:
             return f"Mode scan des offres indisponible : {e}"
         if self._contract_watch is not None and self._contract_watch.active:
+            from uexinfo.applog import path as _log_path
+            where = f" Journal : {_log_path()}" if _log_path() else ""
             return ("Mode scan des offres en marche : ouvre Contrats (onglet OFFERS) et clique sur les offres. "
-                    "Arrêt : /mission offres off")
+                    "Arrêt : /mission offres off." + where)
         return "Mode scan des offres arrêté."
 
     def _on_offers_idle(self) -> None:

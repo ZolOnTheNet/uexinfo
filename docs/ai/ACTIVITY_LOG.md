@@ -633,3 +633,26 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Écart constaté le 30-31/10 entre demandes et solde lu (vente de 439 642 non créditée) : l'estimation reste une estimation.
 - Mode scan des offres : bip court (`winsound`) quand la dernière image en attente est lue ; `[contracts] beep = on|off`.
 - 401 tests réussis. **À tester en jeu.**
+
+## 2026-11-01 — mode scan des offres plus rapide
+
+**Signalé :** « c'est très très lent ! et il s'arrête souvent à des informations de gauche » (capture du 01/11 19:23).
+
+**Cause :** un halo lumineux bouge sans cesse sur le titre et au centre de l'écran Contrats : deux images n'étaient jamais identiques, chaque lecture attendait les 8 s maximum ; ce halo abîme aussi le titre lu (« BP 14Junior Rank - smaf Haul »), si bien que le détail n'était rattaché à aucune offre (seule la liste s'affichait).
+
+**Fait :**
+- Fin de l'animation jugée sur la liste et la colonne de droite (récompense, objectifs), hors titre et centre.
+- Liste relue au premier passage et après un coup de molette seulement (la surbrillance de l'offre cliquée ne la fait plus relire).
+- Liste et détail lus en même temps ; titre, récompense et objectifs du détail aussi (un Tesseract chacun) ; lecture de l'onglet retirée en mode scan. Sur la capture : 5,7 s → 3,1 s, 1,7 s pour un clic sans liste.
+- Détail rattaché par le montant quand le titre est abîmé (55 750 ↔ « 55k ») : les 4 livraisons de l'offre trouvées (19 SCU). Prix « (2436aUEC/scu) » retiré du nom de la marchandise.
+- 401 tests réussis. À retester en jeu.
+
+## 2026-11-01 — bouton Scan Mis., détail rattaché à la carte surlignée, journal du programme
+
+**Demandé :** « un bouton dans toutes les interfaces (Scan Mis.) », gris arrêté et vert en marche (bascule) ; comprendre pourquoi certaines missions ne sont pas reconnues (5 captures de 19:42-19:43) ; « un log du programme général … les commandes tapées, les boutons souris utilisés, les réponses, avec une semaine ».
+
+**Fait :**
+- Barre d'état : bouton bascule « Scan Mis. » (gris / vert), visible dans les trois modes ; état poussé par le statut (`offers_scan`). Attente du texte stable plafonnée à 3 s (le décor transparent bouge toujours).
+- Captures : la liste était reconnue, le détail n'était rattaché à aucune offre 3 fois sur 6 (titre abîmé par le halo, 67 500 lu 87 500, carte au titre illisible, montant non lu). La carte cliquée est surlignée en vert (G − R ≈ 35 contre ≤ 21) : `selected_card` la retrouve et le détail lui est rattaché ; montant du détail ignoré s'il contredit la carte ; carte sans titre lisible nommée par le détail. 6 captures sur 6 rattachées.
+- `uexinfo/applog.py` : journal `<données uexinfo>/logs/uexinfo.log`, un fichier par jour, `[log] days = 7` ; commandes avec leur origine (saisie, « bouton <libellé> »), réponses en texte avec la durée, autres messages de la page, évènements du jeu (arrivée, mort, déconnexion…), lectures du mode scan (attente, durée, cartes reconnues ou non avec le texte lu, carte surlignée, rattachement). Texte seul, jamais d'image.
+- 404 tests réussis. À tester en jeu.

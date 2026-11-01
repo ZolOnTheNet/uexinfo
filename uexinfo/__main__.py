@@ -67,6 +67,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    from uexinfo import applog
+    try:
+        from uexinfo.config import settings
+        days = int(settings.load().get("log", {}).get("days", 7))
+    except Exception:
+        days = 7
+    where = applog.setup(days)
+    applog.log.info("════ démarrage d'uexinfo ════")
+    if where:
+        print(f"[uexinfo] Journal : {where} ({days} jours gardés)", flush=True)
+
     _print_ocr_status()
 
     try:

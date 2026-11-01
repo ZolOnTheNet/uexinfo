@@ -673,6 +673,10 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 .sb-flag.off { color: var(--dim); }
 .sb-flag.on  { color: var(--yellow); font-weight: bold; cursor: pointer; }
 .sb-flag.blink { opacity: 0.25; }
+/* Bouton bascule du mode scan des offres : gris arrêté, vert en marche */
+#sb-offers { cursor: pointer; border: 1px solid var(--dim); }
+#sb-offers.off { color: var(--dim); }
+#sb-offers.on  { color: #0b1a0b; background: var(--green); border-color: var(--green); }
 .sb-btn { color: var(--text); cursor: pointer; padding: 1px 5px; border-radius: 2px; flex-shrink: 0; }
 .sb-btn:hover { background: rgba(255,255,255,0.10); }
 .sb-cargo-input {
@@ -1157,6 +1161,8 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   <span id="sb-scan-log" class="sb-flag off" title="Scan log détecté — cliquer pour analyser">ScanLog</span>
   <span class="sb-sep"> │ </span>
   <span id="sb-voyage" class="sb-flag off" title="Voyage actif — cliquer pour afficher">🗺</span>
+  <span class="sb-sep"> │ </span>
+  <span id="sb-offers" class="sb-flag off" style="cursor:pointer" title="Mode scan des offres arrêté — clic : le lancer (Contrats, onglet OFFERS : clique sur les offres, un bip quand c'est lu)">Scan Mis.</span>
   <span class="sb-sep"> │ </span>
   <span id="sb-screencap" class="off" title="Captures en attente — cliquer pour voir les missions">📷 <span id="sb-screencap-n"></span></span>
   <span class="sb-sep" id="sb-timer-sep"> │ </span>
@@ -1810,11 +1816,11 @@ function handleCloseClick() {
   }
 }
 
-function sendCmd(text, keepInput = false) {
+function sendCmd(text, keepInput = false, src = '') {
   text = text.trim();
   if (!text) return;
   if (_QUIT_RE.test(text)) _quitting = true;
-  send({type:'cmd', text});
+  send({type:'cmd', text, src});   // src : origine notée au journal (bouton cliqué…)
   if (!history.length || history[0] !== text) history.unshift(text);
   if (history.length > 500) history.pop();
   histIdx = -1; histSave = '';
@@ -2043,6 +2049,11 @@ function updateStatus(s) {
   sw.textContent  = (currentPos && currentDest) ? '⇄' : ' ';
   sw.style.cursor = (currentPos && currentDest) ? 'pointer' : 'default';
 
+  setFlag('sb-offers', s.offers_scan);
+  offersScan = !!s.offers_scan;
+  document.getElementById('sb-offers').title = offersScan
+    ? 'Mode scan des offres en marche — clic : l\'arrêter'
+    : 'Mode scan des offres arrêté — clic : le lancer (Contrats, onglet OFFERS : clique sur les offres, un bip quand c\'est lu)';
   setFlag('sb-scan-sc',  s.scan_sc);
   setFlag('sb-scan-log', s.scan_log);
   scanSc  = !!s.scan_sc;
@@ -2090,6 +2101,14 @@ document.getElementById('sb-scan-log').addEventListener('click', () => {
   setFlag('sb-scan-log', false); scanLog = false;
   sendCmd('/scan log');
 });
+// Mode scan des offres (ocr/contract_watch.py) : bouton visible dans tous les modes
+let offersScan = false;
+document.getElementById('sb-offers').addEventListener('click', () => {
+  sendCmd(offersScan ? '/mission offres off' : '/mission offres on', false, 'bouton Scan Mis.');
+  offersScan = !offersScan;
+  setFlag('sb-offers', offersScan);
+});
+
 document.getElementById('sb-voyage').addEventListener('click', () => {
   sendCmd('/voyage list');
 });

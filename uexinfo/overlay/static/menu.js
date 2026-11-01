@@ -125,7 +125,7 @@ window.MousePanel = (() => {
         () => {
           if (grp) { path = path.concat(i); render(); return; }
           if (document.body.classList.contains('busy')) return;   // une commande à la fois
-          sendCmd(k.cmd, true);
+          sendCmd(k.cmd, true, 'bouton ' + k.label);
         });
       if (!grp) {
         b.addEventListener('mouseenter', () => _preview(k.cmd));

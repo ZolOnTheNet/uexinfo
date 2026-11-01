@@ -556,8 +556,25 @@ class TesseractEngine:
                 else:
                     os.environ["TESSDATA_PREFIX"] = env_bak
 
+        zones = {
+            "title": ((int(w*.33), int(h*.12), int(w*.66), int(h*.23)), 6),       # grand titre
+            "info": ((int(w*.64), int(h*.11), int(w*.93), int(h*.25)), 6),        # Reward / Availability / By
+            "objectives": ((int(w*.62), int(h*.25), int(w*.93), int(h*.86)), 4),  # colonne droite
+        }
+        if full:
+            zones["tab"] = ((int(w*.33), int(h*.06), int(w*.75), int(h*.12)), 7)  # OFFERS / ACCEPTED…
+            zones["details"] = ((int(w*.33), int(h*.25), int(w*.62), int(h*.86)), 4)
+            texts = {k: _ocr(box, psm) for k, (box, psm) in zones.items()}
+        else:
+            # Panneau seul (mode scan des offres) : zones lues en même temps, un Tesseract chacune ;
+            # le dossier des modèles est fixé par l'appelant (ContractWatcher), pas restauré ici.
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=len(zones)) as pool:
+                futs = {k: pool.submit(_ocr, box, psm) for k, (box, psm) in zones.items()}
+                texts = {k: f.result() for k, f in futs.items()}
+
         # ── Onglet actif (OFFERS / ACCEPTED / HISTORY) ────────────────────────
-        tab_text = _ocr((int(w*.33), int(h*.06), int(w*.75), int(h*.12)), psm=7)
+        tab_text = texts.get("tab", "")
         active_tab = ""
         for t in ("OFFERS", "ACCEPTED", "HISTORY"):
             if t.lower() in tab_text.lower():
@@ -565,20 +582,18 @@ class TesseractEngine:
                 break
 
         # ── Titre (grand texte panneau droit) ─────────────────────────────────
-        title_text = _ocr((int(w*.33), int(h*.12), int(w*.66), int(h*.23)), psm=6)
-        title = " ".join(title_text.split())
+        title = " ".join(texts["title"].split())
         # Retirer les préfixes parasites OCR (|, ,, ., © …) avant le premier alpha
         title = re.sub(r'^[^A-Za-z]+', '', title).strip()
 
         # ── Infos (Reward / Availability / Contracted By) ─────────────────────
-        info_text = _ocr((int(w*.64), int(h*.11), int(w*.93), int(h*.25)), psm=6)
-        reward, availability, contracted_by = self._parse_mission_info(info_text)
+        reward, availability, contracted_by = self._parse_mission_info(texts["info"])
 
         # ── Détails (colonne gauche du contenu) ───────────────────────────────
-        details_text = _ocr((int(w*.33), int(h*.25), int(w*.62), int(h*.86)), psm=4) if full else ""
+        details_text = texts.get("details", "")
 
         # ── Objectifs (colonne droite) ────────────────────────────────────────
-        objectives_text = _ocr((int(w*.62), int(h*.25), int(w*.93), int(h*.86)), psm=4)
+        objectives_text = texts["objectives"]
         objectives = self._parse_objectives(objectives_text)
         parsed_objectives = self._parse_objectives_structured(objectives)
 

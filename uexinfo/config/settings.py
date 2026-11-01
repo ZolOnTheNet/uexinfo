@@ -99,6 +99,11 @@ DEFAULT: dict = {
         "enabled": "off",          # activer le tail de Game.log (zone/connexion/spawn) — on|off
         "position": "auto",        # à une arrivée : auto (position suivie) | propose (bandeau) | off
     },
+    "log": {
+        # Journal du programme (commandes, boutons, réponses, évènements) : un fichier par jour
+        # dans <données uexinfo>/logs, gardé ce nombre de jours
+        "days": 7,
+    },
     "contracts": {
         # Mode scan des offres au lancement (sinon bouton ou /mission offres on) : après chaque
         # clic ou coup de molette dans l'écran Contrats (onglet OFFERS, Star Citizen au premier

@@ -91,11 +91,13 @@ def test_objective_sentences_join_wrapped_lines():
 
 def test_stable_frame_waits_for_text_animation():
     # Le jeu écrit le texte progressivement : on lit la première image identique à la précédente.
+    # Texte des objectifs (colonne de droite) écrit en 3 temps ; un halo bouge sur le titre et
+    # au centre à chaque image (capture du 2026-11-01) : il ne doit pas empêcher la lecture.
     frames = [_screen(True) for _ in range(5)]
-    for i, img in enumerate(frames[:3]):
-        ImageDraw.Draw(img).rectangle((900, 300, 900 + 300 * (i + 1), 700), fill=(220, 220, 220))
-    ImageDraw.Draw(frames[3]).rectangle((900, 300, 1800, 700), fill=(220, 220, 220))
-    ImageDraw.Draw(frames[4]).rectangle((900, 300, 1800, 700), fill=(220, 220, 220))
+    for i, img in enumerate(frames):
+        right = 1700 + 220 * min(i + 1, 3)
+        ImageDraw.Draw(img).rectangle((1700, 400, right, 1000), fill=(220, 220, 220))
+        ImageDraw.Draw(img).ellipse((1100 + 60 * i, 200, 1400 + 60 * i, 700), fill=(255, 255, 255))
     it = iter(frames)
     from uexinfo.ocr.contract_watch import stable_frame
     got = stable_frame(lambda: next(it), sleep=lambda s: None)
@@ -130,3 +132,48 @@ def test_beep_once_page_fully_read():
     w._queue.put(("même page", time.time()))
     time.sleep(0.3)
     assert len(beeps) == 1
+
+
+def _card(title, reward, top, bottom):
+    from uexinfo.ocr.contract_list import ContractCard
+    return ContractCard(title=title, reward=reward, top=top, bottom=bottom,
+                        contractor="COVALEX INDEPENDENT CONTRACTORS")
+
+
+def test_selected_card_is_the_green_one():
+    from uexinfo.ocr.contract_watch import selected_card
+    from uexinfo.ocr.contract_list import LIST_BOX
+    img = _screen(True)
+    x0, y0 = int(2560 * LIST_BOX[0]), int(1440 * LIST_BOX[1])
+    cards = [_card("A", 42000, 10, 70), _card("B", 67000, 100, 160), _card("C", 50000, 190, 250)]
+    d = ImageDraw.Draw(img)
+    for c in cards:                                           # cartes grises (G − R ≈ 13)
+        d.rectangle((x0, y0 + c.top, x0 + 400, y0 + c.bottom), fill=(40, 53, 60))
+    d.rectangle((x0, y0 + 100, x0 + 400, y0 + 160), fill=(30, 66, 50))     # carte cliquée (≈ 36)
+    assert selected_card(img, cards) == 1
+    assert selected_card(_screen(True), cards) is None
+
+
+def test_detail_goes_to_selected_card_despite_bad_reading():
+    # capture du 01/11 19:43:12 : titre abîmé par le halo, 67 500 lu 87 500
+    from uexinfo.cache.contract_catalog import RecognizedContract
+    board = OffersBoard()
+    cards = [_card("JUNIOR RANK SMALL CARGO HAUL", 67000, 0, 60),
+             _card("JUNIOR RANK SMALL CARGO HAUL", 55000, 100, 160),
+             _card("", 42000, 200, 260)]                          # titre illisible
+    board.add_cards([RecognizedContract(c, None, 0.0) for c in cards], 0)
+    ob = ParsedObjective(kind="deliver", commodity="Stims (5414aUEC/scu)", quantity_scu=4,
+                         location="Beautiful Glen Station")
+    detail = MissionResult(title="BP Junior Rank - Small Carao Haul", reward=87500, parsed_objectives=[ob])
+    got = board.add_detail(detail, 0, selected=0)
+    assert (got.reward, got.scu, got.objectives) == (67000, 4, ["4 SCU Stims → Beautiful Glen Station"])
+    # carte sans titre lisible : l'offre prend le titre du détail
+    got = board.add_detail(MissionResult(title="Rookie Rank - Small Cargo Haul", reward=42000,
+                                         parsed_objectives=[ob]), 0, selected=2)
+    assert (got.title, got.reward) == ("Rookie Rank - Small Cargo Haul", 42000)
+
+
+def test_applog_text_of_html():
+    from uexinfo.applog import text_of
+    assert text_of("<table><tr><td>Iron</td><td>4&nbsp;SCU</td></tr></table>\x1b[32mok\x1b[0m") == "Iron | 4\xa0SCU |\nok"
+    assert text_of("x" * 50, limit=10).startswith("xxxxxxxxxx\n…")
