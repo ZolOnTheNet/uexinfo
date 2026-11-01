@@ -37,7 +37,7 @@ _DETAIL_BOX = (0.34, 0.15, 0.93, 0.60)         # titre, récompense, objectifs
 _TEXT_BOX = (0.64, 0.11, 0.93, 0.73)
 _STEP_S = 0.4                                  # intervalle entre deux images pendant l'animation du texte
 _SETTLE_MAX_S = 3.0                            # au-delà, on lit l'écran tel quel (le décor transparent bouge toujours)
-_STABLE_TOLERANCE = 12                         # écart d'empreinte admis entre deux images « identiques »
+_STABLE_TOLERANCE = 20                         # points d'empreinte du texte qui peuvent changer entre deux images « identiques »
 _IDLE_STOP_S = 20 * 60                         # mode scan arrêté après 20 min sans écran Contrats
 
 
@@ -86,6 +86,23 @@ def signature(img, box) -> bytes:
     """Empreinte grossière d'une zone (32×32 niveaux de gris, 16 niveaux) : change quand le texte change."""
     small = _crop(img, box).convert("L").resize((32, 32))
     return bytes(v // 16 for v in small.tobytes())
+
+
+_TEXT_LEVEL = 150           # clarté au-dessus de laquelle un pixel compte comme du texte
+
+
+def text_signature(img, box) -> bytes:
+    """Empreinte du texte clair d'une zone (48×48, 4 niveaux) : le fond transparent du mobiGlas,
+    plus sombre, bouge sans cesse mais n'y entre pas ; seule l'écriture du texte la change."""
+    zone = _crop(img, box).convert("L")
+    zone = zone.resize((max(1, zone.width // 3), max(1, zone.height // 3)))
+    mask = zone.point(lambda v: 255 if v > _TEXT_LEVEL else 0).resize((48, 48))
+    return bytes(v // 64 for v in mask.tobytes())
+
+
+def difference(a: bytes | None, b: bytes) -> int:
+    """Nombre de points qui diffèrent entre deux empreintes (toutes, si `a` est absente)."""
+    return len(b) if a is None else sum(x != y for x, y in zip(a, b))
 
 
 def changed(a: bytes | None, b: bytes, tolerance: int = 40) -> bool:
@@ -300,11 +317,12 @@ def star_citizen_active() -> bool:
 
 
 def stable_frame(grab, step: float = _STEP_S, limit: float = _SETTLE_MAX_S,
-                 is_current=lambda: True, sleep=time.sleep):
+                 is_current=lambda: True, sleep=time.sleep, trace: list | None = None):
     """Première image identique à la précédente (texte du jeu fini d'écrire) ; None si abandon.
 
     `grab()` renvoie une image ou None (jeu plus au premier plan) ; `is_current()` devient faux
     quand un nouveau clic relance l'attente. Au bout de `limit` secondes, la dernière image.
+    `trace` : reçoit l'écart mesuré entre chaque image et la précédente (journal).
     """
     prev, img, waited = None, None, 0.0
     while waited < limit:
@@ -315,9 +333,13 @@ def stable_frame(grab, step: float = _STEP_S, limit: float = _SETTLE_MAX_S,
         img = grab()
         if img is None:
             return None
-        sig = signature(img, _TEXT_BOX) + signature(img, _LIST_BOX)
-        if prev is not None and not changed(prev, sig, _STABLE_TOLERANCE):
-            return img
+        sig = text_signature(img, _TEXT_BOX) + text_signature(img, _LIST_BOX)
+        if prev is not None:
+            diff = difference(prev, sig)
+            if trace is not None:
+                trace.append(diff)
+            if diff <= _STABLE_TOLERANCE:
+                return img
         prev = sig
     return img
 
@@ -343,6 +365,7 @@ class ContractWatcher:
         self._last_detail: bytes | None = None
         self._last_seen = 0.0               # dernière image de l'écran Contrats
         self._settle_s = 0.0                # attente de la dernière image (fin de l'animation)
+        self._settle_trace: list[int] = []  # écarts mesurés pendant cette attente
         self._scrolls = 0                   # coups de molette reçus
         self._list_scrolls = -1             # coups de molette au moment de la dernière lecture de la liste
         if engine is not None:
@@ -410,9 +433,9 @@ class ContractWatcher:
             """Image de l'écran principal ; None si le jeu n'est plus au premier plan."""
             return ImageGrab.grab() if star_citizen_active() else None
         try:
-            t0 = time.time()
-            img = stable_frame(grab, is_current=lambda: gen == self._gen)
-            self._settle_s = time.time() - t0
+            t0, trace = time.time(), []
+            img = stable_frame(grab, is_current=lambda: gen == self._gen, trace=trace)
+            self._settle_s, self._settle_trace = time.time() - t0, trace
             if img is not None:
                 self._queue.put_nowait((img, time.time()))
         except queue.Full:
@@ -490,8 +513,9 @@ class ContractWatcher:
                          len(getattr(detail, "parsed_objectives", []) or []))
                 if offer is not None:
                     updated = True
-        log.info("lu en %.1f s après %.1f s d'attente (liste %s, détail %s)", time.time() - t0,
-                 self._settle_s, "oui" if read_list else "non", "oui" if read_detail else "non")
+        log.info("lu en %.1f s après %.1f s d'attente (écarts %s, stable ≤ %d ; liste %s, détail %s)",
+                 time.time() - t0, self._settle_s, self._settle_trace, _STABLE_TOLERANCE,
+                 "oui" if read_list else "non", "oui" if read_detail else "non")
         return updated
 
     def _read_list(self, img) -> list:

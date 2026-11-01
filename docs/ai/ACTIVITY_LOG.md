@@ -656,3 +656,9 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - Captures : la liste était reconnue, le détail n'était rattaché à aucune offre 3 fois sur 6 (titre abîmé par le halo, 67 500 lu 87 500, carte au titre illisible, montant non lu). La carte cliquée est surlignée en vert (G − R ≈ 35 contre ≤ 21) : `selected_card` la retrouve et le détail lui est rattaché ; montant du détail ignoré s'il contredit la carte ; carte sans titre lisible nommée par le détail. 6 captures sur 6 rattachées.
 - `uexinfo/applog.py` : journal `<données uexinfo>/logs/uexinfo.log`, un fichier par jour, `[log] days = 7` ; commandes avec leur origine (saisie, « bouton <libellé> »), réponses en texte avec la durée, autres messages de la page, évènements du jeu (arrivée, mort, déconnexion…), lectures du mode scan (attente, durée, cartes reconnues ou non avec le texte lu, carte surlignée, rattachement). Texte seul, jamais d'image.
 - 404 tests réussis. À tester en jeu.
+
+## 2026-11-01 — mode scan : attente jugée sur le texte clair
+
+**Constaté dans le journal (tests du soir) :** chaque lecture attendait le plafond (3,6-3,7 s) : l'écran n'était jamais vu stable ; lecture du détail 0,6-1,3 s ; les 7 détails cliqués rattachés à la bonne offre.
+
+**Fait :** stabilité jugée sur le texte clair seulement (`text_signature` : pixels > 150, 48×48), le fond transparent n'y entre plus ; seuil 20 points (deux offres différentes : ≥ 44 sur les captures du 01/11). Le journal note les écarts mesurés à chaque attente, pour régler le seuil sur de vrais chiffres. 404 tests réussis.
