@@ -662,3 +662,20 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 **Constaté dans le journal (tests du soir) :** chaque lecture attendait le plafond (3,6-3,7 s) : l'écran n'était jamais vu stable ; lecture du détail 0,6-1,3 s ; les 7 détails cliqués rattachés à la bonne offre.
 
 **Fait :** stabilité jugée sur le texte clair seulement (`text_signature` : pixels > 150, 48×48), le fond transparent n'y entre plus ; seuil 20 points (deux offres différentes : ≥ 44 sur les captures du 01/11). Le journal note les écarts mesurés à chaque attente, pour régler le seuil sur de vrais chiffres. 404 tests réussis.
+
+## 2026-11-05 — /scan log clear
+
+**Demandé :** « une commande /scan log clear pour effacer le clignotement du scan log un peu trop ancien ».
+
+**Fait :** `/scan log clear` marque le log de SC-Datarunner actuel comme vu (rien n'est lu ni effacé) ; gardé dans la config (`scan.log_seen_mtime`), car le dernier log vu n'était retenu qu'en mémoire : le voyant se rallumait à chaque lancement d'uexinfo. Le voyant se rallume au prochain scan de Datarunner. Aide et complétion mises à jour. 405 tests réussis.
+
+## 2026-11-05 — raccourci du mode scan des offres
+
+**Demandé :** « une touche ou une combinaison de touches pour indiquer une nouvelle mission (avec possibilité de répéter la même mission — ce serait la dernière qui est prise) ».
+
+**Constaté dans le journal du 05/11 :** l'attente du texte stable ne marche pas en jeu : écarts de 30 à 170 points entre deux images (seuil 20), presque chaque lecture attend le plafond (3,8 s). Montant de carte lu 363 000 et 322 000 pour 63 000 et 22 500 (« ¤ » lu « 3 »). La première lecture a pris le texte de l'overlay posé sur la liste.
+
+**Fait :**
+- `[contracts] hotkey = "alt+shift+m"` (réglable : « f10 »…, vide = aucun) : l'écran est capturé à l'appui et le détail relu même s'il semble inchangé ; même offre plusieurs fois : la dernière lecture gagne. Posé par RegisterHotKey (fonctionne quand Star Citizen est au premier plan) ; `_Win32HotkeyListener` accepte modificateurs, lettres et chiffres ; `start_hotkey()` réutilisable. `[contracts] read_on_click = on|off` pour garder ou non la lecture après chaque clic.
+- Montant : quand la carte a un chiffre de trop devant le montant du détail (363k / 63 000), le montant du détail est gardé.
+- 408 tests réussis. À tester en jeu.

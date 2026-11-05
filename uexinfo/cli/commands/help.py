@@ -76,6 +76,7 @@ _DETAILS = {
         "/scan log                    Lire TOUS les scans du log SC-Datarunner (défaut)\n"
         "/scan log new                Lire uniquement les nouveaux scans (incrémental)\n"
         "/scan log reset              Remettre l'offset à 0\n"
+        "/scan log clear              Éteindre le voyant ScanLog (log actuel marqué comme vu)\n"
         "/scan status                 Afficher le dernier résultat\n"
         "/scan history [n]            Historique des n derniers scans (défaut 5)\n\n"
         "Lecture automatique du log :\n"

@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-11-01** (206 fichiers suivis par git).
+> Dernière mise à jour : **2026-11-05** (207 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -88,7 +88,7 @@ uexinfo/                         (racine du dépôt)
 | `__init__.py` | Version du package, `build_id()` (commit git en cours). |
 | `__main__.py` | Point d'entrée unique : ouvre le journal, vérifie les dépendances (webview, pynput, websockets), lance l'overlay. |
 | `applog.py` | Journal du programme : un fichier par jour dans `<données uexinfo>/logs`, gardé `[log] days` jours (7) ; commandes tapées ou boutons cliqués, réponses en texte, évènements du jeu, lectures du mode scan. |
-| `overlay/__init__.py` | Fenêtre PyWebView transparente, raccourci clavier global (Win32, pynput hors Windows), presse-papiers, remplacement d'une instance déjà lancée, `run_overlay()`. |
+| `overlay/__init__.py` | Fenêtre PyWebView transparente, raccourcis clavier globaux (Win32 RegisterHotKey avec modificateurs, pynput hors Windows ; `start_hotkey` pour les autres modules), presse-papiers, remplacement d'une instance déjà lancée, `run_overlay()`. |
 | `overlay/auth.py` | Garde-fous du serveur WebSocket : jeton de connexion de l'instance (aussi écrit dans `overlay.token`, dossier de config), extensions que `open_file` peut ouvrir (images). |
 | `overlay/menus.py` | Mode souris : modes (console, mixte, souris) et catalogue des boutons envoyé à la page (message `menus`) ; chaque bouton envoie une commande existante. |
 | `overlay/server.py` | Serveur WebSocket : reçoit les commandes de la page, les exécute, renvoie le HTML ; complétion, statut, confirmation des scans, suivi Game.log. Importe toutes les commandes. |
@@ -209,7 +209,7 @@ uexinfo/                         (racine du dépôt)
 | `ocr/engine.py` | Moteur Tesseract : lecture des terminaux et des écrans de mission. Cherche Tesseract d'abord dans `extprg/tesseract/`. |
 | `ocr/contract_list.py` | Panneau des contrats du mobiGlas → cartes (titre, XP, donneur d'ordre, récompense, préfixe `[BP]`). |
 | `ocr/balance.py` | Solde « CURRENT BALANCE » lu en haut à droite du terminal de marchandises ; lecture incertaine (¤ lu comme un chiffre) départagée par le solde connu. |
-| `ocr/contract_watch.py` | Offres de contrats sans capture du joueur : image de l'écran prise par uexinfo après chaque clic ou coup de molette dans l'écran Contrats (Star Citizen actif, onglet OFFERS), liste et détail lus, tableau des offres (`OffersBoard`) affiché dans l'encart Offres ; mode scan lancé par bouton ou `/mission offres on|off`, image lue quand la liste et la colonne de droite ne bougent plus (le halo du titre est ignoré), liste relue après la molette seulement, liste et détail lus en parallèle, détail rattaché à la carte surlignée en vert, bip quand la page est lue (`[contracts] beep`) ; bouton bascule « Scan Mis. » dans la barre d'état. |
+| `ocr/contract_watch.py` | Offres de contrats sans capture du joueur : image de l'écran prise par uexinfo après chaque clic ou coup de molette dans l'écran Contrats (Star Citizen actif, onglet OFFERS), liste et détail lus, tableau des offres (`OffersBoard`) affiché dans l'encart Offres ; mode scan lancé par bouton ou `/mission offres on|off`, image lue quand la liste et la colonne de droite ne bougent plus (le halo du titre est ignoré), liste relue après la molette seulement, liste et détail lus en parallèle, détail rattaché à la carte surlignée en vert, raccourci `[contracts] hotkey` (alt+shift+m) qui lit l'offre affichée tout de suite, clics lus ou non (`read_on_click`), bip quand la page est lue (`[contracts] beep`) ; bouton bascule « Scan Mis. » dans la barre d'état. |
 | `ocr/log_parser.py` | Lecture du log de SC-Datarunner (mode A). |
 | `ocr/watcher.py` | Surveillance du dossier de captures (mode B). |
 | `ocr/ocr_worker.py` | OCR en arrière-plan des captures. |
@@ -249,7 +249,7 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (404 tests réussis au 2026-11-01).
+Lancer : `pytest` (408 tests réussis au 2026-11-05).
 
 | Fichier | Ce qui est testé |
 |---|---|
@@ -276,6 +276,7 @@ Lancer : `pytest` (404 tests réussis au 2026-11-01).
 | `names/test_graph.py` | Nœuds du vrai graphe de navigation. |
 | `names/test_places.py` | Lieux des missions et voyages : sûrs, proposés, mémorisés, filtres par identité (D11). |
 | `ocr/test_contract_list.py` | Liste des contrats sur des mots OCR réels (20/10). |
+| `ocr/test_scan_log_clear.py` | `/scan log clear` : voyant ScanLog éteint, gardé dans la config. |
 | `ocr/test_contract_watch.py` | Offres lues au clic : onglet actif, empreintes, minuteurs, tableau des offres, objectifs coupés sur deux lignes. |
 | `ocr/test_datarunner_log.py` | Vrai log SC-Datarunner (Pyro Gateway côté Nyx). |
 | `ocr/test_engine_paths.py` | Ordre de recherche de Tesseract. |
@@ -407,7 +408,7 @@ Lancer : `pytest` (404 tests réussis au 2026-11-01).
 | Fichiers suivis par git | 195 |
 | Fichiers Python du package `uexinfo/` | 101 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 28 (404 tests réussis au 2026-11-01) |
+| Fichiers de tests | 29 (408 tests réussis au 2026-11-05) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
@@ -429,3 +430,4 @@ Lancer : `pytest` (404 tests réussis au 2026-11-01).
 - **2026-10-31** (suite) : offres au clic et déconnexions — `ocr/contract_watch.py`, `tests/ocr/test_contract_watch.py` ajoutés.
 - **2026-11-01** : solde du joueur — `ocr/balance.py`, `gamelog/wallet.py`, `tests/gamelog/test_wallet.py` ajoutés ; rôle de `models/player.py` étendu.
 - **2026-11-01** (suite) : journal du programme — `applog.py` ajouté ; rôles de `__main__.py` et `ocr/contract_watch.py` étendus.
+- **2026-11-05** : `/scan log clear` — `tests/ocr/test_scan_log_clear.py` ajouté.

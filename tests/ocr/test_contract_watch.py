@@ -119,7 +119,7 @@ def test_beep_once_page_fully_read():
     w._listener = object()                  # mode actif sans écouter la souris
     w._last_seen = time.time()
 
-    def fake_process(img, ts):
+    def fake_process(img, ts, forced=False):
         w._did_read = img != "même page"
         time.sleep(0.05)
         return False
@@ -177,3 +177,40 @@ def test_applog_text_of_html():
     from uexinfo.applog import text_of
     assert text_of("<table><tr><td>Iron</td><td>4&nbsp;SCU</td></tr></table>\x1b[32mok\x1b[0m") == "Iron | 4\xa0SCU |\nok"
     assert text_of("x" * 50, limit=10).startswith("xxxxxxxxxx\n…")
+
+
+def test_hotkey_parse():
+    from uexinfo.overlay import _Win32HotkeyListener
+    assert _Win32HotkeyListener.parse("alt+shift+m") == ("m", 0x1 | 0x4)
+    assert _Win32HotkeyListener.parse("F10") == ("f10", 0)
+    assert _Win32HotkeyListener("m", None)._vk() == ord("M")
+    assert _Win32HotkeyListener("f10", None)._vk() == 0x79
+
+
+def test_hotkey_forces_detail_reread():
+    # même offre lue deux fois au raccourci : relue (la dernière gagne), sans attendre de changement
+    from uexinfo.ocr.contract_watch import ContractWatcher
+    calls = []
+
+    class Engine:
+        tessdata_dir = "."
+
+        def extract_mission(self, img, full):
+            calls.append(full)
+            return MissionResult(title="", reward=0)
+    w = ContractWatcher(Engine(), None, lambda b: None)
+    w._last_list = b"x"                                   # liste déjà lue, pas de molette
+    img = _screen(True)
+    w.process(img, 0)
+    w.process(img, 1)                                      # image identique : rien à relire
+    w.process(img, 2, forced=True)                         # raccourci : relu quand même
+    assert calls == [False, False]
+
+
+def test_detail_reward_fixes_card_with_extra_digit():
+    # journal du 05/11 : carte lue 363k (¤ lu « 3 »), détail 63 000
+    from uexinfo.cache.contract_catalog import RecognizedContract
+    board = OffersBoard()
+    board.add_cards([RecognizedContract(_card("ROOKIE HAULER NEEDED", 363000, 0, 60), None, 0.0)], 0)
+    got = board.add_detail(MissionResult(title="Rookie Hauler Needed", reward=63000), 0, selected=0)
+    assert got.reward == 63000

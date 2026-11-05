@@ -60,6 +60,28 @@ def _force_focus(title: str = "UEXInfo") -> None:
         pass
 
 
+def start_hotkey(hotkey_str: str, callback, hk_id: int):
+    """Raccourci clavier global (fonctionne aussi quand Star Citizen est au premier plan) ; renvoie
+    l'écouteur (méthode `stop()`), ou None si le raccourci est vide ou n'a pu être posé.
+
+    Windows : RegisterHotKey (le jeu ne reçoit pas la touche) ; ailleurs : pynput GlobalHotKeys.
+    """
+    if not hotkey_str:
+        return None
+    try:
+        if sys.platform == "win32":
+            key, mods = _Win32HotkeyListener.parse(hotkey_str)
+            listener = _Win32HotkeyListener(key, callback, mods, hk_id)
+        else:
+            from pynput import keyboard
+            listener = keyboard.GlobalHotKeys({_parse_hotkey(hotkey_str): callback})
+        listener.start()
+        return listener
+    except Exception as e:
+        print(f"[overlay] raccourci {hotkey_str!r} indisponible : {e}", flush=True)
+        return None
+
+
 def _parse_hotkey(hotkey_str: str) -> str:
     """Convertir 'alt+shift+u' → '<alt>+<shift>+u' (format pynput)."""
     parts = []
@@ -263,16 +285,39 @@ class _Win32HotkeyListener:
     _WM_HOTKEY = 0x0312
     _WM_QUIT   = 0x0012
 
-    def __init__(self, key_name: str, callback) -> None:
-        """`key_name` : touche du raccourci (ex. « f9 ») ; `callback` : fonction appelée à chaque appui."""
+    _MODS = {"alt": 0x1, "ctrl": 0x2, "control": 0x2, "shift": 0x4, "win": 0x8}
+
+    def __init__(self, key_name: str, callback, mods: int = 0, hk_id: int | None = None) -> None:
+        """`key_name` : touche du raccourci (ex. « f9 », « m ») ; `callback` : fonction appelée à chaque
+        appui ; `mods` : modificateurs Win32 (MOD_ALT 1, MOD_CONTROL 2, MOD_SHIFT 4) ; `hk_id` : identifiant
+        propre à ce raccourci (plusieurs raccourcis à la fois)."""
         self._key_name = key_name.lower().strip("<>")
         self._callback = callback
+        self._mods = mods
+        if hk_id is not None:
+            self._HK_ID = hk_id
         self._thread: threading.Thread | None = None
         self._tid: int = 0
 
+    @classmethod
+    def parse(cls, hotkey: str) -> tuple[str, int]:
+        """« alt+shift+m » → (« m », MOD_ALT | MOD_SHIFT)."""
+        parts = [p.strip().lower() for p in hotkey.split("+") if p.strip()]
+        mods = 0
+        for p in parts[:-1]:
+            mods |= cls._MODS.get(p.replace("_l", "").replace("_r", ""), 0)
+        return (parts[-1] if parts else ""), mods
+
+    def _vk(self) -> int | None:
+        """Code de touche virtuelle : table, ou lettre et chiffre (VK = code ASCII majuscule)."""
+        vk = self._VK.get(self._key_name)
+        if vk is None and len(self._key_name) == 1 and self._key_name.isalnum():
+            vk = ord(self._key_name.upper())
+        return vk
+
     def start(self) -> None:
         """Enregistre le raccourci global auprès de Windows dans un thread dédié ; touche inconnue → raccourci désactivé."""
-        vk = self._VK.get(self._key_name)
+        vk = self._vk()
         if vk is None:
             print(f"[overlay] ⚠ Touche sans VK connu : {self._key_name!r} — hotkey désactivée")
             return
@@ -281,6 +326,7 @@ class _Win32HotkeyListener:
         kernel32 = ctypes.windll.kernel32
         callback = self._callback
         hk_id    = self._HK_ID
+        mods     = self._mods
         wm_hk    = self._WM_HOTKEY
         tid_box  = [0]
 
@@ -288,7 +334,7 @@ class _Win32HotkeyListener:
             """Boucle de messages Windows du thread : appelle le callback à chaque appui, jusqu'au message WM_QUIT."""
             import ctypes.wintypes as _wt
             tid_box[0] = kernel32.GetCurrentThreadId()
-            if not user32.RegisterHotKey(None, hk_id, 0, vk):
+            if not user32.RegisterHotKey(None, hk_id, mods, vk):
                 err = ctypes.get_last_error()
                 print(f"[overlay] ⚠ RegisterHotKey({self._key_name}) échoué (err={err})")
                 return

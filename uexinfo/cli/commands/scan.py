@@ -1810,10 +1810,26 @@ def cmd_scan(args: list[str], ctx) -> None:
             _display_result(result, ctx)
         return
 
-    # /scan log [all|reset|<fichier>]
+    # /scan log [all|reset|clear|<fichier>]
     if sub == "log":
         # Sous-commandes spéciales
         sub2 = args[1].lower() if len(args) >= 2 else ""
+
+        if sub2 == "clear":
+            # Voyant ScanLog éteint : le log actuel est marqué comme vu (gardé dans la config,
+            # sinon il clignoterait de nouveau au prochain lancement). Rien n'est lu ni effacé.
+            log_path = _resolve_log_path(args[2:], ctx)
+            if log_path is None or not log_path.exists():
+                print_warn("Log de SC-Datarunner introuvable (/config scan.sc_log_path).")
+                return
+            from uexinfo.config import settings
+            mtime = log_path.stat().st_mtime
+            ctx.log_last_mtime = mtime
+            ctx.cfg.setdefault("scan", {})["log_seen_mtime"] = mtime
+            settings.save(ctx.cfg)
+            console.print("[dim]Voyant ScanLog éteint : le log actuel est marqué comme vu "
+                          "(il se rallumera au prochain scan de Datarunner).[/dim]")
+            return
 
         if sub2 == "reset":
             from uexinfo.ocr.log_parser import LogParser

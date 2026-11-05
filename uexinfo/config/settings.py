@@ -110,6 +110,10 @@ DEFAULT: dict = {
         # plan), uexinfo capture l'écran en mémoire — on|off
         "auto_capture": "off",
         "beep": "on",              # bip quand la page est entièrement lue (passer à l'offre suivante) — on|off
+        # Raccourci du mode scan : l'offre affichée est lue tout de suite (sans attendre la fin de
+        # l'animation) ; « alt+shift+m », « f10 »… ; vide = pas de raccourci
+        "hotkey": "alt+shift+m",
+        "read_on_click": "on",     # lire aussi après chaque clic (attente de l'animation, ≤ 3 s) — on|off
     },
     "voyage": {
         "calc": {

@@ -635,7 +635,8 @@ class OverlayServer:
             log_path = self.ctx.cfg.get("scan", {}).get("sc_log_path", "")
             if log_path and _os.path.exists(log_path):
                 mtime = _os.path.getmtime(log_path)
-                last  = getattr(self.ctx, "log_last_mtime", 0) or 0
+                last  = max(getattr(self.ctx, "log_last_mtime", 0) or 0,
+                            float(self.ctx.cfg.get("scan", {}).get("log_seen_mtime", 0) or 0))
                 scan_log = (mtime > last)
         except Exception:
             pass
@@ -2168,9 +2169,12 @@ class OverlayServer:
                 from uexinfo.cache import contract_catalog as cc
                 from uexinfo.ocr.contract_watch import ContractWatcher, beep
                 from uexinfo.ocr.engine import TesseractEngine
-                on_read = beep if str(self.ctx.cfg.get("contracts", {}).get("beep", "on")).lower() != "off" else None
-                self._contract_watch = ContractWatcher(TesseractEngine(), cc.load_catalog(self.ctx.cfg),
-                                                       self._on_offers, self._on_offers_idle, on_read)
+                ccfg = self.ctx.cfg.get("contracts", {})
+                on_read = beep if str(ccfg.get("beep", "on")).lower() != "off" else None
+                self._contract_watch = ContractWatcher(
+                    TesseractEngine(), cc.load_catalog(self.ctx.cfg), self._on_offers, self._on_offers_idle,
+                    on_read, hotkey=str(ccfg.get("hotkey", "") or ""),
+                    read_on_click=str(ccfg.get("read_on_click", "on")).lower() != "off")
                 self.ctx.offers_board = self._contract_watch.board
             w = self._contract_watch
             if w is not None and on is not None:
@@ -2180,7 +2184,12 @@ class OverlayServer:
         if self._contract_watch is not None and self._contract_watch.active:
             from uexinfo.applog import path as _log_path
             where = f" Journal : {_log_path()}" if _log_path() else ""
-            return ("Mode scan des offres en marche : ouvre Contrats (onglet OFFERS) et clique sur les offres. "
+            w = self._contract_watch
+            how = (f"clique sur une offre ou appuie sur {w.hotkey.upper()} quand elle est affichée"
+                   if w.hotkey and w.read_on_click else
+                   f"appuie sur {w.hotkey.upper()} quand une offre est affichée" if w.hotkey else
+                   "clique sur les offres")
+            return (f"Mode scan des offres en marche : ouvre Contrats (onglet OFFERS) et {how}. "
                     "Arrêt : /mission offres off." + where)
         return "Mode scan des offres arrêté."
 

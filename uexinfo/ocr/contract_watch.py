@@ -221,7 +221,10 @@ class OffersBoard:
                 if not best.recognized and title and len(title) > len(_norm(best.title)):
                     best.title = raw_title
                 if reward and best.reward and reward // 1000 != best.reward // 1000:
-                    reward = 0                                # montant mal lu (67 500 lu 87 500)
+                    card_k, detail_k = str(best.reward // 1000), str(reward // 1000)
+                    if not (len(card_k) == len(detail_k) + 1 and card_k.endswith(detail_k)):
+                        reward = 0                            # montant du détail mal lu (67 500 lu 87 500)
+                    # sinon : carte mal lue, un signe en trop devant (63k lu 363k) → montant du détail
                 return self._attach(best, detail, reward, now)
         if not title:
             return None
@@ -349,12 +352,19 @@ class ContractWatcher:
     que le texte soit écrit, capture l'écran et met le tableau des offres à jour
     (`on_update(board)`, appelé depuis le thread de lecture)."""
 
-    def __init__(self, engine, catalog, on_update, on_idle_stop=None, on_read=None):
+    _HOTKEY_ID = 0x1EF0                     # identifiant RegisterHotKey du raccourci du mode scan
+
+    def __init__(self, engine, catalog, on_update, on_idle_stop=None, on_read=None,
+                 hotkey: str = "", read_on_click: bool = True):
         """`engine` : TesseractEngine ; `catalog` : ContractCatalog (ou None : cartes non reconnues) ;
         `on_idle_stop()` : appelé quand le mode s'arrête seul faute d'écran Contrats ;
         `on_read()` : appelé quand la page est entièrement lue (plus aucune image en attente) — le bip."""
         self.engine, self.catalog, self.on_update = engine, catalog, on_update
         self.on_idle_stop, self.on_read = on_idle_stop, on_read
+        # Raccourci clavier : l'offre affichée est lue tout de suite, sans attendre la fin de
+        # l'animation (le décor transparent bouge toujours) ; même offre deux fois : la dernière gagne.
+        self.hotkey, self.read_on_click = hotkey, read_on_click
+        self._hotkey_listener = None
         self._did_read = False              # une lecture OCR a eu lieu depuis le dernier bip
         self.board = OffersBoard()
         self._queue: queue.Queue = queue.Queue(maxsize=8)
@@ -393,6 +403,10 @@ class ContractWatcher:
         self._listener = mouse.Listener(on_click=self._on_click, on_scroll=self._on_scroll)
         self._listener.daemon = True
         self._listener.start()
+        if self.hotkey:
+            from uexinfo.overlay import start_hotkey
+            self._hotkey_listener = start_hotkey(self.hotkey, self._on_hotkey, self._HOTKEY_ID)
+            log.info("raccourci %s : %s", self.hotkey, "posé" if self._hotkey_listener else "INDISPONIBLE")
         if self._worker is None or not self._worker.is_alive():
             self._worker = threading.Thread(target=self._work, daemon=True, name="contract-watch")
             self._worker.start()
@@ -406,11 +420,29 @@ class ContractWatcher:
         if self._listener:
             self._listener.stop()
         self._listener = None
+        if self._hotkey_listener:
+            self._hotkey_listener.stop()
+        self._hotkey_listener = None
 
     def _on_click(self, x, y, button, pressed) -> None:
-        """Clic relâché : lecture une fois le texte affiché."""
-        if not pressed:
+        """Clic relâché : lecture une fois le texte affiché (sauf `[contracts] read_on_click = off`)."""
+        if not pressed and self.read_on_click:
             self._schedule()
+
+    def _on_hotkey(self) -> None:
+        """Raccourci : capture immédiate de l'écran, détail relu même s'il n'a pas changé."""
+        if not self.active or not star_citizen_active():
+            return
+        self._gen += 1                      # une attente de clic en cours est abandonnée
+        try:
+            from PIL import ImageGrab
+            self._settle_s, self._settle_trace = 0.0, []
+            self._queue.put_nowait((ImageGrab.grab(), time.time(), True))
+            log.info("raccourci %s : offre affichée capturée", self.hotkey)
+        except queue.Full:
+            pass
+        except Exception as e:
+            log.warning("capture au raccourci impossible : %s", e)
 
     def _on_scroll(self, x, y, dx, dy) -> None:
         """Molette : lecture (liste comprise) une fois la liste immobile."""
@@ -451,13 +483,14 @@ class ContractWatcher:
                 if self.on_idle_stop:
                     self.on_idle_stop()
             try:
-                img, ts = self._queue.get(timeout=1)
+                item = self._queue.get(timeout=1)
             except queue.Empty:
                 continue
             if not self.active:
                 continue
+            img, ts, forced = item[0], item[1], (len(item) > 2 and item[2])
             try:
-                if self.process(img, ts):
+                if self.process(img, ts, forced):
                     self.on_update(self.board)
                 if self._did_read and self._queue.empty() and self.on_read:
                     self._did_read = False
@@ -465,8 +498,9 @@ class ContractWatcher:
             except Exception as e:
                 log.warning("lecture de l'écran Contrats : %s", e)
 
-    def process(self, img, ts: float) -> bool:
-        """Lit une image de l'écran ; vrai si le tableau a changé."""
+    def process(self, img, ts: float, forced: bool = False) -> bool:
+        """Lit une image de l'écran ; vrai si le tableau a changé. `forced` (raccourci) : détail
+        relu même s'il semble inchangé."""
         if not offers_tab_active(img):
             log.info("image ignorée : onglet OFFERS non visible (attente %.1f s)", self._settle_s)
             return False
@@ -479,7 +513,7 @@ class ContractWatcher:
         read_list = self._last_list is None or (
             self._list_scrolls != self._scrolls and changed(self._last_list, list_sig))
         detail_sig = signature(img, _DETAIL_BOX)
-        read_detail = changed(self._last_detail, detail_sig)
+        read_detail = forced or changed(self._last_detail, detail_sig)
         if not (read_list or read_detail):
             log.info("rien de nouveau à lire (attente %.1f s)", self._settle_s)
             return False
