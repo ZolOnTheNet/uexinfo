@@ -1096,6 +1096,73 @@ def _entry_cards(entry) -> list:
     return cards
 
 
+def _ship_hold(ctx) -> tuple[int, int | None, str]:
+    """(SCU, plus grande caisse chargeable, nom) du vaisseau actif ; (0, None, « ») sans vaisseau."""
+    p = ctx.player
+    ship = next((s for s in p.ships if s.name == p.active_ship), None)
+    if ship is None:
+        return 0, None, ""
+    sizes = [int(k) for k, n in (ship.cargo_config or {}).items() if n]
+    return int(ship.scu or 0), (max(sizes) if sizes else None), ship.name
+
+
+def _cmd_offers_lot(args: list[str], ctx) -> None:
+    """/mission offres lot [scu] [max N] — offres qui rapportent le plus en tenant dans la soute."""
+    import time
+    from rich.table import Table
+    from uexinfo.rules.cargo_lot import MAX_CONTRACTS, best_lot
+
+    board = getattr(ctx, "offers_board", None)
+    items = board.lot_items(time.time()) if board is not None else []
+    if not items:
+        print_warn("Aucune offre lue : lance le mode scan (bouton Scan Mis.) et ouvre les offres "
+                   "dans Contrats (onglet OFFERS).")
+        return
+    capacity, max_box, ship = _ship_hold(ctx)
+    max_count = MAX_CONTRACTS
+    words = [a.lower() for a in args]
+    for i, w in enumerate(words):
+        if w.isdigit() and (i == 0 or words[i - 1] != "max"):
+            capacity, max_box, ship = int(w), None, ""
+        elif w == "max" and i + 1 < len(words) and words[i + 1].isdigit():
+            max_count = int(words[i + 1])
+    if not capacity:
+        print_warn("Soute inconnue : choisis ton vaisseau (V: en bas) ou donne les SCU : /mission offres lot 96")
+        return
+
+    lot = best_lot(items, capacity, max_count, max_box)
+    fmt = lambda n: f"{n:,}".replace(",", " ")
+    where = f"{ship} — " if ship else ""
+    console.print(f"[bold]Meilleur lot[/bold] [{C.DIM}]({where}soute {capacity} SCU"
+                  + (f", caisses ≤ {max_box} SCU" if max_box else "") + f", {max_count} contrats au plus)[/{C.DIM}]")
+    if not lot.items:
+        print_warn("Aucune offre ne tient dans la soute.")
+    else:
+        t = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+        for col, just in (("Contrat", "left"), ("Montant", "right"), ("SCU", "right"),
+                          ("aUEC/SCU", "right"), ("Caisse", "right"), ("Collecte → livraisons", "left")):
+            t.add_column(col, justify=just)
+        for it in lot.items:
+            scu = f"{it.scu}" if it.exact else f"≤ {it.scu}"
+            route = (", ".join(it.pickups) or "?") + " → " + (", ".join(it.drops) or "?")
+            t.add_row(it.title, fmt(it.reward), scu, fmt(round(it.per_scu)),
+                      str(it.container or ""), route if (it.pickups or it.drops) else f"[{C.DIM}]détail non lu[/{C.DIM}]")
+        console.print(t)
+        free = capacity - lot.scu
+        console.print(f"[{C.PROFIT}]Total : {fmt(lot.reward)} aUEC[/{C.PROFIT}] pour "
+                      f"{'≤ ' if lot.estimated else ''}{lot.scu} SCU sur {capacity} "
+                      f"({len(lot.items)} contrat(s), {free} SCU libres)")
+        if len(lot.pickups) > 1:
+            console.print(f"[{C.DIM}]Collectes : {', '.join(lot.pickups)}[/{C.DIM}]")
+        if lot.estimated:
+            console.print(f"[{C.DIM}]≤ : SCU estimés au plus haut (catalogue) — clique l'offre en jeu pour "
+                          f"lire sa cargaison exacte.[/{C.DIM}]")
+    if lot.left_out:
+        console.print(f"[{C.DIM}]Écartées :[/{C.DIM}]")
+        for it, why in lot.left_out:
+            console.print(f"[{C.DIM}]  · {it.title} ({fmt(it.reward) if it.reward else '?'}) — {why}[/{C.DIM}]")
+
+
 def _cmd_offers(args: list[str], ctx) -> None:
     """/mission offres [on|off|today|all|maj] — mode scan des offres, ou contrats vus dans les captures."""
     from datetime import datetime
@@ -1108,6 +1175,16 @@ def _cmd_offers(args: list[str], ctx) -> None:
             return
         word = args[0].lower()
         print_ok(control(True if word in ("on", "scan") else False if word == "off" else None))
+        return
+
+    if args and args[0].lower() in ("lot", "best"):
+        _cmd_offers_lot(args[1:], ctx)
+        return
+
+    if args and args[0].lower() in ("vider", "clear"):
+        board = getattr(ctx, "offers_board", None)
+        n = board.clear() if board is not None else 0
+        print_ok(f"Tableau des offres vidé ({n} offre(s) retirée(s)).")
         return
 
     if args and args[0].lower() in ("maj", "update"):
@@ -1195,6 +1272,8 @@ def _show_help() -> None:
         ("scan terminal",    "Terminaux scannés"),
         ("offres",           "Contrats lus dans les captures de la liste (catégorie, points, partage)"),
         ("offres on|off",    "Mode scan : uexinfo lit les offres à chaque clic dans l'écran Contrats"),
+        ("offres lot [scu]", "Meilleur lot d'offres lues pour la soute du vaisseau actif (ou scu donnés)"),
+        ("offres vider",     "Vide le tableau des offres lues"),
         ("offres today|all", "Idem sur la journée / toute la base"),
         ("offres maj",       "Télécharge les données de contrats scmdb.net (une fois par version du jeu)"),
     ]

@@ -1,5 +1,7 @@
 """uexinfo — overlay Star Citizen pour le trading, les missions et la navigation."""
-__version__ = "0.1.0"
+# Numéro de version : « 0.0.1-<commit> » (version_string) — le commit avance à chaque envoi,
+# le numéro à la main quand une étape est franchie.
+__version__ = "0.0.1"
 
 
 def build_id() -> str:
@@ -18,3 +20,9 @@ def build_id() -> str:
         return out.stdout.strip() if out.returncode == 0 else ""
     except Exception:
         return ""
+
+
+def version_string() -> str:
+    """Version complète affichée et journalisée : « 0.0.1-e5a69a6 » (« 0.0.1 » hors dépôt git)."""
+    b = build_id()
+    return f"{__version__}-{b}" if b else __version__

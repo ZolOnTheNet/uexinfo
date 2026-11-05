@@ -1094,6 +1094,9 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 #offers-board td.num { text-align: right; white-space: nowrap; }
 #offers-board tr.obj td { color: var(--dim); padding-left: 12px; }
 #offers-board .bp { color: var(--yellow); }
+.cmd-btn { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--accent);
+           border-radius: 2px; color: var(--accent); font-weight: normal; cursor: pointer; }
+.cmd-btn:hover { background: var(--accent); color: var(--bg, #000); }
 </style>
 <style>/*__MENU_CSS__*/</style>
 </head>
@@ -2399,6 +2402,12 @@ function getClickableWord(e) {
 function clickArg(info) { return info.ref ? '#' + info.ref : info.word; }
 
 elOutput.addEventListener('click', e => {
+  // Bouton de commande dans une sortie (encart Offres…) : même commande qu'au clavier
+  const cmdBtn = e.target.closest('[data-cmd]');
+  if (cmdBtn) {
+    sendCmd(cmdBtn.dataset.cmd, true, 'bouton ' + cmdBtn.textContent.trim());
+    return;
+  }
   if (e.detail > 1) return;   // laisser dblclick gérer le double-clic
   closeCtx();
   const info = getClickableWord(e);

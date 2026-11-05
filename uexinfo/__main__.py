@@ -74,7 +74,8 @@ def main() -> None:
     except Exception:
         days = 7
     where = applog.setup(days)
-    applog.log.info("════ démarrage d'uexinfo ════")
+    from uexinfo import version_string
+    applog.log.info("════ démarrage d'uexinfo %s ════", version_string())
     if where:
         print(f"[uexinfo] Journal : {where} ({days} jours gardés)", flush=True)
 

@@ -140,6 +140,8 @@ class Offer:
     seen_at: float = 0.0
     objectives: list[str] = field(default_factory=list)    # « 96 SCU Ship Ammunition → NB Int. Spaceport »
     scu: int | None = None                                   # cargaison lue dans le détail (somme des livraisons)
+    pickups: list[str] = field(default_factory=list)         # lieux de collecte (détail)
+    drops: list[str] = field(default_factory=list)           # lieux de livraison (détail)
 
     @property
     def key(self) -> tuple:
@@ -247,19 +249,38 @@ class OffersBoard:
         """Montant exact et objectifs du détail → offre."""
         if reward:
             best.reward = reward                              # montant exact (« ¤ 124,000 »)
-        lines, total = [], 0
+        lines, total, pickups, drops = [], 0, [], []
         for ob in getattr(detail, "parsed_objectives", []) or []:
             if ob.kind == "deliver":
                 qty = f"{ob.quantity_scu} SCU " if ob.quantity_scu else ""
                 name = re.sub(r"\s*\([^)]*/\s*scu\)", "", ob.commodity or "", flags=re.I) or "?"
                 lines.append(f"{qty}{name} → {ob.full_location or '?'}")
                 total += ob.quantity_scu or 0
+                if ob.full_location:
+                    drops.append(ob.full_location)
             elif ob.kind == "collect" and ob.full_location:
                 lines.append(f"collecte : {ob.full_location}")
+                pickups.append(ob.full_location)
         if lines:
             best.objectives, best.scu = lines, total or best.scu
+            best.pickups, best.drops = list(dict.fromkeys(pickups)), list(dict.fromkeys(drops))
         best.seen_at = now
         return best
+
+    def clear(self) -> int:
+        """Vide le tableau (nouvelle série d'offres) ; nombre d'offres retirées."""
+        n = len(self.offers)
+        self.offers.clear()
+        self.cards = []
+        return n
+
+    def lot_items(self, now: float) -> list:
+        """Offres encore valables → candidates du meilleur lot (`rules/cargo_lot.py`)."""
+        from uexinfo.rules.cargo_lot import LotItem
+        return [LotItem(key=o.key, title=o.title, reward=o.reward or 0,
+                        scu=o.scu or o.scu_max, exact=bool(o.scu), container=o.container,
+                        pickups=list(o.pickups), drops=list(o.drops))
+                for o in self.rows(now)]
 
     def rows(self, now: float) -> list[Offer]:
         """Offres encore valables, la plus payée d'abord."""
@@ -270,7 +291,9 @@ class OffersBoard:
         """Tableau HTML des offres (encart de l'overlay)."""
         rows = self.rows(now)
         head = (f"<div class='offers-head'>Offres de contrats — {len(rows)} "
-                f"<span class='dim'>(clique sur une offre en jeu pour sa destination)</span></div>")
+                f"<span class='dim'>(clique sur une offre en jeu pour sa destination)</span>"
+                f" <span class='cmd-btn' data-cmd='/mission offres lot' title='/mission offres lot'>Meilleur lot</span>"
+                f" <span class='cmd-btn' data-cmd='/mission offres vider' title='/mission offres vider'>Vider</span></div>")
         if not rows:
             return head
         out = [head, "<table class='offers'><tr><th>Contrat</th><th>Montant</th><th>SCU</th>"

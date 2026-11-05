@@ -451,8 +451,8 @@ def run_overlay(hotkey: str | None = None, port: int | None = None) -> None:
     # ── 0. Port déjà pris = une autre instance tourne (souvent l'ancienne version) ──
     # Sans ce contrôle, le serveur échoue en silence et la nouvelle fenêtre se
     # connecte au serveur de l'ANCIENNE instance : on croit tester le nouveau code.
-    from uexinfo import build_id
-    print(f"[overlay] Version : {build_id() or '?'}  ({Path(__file__).resolve().parent.parent})", flush=True)
+    from uexinfo import version_string
+    print(f"[overlay] Version : {version_string()}  ({Path(__file__).resolve().parent.parent})", flush=True)
     if _port_in_use("127.0.0.1", port) and _replace_previous_instance(port):
         print("[overlay] Ancienne instance fermée — cette version prend le relais.", flush=True)
     if _port_in_use("127.0.0.1", port):

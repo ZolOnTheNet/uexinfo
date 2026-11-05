@@ -679,3 +679,14 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `[contracts] hotkey = "alt+shift+m"` (réglable : « f10 »…, vide = aucun) : l'écran est capturé à l'appui et le détail relu même s'il semble inchangé ; même offre plusieurs fois : la dernière lecture gagne. Posé par RegisterHotKey (fonctionne quand Star Citizen est au premier plan) ; `_Win32HotkeyListener` accepte modificateurs, lettres et chiffres ; `start_hotkey()` réutilisable. `[contracts] read_on_click = on|off` pour garder ou non la lecture après chaque clic.
 - Montant : quand la carte a un chiffre de trop devant le montant du détail (363k / 63 000), le montant du détail est gardé.
 - 408 tests réussis. À tester en jeu.
+
+## 2026-11-05 — meilleur lot, plan de test, version 0.0.1-<commit>
+
+**Demandé :** « on commence » le choix d'un lot d'offres pour le vaisseau (« n'oublie pas qu'il faut imaginer l'interface souris comme l'interface textuelle ») ; un plan de test ; un numéro de version « 0.0.1-code du commit ».
+
+**Fait :**
+- `rules/cargo_lot.py` (pur) : sac à dos 0/1 — gain maximal, SCU ≤ soute, 10 contrats au plus, caisses de la mission ≤ plus grande caisse du vaisseau ; SCU exacts (détail) ou estimés au plus haut (catalogue, « ≤ ») ; offres écartées avec leur raison.
+- Clavier : `/mission offres lot [scu] [max N]` (soute du vaisseau actif par défaut), `/mission offres vider`. Souris : boutons « Meilleur lot » et « Vider » dans l'encart Offres, et dans le thème Missions ; boutons `data-cmd` génériques dans les sorties (même commande, notée « bouton … » au journal). Offres : collectes et livraisons gardées (`pickups`, `drops`).
+- `docs/PLAN_DE_TEST.md` : essais en jeu avec attendu et trace du journal.
+- Version : `__version__ = "0.0.1"` (pyproject aussi, était 0.1.0) ; `version_string()` = « 0.0.1-<commit> » dans la bannière, la console et le journal.
+- 414 tests réussis.

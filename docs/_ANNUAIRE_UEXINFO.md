@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-11-05** (207 fichiers suivis par git).
+> Dernière mise à jour : **2026-11-05** (210 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -182,6 +182,7 @@ uexinfo/                         (racine du dépôt)
 | `rules/__init__.py` | Présentation du package. |
 | `rules/stock.py` | Quantités achetables/vendables selon le statut de stock UEX (D1, D5). |
 | `rules/risk.py` | Risque de ne pas écouler au terminal de vente, demi-vie 1 h (D2). |
+| `rules/cargo_lot.py` | Meilleur lot de contrats de transport pour une soute : gain maximal, SCU ≤ capacité, 10 contrats au plus, taille des caisses (sac à dos). |
 | `rules/version.py` | Versions SC et changements d'univers (D3). |
 | `rules/scan_match.py` | Quel terminal homonyme a été scanné (Pyro Gateway côté Stanton ou Nyx). |
 
@@ -209,7 +210,7 @@ uexinfo/                         (racine du dépôt)
 | `ocr/engine.py` | Moteur Tesseract : lecture des terminaux et des écrans de mission. Cherche Tesseract d'abord dans `extprg/tesseract/`. |
 | `ocr/contract_list.py` | Panneau des contrats du mobiGlas → cartes (titre, XP, donneur d'ordre, récompense, préfixe `[BP]`). |
 | `ocr/balance.py` | Solde « CURRENT BALANCE » lu en haut à droite du terminal de marchandises ; lecture incertaine (¤ lu comme un chiffre) départagée par le solde connu. |
-| `ocr/contract_watch.py` | Offres de contrats sans capture du joueur : image de l'écran prise par uexinfo après chaque clic ou coup de molette dans l'écran Contrats (Star Citizen actif, onglet OFFERS), liste et détail lus, tableau des offres (`OffersBoard`) affiché dans l'encart Offres ; mode scan lancé par bouton ou `/mission offres on|off`, image lue quand la liste et la colonne de droite ne bougent plus (le halo du titre est ignoré), liste relue après la molette seulement, liste et détail lus en parallèle, détail rattaché à la carte surlignée en vert, raccourci `[contracts] hotkey` (alt+shift+m) qui lit l'offre affichée tout de suite, clics lus ou non (`read_on_click`), bip quand la page est lue (`[contracts] beep`) ; bouton bascule « Scan Mis. » dans la barre d'état. |
+| `ocr/contract_watch.py` | Offres de contrats sans capture du joueur : image de l'écran prise par uexinfo après chaque clic ou coup de molette dans l'écran Contrats (Star Citizen actif, onglet OFFERS), liste et détail lus, tableau des offres (`OffersBoard`) affiché dans l'encart Offres ; mode scan lancé par bouton ou `/mission offres on|off`, image lue quand la liste et la colonne de droite ne bougent plus (le halo du titre est ignoré), liste relue après la molette seulement, liste et détail lus en parallèle, détail rattaché à la carte surlignée en vert, tableau des offres → candidates du meilleur lot (`lot_items`), boutons Meilleur lot et Vider dans l'encart ; raccourci `[contracts] hotkey` (alt+shift+m) qui lit l'offre affichée tout de suite, clics lus ou non (`read_on_click`), bip quand la page est lue (`[contracts] beep`) ; bouton bascule « Scan Mis. » dans la barre d'état. |
 | `ocr/log_parser.py` | Lecture du log de SC-Datarunner (mode A). |
 | `ocr/watcher.py` | Surveillance du dossier de captures (mode B). |
 | `ocr/ocr_worker.py` | OCR en arrière-plan des captures. |
@@ -249,7 +250,7 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (408 tests réussis au 2026-11-05).
+Lancer : `pytest` (414 tests réussis au 2026-11-05).
 
 | Fichier | Ce qui est testé |
 |---|---|
@@ -282,6 +283,7 @@ Lancer : `pytest` (408 tests réussis au 2026-11-05).
 | `ocr/test_engine_paths.py` | Ordre de recherche de Tesseract. |
 | `rules/test_stock.py` | D1 : quantités selon le statut de stock. |
 | `rules/test_risk.py` | D2 : risque de stock, demi-vie 1 h. |
+| `rules/test_cargo_lot.py` | Meilleur lot sur les offres du 05/11 : soute pleine, petite soute, limite de 10, caisses trop grandes, SCU inconnus. |
 | `rules/test_version.py` | D3 : versions et changements d'univers. |
 | `rules/test_scan_match.py` | Quel Pyro Gateway a été scanné. |
 
@@ -307,6 +309,7 @@ Lancer : `pytest` (408 tests réussis au 2026-11-05).
 | Fichier | Date | Statut | Contenu |
 |---|---|---|---|
 | `_ANNUAIRE_UEXINFO.md` | 2026-10-29 | ✅ | Ce fichier. |
+| `PLAN_DE_TEST.md` | 2026-11-05 | ✅ | Plan de test en jeu : position, morts, déconnexions, solde, mode scan des offres (bouton, raccourci, clic), meilleur lot, journal ; attendu et trace du journal pour chaque essai. |
 | `INSTALLATION.md` | 2026-10-29 | ✅ | Installer et lancer sous Windows et Linux (scripts, options, OCR, Game.log, données, dépannage). |
 | `ai/NOTES.md` | 2026-10-29 | ✅ | **À lire en premier** : objectifs, carte du code, dette vérifiée, pistes. |
 | `ai/ACTIVITY_LOG.md` | 2026-10-29 | ✅ | Journal de chaque étape notable. |
@@ -408,7 +411,7 @@ Lancer : `pytest` (408 tests réussis au 2026-11-05).
 | Fichiers suivis par git | 195 |
 | Fichiers Python du package `uexinfo/` | 101 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 29 (408 tests réussis au 2026-11-05) |
+| Fichiers de tests | 30 (414 tests réussis au 2026-11-05) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
@@ -431,3 +434,4 @@ Lancer : `pytest` (408 tests réussis au 2026-11-05).
 - **2026-11-01** : solde du joueur — `ocr/balance.py`, `gamelog/wallet.py`, `tests/gamelog/test_wallet.py` ajoutés ; rôle de `models/player.py` étendu.
 - **2026-11-01** (suite) : journal du programme — `applog.py` ajouté ; rôles de `__main__.py` et `ocr/contract_watch.py` étendus.
 - **2026-11-05** : `/scan log clear` — `tests/ocr/test_scan_log_clear.py` ajouté.
+- **2026-11-05** (suite) : meilleur lot et plan de test — `rules/cargo_lot.py`, `tests/rules/test_cargo_lot.py`, `docs/PLAN_DE_TEST.md` ajoutés ; version 0.0.1-<commit>.
