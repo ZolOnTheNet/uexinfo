@@ -667,6 +667,13 @@ class OverlayServer:
         active_voyage = vm.get_active() if vm else None
         voyage_name   = active_voyage.name if active_voyage else ""
         voyage_count  = len(active_voyage.mission_ids) if active_voyage else 0
+        route_next = ""
+        if active_voyage is not None:
+            try:
+                from uexinfo.cli.circuit import next_step
+                route_next = next_step(self.ctx)
+            except Exception:
+                route_next = ""
 
         await ws.send(json.dumps({
             "type":          "status",
@@ -680,6 +687,7 @@ class OverlayServer:
             "dist":          dist,
             "voyage_name":  voyage_name,
             "voyage_count": voyage_count,
+            "route_next":   route_next,
             # ScanLog a la priorité : ScanSC ne clignote pas quand ScanLog est en attente
             "scan_sc":  scan_sc and not scan_log,
             "scan_log": scan_log,
@@ -2090,6 +2098,19 @@ class OverlayServer:
         now = datetime.now(timezone.utc).replace(tzinfo=None)     # heures du Game.log : UTC
         events = recognize_all(new_lines)
         self._wallet.feed(events)
+        # contrats pris / terminés / échoués : chemin des livraisons (cli/circuit.py)
+        for ev in events:
+            if ev.kind != "notification":
+                continue
+            try:
+                from uexinfo.cli.circuit import contract_notice
+                msg = contract_notice(self.ctx, ev.data.get("text", ""))
+            except Exception as e:
+                _applog.warning("contrat du Game.log non traité : %s", e)
+                msg = None
+            if msg:
+                _applog.info("contrat : %s", msg)
+                await self._broadcast_raw(json.dumps({"type": "presence", "kind": "info", "text": msg}))
         notices = self._presence.feed(events) + self._presence.flush(now)
         if len(self._presence.known_codes) != known:
             save_zone_codes(self._presence.known_codes)
@@ -2107,6 +2128,16 @@ class OverlayServer:
                 self.ctx.cfg["player"] = p.to_config()
                 from uexinfo.config import settings
                 settings.save(self.ctx.cfg)
+            if n.kind in ("arrival", "landed") and n.place:
+                try:
+                    from uexinfo.cli.circuit import arrived
+                    done = arrived(self.ctx, n.place, n.system)
+                except Exception as e:
+                    _applog.warning("arrêt du chemin non suivi : %s", e)
+                    done = None
+                if done:
+                    _applog.info("chemin : %s", done)
+                    await self._broadcast_raw(json.dumps({"type": "presence", "kind": "info", "text": done}))
             if n.kind not in ("arrival", "respawn", "regen") or not n.place or mode == "off":
                 continue
             from uexinfo.cli.choose import position_terminal
@@ -2181,16 +2212,14 @@ class OverlayServer:
                     keep_images=int(ccfg.get("keep_images", 30) or 0),
                     images_dir=log_dir() / "offres",
                     system_fn=lambda: player_system(self.ctx))
-                # moisson gardée sur disque : une relance d'uexinfo la retrouve
-                import appdirs
-                from pathlib import Path as _P
-                board = self._contract_watch.board
-                board.path = _P(appdirs.user_data_dir("uexinfo")) / "offres.json"
-                import time as _t0
-                n = board.load(_t0.time())
-                if n:
-                    _applog.info("offres reprises du disque : %d", n)
-                self.ctx.offers_board = board
+                # moisson gardée sur disque : une relance d'uexinfo la retrouve ; tableau partagé
+                # avec les contrats pris (cli/circuit.py), qui peut l'avoir déjà relu
+                from uexinfo.cli.circuit import board as _shared_board
+                n_before = getattr(self.ctx, "offers_board", None) is None
+                board = _shared_board(self.ctx)
+                self._contract_watch.board = board
+                if n_before and board.offers:
+                    _applog.info("offres reprises du disque : %d", len(board.offers))
             w = self._contract_watch
             if w is not None and on is not None:
                 w.start() if on else w.stop()
@@ -2221,7 +2250,8 @@ class OverlayServer:
             return
         import time as _t
         board.save()
-        msg = json.dumps({"type": "offers", "html": board.html(_t.time())})
+        from uexinfo.cli.places import player_places
+        msg = json.dumps({"type": "offers", "html": board.html(_t.time(), *player_places(self.ctx))})
         asyncio.run_coroutine_threadsafe(self._broadcast_raw(msg), self._loop)
 
     def start_background(self, host: str = "localhost", port: int = 8090) -> None:

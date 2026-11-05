@@ -1094,6 +1094,11 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 #offers-board td.num { text-align: right; white-space: nowrap; }
 #offers-board tr.obj td { color: var(--dim); padding-left: 12px; }
 #offers-board .bp { color: var(--yellow); }
+#offers-board .mark-here { color: var(--yellow); }
+#offers-board .mark-there { color: var(--accent); }
+#offers-board tr.mark td { background: rgba(255, 210, 80, 0.08); }
+#offers-board tr.both td { background: rgba(255, 210, 80, 0.20); font-weight: bold; }
+#offers-board tr.taken td { opacity: 0.55; }
 .cmd-btn { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--accent);
            border-radius: 2px; color: var(--accent); font-weight: normal; cursor: pointer; }
 .cmd-btn:hover { background: var(--accent); color: var(--bg, #000); }
@@ -2065,7 +2070,14 @@ function updateStatus(s) {
   const vEl = document.getElementById('sb-voyage');
   if (s.voyage_name) {
     vEl.classList.add('on'); vEl.classList.remove('off');
-    vEl.textContent  = `🗺 ${s.voyage_name}${s.voyage_count ? ' · ' + s.voyage_count + 'm' : ''}`;
+    routeNext = s.route_next || '';
+    vEl.textContent  = routeNext
+      ? `🗺 ➜ ${routeNext.split(' : ')[0]}`
+      : `🗺 ${s.voyage_name}${s.voyage_count ? ' · ' + s.voyage_count + 'm' : ''}`;
+    vEl.title = routeNext
+      ? `Prochain arrêt — ${routeNext}
+Voyage ${s.voyage_name} · clic : le chemin (/mission route)`
+      : 'Voyage actif — cliquer pour afficher';
     vEl.style.cursor = 'pointer';
   } else {
     vEl.classList.add('off'); vEl.classList.remove('on');
@@ -2112,8 +2124,9 @@ document.getElementById('sb-offers').addEventListener('click', () => {
   setFlag('sb-offers', offersScan);
 });
 
+let routeNext = '';
 document.getElementById('sb-voyage').addEventListener('click', () => {
-  sendCmd('/voyage list');
+  sendCmd(routeNext ? '/mission route' : '/voyage list', false, routeNext ? 'bouton chemin' : undefined);
 });
 document.getElementById('sb-pos').addEventListener('click', (e) => {
   if (e.detail > 1) return;  // laisser dblclick gérer

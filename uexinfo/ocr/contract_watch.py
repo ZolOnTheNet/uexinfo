@@ -142,6 +142,10 @@ class Offer:
     scu: int | None = None                                   # cargaison lue dans le détail (somme des livraisons)
     pickups: list[str] = field(default_factory=list)         # lieux de collecte (détail)
     drops: list[str] = field(default_factory=list)           # lieux de livraison (détail)
+    # livraisons du détail : {"commodity", "scu", "pickup", "drop"} (collecte de la même
+    # marchandise, ou la seule collecte de l'offre ; None si on ne sait pas)
+    legs: list[dict] = field(default_factory=list)
+    mission_id: int | None = None                            # contrat pris : mission enregistrée
 
     @property
     def key(self) -> tuple:
@@ -175,6 +179,41 @@ def _other_title(a: str, b: str) -> bool:
     def alone(xs, ys):
         return any(all(fuzz.ratio(x, y) < 75 for y in ys) for x in xs)
     return bool(wa and wb) and alone(wa, wb) and alone(wb, wa)
+
+
+def _pickup_for(deliver, collects) -> str | None:
+    """Lieu de collecte d'une livraison : celui de la même marchandise, sinon le seul de l'offre."""
+    same = [c.full_location for c in collects
+            if c.commodity and deliver.commodity and _norm(c.commodity) in _norm(deliver.commodity)]
+    places = list(dict.fromkeys(same or [c.full_location for c in collects]))
+    return places[0] if len(places) == 1 else None
+
+
+def _same_place(read: str, name: str) -> bool:
+    """Lieu lu par l'OCR (« Ruin Station above Pyro VI ») et lieu du joueur (« Ruin Station »)
+    désignent le même endroit : même nom court (`cargo_lot.place_key`), ou l'un contient l'autre
+    (mots entiers, 5 lettres au moins : « pyro » seul ne suffit pas). Comparaison de texte : les lieux des offres ne sont pas
+    reliés à un objet (ils viennent de l'OCR), on ne fait que signaler, sans rien enregistrer."""
+    from uexinfo.rules.cargo_lot import place_key
+    a, b = place_key(read), place_key(name)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    short, long_ = sorted((a, b), key=len)
+    return len(short) >= 5 and f" {short} " in f" {long_} "
+
+
+def _offer_marks(o, here: str, there: str) -> tuple[bool, bool]:
+    """(collecte à `here`, livraison à `there`) pour une offre dont le détail a été lu."""
+    return (bool(here) and any(_same_place(p, here) for p in o.pickups),
+            bool(there) and any(_same_place(d, there) for d in o.drops))
+
+
+def default_board_path() -> Path:
+    """Fichier où le tableau des offres est gardé (`<données uexinfo>/offres.json`)."""
+    import appdirs
+    return Path(appdirs.user_data_dir("uexinfo")) / "offres.json"
 
 
 class OffersBoard:
@@ -276,8 +315,10 @@ class OffersBoard:
         """Montant exact et objectifs du détail → offre."""
         if reward:
             best.reward = reward                              # montant exact (« ¤ 124,000 »)
-        lines, total, pickups, drops = [], 0, [], []
-        for ob in getattr(detail, "parsed_objectives", []) or []:
+        lines, total, pickups, drops, legs = [], 0, [], [], []
+        objs = getattr(detail, "parsed_objectives", []) or []
+        collects = [ob for ob in objs if ob.kind == "collect" and ob.full_location]
+        for ob in objs:
             if ob.kind == "deliver":
                 qty = f"{ob.quantity_scu} SCU " if ob.quantity_scu else ""
                 name = re.sub(r"\s*\([^)]*/\s*scu\)", "", ob.commodity or "", flags=re.I) or "?"
@@ -285,12 +326,15 @@ class OffersBoard:
                 total += ob.quantity_scu or 0
                 if ob.full_location:
                     drops.append(ob.full_location)
+                    legs.append({"commodity": name, "scu": ob.quantity_scu or 0,
+                                 "pickup": _pickup_for(ob, collects), "drop": ob.full_location})
             elif ob.kind == "collect" and ob.full_location:
                 lines.append(f"collecte : {ob.full_location}")
                 pickups.append(ob.full_location)
         if lines:
             best.objectives, best.scu = lines, total or best.scu
             best.pickups, best.drops = list(dict.fromkeys(pickups)), list(dict.fromkeys(drops))
+            best.legs = legs
         best.seen_at = now
         return best
 
@@ -341,42 +385,75 @@ class OffersBoard:
         return [LotItem(key=o.key, title=o.title, reward=o.reward or 0,
                         scu=o.scu or o.scu_max, exact=bool(o.scu), container=o.container,
                         pickups=list(o.pickups), drops=list(o.drops))
-                for o in self.rows(now)]
+                for o in self.rows(now) if not o.mission_id]
+
+    def ordered(self, now: float, here: str = "", there: str = "") -> list[Offer]:
+        """Offres dans l'ordre du tableau (numéros de `/mission offres prendre N`) : marquées
+        ★ ⚑ d'abord, puis la plus payée."""
+        return sorted(self.rows(now), key=lambda o: -sum(_offer_marks(o, here, there)))
+
+    def find(self, title: str, now: float) -> Offer | None:
+        """Offre au titre `title` (notification du Game.log), pas encore prise : la plus récente
+        dont le détail a été lu en priorité ; None si aucune ne ressemble assez."""
+        from rapidfuzz import fuzz
+        t = _norm(title)
+        scored = [(fuzz.ratio(t, _norm(o.title)), bool(o.legs), o.seen_at, o)
+                  for o in self.rows(now) if not o.mission_id]
+        scored = [x for x in scored if x[0] >= 88]
+        return max(scored, key=lambda x: x[:3])[3] if scored else None
 
     def rows(self, now: float) -> list[Offer]:
         """Offres encore valables, la plus payée d'abord."""
         live = [o for o in self.offers.values() if not o.expires_at or o.expires_at > now]
         return sorted(live, key=lambda o: -(o.reward or 0))
 
-    def html(self, now: float) -> str:
-        """Tableau HTML des offres (encart de l'overlay)."""
-        rows = self.rows(now)
+    def html(self, now: float, here: str = "", there: str = "") -> str:
+        """Tableau HTML des offres (encart de l'overlay). `here` / `there` : position et
+        destination du joueur (noms de lieux) ; les offres qui collectent ici (★) ou livrent
+        là-bas (⚑) sont surlignées et passent en tête, celles qui font les deux d'abord."""
+        marks = {id(o): _offer_marks(o, here, there) for o in self.offers.values()}
+        rows = self.ordered(now, here, there)
+        legend = []
+        if here:
+            legend.append(f"<span class='mark-here'>★</span> collecte à {html.escape(here)}")
+        if there:
+            legend.append(f"<span class='mark-there'>⚑</span> livraison à {html.escape(there)}")
         head = (f"<div class='offers-head'>Offres de contrats — {len(rows)} "
                 f"<span class='dim'>(clique sur une offre en jeu pour sa destination)</span>"
                 f" <span class='cmd-btn' data-cmd='/mission offres lot' title='/mission offres lot'>Meilleur lot</span>"
                 f" <span class='cmd-btn' data-cmd='/mission offres lot dest 2' title='/mission offres lot dest 2'>≤ 2 dest.</span>"
                 f" <span class='cmd-btn' data-cmd='/mission offres lot dest 3' title='/mission offres lot dest 3'>≤ 3 dest.</span>"
-                f" <span class='cmd-btn' data-cmd='/mission offres vider' title='/mission offres vider'>Vider</span></div>")
+                f" <span class='cmd-btn' data-cmd='/mission offres vider' title='/mission offres vider'>Vider</span>"
+                + (f"<div class='dim'>{' · '.join(legend)}</div>" if legend else "") + "</div>")
         if not rows:
             return head
-        out = [head, "<table class='offers'><tr><th>Contrat</th><th>Montant</th><th>SCU</th>"
-                     "<th>Caisse</th><th>Rang</th><th>Reste</th></tr>"]
-        for o in rows:
+        out = [head, "<table class='offers'><tr><th>N°</th><th>Contrat</th><th>Montant</th><th>SCU</th>"
+                     "<th>Caisse</th><th>Rang</th><th>Reste</th><th></th></tr>"]
+        for num, o in enumerate(rows, 1):
             left = ""
             if o.expires_at:
                 m = max(0, int((o.expires_at - now) // 60))
                 left = f"{m // 60}h{m % 60:02d}" if m >= 60 else f"{m} min"
-            title = html.escape(o.title) + (" <b class='bp'>[BP]</b>" if o.blueprint else "")
+            at_here, to_there = marks[id(o)]
+            title = (("<span class='mark-here' title='collecte à ta position'>★</span> " if at_here else "")
+                     + ("<span class='mark-there' title='livre à ta destination'>⚑</span> " if to_there else "")
+                     + html.escape(o.title) + (" <b class='bp'>[BP]</b>" if o.blueprint else ""))
             if o.xp:
                 title += f" <span class='dim'>{o.xp} XP</span>"
             if not o.recognized:
                 title = f"<span class='dim'>{title} (non reconnu)</span>"
             reward = f"{o.reward:,}".replace(",", " ") if o.reward else "—"
-            out.append(f"<tr><td>{title}</td><td class='num'>{reward}</td><td class='num'>{o.scu_text}</td>"
+            cls = ("taken" if o.mission_id else "both" if at_here and to_there
+                   else "mark" if at_here or to_there else "")
+            take = (f"<span class='dim' title='mission #{o.mission_id}'>✔ pris</span>" if o.mission_id else
+                    f"<span class='cmd-btn' data-cmd='/mission offres prendre {num}' "
+                    f"title='/mission offres prendre {num} : contrat accepté en jeu, à mettre dans le chemin'>Pris</span>")
+            out.append(f"<tr{f' class={chr(39)}{cls}{chr(39)}' if cls else ''}><td class='num dim'>{num}</td>"
+                       f"<td>{title}</td><td class='num'>{reward}</td><td class='num'>{o.scu_text}</td>"
                        f"<td class='num'>{o.container or ''}</td><td>{html.escape(o.rank)}</td>"
-                       f"<td class='num'>{left}</td></tr>")
+                       f"<td class='num'>{left}</td><td>{take}</td></tr>")
             for line in o.objectives:
-                out.append(f"<tr class='obj'><td colspan='6'>↳ {html.escape(line)}</td></tr>")
+                out.append(f"<tr class='obj'><td></td><td colspan='7'>↳ {html.escape(line)}</td></tr>")
         out.append("</table>")
         return "".join(out)
 

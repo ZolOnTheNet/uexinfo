@@ -42,6 +42,7 @@ journal du jour en cas d'écart.
 | 3.2 | Contrats › OFFERS, cliquer une offre, attendre le texte | Bip ; encart Offres : l'offre avec ses livraisons | `détail : carte surlignée N … → <offre>` | |
 | 3.3 | Ouvrir Contrats › OFFERS, ouvrir une offre, appuyer sur **F9** | Bip **aigu** en ~0,7 s, même juste après la molette ; détail rattaché (bip **grave** si non reconnue : réappuyer) | `raccourci f9 à l'écoute`, `touche f9 : offre affichée capturée`, `lu en … après 0.0 s` | |
 | 3.3b | Fermer le mobiGlas, monter dans le vaisseau, appuyer sur F9 | F9 baisse la puissance moteur (touche jamais retirée au jeu) ; pas de bip | `touche f9 ignorée : écran Contrats … non affiché` | |
+| 3.2b | Position et destination choisies (`/go`, `/dest`), puis `/mission offres` | ★ devant les offres qui collectent ici, ⚑ devant celles qui livrent à la destination ; surlignées et en tête | — | |
 | 3.4 | Appuyer deux fois sur F9 sur la même offre | Une seule ligne dans l'encart, mise à jour | deux `détail :` vers la même offre | |
 | 3.5 | Faire défiler la liste à la molette | Nouvelles offres dans l'encart | `liste : N cartes, M reconnues` | |
 | 3.6 | Offre au titre long / reflet sur le titre | Rattachée quand même (carte surlignée) | `carte surlignée N` ≠ aucune | |
@@ -63,6 +64,19 @@ Images de dépannage : les 30 dernières images lues sont dans `…\AppData\Loca
 | 4.4 | Offre jamais ouverte | SCU « ≤ N » (catalogue) et note en bas | — | |
 | 4.5 | Bouton **Vider** — ou `/mission offres vider` | Encart vidé | `réponse à /mission offres vider` | |
 | 4.6 | Vérifier en jeu que le lot proposé tient vraiment dans la soute | Oui | — | |
+
+## 4b. Contrats pris et chemin
+
+| # | Faire | Attendu | Trace | Résultat |
+|---|---|---|---|---|
+| 4b.1 | Game.log suivi ; ouvrir une offre (F9, bip aigu), puis l'**accepter** en jeu | « 📋 Contrat pris : … → mission #N, ajoutée au chemin » ; encart : « ✔ pris » | `contrat : 📋 Contrat pris` | |
+| 4b.2 | Contrat accepté sans l'avoir lu : bouton **Pris** de sa ligne — ou `/mission offres prendre N` | Même message ; lieux à préciser signalés s'il y en a | `commande (bouton …)` | |
+| 4b.3 | `/mission route` — ou bas de l'écran **🗺 ➜ …** — ou thème Missions › « Chemin des contrats pris » | Arrêts dans l'ordre : vol, livrer, charger, soute ≤ capacité, durée ; ordre de chargement si plusieurs contrats | réponse | |
+| 4b.4 | Arriver ou se poser au premier arrêt | « ✔ Arrêt fait à … » ; barre du bas : arrêt suivant | `chemin : ✔ Arrêt fait` | |
+| 4b.5 | `/mission route suivant` (arrêt fait sans arrivée lue) | Arrêt suivant | réponse | |
+| 4b.6 | Livrer le contrat en entier | « 📋 Contrat terminé : … — retiré du chemin » | `contrat : 📋 Contrat terminé` | |
+| 4b.7 | `/mission route fin` avec une destination (`/dest`) | Le chemin finit à la destination, durée comprise | réponse | |
+| 4b.8 | `/mission pris` | Contrats : à charger / à bord / livré | réponse | |
 
 ## 5. Divers
 

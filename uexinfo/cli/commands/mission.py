@@ -10,12 +10,12 @@ from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
 from uexinfo.display.adaptive import ColSpec, adaptive_table
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
-from uexinfo.cli.places import ensure_mission_places, mission_node_map, place_link, player_system
+from uexinfo.cli.places import ensure_mission_places, mission_node_map, place_link, player_places, player_system
 from uexinfo.models.mission import Mission, MissionObjective
 
 _SUBS = frozenset({
     "list", "add", "edit", "remove", "scan", "view", "+", "offres", "offers",
-    "clear", "vider", "effacer", "lieux", "places",
+    "clear", "vider", "effacer", "lieux", "places", "route", "chemin", "pris", "taken",
     # alias français
     "liste", "ajouter", "modifier", "supprimer", "voir",
 })
@@ -67,6 +67,12 @@ def cmd_mission(args: list[str], ctx) -> None:
 
     elif sub in ("lieux", "places"):
         _cmd_places(args[1:], ctx)
+
+    elif sub in ("route", "chemin"):
+        _cmd_route(args[1:], ctx)
+
+    elif sub in ("pris", "taken"):
+        _cmd_taken(ctx)
 
 
 # ── Lieux à préciser (D11) ────────────────────────────────────────────────────
@@ -1218,6 +1224,149 @@ def _cmd_offers_lot(args: list[str], ctx) -> None:
             console.print(f"[{C.DIM}]  · {it.title} ({fmt(it.reward) if it.reward else '?'}) — {why}[/{C.DIM}]")
 
 
+def _cmd_offers_take(args: list[str], ctx) -> None:
+    """/mission offres prendre <N…> — contrats acceptés en jeu (numéros du tableau) → chemin."""
+    import time as _time
+    from uexinfo.cli import circuit
+    board = circuit.board(ctx)
+    rows = board.ordered(_time.time(), *player_places(ctx))
+    nums = _parse_selection(",".join(args), len(rows)) if args else []
+    if not nums:
+        print_warn("Numéro de l'offre prise (colonne N° du tableau) : /mission offres prendre 3")
+        return
+    for i in nums:
+        o = rows[i]
+        if o.mission_id:
+            print_warn(f"Offre {i + 1} ({o.title}) déjà prise : mission #{o.mission_id}")
+            continue
+        m, left = circuit.take_offer(ctx, o)
+        print_ok(f"Contrat pris : {o.title} → mission #{m.id}, ajoutée au chemin"
+                 + ("" if o.legs else " (détail non lu : livraisons inconnues)"))
+        if left:
+            print_warn(f"Lieux à préciser : {', '.join(left)}  (/mission lieux)")
+    send = getattr(ctx, "_overlay_send_fn", None)
+    if send is not None:
+        send({"type": "offers", "html": board.html(_time.time(), *player_places(ctx))})
+    console.print(f"[{C.DIM}]Chemin : /mission route[/{C.DIM}]")
+
+
+def _cmd_taken(ctx) -> None:
+    """/mission pris — contrats du chemin (voyage actif) et leur avancement."""
+    from uexinfo.cli import circuit
+    v = circuit.circuit_voyage(ctx)
+    missions = circuit._circuit_missions(ctx, v)
+    if not missions:
+        print_warn("Aucun contrat pris : bouton « Pris » du tableau des offres, ou prends-le en jeu "
+                   "(Game.log suivi).")
+        return
+    state = {None: "à charger", "picked": "à bord", "delivered": "livré"}
+    console.print(f"[bold]Contrats pris[/bold] [{C.DIM}]— voyage {v.name}[/{C.DIM}]")
+    for m in missions:
+        reward = f"{m.reward_uec:,}".replace(",", " ")
+        console.print(f"  #{m.id} {m.name}  [{C.DIM}]{reward} aUEC[/{C.DIM}]")
+        refs = m.place_refs()
+        for o in m.objectives:
+            src = place_link(o.source, refs.get(o.source)) if o.source else "?"
+            dst = place_link(o.destination, refs.get(o.destination)) if o.destination else "?"
+            qty = f"{o.quantity_scu:g} SCU " if o.quantity_scu else ""
+            console.print(f"     {qty}{o.commodity or ''} {src} → {dst}  "
+                          f"[{C.DIM}]{state.get(o.progress, o.progress)}[/{C.DIM}]")
+        if not m.objectives:
+            console.print(f"     [{C.DIM}]livraisons inconnues (détail non lu)[/{C.DIM}]")
+
+
+def _cmd_route(args: list[str], ctx) -> None:
+    """/mission route [fin|libre|suivant] — chemin le plus rapide pour livrer les contrats pris."""
+    from uexinfo.cli import circuit
+    words = [a.lower() for a in args]
+    if words and words[0] in ("aide", "help", "?"):
+        from uexinfo.cli.commands.help import cmd_help
+        cmd_help(["mission", "route"], ctx)
+        return
+    if "fin" in words or "dest" in words:
+        ctx._route_end_dest = True
+    elif "libre" in words:
+        ctx._route_end_dest = False
+    res = circuit.compute(ctx)
+    if res is None:
+        print_warn("Pas de chemin : aucun voyage actif (prends un contrat : bouton « Pris » du "
+                   "tableau des offres) ou réseau de transport indisponible.")
+        return
+    route = res["route"]
+    if "suivant" in words or "next" in words:
+        if not route.stops:
+            print_warn("Chemin terminé : plus rien à charger ni à livrer.")
+            return
+        s0 = route.stops[0]
+        circuit.advance(ctx, s0, res["missions"])
+        print_ok(f"Arrêt fait à {s0.node} : {circuit.stop_summary(s0)}.")
+        res = circuit.compute(ctx)
+        route = res["route"]
+    _print_route(res, ctx)
+
+
+def _print_route(res, ctx) -> None:
+    """Tableau du chemin dans la console : arrêts, vol, livraisons, chargements, soute."""
+    from uexinfo.cli import circuit
+    from uexinfo.names.places import node_ref
+    from uexinfo.rules.route_plan import fmt_duration
+    route, hold = res["route"], res["capacity"]
+    link = lambda n: place_link(n, node_ref(n)) if n else "?"
+    console.print(
+        f"[bold]Chemin[/bold] [{C.DIM}]— {res['voyage'].name}"
+        + (f" · {res['ship']} {hold} SCU" if hold else " · soute inconnue (V: en bas)")
+        + " · départ " + (link(res["start"]) if res["start"] else "au premier arrêt (/go pour ta position)")
+        + (f" · fin {link(route.end)}" if route.end else "") + f"[/{C.DIM}]")
+    letters = circuit.letters(route)
+    if not route.stops:
+        print_warn("Rien à livrer : contrats sans livraison connue, ou déjà livrés.")
+    else:
+        t = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+        for col, just in (("Ét.", "right"), ("Lieu", "left"), ("Vol", "right"), ("Livrer", "left"),
+                          ("Charger", "left"), ("Soute", "right"), ("Arrêt", "right")):
+            t.add_column(col, justify=just)
+        def fmt(legs):
+            """« 24 Gold (A), 24 Iron (B) » : un contrat et une marchandise par entrée."""
+            total: dict = {}
+            for l in legs:
+                k = (letters[l.key[0]], l.commodity or "SCU")
+                total[k] = total.get(k, 0) + l.scu
+            return ", ".join(f"{v:g} {c} ({k})" for (k, c), v in total.items()) or "—"
+        for i, st in enumerate(route.stops, 1):
+            if i == 1 and not res["start"]:
+                fly = "—"
+            elif st.travel_s is None:
+                fly = f"[{C.WARNING}]? ⚠[/{C.WARNING}]"
+            elif st.distance_gm:
+                fly = f"{st.distance_gm:.0f} Gm · {fmt_duration(st.travel_s)}"
+            else:
+                fly = "sur place"
+            cargo = f"{st.cargo_after:g}" + (f"/{hold}" if hold else "")
+            t.add_row(str(i), link(st.node), fly, fmt(st.unload), fmt(st.load), cargo, fmt_duration(st.handle_s))
+        console.print(t)
+        for i, st in enumerate(route.stops, 1):
+            order = st.load_order(route.stops)
+            if len({l.key[0] for l in order}) > 1:
+                console.print(f"[{C.DIM}]  Ét. {i}, charger dans l'ordre : "
+                              + ", ".join(f"{letters[l.key[0]]} {l.scu:g}" for l in order)
+                              + " (ce qui est livré en dernier d'abord)[/{C.DIM}]")
+        console.print(f"[{C.DIM}]" + " · ".join(f"{k} = {res['missions'][mid].name}"
+                                               for mid, k in letters.items() if mid in res["missions"])
+                      + f"[/{C.DIM}]")
+        console.print(f"[{C.PROFIT}]{circuit.total_text(res)}[/{C.PROFIT}]")
+        if route.unknown:
+            print_warn("Trajet sans distance connue (⚠) : compté 30 min.")
+        if not route.exhaustive:
+            console.print(f"[{C.DIM}]Beaucoup de livraisons : chemin approché (le meilleur trouvé).[/{C.DIM}]")
+    for l, why in route.left_out:
+        console.print(f"[{C.DIM}]  · écartée : {l.label} {l.scu:g} SCU — {why}[/{C.DIM}]")
+    for m, o, why in res["skipped"]:
+        console.print(f"[{C.DIM}]  · écartée : #{m.id} {m.name} ({o.destination or '?'}) — {why}"
+                      + (" (/mission lieux)" if "préciser" in why else "") + f"[/{C.DIM}]")
+    console.print(f"[{C.DIM}]Arrêt fait : /mission route suivant (ou tout seul à l'arrivée, Game.log) · "
+                  f"finir à la destination : /mission route fin · contrats : /mission pris[/{C.DIM}]")
+
+
 def _cmd_offers(args: list[str], ctx) -> None:
     """/mission offres [on|off|today|all|maj] — mode scan des offres, ou contrats vus dans les captures."""
     from datetime import datetime
@@ -1239,6 +1388,10 @@ def _cmd_offers(args: list[str], ctx) -> None:
 
     if args and args[0].lower() in ("lot", "best"):
         _cmd_offers_lot(args[1:], ctx)
+        return
+
+    if args and args[0].lower() in ("prendre", "pris", "take"):
+        _cmd_offers_take(args[1:], ctx)
         return
 
     if args and args[0].lower() in ("vider", "clear"):
@@ -1267,7 +1420,7 @@ def _cmd_offers(args: list[str], ctx) -> None:
         send = getattr(ctx, "_overlay_send_fn", None)
         rows = board.rows(_time.time())
         if send is not None:
-            send({"type": "offers", "html": board.html(_time.time())})
+            send({"type": "offers", "html": board.html(_time.time(), *player_places(ctx))})
         print_ok(f"{len(rows)} offre(s) lue(s) par le mode scan — Meilleur lot : /mission offres lot · "
                  "anciennes captures : /mission offres captures")
         return
@@ -1353,6 +1506,9 @@ def _show_help() -> None:
         ("offres vider",     "Vide le tableau des offres lues"),
         ("offres captures",  "Contrats lus dans les anciennes captures (today|all : journée / toute la base)"),
         ("offres maj",       "Télécharge les données de contrats scmdb.net (une fois par version du jeu)"),
+        ("offres prendre N", "Contrat n° N accepté en jeu → chemin (bouton « Pris »)"),
+        ("route [suivant|fin]", "Chemin le plus rapide pour livrer les contrats pris (aide : /help mission route)"),
+        ("pris",             "Contrats pris et leur avancement"),
     ]
     for cmd, desc in lines:
         console.print(f"  [bold {C.LABEL}]/mission {cmd:<20}[/bold {C.LABEL}]  [{C.DIM}]{desc}[/{C.DIM}]")

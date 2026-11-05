@@ -271,6 +271,14 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("view",   "Affiche le détail d'une mission"),
         ("lieux",  "Fait préciser les lieux non reconnus"),
         ("offres", "Contrats lus dans les captures de la liste du mobiGlas"),
+        ("route",  "Chemin le plus rapide pour livrer les contrats pris"),
+        ("pris",   "Contrats pris (voyage actif) et leur avancement"),
+    ],
+    "mission route": [
+        ("suivant", "Arrêt fait : passer au suivant"),
+        ("fin",     "Finir le chemin à la destination (/dest)"),
+        ("libre",   "Finir où l'on veut"),
+        ("aide",    "Aide du chemin et des contrats pris"),
     ],
     "mission offres": [
         ("on",    "Mode scan : lire les offres à chaque clic dans l'écran Contrats"),
@@ -281,6 +289,7 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("maj",   "Télécharge les données de contrats scmdb.net"),
         ("lot",   "Meilleur lot pour la soute du vaisseau actif (dest N : destinations au plus)"),
         ("vider", "Vider le tableau des offres lues"),
+        ("prendre", "Contrat accepté en jeu (N° du tableau) → chemin"),
         ("aide",  "Aide du mode scan et du meilleur lot"),
     ],
     "auto": [

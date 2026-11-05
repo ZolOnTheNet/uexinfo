@@ -319,3 +319,20 @@ def test_board_survives_restart(tmp_path):
     again = OffersBoard(path)
     assert again.load(200) == 1 and list(again.offers.values())[0].reward == 63000
     assert OffersBoard(path).load(100 + OffersBoard.KEEP_UNTIMED_S + 1) == 0   # trop vieille
+
+
+def test_offers_from_here_and_to_destination_are_marked_first():
+    # « offres doit indiquer les missions de là où on est et là où on veut aller »
+    from uexinfo.ocr.contract_watch import Offer, _same_place
+    board = OffersBoard()
+    rich = Offer(title="Rich", reward=900000, pickups=["Checkmate Station above Pyro II"], drops=["Patch City"])
+    here = Offer(title="Here", reward=200000, pickups=["Ruin Station above Pyro VI"], drops=["Checkmate"])
+    both = Offer(title="Both", reward=100000, pickups=["Ruin Station"], drops=["Orbituary above Pyro III"])
+    for o in (rich, here, both):
+        board.offers[o.key] = o
+    html = board.html(0, here="Ruin Station", there="Orbituary")
+    assert html.index("Both") < html.index("Here") < html.index("Rich")      # les deux, puis un, puis montant
+    assert "class='both'" in html and "★" in html and "⚑" in html
+    assert _same_place("Ruin Station above Pyro VI", "Ruin Station")
+    assert not _same_place("Ruin Station", "Orbituary")
+    assert not _same_place("Pyro Gateway", "Pyro")                            # mot trop court : rien

@@ -761,3 +761,23 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 **Demandé :** « il n'y a pas d'aide pour /mission offres, il en faut une ».
 
 **Fait :** `/help mission offres` et `/mission offres aide` (déroulé de la moisson, F9 et bips, toutes les sous-commandes, vaisseau actif, réglages `[contracts]`, lecture du lot) ; bouton « Aide des offres » dans le thème Missions ; complétion `aide` ; l'aide de `/mission` décrit `offres` (tableau du mode scan) et `offres captures`. 432 tests réussis.
+
+## 2026-11-05 — offres d'ici et vers la destination
+
+**Demandé :** « il faut aussi que offres indique les missions de là où on est et là où on veut aller (étoile, surlignement…) ».
+
+**Fait :** tableau des offres : ★ collecte à la position du joueur, ⚑ livraison à sa destination (`places.player_places`, nœuds retrouvés par identifiant ; un système entier n'est pas pris) ; ligne surlignée, en gras quand l'offre fait les deux ; tri : les deux, puis l'une, puis le montant ; légende sous l'en-tête. Rapprochement des noms lus par l'OCR (`_same_place` : même nom court, ou contenu en mots entiers de 5 lettres au moins) : signalement seul, rien n'est enregistré (D11). Offre au détail non lu : pas de lieux, pas de marque. 433 tests réussis.
+
+## 2026-11-05 — contrats pris et chemin
+
+**Demandé :** « il faudrait aussi analyser les missions prises, afin de trouver le meilleur chemin » ; proposition validée (« oui, c'est très bien ») : chemin en temps, 3 min par arrêt, contrats dans le voyage actif, fenêtre « Contrats » à faire ensuite.
+
+**Constaté :** le Game.log écrit « Contract Accepted:  <titre> <EM4>50 / 200 exp.</EM4> », « Contract Complete », « Contract Failed » (vu sur le log du jour et les sauvegardes) ; pas de notification d'abandon.
+
+**Fait :**
+- `rules/route_plan.py` : chemin le plus rapide (vol + 3 min par arrêt + 8 SCU / 25 s), collecte avant livraison, soute jamais dépassée, lieu repris si besoin (livraisons croisées, deux allers), livraisons de même trajet regroupées ; recherche complète avec élagage, plafonnée (40 livraisons : < 0,5 s, chemin approché signalé).
+- Offres : livraisons gardées avec leur lieu de collecte (`Offer.legs` : même marchandise, ou seule collecte), numéro de ligne, bouton « Pris », « ✔ pris » ; les offres prises sortent du meilleur lot.
+- `cli/circuit.py` : offre prise → mission du voyage actif (« Circuit du jour » créé au besoin), lieux reliés une fois (D11) ; notifications du Game.log ; arrivée ou atterrissage au prochain arrêt → arrêt fait ; tableau des offres partagé dès le lancement (relu du disque).
+- `/mission offres prendre N`, `/mission route [suivant|fin|libre|aide]`, `/mission pris` ; boutons du thème Missions ; barre d'état « 🗺 ➜ prochain arrêt » (clic : le chemin) ; réglage `[contracts] stop_minutes = 3`.
+- **Valeur métier nouvelle (D12)** : chemin jugé en temps, 3 min par arrêt.
+- 454 tests réussis.

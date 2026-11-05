@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-11-05** (210 fichiers suivis par git).
+> Dernière mise à jour : **2026-11-05** (216 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -106,6 +106,7 @@ uexinfo/                         (racine du dépôt)
 | `cli/parser.py` | Découpe `/cmd args` en `(nom, [args])` avec `shlex`. |
 | `cli/selector.py` | Sélecteur générique (choix entre homonymes…), affiché par l'overlay via `ctx.select_fn`. |
 | `cli/choose.py` | Règle 3 de D11 : un candidat sûr accepté, plusieurs ⇒ liste, faute de frappe ⇒ proposition ; position et destination du joueur retrouvées par identifiant. |
+| `cli/circuit.py` | Contrats pris et chemin : offre lue → mission du voyage actif (« Contract Accepted » du Game.log ou bouton « Pris »), « Complete / Failed » la retire ; chemin calculé depuis la position, avancement à l'arrivée au prochain arrêt, prochain arrêt pour la barre d'état. |
 | `cli/places.py` | Lieux des missions et voyages (D11) : reliés une fois à l'enregistrement (liste ou proposition sinon), calculs par référence, filtres `--to`/`--exclude` par identité. |
 | `cli/completer_data.py` | Données de complétion : sous-commandes et aides par commande. |
 | `cli/history.py` | Historique persistant des commandes (`history.jsonl`). |
@@ -182,6 +183,7 @@ uexinfo/                         (racine du dépôt)
 | `rules/__init__.py` | Présentation du package. |
 | `rules/stock.py` | Quantités achetables/vendables selon le statut de stock UEX (D1, D5). |
 | `rules/risk.py` | Risque de ne pas écouler au terminal de vente, demi-vie 1 h (D2). |
+| `rules/route_plan.py` | Chemin le plus rapide pour des livraisons : charger avant de livrer, soute jamais dépassée, temps = vol quantique + temps fixe par arrêt + manutention (8 SCU / 25 s) ; un lieu peut revenir ; ordre de chargement. |
 | `rules/cargo_lot.py` | Meilleur lot de contrats de transport pour une soute : gain maximal, SCU ≤ capacité, plafond de lieux de livraison distincts, 10 contrats au plus (jeu), taille des caisses (sac à dos par groupe de destinations). |
 | `rules/version.py` | Versions SC et changements d'univers (D3). |
 | `rules/scan_match.py` | Quel terminal homonyme a été scanné (Pyro Gateway côté Stanton ou Nyx). |
@@ -250,12 +252,13 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (432 tests réussis au 2026-11-05).
+Lancer : `pytest` (454 tests réussis au 2026-11-05).
 
 | Fichier | Ce qui est testé |
 |---|---|
 | `__init__.py`, `*/__init__.py` | Packages vides. |
 | `conftest.py` | Fixtures partagées : sous-ensemble réel des données UEX (octobre 2026). |
+| `test_circuit.py` | Contrats pris (offres fictives, vrai réseau) : notification du Game.log, voyage « Circuit du jour », lieux reliés, arrêt fait à l'arrivée, contrat terminé, soute, commandes `/mission offres prendre`, `pris`, `route`. |
 | `test_config_cache_clear.py` | `/config cache clear <type>` n'efface qu'un type à la fois. |
 | `test_dashboard.py` | Fonctions du tableau de bord `/voyage tb`. |
 | `test_overlay_auth.py` | Serveur WebSocket : connexion refusée (403) sans le jeton ; `open_file` limité aux images existantes. |
@@ -285,6 +288,7 @@ Lancer : `pytest` (432 tests réussis au 2026-11-05).
 | `rules/test_stock.py` | D1 : quantités selon le statut de stock. |
 | `rules/test_risk.py` | D2 : risque de stock, demi-vie 1 h. |
 | `rules/test_cargo_lot.py` | Meilleur lot sur les offres du 05/11 : soute pleine, petite soute, limite de 10, caisses trop grandes, SCU inconnus. |
+| `rules/test_route_plan.py` | Chemin sur des lieux fictifs alignés : collecte avant livraison, temps des arrêts, soute en deux allers, lieu repris, cargaison à bord, lieu d'arrivée, écartées, trajet inconnu. |
 | `rules/test_lot_command.py` | `/mission offres lot` s'affiche (balisage des couleurs, titres à crochets « [TARGET] »), avec et sans limite de destinations. |
 | `rules/test_version.py` | D3 : versions et changements d'univers. |
 | `rules/test_scan_match.py` | Quel Pyro Gateway a été scanné. |
@@ -413,7 +417,7 @@ Lancer : `pytest` (432 tests réussis au 2026-11-05).
 | Fichiers suivis par git | 195 |
 | Fichiers Python du package `uexinfo/` | 101 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 32 (432 tests réussis au 2026-11-05) |
+| Fichiers de tests | 34 (454 tests réussis au 2026-11-05) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---
@@ -437,3 +441,4 @@ Lancer : `pytest` (432 tests réussis au 2026-11-05).
 - **2026-11-01** (suite) : journal du programme — `applog.py` ajouté ; rôles de `__main__.py` et `ocr/contract_watch.py` étendus.
 - **2026-11-05** : `/scan log clear` — `tests/ocr/test_scan_log_clear.py` ajouté.
 - **2026-11-05** (suite) : meilleur lot et plan de test — `rules/cargo_lot.py`, `tests/rules/test_cargo_lot.py`, `docs/PLAN_DE_TEST.md` ajoutés ; version 0.0.1-<commit>.
+- **2026-11-05** (suite) : contrats pris et chemin — `rules/route_plan.py`, `cli/circuit.py`, `tests/rules/test_route_plan.py`, `tests/test_circuit.py` ajoutés.

@@ -18,6 +18,8 @@ class MissionObjective:
     # None = texte pas encore relié à un lieu (« à préciser »), jamais deviné ensuite.
     source_ref: str | None = None
     destination_ref: str | None = None
+    # avancement sur le chemin (`/mission route`) : None, « picked » (à bord), « delivered »
+    progress: str | None = None
 
     def to_dict(self) -> dict:
         """Dictionnaire pour le JSON, sans les champs vides."""
@@ -28,7 +30,7 @@ class MissionObjective:
         """Recrée l'objectif depuis le JSON, en ignorant les clés inconnues."""
         valid = {f for f in ("commodity", "source", "destination",
                               "quantity_scu", "time_cost", "notes",
-                              "source_ref", "destination_ref")}
+                              "source_ref", "destination_ref", "progress")}
         return cls(**{k: v for k, v in d.items() if k in valid})
 
 

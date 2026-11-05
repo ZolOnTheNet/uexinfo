@@ -93,6 +93,22 @@ def player_place(ctx, graph=None) -> tuple[str | None, str | None]:
     return (node, node_ref(node)) if node else (None, None)
 
 
+def player_places(ctx) -> tuple[str, str]:
+    """(position, destination) du joueur : noms des nœuds retrouvés par identifiant ; « » si inconnus."""
+    try:
+        from uexinfo.cli.commands.nav import _player_node
+        graph = ctx.cache.transport_graph
+
+        def place(which):
+            """Nœud du joueur, sauf un système entier (« Pyro » marquerait toutes les offres)."""
+            n = _player_node(ctx, graph, which) or ""
+            node = graph.nodes.get(n) if n else None
+            return "" if node is not None and getattr(node.type, "value", "") == "system" else n
+        return place("location"), place("destination")
+    except Exception:
+        return "", ""
+
+
 def player_system(ctx) -> str:
     """Système de la position du joueur (« Pyro »), retrouvé par identifiant ; « » si inconnu."""
     try:

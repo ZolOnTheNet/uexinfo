@@ -118,6 +118,9 @@ DEFAULT: dict = {
         "read_on_click": "on",     # lire aussi après chaque clic (attente de l'animation, ≤ 3 s) — on|off
         # Meilleur lot : lieux de livraison distincts au plus (0 = sans limite) ; /mission offres lot dest N
         "lot_destinations": 0,
+        # Chemin des contrats pris (/mission route) : minutes comptées par arrêt (atterrir,
+        # hangar, décoller), en plus du vol et du chargement (8 SCU par 25 s)
+        "stop_minutes": 3,
         # Dépannage : dernières images de l'écran Contrats gardées (JPEG ≈ 0,5 Mo chacune) dans
         # <données uexinfo>/logs/offres, nommées comme dans le journal (« image gardée : … ») ; 0 = aucune
         "keep_images": 30,
