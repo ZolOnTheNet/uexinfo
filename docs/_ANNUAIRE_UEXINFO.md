@@ -182,7 +182,7 @@ uexinfo/                         (racine du dépôt)
 | `rules/__init__.py` | Présentation du package. |
 | `rules/stock.py` | Quantités achetables/vendables selon le statut de stock UEX (D1, D5). |
 | `rules/risk.py` | Risque de ne pas écouler au terminal de vente, demi-vie 1 h (D2). |
-| `rules/cargo_lot.py` | Meilleur lot de contrats de transport pour une soute : gain maximal, SCU ≤ capacité, 10 contrats au plus, taille des caisses (sac à dos). |
+| `rules/cargo_lot.py` | Meilleur lot de contrats de transport pour une soute : gain maximal, SCU ≤ capacité, plafond de lieux de livraison distincts, 10 contrats au plus (jeu), taille des caisses (sac à dos par groupe de destinations). |
 | `rules/version.py` | Versions SC et changements d'univers (D3). |
 | `rules/scan_match.py` | Quel terminal homonyme a été scanné (Pyro Gateway côté Stanton ou Nyx). |
 
@@ -210,7 +210,7 @@ uexinfo/                         (racine du dépôt)
 | `ocr/engine.py` | Moteur Tesseract : lecture des terminaux et des écrans de mission. Cherche Tesseract d'abord dans `extprg/tesseract/`. |
 | `ocr/contract_list.py` | Panneau des contrats du mobiGlas → cartes (titre, XP, donneur d'ordre, récompense, préfixe `[BP]`). |
 | `ocr/balance.py` | Solde « CURRENT BALANCE » lu en haut à droite du terminal de marchandises ; lecture incertaine (¤ lu comme un chiffre) départagée par le solde connu. |
-| `ocr/contract_watch.py` | Offres de contrats sans capture du joueur : image de l'écran prise par uexinfo après chaque clic ou coup de molette dans l'écran Contrats (Star Citizen actif, onglet OFFERS), liste et détail lus, tableau des offres (`OffersBoard`) affiché dans l'encart Offres ; mode scan lancé par bouton ou `/mission offres on|off`, image lue quand la liste et la colonne de droite ne bougent plus (le halo du titre est ignoré), liste relue après la molette seulement, liste et détail lus en parallèle, détail rattaché à la carte surlignée en vert, tableau des offres → candidates du meilleur lot (`lot_items`), boutons Meilleur lot et Vider dans l'encart ; raccourci `[contracts] hotkey` (alt+shift+m) qui lit l'offre affichée tout de suite, clics lus ou non (`read_on_click`), bip quand la page est lue (`[contracts] beep`) ; bouton bascule « Scan Mis. » dans la barre d'état. |
+| `ocr/contract_watch.py` | Offres de contrats sans capture du joueur : image de l'écran prise par uexinfo après chaque clic ou coup de molette dans l'écran Contrats (Star Citizen actif, onglet OFFERS), liste et détail lus, tableau des offres (`OffersBoard`) affiché dans l'encart Offres ; mode scan lancé par bouton ou `/mission offres on|off`, image lue quand la liste et la colonne de droite ne bougent plus (le halo du titre est ignoré), liste relue après la molette seulement, liste et détail lus en parallèle, détail rattaché à la carte surlignée en vert, tableau des offres → candidates du meilleur lot (`lot_items`), boutons Meilleur lot et Vider dans l'encart ; raccourci `[contracts] hotkey` (F9, écoute bas niveau qui laisse la touche au jeu, n'agit que dans l'écran Contrats) qui lit l'offre affichée tout de suite, bip aigu si reconnue, grave sinon, clics lus ou non (`read_on_click`), bip quand la page est lue (`[contracts] beep`) ; bouton bascule « Scan Mis. » dans la barre d'état. |
 | `ocr/log_parser.py` | Lecture du log de SC-Datarunner (mode A). |
 | `ocr/watcher.py` | Surveillance du dossier de captures (mode B). |
 | `ocr/ocr_worker.py` | OCR en arrière-plan des captures. |
@@ -250,7 +250,7 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (414 tests réussis au 2026-11-05).
+Lancer : `pytest` (419 tests réussis au 2026-11-05).
 
 | Fichier | Ce qui est testé |
 |---|---|
@@ -411,7 +411,7 @@ Lancer : `pytest` (414 tests réussis au 2026-11-05).
 | Fichiers suivis par git | 195 |
 | Fichiers Python du package `uexinfo/` | 101 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 30 (414 tests réussis au 2026-11-05) |
+| Fichiers de tests | 30 (419 tests réussis au 2026-11-05) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---

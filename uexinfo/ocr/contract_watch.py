@@ -293,6 +293,8 @@ class OffersBoard:
         head = (f"<div class='offers-head'>Offres de contrats — {len(rows)} "
                 f"<span class='dim'>(clique sur une offre en jeu pour sa destination)</span>"
                 f" <span class='cmd-btn' data-cmd='/mission offres lot' title='/mission offres lot'>Meilleur lot</span>"
+                f" <span class='cmd-btn' data-cmd='/mission offres lot dest 2' title='/mission offres lot dest 2'>≤ 2 dest.</span>"
+                f" <span class='cmd-btn' data-cmd='/mission offres lot dest 3' title='/mission offres lot dest 3'>≤ 3 dest.</span>"
                 f" <span class='cmd-btn' data-cmd='/mission offres vider' title='/mission offres vider'>Vider</span></div>")
         if not rows:
             return head
@@ -320,11 +322,12 @@ class OffersBoard:
 
 # ── Écran et souris (Windows) ─────────────────────────────────────────────────
 
-def beep() -> None:
-    """Bip court : la page des offres est lue, on peut cliquer sur la suivante (Windows)."""
+def beep(ok: bool = True) -> None:
+    """Bip court aigu : offre lue, passer à la suivante ; grave et plus long (`ok=False`) : offre
+    lue au raccourci mais non reconnue, réappuyer (Windows)."""
     try:
         import winsound
-        winsound.Beep(1200, 90)
+        winsound.Beep(1200, 90) if ok else winsound.Beep(400, 250)
     except Exception:
         pass
 
@@ -388,6 +391,7 @@ class ContractWatcher:
         # l'animation (le décor transparent bouge toujours) ; même offre deux fois : la dernière gagne.
         self.hotkey, self.read_on_click = hotkey, read_on_click
         self._hotkey_listener = None
+        self._last_offer = None             # offre rattachée par la dernière lecture (bip du raccourci)
         self._did_read = False              # une lecture OCR a eu lieu depuis le dernier bip
         self.board = OffersBoard()
         self._queue: queue.Queue = queue.Queue(maxsize=8)
@@ -427,9 +431,9 @@ class ContractWatcher:
         self._listener.daemon = True
         self._listener.start()
         if self.hotkey:
-            from uexinfo.overlay import start_hotkey
-            self._hotkey_listener = start_hotkey(self.hotkey, self._on_hotkey, self._HOTKEY_ID)
-            log.info("raccourci %s : %s", self.hotkey, "posé" if self._hotkey_listener else "INDISPONIBLE")
+            # Écoute bas niveau, comme la souris : la touche n'est pas retirée au jeu (F9 garde sa
+            # fonction en vaisseau) ; elle n'agit que si l'écran Contrats est affiché.
+            self._hotkey_listener = self._listen_key(self.hotkey)
         if self._worker is None or not self._worker.is_alive():
             self._worker = threading.Thread(target=self._work, daemon=True, name="contract-watch")
             self._worker.start()
@@ -443,9 +447,32 @@ class ContractWatcher:
         if self._listener:
             self._listener.stop()
         self._listener = None
-        if self._hotkey_listener:
+        if self._hotkey_listener is not None:
             self._hotkey_listener.stop()
         self._hotkey_listener = None
+
+    def _listen_key(self, hotkey: str):
+        """Écoute du raccourci (pynput, crochet clavier bas niveau) ; None s'il n'a pu être posé."""
+        try:
+            from pynput import keyboard
+            from uexinfo.overlay import _parse_hotkey
+            hk = keyboard.HotKey(keyboard.HotKey.parse(_parse_hotkey(hotkey)), self._on_hotkey)
+            holder = {}
+
+            def press(k):
+                hk.press(holder["l"].canonical(k))
+
+            def release(k):
+                hk.release(holder["l"].canonical(k))
+            listener = keyboard.Listener(on_press=press, on_release=release)
+            holder["l"] = listener
+            listener.daemon = True
+            listener.start()
+            log.info("raccourci %s à l'écoute (agit seulement dans l'écran Contrats)", hotkey)
+            return listener
+        except Exception as e:
+            log.warning("raccourci %s indisponible : %s", hotkey, e)
+            return None
 
     def _on_click(self, x, y, button, pressed) -> None:
         """Clic relâché : lecture une fois le texte affiché (sauf `[contracts] read_on_click = off`)."""
@@ -453,15 +480,23 @@ class ContractWatcher:
             self._schedule()
 
     def _on_hotkey(self) -> None:
-        """Raccourci : capture immédiate de l'écran, détail relu même s'il n'a pas changé."""
-        if not self.active or not star_citizen_active():
+        """Raccourci : capture immédiate de l'écran, détail relu même s'il n'a pas changé.
+        Ignoré hors de l'écran Contrats (la touche sert alors au jeu)."""
+        if not self.active:
+            return
+        if not star_citizen_active():
+            log.info("touche %s ignorée : Star Citizen n'est pas au premier plan", self.hotkey)
             return
         self._gen += 1                      # une attente de clic en cours est abandonnée
         try:
             from PIL import ImageGrab
+            img = ImageGrab.grab()
+            if not offers_tab_active(img):
+                log.info("touche %s ignorée : écran Contrats (onglet OFFERS) non affiché", self.hotkey)
+                return
             self._settle_s, self._settle_trace = 0.0, []
-            self._queue.put_nowait((ImageGrab.grab(), time.time(), True))
-            log.info("raccourci %s : offre affichée capturée", self.hotkey)
+            self._queue.put_nowait((img, time.time(), True))
+            log.info("touche %s : offre affichée capturée", self.hotkey)
         except queue.Full:
             pass
         except Exception as e:
@@ -513,11 +548,16 @@ class ContractWatcher:
                 continue
             img, ts, forced = item[0], item[1], (len(item) > 2 and item[2])
             try:
+                self._last_offer = None
                 if self.process(img, ts, forced):
                     self.on_update(self.board)
-                if self._did_read and self._queue.empty() and self.on_read:
+                if forced and self.on_read:
+                    # raccourci : bip aigu si l'offre est reconnue, grave sinon (réappuyer)
                     self._did_read = False
-                    self.on_read()
+                    self.on_read(self._last_offer is not None)
+                elif self._did_read and self._queue.empty() and self.on_read:
+                    self._did_read = False
+                    self.on_read(True)
             except Exception as e:
                 log.warning("lecture de l'écran Contrats : %s", e)
 
@@ -564,6 +604,7 @@ class ContractWatcher:
                 detail = f_detail.result()
                 sel = selected_card(img, [c for c, _ in self.board.cards])
                 offer = self.board.add_detail(detail, ts, sel)
+                self._last_offer = offer
                 log.info("détail : carte surlignée %s, titre=%r montant=%s → %s (%d objectifs)",
                          "aucune" if sel is None else sel + 1, detail.title, detail.reward,
                          f"{offer.title} · {offer.reward}" if offer else "AUCUNE OFFRE",

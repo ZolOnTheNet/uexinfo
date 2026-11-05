@@ -1107,7 +1107,8 @@ def _ship_hold(ctx) -> tuple[int, int | None, str]:
 
 
 def _cmd_offers_lot(args: list[str], ctx) -> None:
-    """/mission offres lot [scu] [max N] — offres qui rapportent le plus en tenant dans la soute."""
+    """/mission offres lot [scu] [dest N] — offres qui rapportent le plus en tenant dans la soute,
+    N lieux de livraison distincts au plus (`[contracts] lot_destinations` par défaut, 0 = sans limite)."""
     import time
     from rich.table import Table
     from uexinfo.rules.cargo_lot import MAX_CONTRACTS, best_lot
@@ -1120,21 +1121,29 @@ def _cmd_offers_lot(args: list[str], ctx) -> None:
         return
     capacity, max_box, ship = _ship_hold(ctx)
     max_count = MAX_CONTRACTS
+    try:
+        max_dest = int(ctx.cfg.get("contracts", {}).get("lot_destinations", 0) or 0)
+    except (TypeError, ValueError):
+        max_dest = 0
     words = [a.lower() for a in args]
     for i, w in enumerate(words):
-        if w.isdigit() and (i == 0 or words[i - 1] != "max"):
+        if w.isdigit() and (i == 0 or words[i - 1] not in ("dest", "max")):
             capacity, max_box, ship = int(w), None, ""
+        elif w == "dest" and i + 1 < len(words) and words[i + 1].isdigit():
+            max_dest = int(words[i + 1])
         elif w == "max" and i + 1 < len(words) and words[i + 1].isdigit():
             max_count = int(words[i + 1])
     if not capacity:
         print_warn("Soute inconnue : choisis ton vaisseau (V: en bas) ou donne les SCU : /mission offres lot 96")
         return
 
-    lot = best_lot(items, capacity, max_count, max_box)
+    lot = best_lot(items, capacity, max_count, max_box, max_dest or None)
     fmt = lambda n: f"{n:,}".replace(",", " ")
     where = f"{ship} — " if ship else ""
     console.print(f"[bold]Meilleur lot[/bold] [{C.DIM}]({where}soute {capacity} SCU"
-                  + (f", caisses ≤ {max_box} SCU" if max_box else "") + f", {max_count} contrats au plus)[/{C.DIM}]")
+                  + (f", caisses ≤ {max_box} SCU" if max_box else "")
+                  + (f", {max_dest} destination(s) au plus" if max_dest else ", destinations sans limite")
+                  + ")[/{C.DIM}]")
     if not lot.items:
         print_warn("Aucune offre ne tient dans la soute.")
     else:
@@ -1152,6 +1161,8 @@ def _cmd_offers_lot(args: list[str], ctx) -> None:
         console.print(f"[{C.PROFIT}]Total : {fmt(lot.reward)} aUEC[/{C.PROFIT}] pour "
                       f"{'≤ ' if lot.estimated else ''}{lot.scu} SCU sur {capacity} "
                       f"({len(lot.items)} contrat(s), {free} SCU libres)")
+        dests = lot.destinations
+        console.print(f"Destinations : {len(dests)} — {', '.join(dests)}")
         if len(lot.pickups) > 1:
             console.print(f"[{C.DIM}]Collectes : {', '.join(lot.pickups)}[/{C.DIM}]")
         if lot.estimated:
@@ -1272,7 +1283,7 @@ def _show_help() -> None:
         ("scan terminal",    "Terminaux scannés"),
         ("offres",           "Contrats lus dans les captures de la liste (catégorie, points, partage)"),
         ("offres on|off",    "Mode scan : uexinfo lit les offres à chaque clic dans l'écran Contrats"),
-        ("offres lot [scu]", "Meilleur lot d'offres lues pour la soute du vaisseau actif (ou scu donnés)"),
+        ("offres lot [scu] [dest N]", "Meilleur lot d'offres lues pour la soute (vaisseau actif ou scu donnés), N destinations au plus"),
         ("offres vider",     "Vide le tableau des offres lues"),
         ("offres today|all", "Idem sur la journée / toute la base"),
         ("offres maj",       "Télécharge les données de contrats scmdb.net (une fois par version du jeu)"),

@@ -69,6 +69,8 @@ THEMES: list[dict] = [
         _run("Arrêter le scan des offres", "/mission offres off"),
         _run("Meilleur lot pour mon vaisseau", "/mission offres lot",
              "Les offres lues qui rapportent le plus en tenant dans la soute."),
+        _run("Meilleur lot, 2 destinations max", "/mission offres lot dest 2"),
+        _run("Meilleur lot, 3 destinations max", "/mission offres lot dest 3"),
         _run("Vider les offres lues", "/mission offres vider"),
         _run("Offres du mobiGlas", "/mission offres"),
         _run("Missions capturées", "/mission scan"),

@@ -111,9 +111,12 @@ DEFAULT: dict = {
         "auto_capture": "off",
         "beep": "on",              # bip quand la page est entièrement lue (passer à l'offre suivante) — on|off
         # Raccourci du mode scan : l'offre affichée est lue tout de suite (sans attendre la fin de
-        # l'animation) ; « alt+shift+m », « f10 »… ; vide = pas de raccourci
-        "hotkey": "alt+shift+m",
-        "read_on_click": "on",     # lire aussi après chaque clic (attente de l'animation, ≤ 3 s) — on|off
+        # l'animation). Posé seulement pendant que l'écran Contrats est affiché : ailleurs la touche
+        # reste au jeu (F9 = puissance moteur en vaisseau). « f9 », « insert »… ; vide = aucun
+        "hotkey": "f9",
+        "read_on_click": "on",
+        # Meilleur lot : lieux de livraison distincts au plus (0 = sans limite) ; /mission offres lot dest N
+        "lot_destinations": 0,     # lire aussi après chaque clic (attente de l'animation, ≤ 3 s) — on|off
     },
     "voyage": {
         "calc": {

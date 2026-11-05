@@ -690,3 +690,20 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `docs/PLAN_DE_TEST.md` : essais en jeu avec attendu et trace du journal.
 - Version : `__version__ = "0.0.1"` (pyproject aussi, était 0.1.0) ; `version_string()` = « 0.0.1-<commit> » dans la bannière, la console et le journal.
 - 414 tests réussis.
+
+## 2026-11-05 — lot limité en destinations, raccourci F9
+
+**Demandé :** « le nombre de contrats n'est pas un bon critère mais le nombre de destinations totales oui » ; « on va prendre F9 … si le logiciel ne voit pas de mobiGlas, alors il ignore le F9 ».
+
+**Fait :**
+- `rules/cargo_lot.py` : plafond `max_destinations` de lieux de livraison distincts (plusieurs contrats vers la même station = une destination ; `place_key` rapproche les noms lus par l'OCR) ; sac à dos refait pour chaque groupe de N destinations (2 000 groupes au plus) ; offre au détail non lu = une destination propre ; 10 contrats restent la limite du jeu. `/mission offres lot dest N`, `[contracts] lot_destinations` ; boutons « ≤ 2 dest. », « ≤ 3 dest. » (encart) et thème Missions ; ligne « Destinations : N — … ».
+- F9 (vérifié dans le profil de touches par défaut : puissance moteur en vaisseau, rien dans le mobiGlas) : `[contracts] hotkey = "f9"`. RegisterHotKey retire la touche au jeu ; elle n'est donc posée que pendant que l'écran Contrats (bouton OFFERS vert, vérifié toutes les 0,5 s sur ce seul bouton) est affiché, et rendue au jeu ailleurs.
+- 418 tests réussis. À tester en jeu.
+
+## 2026-11-05 — F9 écouté comme la souris, bip après F9
+
+**Demandé :** « un bip quand le contrat est reconnu après une touche F9, comme quand c'est auto ».
+
+**Constaté dans le journal (10:36-10:38) :** F9 posé par RegisterHotKey à l'ouverture de Contrats, mais aucun appui reçu (pas de capture) ; F9 n'était pris par aucun autre programme. Les clics, eux, arrivent (crochet souris bas niveau).
+
+**Fait :** raccourci écouté par le crochet clavier bas niveau de pynput (`keyboard.Listener` + `HotKey`), comme la souris : la touche n'est plus retirée au jeu (plus besoin de la poser et la retirer selon l'écran) ; à l'appui, capture, et si l'onglet OFFERS n'est pas visible la touche est ignorée (notée au journal avec la raison). Bip après F9 : aigu si l'offre est reconnue (rattachée), grave et plus long sinon. 419 tests réussis. À tester en jeu.

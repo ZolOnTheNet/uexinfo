@@ -278,7 +278,7 @@ SUBS: dict[str, list[tuple[str, str]]] = {
         ("today", "Captures d'aujourd'hui"),
         ("all",   "Toute la base de captures"),
         ("maj",   "Télécharge les données de contrats scmdb.net"),
-        ("lot",   "Meilleur lot pour la soute du vaisseau actif"),
+        ("lot",   "Meilleur lot pour la soute du vaisseau actif (dest N : destinations au plus)"),
         ("vider", "Vider le tableau des offres lues"),
     ],
     "auto": [

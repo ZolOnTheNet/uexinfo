@@ -48,3 +48,36 @@ def test_unknown_scu_or_reward_left_out_and_estimate_flag():
                     _it("Estimée", 30000, 16, exact=False)], 32)
     assert [i.title for i in lot.items] == ["Estimée"] and lot.estimated
     assert len(lot.left_out) == 2
+
+
+def _d(title, reward, scu, *drops):
+    return LotItem(key=(title, reward), title=title, reward=reward, scu=scu, exact=True,
+                   pickups=["Seraphim Station"], drops=list(drops))
+
+
+def test_destination_limit_counts_places_not_contracts():
+    from uexinfo.rules.cargo_lot import place_key
+    assert place_key("Shallow Fields Station above Crusader's L4 Lagrange point") == place_key("Shallow Fields above Crusader")
+    offers = [
+        _d("A", 60000, 10, "Shallow Fields Station above Crusader"),
+        _d("B", 50000, 10, "Shallow Fields above Crusader", "Beautiful Glen Station"),
+        _d("C", 45000, 10, "Beautiful Glen Station above Crusader"),
+        _d("D", 70000, 10, "Ambitious Dream Station"),
+        _d("E", 40000, 10, "Seraphim Station"),
+    ]
+    # sans plafond : tout (50 SCU)
+    assert best_lot(offers, 100).reward == 265000
+    # 2 destinations : A + B + C (2 lieux, 155 000) bat D + A (130 000)
+    lot = best_lot(offers, 100, max_destinations=2)
+    assert {i.title for i in lot.items} == {"A", "B", "C"} and len(lot.destinations) == 2
+    # 1 destination : D seule (70 000) bat A seule (60 000)
+    assert [i.title for i in best_lot(offers, 100, max_destinations=1).items] == ["D"]
+    # offre à 2 destinations écartée sous un plafond de 1
+    assert any("2 destinations à elle seule" in why for _, why in best_lot(offers, 100, max_destinations=1).left_out)
+
+
+def test_unread_offer_counts_as_its_own_destination():
+    offers = [_d("Lue", 30000, 10, "Seraphim Station"), _d("Non lue", 90000, 10)]
+    lot = best_lot(offers, 100, max_destinations=1)
+    assert [i.title for i in lot.items] == ["Non lue"]
+    assert sorted(best_lot(offers, 100, max_destinations=2).destinations) == ["?", "Seraphim Station"]

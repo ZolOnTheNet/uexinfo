@@ -115,7 +115,7 @@ def test_beep_once_page_fully_read():
     import threading, time
     from uexinfo.ocr.contract_watch import ContractWatcher
     beeps = []
-    w = ContractWatcher(None, None, lambda b: None, on_read=lambda: beeps.append(time.time()))
+    w = ContractWatcher(None, None, lambda b: None, on_read=lambda ok=True: beeps.append(time.time()))
     w._listener = object()                  # mode actif sans écouter la souris
     w._last_seen = time.time()
 
@@ -214,3 +214,23 @@ def test_detail_reward_fixes_card_with_extra_digit():
     board.add_cards([RecognizedContract(_card("ROOKIE HAULER NEEDED", 363000, 0, 60), None, 0.0)], 0)
     got = board.add_detail(MissionResult(title="Rookie Hauler Needed", reward=63000), 0, selected=0)
     assert got.reward == 63000
+
+
+def test_hotkey_beeps_high_if_recognized_low_otherwise():
+    import threading, time
+    from uexinfo.ocr.contract_watch import ContractWatcher
+    beeps = []
+    w = ContractWatcher(None, None, lambda b: None, on_read=lambda ok=True: beeps.append(ok))
+    w._listener = object()
+    w._last_seen = time.time()
+
+    def fake_process(img, ts, forced=False):
+        w._last_offer = object() if img == "reconnue" else None
+        return w._last_offer is not None
+    w.process = fake_process
+    threading.Thread(target=w._work, daemon=True).start()
+    w._queue.put(("reconnue", time.time(), True))
+    time.sleep(0.3)
+    w._queue.put(("illisible", time.time(), True))
+    time.sleep(0.3)
+    assert beeps == [True, False]

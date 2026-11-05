@@ -38,13 +38,14 @@ journal du jour en cas d'écart.
 
 | # | Faire | Attendu | Trace | Résultat |
 |---|---|---|---|---|
-| 3.1 | Clic sur **Scan Mis.** (barre d'état) — ou `/mission offres on` | Bouton vert ; message « Mode scan … en marche » | `commande (bouton Scan Mis.)`, `mode scan des offres lancé`, `raccourci alt+shift+m : posé` | |
+| 3.1 | Clic sur **Scan Mis.** (barre d'état) — ou `/mission offres on` | Bouton vert ; message « Mode scan … en marche » | `commande (bouton Scan Mis.)`, `mode scan des offres lancé`, `mode scan des offres lancé` | |
 | 3.2 | Contrats › OFFERS, cliquer une offre, attendre le texte | Bip ; encart Offres : l'offre avec ses livraisons | `détail : carte surlignée N … → <offre>` | |
-| 3.3 | Ouvrir une offre, appuyer sur **Alt+Maj+M** | Bip en ~1 s, sans attente ; détail rattaché | `raccourci … capturée`, `lu en … après 0.0 s` | |
-| 3.4 | Appuyer deux fois sur Alt+Maj+M sur la même offre | Une seule ligne dans l'encart, mise à jour | deux `détail :` vers la même offre | |
+| 3.3 | Ouvrir Contrats › OFFERS, ouvrir une offre, appuyer sur **F9** | Bip **aigu** en ~1 s, sans attente ; détail rattaché (bip **grave** si non reconnue : réappuyer) | `raccourci f9 à l'écoute`, `touche f9 : offre affichée capturée`, `lu en … après 0.0 s` | |
+| 3.3b | Fermer le mobiGlas, monter dans le vaisseau, appuyer sur F9 | F9 baisse la puissance moteur (touche jamais retirée au jeu) ; pas de bip | `touche f9 ignorée : écran Contrats … non affiché` | |
+| 3.4 | Appuyer deux fois sur F9 sur la même offre | Une seule ligne dans l'encart, mise à jour | deux `détail :` vers la même offre | |
 | 3.5 | Faire défiler la liste à la molette | Nouvelles offres dans l'encart | `liste : N cartes, M reconnues` | |
 | 3.6 | Offre au titre long / reflet sur le titre | Rattachée quand même (carte surlignée) | `carte surlignée N` ≠ aucune | |
-| 3.7 | Clic sur **Scan Mis.** — ou `/mission offres off` | Bouton gris ; Alt+Maj+M ne fait plus rien | `mode scan des offres arrêté` | |
+| 3.7 | Clic sur **Scan Mis.** — ou `/mission offres off` | Bouton gris ; F9 n'est plus écouté | `mode scan des offres arrêté` | |
 | 3.8 | Laisser le mode en marche 20 min hors de Contrats | Arrêt seul + message | `mode scan des offres arrêté` | |
 
 Attention : l'overlay posé sur la liste des contrats est lu avec elle — le garder à côté.
@@ -56,6 +57,7 @@ Attention : l'overlay posé sur la liste des contrats est lu avec elle — le ga
 | 4.1 | Vaisseau actif choisi (V: en bas), une dizaine d'offres ouvertes | — | — | |
 | 4.2 | Bouton **Meilleur lot** (encart Offres) — ou thème Missions › « Meilleur lot pour mon vaisseau » — ou `/mission offres lot` | Tableau : offres choisies, total, SCU libres, offres écartées et pourquoi | `commande (bouton Meilleur lot) : /mission offres lot` + réponse | |
 | 4.3 | `/mission offres lot 32` (autre soute) | Lot recalculé pour 32 SCU | réponse | |
+| 4.3b | Bouton **≤ 2 dest.** (encart) — ou thème Missions › « Meilleur lot, 2 destinations max » — ou `/mission offres lot dest 2` | Lot avec 2 lieux de livraison au plus ; ligne « Destinations : 2 — … » | réponse | |
 | 4.4 | Offre jamais ouverte | SCU « ≤ N » (catalogue) et note en bas | — | |
 | 4.5 | Bouton **Vider** — ou `/mission offres vider` | Encart vidé | `réponse à /mission offres vider` | |
 | 4.6 | Vérifier en jeu que le lot proposé tient vraiment dans la soute | Oui | — | |
