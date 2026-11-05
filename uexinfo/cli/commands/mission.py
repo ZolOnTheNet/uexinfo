@@ -10,7 +10,7 @@ from uexinfo.cli.commands import register
 from uexinfo.display import colors as C
 from uexinfo.display.adaptive import ColSpec, adaptive_table
 from uexinfo.display.formatter import console, print_error, print_ok, print_warn, section
-from uexinfo.cli.places import ensure_mission_places, mission_node_map, place_link
+from uexinfo.cli.places import ensure_mission_places, mission_node_map, place_link, player_system
 from uexinfo.models.mission import Mission, MissionObjective
 
 _SUBS = frozenset({
@@ -386,7 +386,8 @@ def _cmd_list(ctx) -> None:
     """/mission list — tableau du catalogue : récompense, SCU, départs, arrivées, synergies."""
     mm = ctx.mission_manager
     if not mm.missions:
-        print_warn("Aucune mission dans le catalogue")
+        print_warn("Aucune mission dans le catalogue (missions enregistrées). Les offres lues "
+                   "dans le mobiGlas : /mission offres (bouton « Offres du mobiGlas »).")
         console.print(f"[{C.DIM}]/mission add <nom> reward:<n> obj:<commodité> from:<source> to:<dest> scu:<n>[/{C.DIM}]")
         return
 
@@ -411,10 +412,11 @@ def _cmd_list(ctx) -> None:
     player_loc = player.location if player and player.location else None
     player_node = _player_graph_node(ctx, graph)
     nodes = mission_node_map(mm.missions, graph)     # lieux par référence (D11)
+    shown, hidden = _visible_missions(ctx, mm.missions, nodes, graph)
     _dist_cache: dict = {}
     from datetime import datetime as _dt
 
-    for m in mm.missions:
+    for m in shown:
         refs = m.place_refs()
         scu_str    = f"{m.total_scu:.0f}{C.SCU}" if m.total_scu else "—"
         reward_str = f"{m.reward_uec // 1000}K{C.AUEC}" if m.reward_uec >= 1000 else f"{m.reward_uec}{C.AUEC}"
@@ -475,6 +477,13 @@ def _cmd_list(ctx) -> None:
     player_hint = f" · depuis {player_node or _short_loc(player_loc)}" if player_loc else ""
     active_voyage = ctx.voyage_manager.get_active() if hasattr(ctx, "voyage_manager") else None
 
+    if hidden:
+        print_warn(f"{hidden} mission(s) masquée(s) par le filtre de systèmes ({_system_filter_text(ctx)}) "
+                   "— /select clear system pour tout voir")
+    if not shown:
+        print_warn("Aucune mission dans les systèmes choisis. Les offres lues dans le mobiGlas sont "
+                   "dans /mission offres (bouton « Offres du mobiGlas »).")
+        return
     overlay_fn = getattr(ctx, "_overlay_send_fn", None)
     if overlay_fn is not None:
         _send_mission_list_actions(overlay_fn, mm, ctx, active_voyage)
@@ -499,6 +508,7 @@ def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
     player_loc = player.location if player and player.location else None
     player_node = _player_graph_node(ctx, graph)
     nodes = mission_node_map(mm.missions, graph)     # lieux par référence (D11)
+    shown, _ = _visible_missions(ctx, mm.missions, nodes, graph)
     _dist_cache: dict = {}
 
     # Résoudre les chemins absolus pour les screenshots
@@ -509,7 +519,7 @@ def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
         _sdb = None
 
     items = []
-    for m in mm.missions:
+    for m in shown:
         scu_str    = f"{m.total_scu:.0f}" if m.total_scu else ""
         reward_str = f"{m.reward_uec // 1000}K" if m.reward_uec and m.reward_uec >= 1000 else str(m.reward_uec or 0)
         tags       = " ".join(mm.synergies(m))
@@ -579,6 +589,40 @@ def _send_mission_list_actions(send_fn, mm, ctx, active_voyage=None) -> None:
         "missions":      items,
         "active_voyage": active_voyage.name if active_voyage else None,
     })
+
+
+def _mission_systems(m, nodes: dict, graph) -> set[str]:
+    """Systèmes des lieux reliés d'une mission (minuscules) ; vide si aucun lieu n'est relié."""
+    out = set()
+    for loc in list(m.all_sources) + list(m.all_destinations):
+        n = nodes.get(loc)
+        node = graph.nodes.get(n) if (graph is not None and n) else None
+        if node is not None and node.system and node.system != "Unknown":
+            out.add(node.system.lower())
+    return out
+
+
+def _visible_missions(ctx, missions, nodes: dict, graph) -> tuple[list, int]:
+    """Missions gardées par le filtre `/select system` (+inclus, -exclus) et nombre masquées.
+    Une mission sans lieu relié reste visible (système inconnu : rien n'est deviné)."""
+    from uexinfo.cli.commands.select import _get_filters
+    sf = _get_filters(ctx).get("system") or {}
+    inc = {str(x).lower() for x in sf.get("include", [])}
+    exc = {str(x).lower() for x in sf.get("exclude", [])}
+    shown = []
+    for m in missions:
+        ss = _mission_systems(m, nodes, graph)
+        if ss and ((inc and not ss & inc) or (exc and ss <= exc)):
+            continue
+        shown.append(m)
+    return shown, len(missions) - len(shown)
+
+
+def _system_filter_text(ctx) -> str:
+    """« +pyro -nyx » : filtre de systèmes actif."""
+    from uexinfo.cli.commands.select import _get_filters
+    sf = _get_filters(ctx).get("system") or {}
+    return " ".join([f"+{x}" for x in sf.get("include", [])] + [f"-{x}" for x in sf.get("exclude", [])])
 
 
 def _player_graph_node(ctx, graph):
@@ -1143,7 +1187,7 @@ def _cmd_offers_lot(args: list[str], ctx) -> None:
     console.print(f"[bold]Meilleur lot[/bold] [{C.DIM}]({where}soute {capacity} SCU"
                   + (f", caisses ≤ {max_box} SCU" if max_box else "")
                   + (f", {max_dest} destination(s) au plus" if max_dest else ", destinations sans limite")
-                  + ")[/{C.DIM}]")
+                  + f")[/{C.DIM}]")
     if not lot.items:
         print_warn("Aucune offre ne tient dans la soute.")
     else:
@@ -1188,6 +1232,11 @@ def _cmd_offers(args: list[str], ctx) -> None:
         print_ok(control(True if word in ("on", "scan") else False if word == "off" else None))
         return
 
+    if args and args[0].lower() in ("aide", "help", "?"):
+        from uexinfo.cli.commands.help import cmd_help
+        cmd_help(["mission", "offres"], ctx)
+        return
+
     if args and args[0].lower() in ("lot", "best"):
         _cmd_offers_lot(args[1:], ctx)
         return
@@ -1195,6 +1244,8 @@ def _cmd_offers(args: list[str], ctx) -> None:
     if args and args[0].lower() in ("vider", "clear"):
         board = getattr(ctx, "offers_board", None)
         n = board.clear() if board is not None else 0
+        if board is not None:
+            board.save()
         print_ok(f"Tableau des offres vidé ({n} offre(s) retirée(s)).")
         return
 
@@ -1207,6 +1258,21 @@ def _cmd_offers(args: list[str], ctx) -> None:
         print_ok(f"Données de contrats à jour : {path.name}")
         console.print(f"[{C.DIM}]{cc.SCMDB_CREDIT}[/{C.DIM}]")
         return
+
+    board = getattr(ctx, "offers_board", None)
+    if (not args or args[0].lower() in ("voir", "show", "tableau")) and board is not None and board.offers:
+        # offres lues par le mode scan (gardées en mémoire, même mode arrêté) ; les anciennes
+        # captures d'écran : /mission offres captures
+        import time as _time
+        send = getattr(ctx, "_overlay_send_fn", None)
+        rows = board.rows(_time.time())
+        if send is not None:
+            send({"type": "offers", "html": board.html(_time.time())})
+        print_ok(f"{len(rows)} offre(s) lue(s) par le mode scan — Meilleur lot : /mission offres lot · "
+                 "anciennes captures : /mission offres captures")
+        return
+    if args and args[0].lower() in ("captures", "voir", "show", "tableau"):
+        args = args[1:]
 
     try:
         db = _screenshot_db(ctx)
@@ -1228,7 +1294,7 @@ def _cmd_offers(args: list[str], ctx) -> None:
 
     seen: dict[tuple, tuple] = {}            # contrat (+ récompense) → (résultat, heure de capture)
     for e in entries:
-        for r in catalog.recognize(_entry_cards(e)):
+        for r in catalog.recognize(_entry_cards(e), system=player_system(ctx)):
             key = (r.contract.debug_name or r.contract.title, r.reward) if r.recognized else ("?", r.card.title)
             seen[key] = (r, e.file_mtime)
 
@@ -1281,11 +1347,11 @@ def _show_help() -> None:
         ("scan all",         "Toute la base de screenshots"),
         ("scan today",       "Captures d'aujourd'hui"),
         ("scan terminal",    "Terminaux scannés"),
-        ("offres",           "Contrats lus dans les captures de la liste (catégorie, points, partage)"),
+        ("offres",           "Tableau des offres lues par le mode scan (aide : /mission offres aide)"),
         ("offres on|off",    "Mode scan : uexinfo lit les offres à chaque clic dans l'écran Contrats"),
         ("offres lot [scu] [dest N]", "Meilleur lot d'offres lues pour la soute (vaisseau actif ou scu donnés), N destinations au plus"),
         ("offres vider",     "Vide le tableau des offres lues"),
-        ("offres today|all", "Idem sur la journée / toute la base"),
+        ("offres captures",  "Contrats lus dans les anciennes captures (today|all : journée / toute la base)"),
         ("offres maj",       "Télécharge les données de contrats scmdb.net (une fois par version du jeu)"),
     ]
     for cmd, desc in lines:

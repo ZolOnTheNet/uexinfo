@@ -111,12 +111,16 @@ DEFAULT: dict = {
         "auto_capture": "off",
         "beep": "on",              # bip quand la page est entièrement lue (passer à l'offre suivante) — on|off
         # Raccourci du mode scan : l'offre affichée est lue tout de suite (sans attendre la fin de
-        # l'animation). Posé seulement pendant que l'écran Contrats est affiché : ailleurs la touche
-        # reste au jeu (F9 = puissance moteur en vaisseau). « f9 », « insert »… ; vide = aucun
+        # l'animation) ; bip aigu si elle est reconnue, grave sinon. La touche n'est pas retirée au
+        # jeu et n'agit que dans l'écran Contrats (F9 = puissance moteur en vaisseau, sans effet
+        # dans le mobiGlas). « f9 », « insert », « alt+shift+m »… ; vide = aucun
         "hotkey": "f9",
-        "read_on_click": "on",
+        "read_on_click": "on",     # lire aussi après chaque clic (attente de l'animation, ≤ 3 s) — on|off
         # Meilleur lot : lieux de livraison distincts au plus (0 = sans limite) ; /mission offres lot dest N
-        "lot_destinations": 0,     # lire aussi après chaque clic (attente de l'animation, ≤ 3 s) — on|off
+        "lot_destinations": 0,
+        # Dépannage : dernières images de l'écran Contrats gardées (JPEG ≈ 0,5 Mo chacune) dans
+        # <données uexinfo>/logs/offres, nommées comme dans le journal (« image gardée : … ») ; 0 = aucune
+        "keep_images": 30,
     },
     "voyage": {
         "calc": {

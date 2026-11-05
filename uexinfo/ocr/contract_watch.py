@@ -164,11 +164,27 @@ def _norm(text: str) -> str:
     return normalize(text)
 
 
+def _other_title(a: str, b: str) -> bool:
+    """Vrai si deux titres (normalisés) désignent des contrats différents : chacun a un mot sans
+    équivalent dans l'autre (« junior … small » / « rookie … large ») ; une lettre abîmée ou des
+    mots en trop d'un seul côté (OCR) ne suffisent pas."""
+    from rapidfuzz import fuzz
+    wa = [w for w in a.split() if len(w) >= 4 and w.isalpha()]
+    wb = [w for w in b.split() if len(w) >= 4 and w.isalpha()]
+
+    def alone(xs, ys):
+        return any(all(fuzz.ratio(x, y) < 75 for y in ys) for x in xs)
+    return bool(wa and wb) and alone(wa, wb) and alone(wb, wa)
+
+
 class OffersBoard:
     """Offres vues pendant la session, sans doublon, retirées à leur expiration."""
 
-    def __init__(self):
-        """Tableau vide."""
+    KEEP_UNTIMED_S = 12 * 3600      # offre sans minuteur lu : oubliée 12 h après avoir été vue
+
+    def __init__(self, path=None):
+        """Tableau vide ; `path` : fichier JSON où il est gardé (relu par `load`, écrit par `save`)."""
+        self.path = path
         self.offers: dict[tuple, Offer] = {}
         self.cards: list[tuple] = []     # dernière liste lue : (carte, offre ou None), dans l'ordre
 
@@ -178,6 +194,11 @@ class OffersBoard:
         self.cards = []
         for r in results:
             card, c = r.card, (r.contract if r.recognized else None)
+            if not c and not getattr(card, "reward", None):
+                # ni reconnue ni montant : en-tête de groupe (« HAULING PLANETARY ») ou texte de
+                # l'overlay lu avec la liste ; garde sa place (carte surlignée), pas d'offre
+                self.cards.append((card, None))
+                continue
             if not (card.title or c):
                 self.cards.append((card, None))
                 continue
@@ -211,6 +232,12 @@ class OffersBoard:
         reward = getattr(detail, "reward", 0) or 0
         if selected is not None and 0 <= selected < len(self.cards):
             card, best = self.cards[selected]
+            if best is not None and title and _other_title(title, _norm(best.title)):
+                # « Junior … Small Shipment » rattaché à « Rookie … Large Shipment » (journal du
+                # 05/11) : la carte surlignée n'est plus celle lue dans la liste
+                best, selected = None, None
+        if selected is not None and 0 <= selected < len(self.cards):
+            card, best = self.cards[selected]
             if best is None and title:
                 # carte au titre illisible : l'offre prend le titre du détail
                 secs = parse_timer(getattr(card, "timer", ""))
@@ -222,11 +249,11 @@ class OffersBoard:
             if best is not None:
                 if not best.recognized and title and len(title) > len(_norm(best.title)):
                     best.title = raw_title
-                if reward and best.reward and reward // 1000 != best.reward // 1000:
-                    card_k, detail_k = str(best.reward // 1000), str(reward // 1000)
-                    if not (len(card_k) == len(detail_k) + 1 and card_k.endswith(detail_k)):
-                        reward = 0                            # montant du détail mal lu (67 500 lu 87 500)
-                    # sinon : carte mal lue, un signe en trop devant (63k lu 363k) → montant du détail
+                if reward and best.reward and abs(reward - best.reward) > 1500:
+                    # montant du détail mal lu, la carte (contrôlée par le catalogue) l'emporte :
+                    # 67 500 lu 87 500, et un chiffre perdu (258 250 lu 58 250, 510 500 lu 51 050 ;
+                    # catalogue scmdb 4.10.2 : 258 250, 363 000, 510 500)
+                    reward = 0
                 return self._attach(best, detail, reward, now)
         if not title:
             return None
@@ -266,6 +293,40 @@ class OffersBoard:
             best.pickups, best.drops = list(dict.fromkeys(pickups)), list(dict.fromkeys(drops))
         best.seen_at = now
         return best
+
+    def save(self) -> None:
+        """Écrit les offres dans `path` (si défini) : une relance d'uexinfo ne perd pas la moisson."""
+        if self.path is None:
+            return
+        import json
+        from dataclasses import asdict
+        try:
+            tmp = Path(self.path).with_suffix(".part")
+            tmp.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(json.dumps([asdict(o) for o in self.offers.values()], ensure_ascii=False),
+                           encoding="utf-8")
+            tmp.replace(self.path)
+        except Exception as e:
+            log.warning("offres non enregistrées : %s", e)
+
+    def load(self, now: float) -> int:
+        """Relit les offres de `path` encore valables ; nombre d'offres reprises."""
+        import json
+        from dataclasses import fields
+        if self.path is None or not Path(self.path).is_file():
+            return 0
+        try:
+            names = {f.name for f in fields(Offer)}
+            for d in json.loads(Path(self.path).read_text(encoding="utf-8")):
+                o = Offer(**{k: v for k, v in d.items() if k in names})
+                if o.expires_at and o.expires_at <= now:
+                    continue
+                if not o.expires_at and now - (o.seen_at or 0) > self.KEEP_UNTIMED_S:
+                    continue
+                self.offers[o.key] = o
+        except Exception as e:
+            log.warning("offres enregistrées illisibles : %s", e)
+        return len(self.offers)
 
     def clear(self) -> int:
         """Vide le tableau (nouvelle série d'offres) ; nombre d'offres retirées."""
@@ -332,6 +393,20 @@ def beep(ok: bool = True) -> None:
         pass
 
 
+def keep_image(img, folder, keep: int, name: str) -> None:
+    """Garde l'image lue pour le dépannage (JPEG, fil à part : la lecture n'attend pas) ; seules
+    les `keep` dernières restent dans `folder`."""
+    def save():
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            img.convert("RGB").save(folder / name, "JPEG", quality=80)
+            for old in sorted(folder.glob("offre-*.jpg"))[:-keep]:
+                old.unlink(missing_ok=True)
+        except Exception as e:
+            log.debug("image non gardée : %s", e)
+    threading.Thread(target=save, daemon=True, name="contract-keep").start()
+
+
 def star_citizen_active() -> bool:
     """Vrai si la fenêtre au premier plan est celle de Star Citizen (Windows seulement)."""
     try:
@@ -381,7 +456,8 @@ class ContractWatcher:
     _HOTKEY_ID = 0x1EF0                     # identifiant RegisterHotKey du raccourci du mode scan
 
     def __init__(self, engine, catalog, on_update, on_idle_stop=None, on_read=None,
-                 hotkey: str = "", read_on_click: bool = True):
+                 hotkey: str = "", read_on_click: bool = True, keep_images: int = 0, images_dir=None,
+                 system_fn=None):
         """`engine` : TesseractEngine ; `catalog` : ContractCatalog (ou None : cartes non reconnues) ;
         `on_idle_stop()` : appelé quand le mode s'arrête seul faute d'écran Contrats ;
         `on_read()` : appelé quand la page est entièrement lue (plus aucune image en attente) — le bip."""
@@ -390,8 +466,12 @@ class ContractWatcher:
         # Raccourci clavier : l'offre affichée est lue tout de suite, sans attendre la fin de
         # l'animation (le décor transparent bouge toujours) ; même offre deux fois : la dernière gagne.
         self.hotkey, self.read_on_click = hotkey, read_on_click
+        # Dépannage : les `keep_images` dernières images lues gardées dans `images_dir` (0 = aucune)
+        self.keep_images, self.images_dir = max(0, int(keep_images or 0)), images_dir
+        self.system_fn = system_fn          # () → système du joueur (variantes du catalogue)
         self._hotkey_listener = None
         self._last_offer = None             # offre rattachée par la dernière lecture (bip du raccourci)
+        self._early_beep = False            # bip du raccourci déjà donné avant la fin de la lecture
         self._did_read = False              # une lecture OCR a eu lieu depuis le dernier bip
         self.board = OffersBoard()
         self._queue: queue.Queue = queue.Queue(maxsize=8)
@@ -488,6 +568,12 @@ class ContractWatcher:
             log.info("touche %s ignorée : Star Citizen n'est pas au premier plan", self.hotkey)
             return
         self._gen += 1                      # une attente de clic en cours est abandonnée
+        # le crochet clavier bas niveau doit rendre la main tout de suite (sinon le clavier
+        # entier attend la capture) : capture et contrôle de l'écran dans un fil à part
+        threading.Thread(target=self._capture_now, daemon=True, name="contract-hotkey").start()
+
+    def _capture_now(self) -> None:
+        """Capture du raccourci : mise en file si l'écran Contrats est affiché."""
         try:
             from PIL import ImageGrab
             img = ImageGrab.grab()
@@ -519,14 +605,21 @@ class ContractWatcher:
         """Attend la fin de l'animation du texte, puis met l'image en file (jamais écrite sur disque)."""
         from PIL import ImageGrab
 
+        hidden = [0]
+
         def grab():
-            """Image de l'écran principal ; None si le jeu n'est plus au premier plan."""
-            return ImageGrab.grab() if star_citizen_active() else None
+            """Image de l'écran principal ; None si le jeu n'est plus au premier plan ou si l'écran
+            Contrats n'est pas affiché sur deux images de suite (clic ailleurs dans le jeu)."""
+            if not star_citizen_active():
+                return None
+            img = ImageGrab.grab()
+            hidden[0] = 0 if offers_tab_active(img) else hidden[0] + 1
+            return None if hidden[0] >= 2 else img
         try:
             t0, trace = time.time(), []
             img = stable_frame(grab, is_current=lambda: gen == self._gen, trace=trace)
-            self._settle_s, self._settle_trace = time.time() - t0, trace
             if img is not None:
+                self._settle_s, self._settle_trace = time.time() - t0, trace
                 self._queue.put_nowait((img, time.time()))
         except queue.Full:
             pass
@@ -548,10 +641,16 @@ class ContractWatcher:
                 continue
             img, ts, forced = item[0], item[1], (len(item) > 2 and item[2])
             try:
-                self._last_offer = None
+                self._last_offer, self._early_beep = None, False
+                if self.keep_images and self.images_dir is not None and offers_tab_active(img):
+                    name = time.strftime("offre-%Y%m%d-%H%M%S", time.localtime(ts)) + f"-{int(ts * 1000) % 1000:03d}.jpg"
+                    keep_image(img, self.images_dir, self.keep_images, name)
+                    log.info("image gardée : %s%s", name, " (touche)" if forced else "")
                 if self.process(img, ts, forced):
                     self.on_update(self.board)
-                if forced and self.on_read:
+                if forced and self._early_beep:
+                    pass                            # bip déjà donné pendant la lecture
+                elif forced and self.on_read:
                     # raccourci : bip aigu si l'offre est reconnue, grave sinon (réappuyer)
                     self._did_read = False
                     self.on_read(self._last_offer is not None)
@@ -585,6 +684,22 @@ class ContractWatcher:
         with ThreadPoolExecutor(max_workers=2) as pool:      # Tesseract : un processus par lecture
             f_list = pool.submit(self._read_list, img) if read_list else None
             f_detail = pool.submit(self.engine.extract_mission, img, False) if read_detail else None
+            detail = offer = sel = None
+            if forced and f_detail is not None:
+                # raccourci : le détail est rattaché dès qu'il est lu, bip sans attendre la liste.
+                # Liste à relire (molette) : les cartes connues ne sont plus à leur place, le
+                # rattachement se fait alors par le titre et le montant.
+                self._last_detail = detail_sig
+                detail = f_detail.result()
+                sel = None if read_list else selected_card(img, [c for c, _ in self.board.cards])
+                offer = self.board.add_detail(detail, ts, sel)
+                if offer is not None:
+                    self._log_detail(detail, sel, offer)
+                    self._last_offer, updated = offer, True
+                    if self.on_read:
+                        self._early_beep = True
+                        self.on_read(True)
+                    self.on_update(self.board)
             if f_list is not None:
                 self._last_list, self._list_scrolls = list_sig, self._scrolls
                 results = f_list.result()
@@ -599,16 +714,14 @@ class ContractWatcher:
                     else:
                         log.info("   NON titre=%r donneur=%r montant=%s xp=%s bp=%s minuteur=%r",
                                  c.title, c.contractor, c.reward, c.xp, c.blueprint, getattr(c, "timer", ""))
-            if f_detail is not None:
+            if f_detail is not None and offer is None:
                 self._last_detail = detail_sig
-                detail = f_detail.result()
+                if detail is None:
+                    detail = f_detail.result()
                 sel = selected_card(img, [c for c, _ in self.board.cards])
                 offer = self.board.add_detail(detail, ts, sel)
                 self._last_offer = offer
-                log.info("détail : carte surlignée %s, titre=%r montant=%s → %s (%d objectifs)",
-                         "aucune" if sel is None else sel + 1, detail.title, detail.reward,
-                         f"{offer.title} · {offer.reward}" if offer else "AUCUNE OFFRE",
-                         len(getattr(detail, "parsed_objectives", []) or []))
+                self._log_detail(detail, sel, offer)
                 if offer is not None:
                     updated = True
         log.info("lu en %.1f s après %.1f s d'attente (écarts %s, stable ≤ %d ; liste %s, détail %s)",
@@ -616,11 +729,25 @@ class ContractWatcher:
                  "oui" if read_list else "non", "oui" if read_detail else "non")
         return updated
 
+    @staticmethod
+    def _log_detail(detail, sel, offer) -> None:
+        """Trace du rattachement du détail à une offre."""
+        log.info("détail : carte surlignée %s, titre=%r montant=%s → %s (%d objectifs)",
+                 "aucune" if sel is None else sel + 1, detail.title, detail.reward,
+                 f"{offer.title} · {offer.reward}" if offer else "AUCUNE OFFRE",
+                 len(getattr(detail, "parsed_objectives", []) or []))
+
     def _read_list(self, img) -> list:
         """Cartes de la liste, reconnues dans le catalogue quand il est là."""
         from uexinfo.ocr.contract_list import read_contract_list
         cards = read_contract_list(self.engine, img)
         if self.catalog is not None:
-            return self.catalog.recognize(cards)
+            system = ""
+            if self.system_fn is not None:
+                try:
+                    system = self.system_fn() or ""
+                except Exception:
+                    system = ""
+            return self.catalog.recognize(cards, system=system)
         from uexinfo.cache.contract_catalog import RecognizedContract
         return [RecognizedContract(c, None, 0.0) for c in cards if c.title]

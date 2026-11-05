@@ -72,6 +72,7 @@ THEMES: list[dict] = [
         _run("Meilleur lot, 2 destinations max", "/mission offres lot dest 2"),
         _run("Meilleur lot, 3 destinations max", "/mission offres lot dest 3"),
         _run("Vider les offres lues", "/mission offres vider"),
+        _run("Aide des offres", "/mission offres aide", "Moisson, F9, bips, meilleur lot."),
         _run("Offres du mobiGlas", "/mission offres"),
         _run("Missions capturées", "/mission scan"),
         _run("Ajouter depuis le scan", "/mission add"),

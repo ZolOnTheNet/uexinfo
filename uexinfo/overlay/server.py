@@ -483,10 +483,12 @@ class OverlayServer:
         # Générer HTML depuis les renderables capturés (ou fallback ANSI→HTML)
         from uexinfo.display.render_html import rich_renderables_to_html as _r2h
         renderables = _fmt_mod.console.flush_renderables()
-        if renderables:
-            html_output = _r2h(renderables)
-        else:
-            from uexinfo.display.ansi_html import ansi_to_html as _ansi_to_html
+        from uexinfo.display.ansi_html import ansi_to_html as _ansi_to_html
+        try:
+            html_output = _r2h(renderables) if renderables else _ansi_to_html(output)
+        except Exception as e:
+            # rendu HTML impossible : le texte brut plutôt qu'une page qui attend sans fin
+            _applog.warning("rendu HTML de %s impossible : %s", line, e)
             html_output = _ansi_to_html(output)
 
         # Sauvegarder la commande + son output HTML dans l'historique persistant
@@ -2167,14 +2169,28 @@ class OverlayServer:
             if self._contract_watch is None and on:
                 from uexinfo.cache import contract_catalog as cc
                 from uexinfo.ocr.contract_watch import ContractWatcher, beep
+                from uexinfo.applog import log_dir
+                from uexinfo.cli.places import player_system
                 from uexinfo.ocr.engine import TesseractEngine
                 ccfg = self.ctx.cfg.get("contracts", {})
                 on_read = beep if str(ccfg.get("beep", "on")).lower() != "off" else None
                 self._contract_watch = ContractWatcher(
                     TesseractEngine(), cc.load_catalog(self.ctx.cfg), self._on_offers, self._on_offers_idle,
                     on_read, hotkey=str(ccfg.get("hotkey", "") or ""),
-                    read_on_click=str(ccfg.get("read_on_click", "on")).lower() != "off")
-                self.ctx.offers_board = self._contract_watch.board
+                    read_on_click=str(ccfg.get("read_on_click", "on")).lower() != "off",
+                    keep_images=int(ccfg.get("keep_images", 30) or 0),
+                    images_dir=log_dir() / "offres",
+                    system_fn=lambda: player_system(self.ctx))
+                # moisson gardée sur disque : une relance d'uexinfo la retrouve
+                import appdirs
+                from pathlib import Path as _P
+                board = self._contract_watch.board
+                board.path = _P(appdirs.user_data_dir("uexinfo")) / "offres.json"
+                import time as _t0
+                n = board.load(_t0.time())
+                if n:
+                    _applog.info("offres reprises du disque : %d", n)
+                self.ctx.offers_board = board
             w = self._contract_watch
             if w is not None and on is not None:
                 w.start() if on else w.stop()
@@ -2204,6 +2220,7 @@ class OverlayServer:
         if not self._loop:
             return
         import time as _t
+        board.save()
         msg = json.dumps({"type": "offers", "html": board.html(_t.time())})
         asyncio.run_coroutine_threadsafe(self._broadcast_raw(msg), self._loop)
 

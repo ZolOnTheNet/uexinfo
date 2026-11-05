@@ -250,7 +250,7 @@ uexinfo/                         (racine du dépôt)
 
 ## 🧪 **TESTS — `tests/`**
 
-Lancer : `pytest` (419 tests réussis au 2026-11-05).
+Lancer : `pytest` (432 tests réussis au 2026-11-05).
 
 | Fichier | Ce qui est testé |
 |---|---|
@@ -261,6 +261,7 @@ Lancer : `pytest` (419 tests réussis au 2026-11-05).
 | `test_overlay_auth.py` | Serveur WebSocket : connexion refusée (403) sans le jeton ; `open_file` limité aux images existantes. |
 | `test_menus.py` | Catalogue du mode souris : chaque bouton vise une commande et une sous-commande connues. |
 | `test_voyage_manager.py` | `VoyageManager` : gestion des étapes. |
+| `test_mission_list_filter.py` | `/mission list` suit le filtre de systèmes de `/select`. |
 | `test_voyage_model.py` | Modèles `Voyage` et `VoyageStep`. |
 | `cache/test_cleanup.py` | Nettoyage de la base sans trou entre versions (D10). |
 | `cache/test_contract_catalog.py` | Reconnaissance des contrats (catalogue **fictif**, aucune donnée scmdb). |
@@ -284,6 +285,7 @@ Lancer : `pytest` (419 tests réussis au 2026-11-05).
 | `rules/test_stock.py` | D1 : quantités selon le statut de stock. |
 | `rules/test_risk.py` | D2 : risque de stock, demi-vie 1 h. |
 | `rules/test_cargo_lot.py` | Meilleur lot sur les offres du 05/11 : soute pleine, petite soute, limite de 10, caisses trop grandes, SCU inconnus. |
+| `rules/test_lot_command.py` | `/mission offres lot` s'affiche (balisage des couleurs, titres à crochets « [TARGET] »), avec et sans limite de destinations. |
 | `rules/test_version.py` | D3 : versions et changements d'univers. |
 | `rules/test_scan_match.py` | Quel Pyro Gateway a été scanné. |
 
@@ -411,7 +413,7 @@ Lancer : `pytest` (419 tests réussis au 2026-11-05).
 | Fichiers suivis par git | 195 |
 | Fichiers Python du package `uexinfo/` | 101 |
 | Commandes (`@register`) | 25, toutes chargées |
-| Fichiers de tests | 30 (419 tests réussis au 2026-11-05) |
+| Fichiers de tests | 32 (432 tests réussis au 2026-11-05) |
 | Documents `docs/` | 37 (dont 14 dans `archive/`, 7 dans `ai/`) |
 
 ---

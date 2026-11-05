@@ -207,13 +207,50 @@ def test_hotkey_forces_detail_reread():
     assert calls == [False, False]
 
 
-def test_detail_reward_fixes_card_with_extra_digit():
-    # journal du 05/11 : carte lue 363k (¤ lu « 3 »), détail 63 000
+def test_card_reward_wins_over_detail_missing_a_digit():
+    # journal du 05/11 : cartes 258k / 363k / 510k (= catalogue scmdb), détail lu 58 250 / 63 000 / 51 050
+    from uexinfo.cache.contract_catalog import RecognizedContract
+    for card_r, detail_r in ((258000, 58250), (363000, 63000), (510000, 51050)):
+        board = OffersBoard()
+        board.add_cards([RecognizedContract(_card("ROOKIE HAULER NEEDED", card_r, 0, 60), None, 0.0)], 0)
+        got = board.add_detail(MissionResult(title="Rookie Hauler Needed", reward=detail_r), 0, selected=0)
+        assert got.reward == card_r
+
+
+def test_detail_reward_kept_when_close_to_card():
     from uexinfo.cache.contract_catalog import RecognizedContract
     board = OffersBoard()
-    board.add_cards([RecognizedContract(_card("ROOKIE HAULER NEEDED", 363000, 0, 60), None, 0.0)], 0)
-    got = board.add_detail(MissionResult(title="Rookie Hauler Needed", reward=63000), 0, selected=0)
-    assert got.reward == 63000
+    board.add_cards([RecognizedContract(_card("JUNIOR HAULER NEEDED", 215000, 0, 60), None, 0.0)], 0)
+    got = board.add_detail(MissionResult(title="Junior Hauler Needed", reward=215250), 0, selected=0)
+    assert got.reward == 215250
+
+
+def test_selected_card_of_another_contract_is_not_used():
+    # journal du 05/11 12:00:59 : détail « Junior … Small » rattaché à la carte « Rookie … Large »
+    from uexinfo.cache.contract_catalog import RecognizedContract
+    board = OffersBoard()
+    board.add_cards([
+        RecognizedContract(_card("Junior Hauler Needed for Small Shipment", 172000, 0, 60), None, 0.0),
+        RecognizedContract(_card("Rookie Hauler Needed for Large Shipment", 523000, 0, 60), None, 0.0)], 0)
+    got = board.add_detail(MissionResult(title="Junior Hauler Needed for Small Shipment 50 /",
+                                         reward=172250), 0, selected=1)
+    assert got.title.startswith("Junior") and got.reward == 172250
+
+
+def test_damaged_title_still_uses_selected_card():
+    from uexinfo.ocr.contract_watch import _other_title
+    assert not _other_title("rookie hauler neded for small shipment 50", "rookie hauler needed for small shipment")
+    assert not _other_title("rookie hauler needed for direct bulk shipmen", "rookie hauler needed for direct bulk shipment")
+    assert _other_title("junior hauler needed for small shipment", "rookie hauler needed for large shipment")
+
+
+def test_list_headers_are_not_offers():
+    # « HAULING PLANETARY », texte de l'overlay : ni reconnus ni montant → pas d'offre
+    from uexinfo.cache.contract_catalog import RecognizedContract
+    board = OffersBoard()
+    board.add_cards([RecognizedContract(_card("HAULING PLANETARY", None, 0, 0), None, 0.0),
+                     RecognizedContract(_card("Rookie Hauler Needed", 63000, 0, 60), None, 0.0)], 0)
+    assert len(board.offers) == 1 and len(board.cards) == 2
 
 
 def test_hotkey_beeps_high_if_recognized_low_otherwise():
@@ -234,3 +271,51 @@ def test_hotkey_beeps_high_if_recognized_low_otherwise():
     w._queue.put(("illisible", time.time(), True))
     time.sleep(0.3)
     assert beeps == [True, False]
+
+
+def test_hotkey_beeps_before_list_reread():
+    # journal du 05/11 : F9 après la molette attendait 2,6 s la relecture de la liste avant le bip
+    import threading
+    from uexinfo.cache.contract_catalog import RecognizedContract
+    from uexinfo.ocr.contract_watch import ContractWatcher
+    beeps, list_done = [], threading.Event()
+
+    class Engine:
+        tessdata_dir = "."
+
+        def extract_mission(self, img, full):
+            return MissionResult(title="Rookie Hauler Needed", reward=63000)
+    w = ContractWatcher(Engine(), None, lambda b: None, on_read=lambda ok=True: beeps.append(list_done.is_set()))
+    w.board.add_cards([RecognizedContract(_card("ROOKIE HAULER NEEDED", 63000, 0, 60), None, 0.0)], 0)
+    w._last_list, w._scrolls = b"x", 1                     # molette depuis la dernière lecture
+
+    def slow_list(img):
+        list_done.wait(2)
+        return []
+    w._read_list = lambda img: (threading.Timer(0.3, list_done.set).start(), slow_list(img))[1]
+    w.process(_screen(True), 1, forced=True)
+    assert beeps == [False]                               # bip donné avant la fin de la liste
+    assert w._last_offer is not None and w._early_beep
+
+
+def test_keep_image_keeps_only_the_last(tmp_path):
+    import time
+    from PIL import Image
+    from uexinfo.ocr.contract_watch import keep_image
+    for i in range(5):
+        keep_image(Image.new("RGB", (64, 36)), tmp_path, 3, f"offre-{i:02d}.jpg")
+        time.sleep(0.15)
+    assert [p.name for p in sorted(tmp_path.glob("*.jpg"))] == ["offre-02.jpg", "offre-03.jpg", "offre-04.jpg"]
+
+
+def test_board_survives_restart(tmp_path):
+    # « je viens de faire une moisson, tout est oublié » : le tableau est gardé sur disque
+    from uexinfo.cache.contract_catalog import RecognizedContract
+    path = tmp_path / "offres.json"
+    board = OffersBoard(path)
+    board.add_cards([RecognizedContract(_card("Rookie Hauler Needed", 63000, 0, 60), None, 0.0)], 100)
+    board.add_detail(MissionResult(title="Rookie Hauler Needed", reward=63000), 100, selected=0)
+    board.save()
+    again = OffersBoard(path)
+    assert again.load(200) == 1 and list(again.offers.values())[0].reward == 63000
+    assert OffersBoard(path).load(100 + OffersBoard.KEEP_UNTIMED_S + 1) == 0   # trop vieille

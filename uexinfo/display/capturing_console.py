@@ -35,13 +35,17 @@ class CapturingConsole(Console):
     # ── Interception ──────────────────────────────────────────────────────────
 
     def print(self, *objects: Any, **kwargs) -> None:
-        """Garde les objets imprimés (None pour une ligne vide) pour le rendu HTML, et écrit aussi le texte ANSI dans le tampon."""
+        """Garde les objets imprimés (None pour une ligne vide) pour le rendu HTML, et écrit aussi le texte ANSI dans le tampon.
+
+        Gardés seulement si Rich a pu les imprimer : un texte mal balisé lève l'erreur ici (elle
+        est affichée par l'appelant), au lieu de la relever plus tard dans le rendu HTML, hors de
+        toute protection (la page attendait alors sans fin — journal du 05/11, /mission offres lot)."""
+        super().print(*objects, **kwargs)
         if not objects:
             self._renderables.append(None)   # ligne vide
         else:
             for obj in objects:
                 self._renderables.append(obj)
-        super().print(*objects, **kwargs)
 
     # ── Gestion des buffers ───────────────────────────────────────────────────
 

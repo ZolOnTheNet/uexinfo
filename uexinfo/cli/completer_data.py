@@ -275,11 +275,13 @@ SUBS: dict[str, list[tuple[str, str]]] = {
     "mission offres": [
         ("on",    "Mode scan : lire les offres à chaque clic dans l'écran Contrats"),
         ("off",   "Arrêter le mode scan"),
+        ("captures", "Contrats vus dans les anciennes captures d'écran (today|all)"),
         ("today", "Captures d'aujourd'hui"),
         ("all",   "Toute la base de captures"),
         ("maj",   "Télécharge les données de contrats scmdb.net"),
         ("lot",   "Meilleur lot pour la soute du vaisseau actif (dest N : destinations au plus)"),
         ("vider", "Vider le tableau des offres lues"),
+        ("aide",  "Aide du mode scan et du meilleur lot"),
     ],
     "auto": [
         ("log",         "Auto-lecture du log SC-Datarunner"),

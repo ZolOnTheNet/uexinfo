@@ -93,6 +93,10 @@ class Lot:
 
 def _knapsack(cands: list[LotItem], cap: int, kmax: int) -> tuple[int, int, tuple]:
     """(gain, SCU, indices) du meilleur choix : SCU ≤ cap, kmax offres au plus ; à gain égal, le moins de SCU."""
+    # même résultat, moins de calcul : pas plus d'offres que de candidates, pas plus de SCU que
+    # leur total (une soute de 1 440 SCU pour 3 offres de 8 SCU : 24 colonnes au lieu de 1 441)
+    kmax = min(kmax, len(cands))
+    cap = min(cap, sum(int(it.scu) for it in cands))
     best = [[(0, 0, ())] * (cap + 1) for _ in range(kmax + 1)]
     for idx, it in enumerate(cands):
         w, v = int(it.scu), int(it.reward)

@@ -40,7 +40,7 @@ journal du jour en cas d'écart.
 |---|---|---|---|---|
 | 3.1 | Clic sur **Scan Mis.** (barre d'état) — ou `/mission offres on` | Bouton vert ; message « Mode scan … en marche » | `commande (bouton Scan Mis.)`, `mode scan des offres lancé`, `mode scan des offres lancé` | |
 | 3.2 | Contrats › OFFERS, cliquer une offre, attendre le texte | Bip ; encart Offres : l'offre avec ses livraisons | `détail : carte surlignée N … → <offre>` | |
-| 3.3 | Ouvrir Contrats › OFFERS, ouvrir une offre, appuyer sur **F9** | Bip **aigu** en ~1 s, sans attente ; détail rattaché (bip **grave** si non reconnue : réappuyer) | `raccourci f9 à l'écoute`, `touche f9 : offre affichée capturée`, `lu en … après 0.0 s` | |
+| 3.3 | Ouvrir Contrats › OFFERS, ouvrir une offre, appuyer sur **F9** | Bip **aigu** en ~0,7 s, même juste après la molette ; détail rattaché (bip **grave** si non reconnue : réappuyer) | `raccourci f9 à l'écoute`, `touche f9 : offre affichée capturée`, `lu en … après 0.0 s` | |
 | 3.3b | Fermer le mobiGlas, monter dans le vaisseau, appuyer sur F9 | F9 baisse la puissance moteur (touche jamais retirée au jeu) ; pas de bip | `touche f9 ignorée : écran Contrats … non affiché` | |
 | 3.4 | Appuyer deux fois sur F9 sur la même offre | Une seule ligne dans l'encart, mise à jour | deux `détail :` vers la même offre | |
 | 3.5 | Faire défiler la liste à la molette | Nouvelles offres dans l'encart | `liste : N cartes, M reconnues` | |
@@ -49,6 +49,8 @@ journal du jour en cas d'écart.
 | 3.8 | Laisser le mode en marche 20 min hors de Contrats | Arrêt seul + message | `mode scan des offres arrêté` | |
 
 Attention : l'overlay posé sur la liste des contrats est lu avec elle — le garder à côté.
+
+Images de dépannage : les 30 dernières images lues sont dans `…\AppData\Local\uexinfo\uexinfo\logs\offres\` (nom repris au journal, « image gardée : … ») ; les joindre au journal en cas d’écart.
 
 ## 4. Meilleur lot
 
@@ -68,4 +70,5 @@ Attention : l'overlay posé sur la liste des contrats est lu avec elle — le ga
 |---|---|---|---|---|
 | 5.1 | `/scan log clear` quand ScanLog clignote sur un vieux log, puis relancer uexinfo | Voyant éteint, et toujours éteint après la relance | réponse | |
 | 5.2 | Un bouton du mode souris, puis la même commande tapée | Même résultat | `commande (bouton …)` puis `commande (saisie)` | |
-| 5.3 | Lendemain : le journal de la veille est renommé `uexinfo.log.AAAA-MM-JJ` | 7 jours gardés | — | |
+| 5.3 | `/mission offres aide` — ou thème Missions › « Aide des offres » | Déroulé de la moisson, commandes, réglages | réponse | |
+| 5.4 | Lendemain : le journal de la veille est renommé `uexinfo.log.AAAA-MM-JJ` | 7 jours gardés | — | |

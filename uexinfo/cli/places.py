@@ -93,6 +93,17 @@ def player_place(ctx, graph=None) -> tuple[str | None, str | None]:
     return (node, node_ref(node)) if node else (None, None)
 
 
+def player_system(ctx) -> str:
+    """Système de la position du joueur (« Pyro »), retrouvé par identifiant ; « » si inconnu."""
+    try:
+        graph = ctx.cache.transport_graph
+        node, _ = player_place(ctx, graph)
+        n = graph.nodes.get(node) if node else None
+        return n.system if n is not None and n.system != "Unknown" else ""
+    except Exception:
+        return ""
+
+
 def place_link(name: str, place_ref: str | None, text: str | None = None) -> str:
     """Nom de lieu cliquable s'il est relié (le lien porte sa référence) ; sinon le texte
     suivi de « ? » : lieu à préciser, qu'aucun clic ne doit deviner."""

@@ -44,6 +44,7 @@ class CatalogContract:
     scu_max: int | None = None
     container: int | None = None                     # plus grande caisse acceptée (SCU)
     rank: str = ""                                   # rang de réputation demandé (« Rookie »)
+    systems: tuple = ()                              # systèmes où le contrat est proposé (scmdb)
 
     @property
     def xp(self) -> int | None:
@@ -159,6 +160,7 @@ class ContractCatalog:
                                        mission_type=c.get("missionType") or "",
                                        contractor=c.get("contractorName") or "",
                                        blueprint=bool(c.get("blueprintRewards")),
+                                       systems=tuple(c.get("systems") or c.get("availableSystems") or ()),
                                        **_hauling(c)))
         return cls(out, "scmdb", str(data.get("version") or ""))
 
@@ -187,8 +189,10 @@ class ContractCatalog:
     # ── Reconnaissance ───────────────────────────────────────────────────────
 
     def match(self, text: str, reward: int | None = None, xp: int | None = None,
-              contractor: str = "", mission_type: str = ""):
-        """Meilleur contrat pour un titre lu → (contrat | None, score 0-100)."""
+              contractor: str = "", mission_type: str = "", system: str = ""):
+        """Meilleur contrat pour un titre lu → (contrat | None, score 0-100). `system` : système
+        du joueur ; parmi les variantes au même titre, celles proposées ailleurs passent après
+        (« Rookie Hauler … Direct Bulk » : 363 000 à Stanton, 510 500 à Pyro)."""
         from rapidfuzz import fuzz, process
         if not normalize(text) or not self._keys:
             return None, 0.0
@@ -219,13 +223,15 @@ class ContractCatalog:
                 if not read or not known:
                     return 0.0
                 return 1 - fuzz.token_set_ratio(normalize(read), normalize(known)) / 100
-            cands.sort(key=lambda c: (round(off(contractor, c.contractor), 1),
+            sl = system.lower()
+            cands.sort(key=lambda c: (bool(sl and c.systems and sl not in {s.lower() for s in c.systems}),
+                                      round(off(contractor, c.contractor), 1),
                                       round(off(mission_type, c.mission_type), 1),
                                       abs((c.reward or 0) - (reward or c.reward or 0)),
                                       abs((c.xp or 0) - (xp or c.xp or 0))))
         return cands[0], top
 
-    def recognize(self, cards: list) -> list[RecognizedContract]:
+    def recognize(self, cards: list, system: str = "") -> list[RecognizedContract]:
         """Cartes lues → contrats. Recolle une carte coupée en haut d'écran à la suivante et
         écarte les en-têtes de catégorie (cartes sans récompense ni minuteur, non reconnues)."""
         out: list[RecognizedContract] = []
@@ -241,8 +247,8 @@ class ContractCatalog:
             if fragment and i + 1 < len(cards):
                 nxt = cards[i + 1]
                 who = getattr(nxt, "contractor", "")
-                alone = self.match(nxt.title, nxt.reward, nxt.xp, who, mission_type)
-                merged = self.match(f"{card.title} {nxt.title}", nxt.reward, nxt.xp, who, mission_type)
+                alone = self.match(nxt.title, nxt.reward, nxt.xp, who, mission_type, system)
+                merged = self.match(f"{card.title} {nxt.title}", nxt.reward, nxt.xp, who, mission_type, system)
                 if merged[1] >= alone[1] + _MERGE_GAIN:
                     from dataclasses import replace
                     out.append(self._result(replace(nxt, title=f"{card.title} {nxt.title}",
@@ -250,7 +256,7 @@ class ContractCatalog:
                     i += 2
                     continue
             res = self._result(card, *self.match(card.title, card.reward, card.xp,
-                                                 getattr(card, "contractor", ""), mission_type))
+                                                 getattr(card, "contractor", ""), mission_type, system))
             # En-tête de catégorie (« RSI DISCOVERY EVENT 27 ») : ni montant, ni XP, ni donneur d'ordre.
             header = fragment and not res.recognized and card.xp is None and not getattr(card, "contractor", "")
             if not header:

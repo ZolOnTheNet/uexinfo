@@ -707,3 +707,57 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 **Constaté dans le journal (10:36-10:38) :** F9 posé par RegisterHotKey à l'ouverture de Contrats, mais aucun appui reçu (pas de capture) ; F9 n'était pris par aucun autre programme. Les clics, eux, arrivent (crochet souris bas niveau).
 
 **Fait :** raccourci écouté par le crochet clavier bas niveau de pynput (`keyboard.Listener` + `HotKey`), comme la souris : la touche n'est plus retirée au jeu (plus besoin de la poser et la retirer selon l'écran) ; à l'appui, capture, et si l'onglet OFFERS n'est pas visible la touche est ignorée (notée au journal avec la raison). Bip après F9 : aigu si l'offre est reconnue (rattachée), grave et plus long sinon. 419 tests réussis. À tester en jeu.
+
+## 2026-11-05 — F9 plus rapide
+
+**Demandé :** « le système réagit toujours lentement quand je fais F9 ».
+
+**Constaté dans le journal (11:16) :** F9 reçu ; mais après un coup de molette, la lecture du raccourci relisait aussi la liste (2,6 s) et le bip attendait la fin ; un second F9 pendant ce temps attendait son tour (bip 1,5 s après l'appui). Par ailleurs, chaque clic en jeu hors de l'écran Contrats déclenchait jusqu'à 4 s de captures d'écran en boucle avant d'être écarté.
+
+**Fait :**
+- Raccourci : le détail est rattaché dès qu'il est lu, bip immédiat (≈ 0,7 s) ; la liste se relit ensuite. Liste à relire : rattachement par titre et montant (les cartes connues ne sont plus à leur place) ; sinon après la liste, comme avant.
+- Le crochet clavier rend la main tout de suite : capture et contrôle de l'écran dans un fil à part (un crochet lent retarde tout le clavier).
+- Clic hors de l'écran Contrats : attente abandonnée dès deux images sans l'onglet OFFERS (0,8 s), au lieu de capturer jusqu'à 4 s.
+- 420 tests réussis. À tester en jeu.
+
+## 2026-11-05 — moisson d'offres de 12:00 : montants, rattachements, en-têtes
+
+**Demandé :** « regarde la nouvelle moisson de mission, si on peut faire quelque chose dessus ».
+
+**Constaté (journal 12:00-12:02, code avant « F9 plus rapide ») :**
+- Montants : le catalogue scmdb 4.10.2 donne 258 250 (Member … Small), 363 000 et 510 500 (Rookie … Direct Bulk), 523 000 (Rookie … Large) : ce sont les montants des **cartes** ; le détail perd un chiffre (lu 58 250, 63 000, 51 050, 8 250). La règle du matin (« carte avec un chiffre en trop devant → montant du détail ») était fausse : elle mettait 58 250 au lieu de 258 250. **Valeur métier changée :** un montant de détail à plus de 1 500 ¤ de la carte est écarté, la carte l'emporte.
+- 12:00:59 : détail « Junior … Small Shipment » rattaché à la carte surlignée « Rookie … Large Shipment » (liste plus à jour) → objectifs sur la mauvaise offre.
+- En-têtes de groupe (« HAULING PLANETARY », « DELIVERY ») et texte de l'overlay lus comme des cartes, devenus des offres sans montant.
+
+**Fait :** montant de la carte prioritaire ; carte surlignée ignorée quand son titre désigne un autre contrat (`_other_title` : un mot sans équivalent de chaque côté, « junior/rookie », « small/large ») → rattachement par titre et montant ; carte ni reconnue ni chiffrée : pas d'offre (garde sa place pour la carte surlignée). 424 tests réussis.
+
+## 2026-11-05 — images du mode scan gardées pour le dépannage
+
+**Demandé :** « garder rapidement quelques images pour le dépannage, si cela ne consomme pas trop de temps et d'espace disque ». Lève la règle « images jamais écrites » pour ce seul usage.
+
+**Fait :** `keep_image` : chaque image de l'écran Contrats lue est enregistrée en JPEG (qualité 80, ≈ 0,3 Mo en 2560×1440, 0,05 s dans un fil à part, la lecture n'attend pas) dans `<données uexinfo>/logs/offres/` ; seules les 30 dernières restent (`[contracts] keep_images`, 0 = aucune). Le journal note « image gardée : offre-AAAAMMJJ-HHMMSS-mmm.jpg » juste avant la lecture correspondante. Rien hors de l'écran Contrats. Commentaires de `[contracts]` remis d'accord avec le code (F9 jamais retiré au jeu ; `read_on_click`). 425 tests réussis.
+
+## 2026-11-05 — moisson « oubliée », /select et missions, variantes par système
+
+**Demandé :** « select ne sélectionne pas bien les missions, positionné sur Pyro et j'ai que Stanton » ; puis « je viens de faire une moisson, tout est oublié alors que j'ai eu des dizaines de bips ».
+
+**Constaté (journal 15:20-15:29) :** `/select system pyro` puis `/mission list` : `/mission list` montre le catalogue des missions **enregistrées** (anciennes, Stanton) et ne suivait pas `/select`. La moisson (92 détails rattachés) n'était pas perdue mais **aucune commande ne réaffichait le tableau des offres** : « Offres du mobiGlas » (`/mission offres`) lisait les anciennes captures d'écran ; le tableau vivait en mémoire seulement (perdu à la relance). scmdb : variantes au même titre selon le système (« Rookie Hauler … Direct Bulk » 363 000 Stanton / 510 500 Pyro), ignorées par la reconnaissance.
+
+**Fait :**
+- `/mission offres` (et le bouton « Offres du mobiGlas ») réaffiche le tableau du mode scan quand il a des offres ; anciennes captures : `/mission offres captures`.
+- Tableau gardé sur disque (`<données uexinfo>/offres.json`, écrit à chaque mise à jour, relu au lancement du mode scan ; offres expirées ou vues il y a plus de 12 h sans minuteur écartées) ; « Vider » l'efface aussi sur disque.
+- `/mission list` suit `/select system` (+inclus / -exclus) d'après les lieux reliés des missions (D11 : sans lieu relié, la mission reste visible) ; nombre de missions masquées signalé ; renvoi vers `/mission offres` si la liste est vide.
+- Catalogue : `CatalogContract.systems` (scmdb) ; à titre égal, la variante du système du joueur (`places.player_system`) passe en premier (mode scan et `/mission offres captures`).
+- 430 tests réussis.
+
+## 2026-11-05 — « /mission offres lot tourne sans résultat »
+
+**Constaté :** uexinfo inactif (0,08 s de processeur en 5 s) : pas un calcul long, une page qui attend. Deux défauts : (1) `_cmd_offers_lot` — la ligne d'en-tête, modifiée avec la limite de destinations, finissait par `")[/{C.DIM}]"` sans `f` : balise fermante invalide, la commande plantait à chaque appel (non couvert par les tests : seule la règle pure l'était) ; (2) `CapturingConsole.print` gardait l'objet **avant** que Rich ne l'imprime : l'erreur affichée par `_exec_sync` était suivie d'une seconde, au rendu HTML dans `_handle_cmd`, hors protection → ni réponse ni « done », sablier sans fin. Lot à 3 destinations sur 60 offres : 48 s → 2,8 s (`_knapsack` borné au nombre de candidates et à leur total de SCU, même résultat).
+
+**Fait :** f-string corrigée ; `CapturingConsole` ne garde un objet qu'après une impression réussie ; rendu HTML protégé dans le serveur (repli sur le texte, avertissement au journal). Test `tests/rules/test_lot_command.py` (rendu complet, titres à crochets, `dest 2`, soute donnée). 431 tests réussis.
+
+## 2026-11-05 — aide de /mission offres
+
+**Demandé :** « il n'y a pas d'aide pour /mission offres, il en faut une ».
+
+**Fait :** `/help mission offres` et `/mission offres aide` (déroulé de la moisson, F9 et bips, toutes les sous-commandes, vaisseau actif, réglages `[contracts]`, lecture du lot) ; bouton « Aide des offres » dans le thème Missions ; complétion `aide` ; l'aide de `/mission` décrit `offres` (tableau du mode scan) et `offres captures`. 432 tests réussis.

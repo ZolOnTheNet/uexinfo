@@ -118,3 +118,17 @@ def test_from_global_ini(tmp_path):
     cat = ContractCatalog.from_global_ini(ini)
     assert {c.title: c.xp for c in cat.contracts} == {
         "RSI Disc. Month: Important Supply Haul": 625, "RSI Disc. Month: Package Recovery (Exp. E)": 313}
+
+
+def test_same_title_variant_of_player_system_wins():
+    # variantes au même titre selon le système (montants fictifs) : celle du système du joueur
+    data = {"contracts": [
+        dict(contract("Rookie Hauler Needed for Direct Bulk Shipment", 111000, None, 0, name="s"), systems=["Stanton"]),
+        dict(contract("Rookie Hauler Needed for Direct Bulk Shipment", 222000, None, 0, name="p"), systems=["Pyro"]),
+    ]}
+    cat = ContractCatalog.from_scmdb(data)
+    title = "ROOKIE HAULER NEEDED FOR DIRECT BULK SHIPMENT"
+    assert cat.match(title, system="Pyro")[0].debug_name == "p"
+    assert cat.match(title, system="Stanton")[0].debug_name == "s"
+    # montant lu : il départage toujours à système égal ; système inconnu : le montant décide
+    assert cat.match(title, reward=222000)[0].debug_name == "p"
