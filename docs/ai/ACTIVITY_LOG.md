@@ -795,3 +795,21 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `tests/test_settings_form.py` : chaque champ passé par sa commande, valeur relue identique ; 519 tests réussis (après rebase sur les commits contrats). Rendu vérifié en capture (Chromium headless, port fermé) ; à confirmer dans l'overlay.
 - Rangement : docs IA déplacés de `uexinfo/docs/` vers `docs/INSTALL_LLAMA_SERVER.md` et `docs/ai/` (`PLAN_IA.md`, `PROMPT_CLAUDE_CODE`).
 
+## 2026-11-24 — chantier IA, étape 0 : faisabilité de l'inférence locale (branche `iafork`)
+
+**Fait :**
+- llama.cpp **b12676** (commit d35dc4d9e) : archives officielles Linux **CUDA 13.5** + cudart, sans compilation (le CUDA Toolkit installé n'était pas nécessaire) ; SHA-256 vérifiés ; installé dans `~/.local/opt/llama.cpp/b12676`. Épinglé dans `uexinfo/ai/versions.toml`. `docs/INSTALL_LLAMA_SERVER.md` corrigé (§3.1 bis).
+- Modèle `LiquidAI/LFM2.5-8B-A1B-GGUF`, Q4_K_M (5,2 Go, SHA-256 vérifié), dans `<données uexinfo>/ia/models/`. Licence LFM Open License v1.0 : type Apache, usage commercial libre sous 10 M$ de chiffre d'affaires annuel.
+- `scripts/ia/etape0_faisabilite.py` : deux outils factices (`prix_terminal`, `itineraire`), trois questions, aller-retour complet.
+
+**Résultats (Ubuntu 26.04, RTX 2000 Ada 16 Go, 12 cœurs) :**
+
+| Profil | Appels d'outil | Génération | Temps par tour | Question complète |
+|---|---|---|---|---|
+| libre : `-ngl all -c 16384` (7,6 Go de VRAM) | 3/3, structurés | ~158 tok/s | 1,1 à 2,5 s | 2,4 à 4,7 s |
+| jeu : `-ngl 0 -t 6 -c 8192` | 3/3, structurés | ~26 tok/s | 5,5 à 19 s | 13 à 31 s |
+
+- `function.arguments` toujours reçu en chaîne JSON (le cas « objet » n'est pas apparu, l'orchestrateur gardera les deux).
+- Le modèle raisonne (en anglais, dans `reasoning_content`) avant chaque réponse : 150 à 480 tokens, l'essentiel du temps en CPU. Ni `enable_thinking: false`, ni `reasoning_budget: 0` par requête ne le coupent ; `--reasoning off` côté serveur non plus, et une réponse est partie à 2 021 tokens (86 s). À reprendre à l'étape 6 : `max_tokens`, `--reasoning-effort`, ou un autre modèle pour le profil « jeu ».
+- Leçons pour `views/ai.py` (étape 1) : le modèle a lu `age_s: 1800` comme « 1800 ans » et « uex » comme une monnaie ; une réponse est venue en anglais. Les valeurs doivent arriver déjà formées (« il y a 30 min », « 3 012 aUEC/SCU », source en clair) et le prompt système doit insister sur le français.
+

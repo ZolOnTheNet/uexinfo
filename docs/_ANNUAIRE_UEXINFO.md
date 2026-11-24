@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-11-24** (223 fichiers suivis par git).
+> Dernière mise à jour : **2026-11-24** (225 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -248,6 +248,7 @@ uexinfo/                         (racine du dépôt)
 | `display/loc.py` | Forme courte des noms de lieux (affichage seulement ; plus de registre d'abréviations). |
 | `config/__init__.py` | Docstring du package seulement. |
 | `config/settings.py` | Lecture/écriture de `config.toml`. |
+| `ai/versions.toml` | Chantier IA : versions épinglées du moteur llama.cpp (build, archives, SHA-256) et du modèle GGUF (dépôt, fichier, SHA-256, licence). Pas encore de code dans `ai/`. |
 | `data/transport_network.json` | Graphe de transport (nœuds, arêtes), enrichi par `/nav populate` et `scripts/generate_locations.py`. |
 | `data/cargo_grids.py` | Grilles cargo des vaisseaux (tailles de conteneurs). |
 
@@ -320,7 +321,7 @@ Lancer : `pytest` (454 tests réussis au 2026-11-05).
 |---|---|---|---|
 | `_ANNUAIRE_UEXINFO.md` | 2026-10-29 | ✅ | Ce fichier. |
 | `PLAN_DE_TEST.md` | 2026-11-05 | ✅ | Plan de test en jeu : position, morts, déconnexions, solde, mode scan des offres (bouton, raccourci, clic), meilleur lot, journal ; attendu et trace du journal pour chaque essai. |
-| `INSTALL_LLAMA_SERVER.md` | 2026-11-24 | ✅ | Installer llama-server (llama.cpp) et le modèle LFM2.5-8B-A1B, Windows et Linux ; lancer, vérifier les appels d'outils. Chantier IA. |
+| `INSTALL_LLAMA_SERVER.md` | 2026-11-24 | ✅ | Installer llama-server (llama.cpp) et le modèle LFM2.5-8B-A1B, Windows et Linux (archives CUDA Linux sans compilation) ; lancer, vérifier les appels d'outils. Chantier IA. |
 | `INSTALLATION.md` | 2026-10-29 | ✅ | Installer et lancer sous Windows et Linux (scripts, options, OCR, Game.log, données, dépannage). |
 | `ai/PLAN_IA.md` | 2026-11-24 | ✅ | Plan du chantier IA : architecture MVC, format canonique `Resultat`/`Ref`, couche `uexinfo/ai/` (moteur d'inférence, outils, MCP, agent), configuration `[ia]`, étapes 0 à 9. |
 | `ai/PROMPT_CLAUDE_CODE` | 2026-11-24 | ⚠️ | Vide pour l'instant (réservé au prompt du chantier IA). |
@@ -379,6 +380,7 @@ Lancer : `pytest` (454 tests réussis au 2026-11-05).
 | `scripts/generate_locations.py` | Régénère `uexinfo/data/transport_network.json` depuis l'API UEX. |
 | `scripts/uexinfogene.ps1` | ✅ Lanceur Windows portable : crée `.venv`, installe les dépendances au besoin, lance l'overlay. |
 | `scripts/uexinfolnx.sh` | ✅ Lanceur Linux : même rôle ; vérifie WebKitGTK et Tesseract, force XWayland sous Wayland. |
+| `scripts/ia/etape0_faisabilite.py` | ✅ Chantier IA, étape 0 : interroge un llama-server lancé avec deux outils factices ; vérifie les `tool_calls` structurés et mesure les temps (bibliothèque standard seulement). |
 | `scripts/uexinfo.ps1` | Lanceur Windows du poste personnel (`python -m uexinfo`), chemin de Python écrit en dur. |
 | `extprg/SC-images/Mission_remisajour.ps1` | Recopie des captures de missions avec la date du jour, pour les tests. Seul fichier suivi de `extprg/SC-images/`. |
 
@@ -450,3 +452,4 @@ Lancer : `pytest` (454 tests réussis au 2026-11-05).
 - **2026-11-05** (suite) : meilleur lot et plan de test — `rules/cargo_lot.py`, `tests/rules/test_cargo_lot.py`, `docs/PLAN_DE_TEST.md` ajoutés ; version 0.0.1-<commit>.
 - **2026-11-05** (suite) : contrats pris et chemin — `rules/route_plan.py`, `cli/circuit.py`, `tests/rules/test_route_plan.py`, `tests/test_circuit.py` ajoutés.
 - **2026-11-24** : réglages en formulaire — `overlay/settings_form.py`, `overlay/static/settings.js`, `overlay/static/settings.css`, `tests/test_settings_form.py` ; chantier IA — `docs/INSTALL_LLAMA_SERVER.md`, `docs/ai/PLAN_IA.md`, `docs/ai/PROMPT_CLAUDE_CODE` (rangés depuis `uexinfo/docs/`).
+- **2026-11-24** (suite, branche `iafork`) : chantier IA, étape 0 — `scripts/ia/etape0_faisabilite.py`, `uexinfo/ai/versions.toml` ajoutés.

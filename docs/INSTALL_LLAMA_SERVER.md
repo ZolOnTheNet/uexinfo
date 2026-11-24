@@ -1,13 +1,13 @@
 # Installer llama-server (poste de développement, Windows et Linux)
 
 > Vérifié le 2026-11-24.
-> llama-server est un exécutable du projet **llama.cpp** (ggml-org, licence MIT) : un serveur HTTP compatible OpenAI. Pas besoin de compiler sous Windows ; sous Linux, seulement pour CUDA.
+> llama-server est un exécutable du projet **llama.cpp** (ggml-org, licence MIT) : un serveur HTTP compatible OpenAI. Pas besoin de compiler, ni sous Windows ni sous Linux : depuis novembre 2026 (vérifié au build b12676), les archives Linux existent aussi en CUDA.
 
 ## 1. Choisir la variante
 
 | Machine | Windows | Linux |
 |---|---|---|
-| GPU NVIDIA | `llama-bNNNNN-bin-win-cuda-12.4-x64.zip` **et** `cudart-llama-bin-win-cuda-12.4-x64.zip` (ou les variantes 13.x si le pilote les prend en charge) | Compilation CUDA (§3.2), ou l'archive Vulkan |
+| GPU NVIDIA | `llama-bNNNNN-bin-win-cuda-12.4-x64.zip` **et** `cudart-llama-bin-win-cuda-12.4-x64.zip` (ou les variantes 13.x si le pilote les prend en charge) | `llama-bNNNNN-bin-ubuntu-cuda-13.5-x64.tar.gz` **et** `cudart-llama-bNNNNN-bin-ubuntu-cuda-13.5-x64.tar.gz` (pilote ≥ 580 ; sinon les variantes `cuda-12.8`) — §3.1 bis |
 | Autre GPU (AMD, Intel) ou NVIDIA sans CUDA | `llama-bNNNNN-bin-win-vulkan-x64.zip` | `llama-bNNNNN-bin-ubuntu-vulkan-x64.tar.gz` |
 | CPU seul (par exemple pendant une session de jeu) | `llama-bNNNNN-bin-win-cpu-x64.zip` | `llama-bNNNNN-bin-ubuntu-x64.tar.gz` |
 
@@ -53,7 +53,19 @@ sudo apt install libvulkan1 mesa-vulkan-drivers vulkan-tools   # vulkaninfo pour
 ```
 Vérifier l'arborescence de l'archive : selon le build, les binaires sont à la racine ou dans `build/bin/`. Adapter `--strip-components` ou le chemin en conséquence.
 
-### 3.2 Compilation CUDA (GPU NVIDIA)
+### 3.1 bis Archives CUDA (GPU NVIDIA, sans compilation)
+
+Essai réussi le 2026-11-24 : Ubuntu 26.04, RTX 2000 Ada (16 Go), pilote 595, build b12676.
+```bash
+dst=~/.local/opt/llama.cpp/bNNNNN && mkdir -p "$dst"
+tar -xzf llama-bNNNNN-bin-ubuntu-cuda-13.5-x64.tar.gz -C "$dst" --strip-components=1
+tar -xzf cudart-llama-bNNNNN-bin-ubuntu-cuda-13.5-x64.tar.gz -C "$dst" --strip-components=1   # libcudart, libcublas : même dossier
+"$dst/llama-server" --version
+"$dst/llama-server" --list-devices          # doit afficher CUDA0 et la carte
+```
+Le SHA-256 de chaque archive est donné par l'API GitHub (`digest` de chaque fichier de la release) : `sha256sum -c` avant de décompresser. Le CUDA Toolkit (`nvcc`) n'est **pas** nécessaire.
+
+### 3.2 Compilation CUDA (si aucune archive ne convient)
 
 ```bash
 sudo apt install build-essential cmake git nvidia-cuda-toolkit   # ou le CUDA Toolkit de NVIDIA

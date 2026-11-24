@@ -1,0 +1,20 @@
+# Versions épinglées du volet IA (docs/ai/PLAN_IA.md §7) : moteur llama.cpp et modèle.
+# Relevé le 2026-11-24 ; SHA-256 de l'API GitHub (digest) et de Hugging Face (lfs.oid).
+# L'installateur (étape 8) ne télécharge que ces fichiers, et vérifie leur SHA-256.
+
+[llama]
+build = "b12676"
+commit = "d35dc4d9e"
+url = "https://github.com/ggml-org/llama.cpp/releases/download/b12676/"
+
+[llama.archives]
+linux-cuda   = { file = "llama-b12676-bin-ubuntu-cuda-13.5-x64.tar.gz", sha256 = "bcb9629f51e99c4ad771822e9799e3c4119178faf784ed324111ce0ffeb88e88" }
+linux-cudart = { file = "cudart-llama-b12676-bin-ubuntu-cuda-13.5-x64.tar.gz", sha256 = "76177793e1d12df47aaebbc3b97a03d33d295d88ea3c7b264ac834822412f3a3" }
+# À relever à l'épinglage Windows : win-cuda, win-cudart, win-vulkan, win-cpu, linux-vulkan, linux-cpu
+
+[model]
+repo = "LiquidAI/LFM2.5-8B-A1B-GGUF"
+file = "LFM2.5-8B-A1B-Q4_K_M.gguf"
+size = 5155564768
+sha256 = "4923ec14f06b968b74d663e5949867d2d9c3bf13a20b8be1a9f9af39989b2bb0"
+license = "LFM Open License v1.0 (usage commercial libre sous 10 M$ de chiffre d'affaires annuel)"
