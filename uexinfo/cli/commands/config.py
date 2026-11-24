@@ -82,6 +82,8 @@ def _dispatch_space(sub: str, rest: list[str], ctx) -> bool | None:
         return _clock(rest, ctx)
     if sub == "mode":
         return _ui_mode(rest, ctx)
+    if sub == "edit":
+        return _edit_form(rest, ctx)
     if sub in ("magasins", "restaurants", "services"):
         return _display_toggle(sub, rest, ctx)
     if sub == "info":
@@ -383,15 +385,16 @@ def _version_config(args: list[str], ctx) -> None:
         print_ok(f"Environnement actif : {env}  ({ver_str})")
         return
 
-    # /config version ptu X.Y
-    if args[0].lower() == "ptu":
+    # /config version live|ptu X.Y (vide : "" efface)
+    if args[0].lower() in ("live", "ptu"):
+        env = args[0].lower()
         if len(args) < 2:
-            print_error("Usage : /config version ptu <numéro>")
+            print_error(f"Usage : /config version {env} <numéro>")
             return
         ver = args[1]
-        ver_cfg["ptu"] = ver
+        ver_cfg[env] = ver
         settings.save(ctx.cfg)
-        print_ok(f"Version PTU : {ver}")
+        print_ok(f"Version {env.upper()} : {ver or '—'}")
         return
 
     # /config version X.Y [--reset]
@@ -679,7 +682,7 @@ def _ship(args: list[str], ctx) -> None:
                 clear_override = True
                 remaining_args = rest[i+1:]
                 break
-            elif "x" in arg.lower() or arg.isdigit():
+            elif parse_cargo_spec(arg) or arg.isdigit():   # « Freelancer MAX » reste un nom
                 remaining_args = rest[i:]
                 break
             ship_name_parts.append(arg)
@@ -775,8 +778,10 @@ def _ship(args: list[str], ctx) -> None:
                     console.print(f"  [{C.DIM}]Modèle disponible : {format_cargo_config(grid)} = {total} {C.SCU}[/{C.DIM}]")
             return
 
-        # Sinon : modifier le vaisseau
+        # Sinon : modifier le vaisseau ; une quantité 0 retire la taille (« 32x0 » seul
+        # efface la grille)
         cargo_specs: dict[int, int] = {}
+        grid_given = False
         explicit_scu = None
 
         for arg in remaining_args:
@@ -787,19 +792,21 @@ def _ship(args: list[str], ctx) -> None:
             parsed = parse_cargo_spec(arg)
             if parsed:
                 size, qty = parsed
-                cargo_specs[size] = qty
+                grid_given = True
+                if qty:
+                    cargo_specs[size] = qty
             else:
                 print_error(f"Argument invalide : {arg}")
                 console.print(f"[{C.DIM}]Format : <taille>x<quantité> (ex: 32x4)[/{C.DIM}]")
                 return
 
-        if not cargo_specs and explicit_scu is None:
+        if not grid_given and explicit_scu is None:
             print_error("Spécifiez au moins une configuration cargo ou une capacité")
             console.print(f"[{C.DIM}]Exemples : 32x10 16x4  OU  696[/{C.DIM}]")
             return
 
         # Mettre à jour le vaisseau
-        if cargo_specs:
+        if grid_given:
             match.cargo_config = cargo_specs
             calculated_scu = calculate_total_scu(cargo_specs)
             match.scu = explicit_scu if explicit_scu is not None else calculated_scu
@@ -1107,6 +1114,21 @@ def _ui_mode(args: list[str], ctx) -> None:
         send_fn({"type": "set_mode", "value": mode})
 
 
+def _edit_form(args: list[str], ctx) -> None:
+    """/config edit [onglet] — ouvre les réglages en formulaire dans l'overlay (comme ⚙)."""
+    from uexinfo.overlay.settings_form import TABS
+    tab = args[0].lower() if args else ""
+    ids = [t["id"] for t in TABS]
+    if tab and tab not in ids:
+        print_error(f"Onglet inconnu : {tab}  ({' | '.join(ids)})")
+        return
+    send_fn = getattr(ctx, "_overlay_send_fn", None)
+    if not send_fn:
+        print_warn("Le formulaire des réglages s'ouvre dans l'overlay — /config affiche la liste")
+        return
+    send_fn({"type": "settings_open", "tab": tab})
+
+
 # ── Clés pointées génériques  (ex: voyage.calc.nbsaut) ───────────────────────
 
 # Clés acceptées avec leur type attendu et description
@@ -1117,6 +1139,15 @@ _DOT_KEYS: dict[str, tuple[type, str]] = {
     "gamelog.enabled":            (str, "Lire Game.log en direct pour la zone/juridiction (on|off)"),
     "gamelog.install_path_live":  (str, r"Dossier d'install LIVE (ex: C:\...\StarCitizen\LIVE)"),
     "gamelog.install_path_ptu":   (str, r"Dossier d'install PTU (optionnel)"),
+    "gamelog.position":           (str, "À une arrivée : auto (position suivie) | propose (bandeau) | off"),
+    "contracts.auto_capture":     (str, "Mode scan des offres dès le lancement (on|off)"),
+    "contracts.beep":             (str, "Bip quand une offre est lue (on|off)"),
+    "contracts.read_on_click":    (str, "Lire l'offre après chaque clic (on|off)"),
+    "contracts.hotkey":           (str, 'Touche du mode scan des offres (ex: f9, alt+shift+m ; "" = aucune)'),
+    "contracts.lot_destinations": (int, "Meilleur lot : lieux de livraison distincts au plus (0 = sans limite)"),
+    "contracts.stop_minutes":     (float, "Chemin des contrats pris : minutes comptées par arrêt"),
+    "contracts.keep_images":      (int, "Images de l'écran Contrats gardées pour le dépannage (0 = aucune)"),
+    "log.days":                   (int, "Jours de journal du programme gardés"),
     "voyage.calc.nbsaut":  (int,   "Nb max de missions par proposition"),
     "voyage.calc.prop":    (int,   "Nb de propositions (1=critère seul, ≥2=dist+benef+roi)"),
     "voyage.calc.options": (str,   'Options par défaut (ex: "--boucle --station")'),
@@ -1153,7 +1184,7 @@ def _set_dotkey(key: str, args: list[str], ctx) -> None:
     try:
         if expected_type is list:
             # Chaque argument = un élément de la liste
-            value = [a.replace("_", " ") for a in args]
+            value = [a.replace("_", " ") for a in args if a.strip()]   # "" vide la liste
         elif expected_type is int:
             value = int(raw)
         elif expected_type is float:

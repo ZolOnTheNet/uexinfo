@@ -1,0 +1,223 @@
+# Prompts Claude Code — chantier MVC et IA de uexinfo
+
+> Une étape = une session Claude Code (`/clear` entre deux étapes).
+> Copier d'abord le **préambule commun**, puis le prompt de l'étape.
+> Avant de lancer : `PLAN_IA.md` dans `docs/ai/` et `INSTALL_LLAMA_SERVER.md` dans `docs/`, tous deux commités.
+
+## Modèle et effort conseillés
+
+| Étape | Modèle | Effort | Pourquoi |
+|---|---|---|---|
+| 0. Test de faisabilité de l'inférence | Sonnet | medium | Script isolé, peu de risque |
+| 1. Socle MVC (schémas, vues, tests d'architecture) | **Opus** | **high**, en mode plan d'abord | Décisions structurantes, difficiles à défaire |
+| 2. Migration de `/trade` (bilan) | **Opus** | **high** | Règles métier fines (D1, D2, découpage cargo), risque de régression |
+| 3a. Migrations simples (`/trade buy/sell`, `/nav route`) | Sonnet | medium → high | Le gabarit existe : travail surtout de reproduction |
+| 3b. `/info` (2 650 lignes, fourre-tout), `/mission` | **Opus** | high | Code enchevêtré, fonctions privées importées ailleurs (B2) |
+| 4. Gestionnaire du moteur (`ai/runtime.py`) | Opus | medium | Processus, signaux et ports, avec des différences Windows/Linux |
+| 5. Outils et serveur MCP | Opus | medium | Conception des outils = qualité de l'IA |
+| 6. Orchestrateur et fournisseurs | Opus | medium | Boucle, annulation, tolérance aux formats |
+| 7. Overlay (JS, messages `ia_*`) | Sonnet | medium | Interface, bien circonscrite |
+| 8. Installation (`/config ia installer`, scripts) | Sonnet | medium | Procédural ; repasser à Opus si un cas Windows coince |
+| 9. Évaluation et réglage du prompt | Sonnet pour le banc, **Opus high** pour analyser les échecs | — | L'analyse demande du jugement |
+
+**Quand monter d'un cran** (Sonnet → Opus, ou medium → high) :
+- le même bug revient après deux corrections ;
+- une valeur métier change sans raison (prix, quantité, priorité des sources) ;
+- la tâche touche plus de 5 fichiers ou modifie une signature publique ;
+- Claude propose de « simplifier » une règle de `DECISIONS.md`.
+
+**Quand descendre** : mise à jour de l'annuaire, du journal ou de la doc, renommages, ajout de tests sur un modèle existant → Sonnet en low ou medium.
+
+`xhigh` ou `max` : seulement pour débloquer un problème précis (blocage de concurrence dans le serveur, par exemple), pas pour toute une session.
+
+---
+
+## Préambule commun (à coller en tête de chaque session)
+
+```
+Contexte : projet uexinfo. Lis d'abord docs/ai/NOTES.md, docs/ai/DECISIONS.md et
+docs/ai/PLAN_IA.md (conception validée du chantier MVC + IA). Respecte strictement :
+- P1 une seule implémentation par règle métier ; P2 aucun str pour désigner un objet
+  dans un service (objets résolus ou Ref) ; P3 une ambiguïté n'est jamais tranchée
+  par le code ni par l'IA ; P4 tout service renvoie Resultat[T] ; P5 les vues ne
+  calculent rien ; P6 priorité des sources fixée par le code ; P7 aucun identifiant stocké.
+- Ne décide JAMAIS seul quelles valeurs priment ni ne modifie une règle métier :
+  si un choix n'est pas couvert par DECISIONS.md, arrête-toi et pose-moi la question.
+- Commence en mode plan : liste les fichiers touchés, les décisions concernées (Dx)
+  et les risques ; attends mon accord avant de coder.
+- Commits atomiques ; pytest au vert à chaque commit ; entrée dans ACTIVITY_LOG.md ;
+  mise à jour de _ANNUAIRE_UEXINFO.md pour tout fichier créé ou déplacé.
+- Tu travailles dans un conteneur sans affichage : valide par les tests et l'import
+  des modules (NOTES.md §5).
+```
+
+---
+
+## Étape 0 — Test de faisabilité : LFM2.5 + llama-server + appels d'outils
+
+```
+Objectif : vérifier, hors application, que LFM2.5-8B-A1B servi par llama-server
+renvoie des tool_calls structurés au format OpenAI.
+Crée scripts/dev_ia/spike_tools.py (non importé par uexinfo) :
+- argument --base-url (défaut http://127.0.0.1:8085), --model ;
+- deux outils factices (meteo(ville), addition(a,b)) ;
+- boucle : envoie la question, exécute les tool_calls, renvoie les résultats, jusqu'à
+  la réponse finale (max 4 étapes) ;
+- accepte function.arguments en chaîne JSON OU en objet (bug connu de llama-server) ;
+- affiche : temps jusqu'au premier token, tokens/s, nombre d'étapes, réponse.
+Utilise le client HTTP standard (httpx ou requests déjà présent), pas de framework.
+Ajoute scripts/dev_ia/README.md : commande de lancement de llama-server
+(voir docs/INSTALL_LLAMA_SERVER.md §5) et du script, et résultats attendus.
+Je lancerai le serveur moi-même sur ma machine et te donnerai les mesures.
+```
+
+## Étape 1 — Socle MVC
+
+```
+Objectif : poser le socle MVC décrit dans PLAN_IA.md §2-3, sans encore migrer de commande.
+1. Ajoute pydantic>=2 (pyproject.toml + requirements.txt).
+2. Crée uexinfo/core/schemas/base.py : Ref, Valeur, Resultat[T] (exactement PLAN_IA §3),
+   plus des fabriques : Ref.de_objet(obj) (utilise names/refs.ref), Resultat.ok/ambigu/erreur.
+3. Crée uexinfo/views/ai.py : vers_ia(resultat, top_n=None) → dict ; omet les champs
+   marqués json_schema_extra={"ia": False} ; arrondit les floats à 2 décimales ; ne
+   calcule rien d'autre.
+4. Crée uexinfo/views/html/__init__.py (vide pour l'instant) et uexinfo/core/services/__init__.py.
+5. Tests d'architecture (tests/test_architecture.py) :
+   a) aucun module de uexinfo/views/ n'importe uexinfo.api, uexinfo.cache ni uexinfo.sources ;
+   b) aucune fonction publique de uexinfo/core/services/ n'a un paramètre typé str dont le
+      nom désigne un objet (origine, destination, terminal, commodite, vaisseau, lieu) ;
+   c) vers_ia omet bien les champs non IA, et un Resultat se sérialise en JSON et se relit identique.
+6. Ajoute la décision D13 dans DECISIONS.md (format canonique, réfs, vues = projections).
+Ne touche à aucune commande existante.
+```
+
+## Étape 2 — Migration de `/trade` (bilan position → destination)
+
+```
+Objectif : premier service selon le gabarit MVC. Lis cli/commands/trade.py en entier.
+1. Crée uexinfo/core/schemas/trade.py : LigneBilan, BilanRoute (PLAN_IA §3).
+2. Crée uexinfo/core/services/trade.py : bilan_route(ctx, origine: Terminal,
+   destination: Terminal, vaisseau: Vehicle | None = None, scu: int | None = None)
+   -> Resultat[BilanRoute]. DÉPLACE (ne copie pas) le calcul de _trade_bilan et les
+   fonctions d'empaquetage cargo (_pack, _pack_grid, _intersect_sizes, _ship_slot_grid…).
+   Les print_warn/print_error intermédiaires deviennent alertes/erreur du Resultat.
+   Conserve D1 (stock Out à l'achat ⇒ 0) et D2 (rules/risk.py) tels quels.
+3. Crée uexinfo/views/html/trade.py : rendu_bilan(resultat) → produit le MÊME affichage
+   qu'aujourd'hui (mêmes colonnes, couleurs, liens names.link, découpage).
+4. cli/commands/trade.py : la commande résout origine/destination (position_terminal,
+   destination_terminal, choose) puis appelle le service puis la vue. Rien d'autre.
+5. Test de non-régression : AVANT de modifier quoi que ce soit, enregistre la sortie texte
+   actuelle de /trade sur 3 jeux de données figés (fixtures dans tests/fixtures/trade/) ;
+   après migration, la sortie doit être identique. Teste aussi vers_ia(bilan) (JSON attendu).
+Si tu trouves une incohérence métier dans le code existant, signale-la : ne la corrige pas seul.
+```
+
+## Étape 3 — Migrations suivantes (une commande par session)
+
+```
+Objectif : migrer <COMMANDE> selon le gabarit de l'étape 2 (core/schemas, core/services,
+views/html, commande réduite à résolution → service → vue), avec le même test de
+non-régression sur fixtures. Commande de cette session : <COMMANDE>
+(ordre conseillé : /trade buy, /trade sell, /nav route, /info terminal, /info commodity,
+/mission list). Si une fonction privée de info.py est importée par d'autres modules (dette
+B2), déplace-la dans le service concerné et mets à jour les imports.
+```
+
+## Étape 4 — Gestionnaire du moteur d'inférence
+
+```
+Objectif : uexinfo/ai/config.py et uexinfo/ai/runtime.py selon PLAN_IA §5-6.
+- Lecture et validation de [ia] (valeurs par défaut de PLAN_IA §6) via config/settings.py.
+- États : DESACTIVE, DETECTION, PRET, LANCEMENT, INDISPONIBLE, ECHEC, ARRET (enum).
+- Sondes par moteur (/health pour llama-server, 503 = chargement ; /api/tags pour Ollama ;
+  /v1/models pour le générique ; Anthropic : présence de la variable d'environnement nommée).
+- Lancement (mode gere, llama-server) : construction de la ligne de commande depuis la
+  config et le profil (jeu/libre), --port toujours explicite, nouveau groupe de processus
+  (Windows CREATE_NEW_PROCESS_GROUP / Linux start_new_session), log dans <data>/logs/,
+  attente /health 200 avec délai, refus si le port est occupé par autre chose.
+- Arrêt seulement si lancé par uexinfo (PID mémorisé), propre puis forcé au bout de 10 s ;
+  branche l'arrêt sur la sortie de l'overlay.
+- /config ia : état, Tester, Lancer, Arrêter.
+Tests : faux serveur HTTP local (http.server dans un thread) pour les sondes ; faux binaire
+(petit script Python qui écoute et répond /health) pour le lancement et l'arrêt, sous Linux ;
+la branche Windows est testée par simulation (monkeypatch de os.name / subprocess).
+Aucun identifiant ne doit être écrit dans config.toml ni dans les journaux.
+```
+
+## Étape 5 — Outils et serveur MCP
+
+```
+Objectif : uexinfo/ai/tools.py et uexinfo/ai/mcp_server.py (PLAN_IA §4).
+- Registre : chaque outil = nom, description courte (FR), modèle d'entrée Pydantic,
+  fonction qui appelle un SERVICE (jamais une commande ni la console de capture) et
+  renvoie vers_ia(resultat).
+- Outils v1 : etat_joueur, chercher, prix_terminal, meilleurs_achats, meilleures_ventes,
+  bilan_route, itineraire, missions, calcul, demander_choix. Arguments objets = réfs
+  "type:id" ; tout nom passe par names.resolve ; ambigu ⇒ Resultat ambigu.
+- Pour les services pas encore migrés, crée le service minimal nécessaire (gabarit étape 2)
+  plutôt que d'appeler la commande.
+- mcp_server.py : SDK MCP Python officiel (FastMCP), transport HTTP streamable sur
+  127.0.0.1, jeton obligatoire (même principe que overlay/auth.py), démarré à la demande
+  par /config ia mcp on|off.
+- Documente dans docs/ai/MCP.md comment brancher ce serveur dans Claude Code
+  (fichier de config MCP) pour tester les outils.
+Tests : chaque outil sur données en cache (fixtures), JSON attendu ; outil ambigu ;
+demander_choix avec un sélecteur simulé.
+```
+
+## Étape 6 — Orchestrateur et fournisseurs
+
+```
+Objectif : uexinfo/ai/providers.py et uexinfo/ai/agent.py.
+- providers : openai_compat (base_url, modele, api_key_env optionnel) et anthropic
+  (api_key_env) ; interface commune chat(messages, tools) → réponse normalisée
+  (texte, tool_calls[{id, nom, arguments: dict}]) ; accepte arguments en chaîne ou en objet.
+- agent : prompt système depuis ai/prompts/system_fr.md ; boucle max ia.max_etapes,
+  délai ia.delai_s ; exécute les outils du registre ; rappel (callback) par étape
+  (nom de l'outil, résumé des arguments) ; annulation coopérative ; journal JSONL des
+  échanges dans <data>/logs/ia/ (sans identifiant).
+- Si le runtime n'est pas PRET : déclenche le lancement selon ia.demarrage ou renvoie un
+  Resultat erreur explicite.
+Tests : fournisseur simulé qui rejoue des scénarios (appel d'outil, ambiguïté → demander_choix,
+erreur d'outil, dépassement d'étapes, arguments en objet).
+Écris ai/prompts/system_fr.md selon PLAN_IA §4 et soumets-le-moi avant de le figer.
+```
+
+## Étape 7 — Overlay
+
+```
+Objectif : brancher l'agent dans l'overlay.
+- server.py : messages ia (question), ia_etape, ia_reponse, ia_annuler ; l'agent tourne dans
+  un thread comme _handle_cmd ; réutilise le mécanisme cancel existant ; demander_choix
+  ouvre le sélecteur existant (cli/selector.py).
+- index.html / menu.js : zone de réponse IA (réfs rendues cliquables comme names.link),
+  étapes repliables, indicateur d'état du moteur (prêt / chargement / indisponible).
+- menus.py : thème « IA » avec demandes prêtes ; test_menus.py mis à jour.
+```
+
+## Étape 8 — Installation et distribution
+
+```
+Objectif : PLAN_IA §7.
+- uexinfo/ai/versions.toml : build llama.cpp épinglé (je te donnerai le numéro et les SHA-256),
+  noms d'archives par plateforme/variante, dépôt et fichier GGUF du modèle + SHA-256.
+- /config ia installer : détection plateforme et GPU, choix proposé, téléchargement avec
+  progression, vérification SHA-256, décompression dans <data>/ia/, écriture de [ia].
+  /config ia desinstaller : suppression de <data>/ia/ et mode = "off".
+- scripts/uexinfogene.ps1 (-WithIA) et scripts/uexinfolnx.sh (--with-ia) : appellent la
+  même logique Python (aucune duplication en PowerShell ou en Bash).
+- Affichage de la licence du modèle avant téléchargement, avec confirmation.
+- Mets à jour docs/INSTALLATION.md (section IA, renvoi vers INSTALL_LLAMA_SERVER.md).
+```
+
+## Étape 9 — Évaluation
+
+```
+Objectif : tests/ia_eval/ (non lancé par pytest par défaut, marqueur ia_eval).
+- questions.yaml : 30 questions réelles (je les fournis), avec pour chacune les outils
+  attendus et les contraintes sur la réponse (réf de terminal attendue, pas de prix inventé).
+- runner : rejoue les questions contre la configuration [ia] courante, enregistre outils
+  appelés, réponse, latence ; score = outils corrects, réfs correctes, aucune valeur absente
+  des résultats d'outils (contrôle anti-invention).
+- rapport Markdown comparatif par modèle (LFM2.5, et un modèle de référence via MCP).
+```

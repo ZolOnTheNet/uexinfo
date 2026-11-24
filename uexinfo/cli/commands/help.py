@@ -178,6 +178,7 @@ _DETAILS = {
         "/config close normal|dblclick         Comportement du bouton ✕ de l'overlay\n"
         "/config clock on|off                  Horloge en fond de l'overlay (défaut : on)\n"
         "/config mode console|mixte|souris     Saisie seule, boutons + saisie, ou boutons seuls\n"
+        "/config edit [onglet]                 Réglages en formulaire (comme ⚙) : ships overlay trade scan display\n"
         "/config cmdhistory <n>                Nombre de commandes+résultats conservés (1-50, défaut : 5)\n"
         "/config player                        Afficher la config joueur\n\n"
         "/config version                       Afficher les versions connues\n"

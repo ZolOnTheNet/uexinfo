@@ -1104,6 +1104,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 .cmd-btn:hover { background: var(--accent); color: var(--bg, #000); }
 </style>
 <style>/*__MENU_CSS__*/</style>
+<style>/*__SETTINGS_CSS__*/</style>
 </head>
 <body>
 
@@ -1121,6 +1122,14 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
     <div id="mp-group"></div>
     <div id="mp-preview"></div>
     <div id="mp-busy">⏳ en cours <button id="mp-stop" title="Annuler la commande en cours">■ Arrêter</button></div>
+  </div>
+  <!-- Réglages en formulaire (settings.js) : tiroir qui arrive de la droite -->
+  <div id="settings-drawer" aria-label="Réglages">
+    <div class="st-head"><span class="st-title">⚙ Réglages</span><button type="button" class="st-close" title="Fermer (Échap)">✕</button></div>
+    <div class="st-tabs" role="tablist"></div>
+    <div class="st-body"></div>
+    <div class="st-foot"></div>
+    <div id="ship-drawer" aria-label="Vaisseau"></div>
   </div>
 </div>
 <div id="game-live">
@@ -1183,7 +1192,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
   <span id="sb-alpha-plus"  class="sb-btn" title="Plus opaque (+5%)">+</span>
   <span class="sb-sep"> │ </span>
   <span id="sb-mode" class="sb-btn" title="Mode d'affichage">⌨</span>
-  <span id="sb-config" class="sb-btn" onclick="sendCmd('/config')" title="Configuration">⚙</span>
+  <span id="sb-config" class="sb-btn" onclick="SettingsPanel.toggle()" title="Réglages (/config edit) · /config affiche la liste">⚙</span>
   <span class="sb-sep"> </span>
   <span id="sb-help"   class="sb-btn" onclick="sendCmd('/help')"   title="Aide">?</span>
 </div>
@@ -1339,6 +1348,7 @@ hr.rule { border: none; border-top: 1px solid #444; margin: 4px 0; }
 <div id="ctx-menu"></div>
 
 <script>/*__MENU_JS__*/</script>
+<script>/*__SETTINGS_JS__*/</script>
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
 // ANSI → HTML parser (couvre les codes émis par Rich)
@@ -1616,6 +1626,7 @@ function stopSpin() {
   document.getElementById('busy-indicator').style.display = 'none';
   document.body.classList.remove('busy');
   if (_escTimer) { clearTimeout(_escTimer); _escTimer = null; }
+  if (window.SettingsPanel) SettingsPanel.flush();   // changement de réglage en attente
 }
 
 function updateProgress(msg) {
@@ -1678,6 +1689,10 @@ function dispatch(msg) {
       break;
     case 'set_mode': if (window.MousePanel) MousePanel.setMode(msg.value); break;
     case 'menus':    if (window.MousePanel) MousePanel.load(msg.themes || []); break;
+    case 'settings_schema': if (window.SettingsPanel) SettingsPanel.schema(msg); break;
+    case 'settings':        if (window.SettingsPanel) SettingsPanel.update(msg); break;
+    case 'settings_open':   if (window.SettingsPanel) SettingsPanel.open(msg.tab); break;
+    case 'opacity':         setAlpha(msg.value); break;
     case 'set_clock':
       applyClockMode(msg.value);
       break;
@@ -1692,7 +1707,8 @@ function dispatch(msg) {
       hideProgress();
       _finalizeBlock();
       // Retour du focus vers la zone de saisie après chaque commande
-      if (!document.getElementById('scan-overlay').classList.contains('open'))
+      if (!document.getElementById('scan-overlay').classList.contains('open')
+          && !document.activeElement?.closest?.('#settings-drawer'))
         elInput.focus();
       break;
     case 'progress_update': updateProgress(msg); break;

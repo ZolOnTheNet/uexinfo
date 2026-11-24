@@ -93,12 +93,14 @@ THEMES: list[dict] = [
                _run("Accepter le calcul", "/voyage accept")),
     ]},
     {"id": "ship", "label": "Vaisseaux", "short": "Vaiss.", "icon": "✈", "kids": [
+        _run("Gérer ma flotte…", "/config edit ships", "Liste, vaisseau actif, conteneurs."),
         _run("Ma flotte", "/ship list"),
         _run("Mon état", "/player"),
         _run("Par fabricant", "/explore ship"),
     ]},
     {"id": "sys", "label": "Réglages", "short": "Régl.", "icon": "⚙", "kids": [
-        _run("Configuration", "/config"),
+        _run("Réglages…", "/config edit", "Formulaire à onglets."),
+        _run("Liste des réglages", "/config"),
         _group("Rafraîchir",
                _run("Les prix", "/refresh prices"),
                _run("Les données", "/refresh all")),

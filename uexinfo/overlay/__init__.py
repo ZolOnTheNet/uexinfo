@@ -103,12 +103,15 @@ def _parse_hotkey(hotkey_str: str) -> str:
 
 
 def _load_html(port: int, token: str = "") -> str:
-    """Lire index.html, y insérer le mode souris (menu.css, menu.js), le port et le jeton WebSocket."""
+    """Lire index.html, y insérer le mode souris (menu.css, menu.js), les réglages en
+    formulaire (settings.css, settings.js), le port et le jeton WebSocket."""
     from pathlib import Path
     static = Path(__file__).parent / "static"
     html = (static / "index.html").read_text(encoding="utf-8")
-    html = html.replace("/*__MENU_CSS__*/", (static / "menu.css").read_text(encoding="utf-8"))
-    html = html.replace("/*__MENU_JS__*/", (static / "menu.js").read_text(encoding="utf-8"))
+    for marker, name in (("/*__MENU_CSS__*/", "menu.css"), ("/*__MENU_JS__*/", "menu.js"),
+                         ("/*__SETTINGS_CSS__*/", "settings.css"),
+                         ("/*__SETTINGS_JS__*/", "settings.js")):
+        html = html.replace(marker, (static / name).read_text(encoding="utf-8"))
     return html.replace("__WS_PORT__", str(port)).replace("__WS_TOKEN__", token)
 
 

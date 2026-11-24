@@ -781,3 +781,17 @@ Surveillance live faite avec un script temporaire (hors dépôt). Corrections : 
 - `/mission offres prendre N`, `/mission route [suivant|fin|libre|aide]`, `/mission pris` ; boutons du thème Missions ; barre d'état « 🗺 ➜ prochain arrêt » (clic : le chemin) ; réglage `[contracts] stop_minutes = 3`.
 - **Valeur métier nouvelle (D12)** : chemin jugé en temps, 3 min par arrêt.
 - 454 tests réussis.
+
+## 2026-11-24 — réglages en formulaire
+
+**Demandé (2026-10-30) :** tous les réglages en présentation graphique : flotte en liste (double-clic = vaisseau actif, affiché « >>> Hull B <<< » ; clic = petit formulaire des caractéristiques), formulaires qui arrivent de la droite, onglets Overlay, Commerce, Scan, Affichage et traitement ; chaque entrée à mots-clés en liste déroulante avec une explication ; vérifier les réglages réellement utilisés.
+
+**Fait :**
+- `overlay/settings_form.py` : onglets et champs (mot-clé + explication, nombres bornés, textes, options à cocher), envoyés à la connexion (`settings_schema`) ; valeurs et flotte (`settings`) à la connexion et après chaque `/config`, `/ship`, `/auto`, `/player`. La page envoie `settings_set` (clé, valeur) ou `settings_ship` (action) ; le serveur refuse toute valeur hors liste ou hors bornes, puis passe la commande existante par `_handle_cmd` (visible dans la sortie, sélecteur D11 si un nom d'ajout est ambigu).
+- `static/settings.js` + `settings.css` : tiroir à droite (⚙, `/config edit [onglet]`, boutons « Réglages… » et « Gérer ma flotte… » du mode souris), fiche du vaisseau en second tiroir (conteneurs par taille, total, capacité, grille du modèle UEX, vaisseau actif, retirer en deux clics). Échap ferme la fiche puis le tiroir. Les changements faits pendant une commande attendent la fin (`flush` dans `stopSpin`). La page traite enfin le message `opacity` (`/config opacity`).
+- Commandes : `/config edit`, `/config version live <X.Y>` ; `/ship cargo` ne coupe plus un nom qui contient un « x » (MISC Freelancer MAX) et `32x0` seul efface la grille ; une liste pointée reçoit `""` pour se vider ; `overlay.mode` et `overlay.cmdhistory` dans les valeurs par défaut.
+- Réglages lus mais sans commande jusqu'ici (`gamelog.position`, `contracts.*`, `log.days`, venus des commits du 2026-10-31 au 2026-11-05) : clés pointées de `/config` et champs du formulaire.
+- Audit des réglages : profit, marge, illégales, distance max, `sctrade.ttl`, `dev.*`, `voyage.calc.favoris` ne sont lus nulle part (détail dans NOTES §4) ; ils ne sont pas dans le formulaire.
+- `tests/test_settings_form.py` : chaque champ passé par sa commande, valeur relue identique ; 519 tests réussis (après rebase sur les commits contrats). Rendu vérifié en capture (Chromium headless, port fermé) ; à confirmer dans l'overlay.
+- Rangement : docs IA déplacés de `uexinfo/docs/` vers `docs/INSTALL_LLAMA_SERVER.md` et `docs/ai/` (`PLAN_IA.md`, `PROMPT_CLAUDE_CODE`).
+

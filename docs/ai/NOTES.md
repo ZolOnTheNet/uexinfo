@@ -44,6 +44,7 @@
 | Tesseract | copie stable `extprg/tesseract/` (cherchée en premier par `ocr/engine.py`, voir LISEZMOI.txt) |
 | **Game.log** | `gamelog/` : `lines.py` + `events.py` (parseur pur), `state.py` (position, système, morts, menu), `places.py` (codes de lieu → nom + système, **unique**), `follow.py` (tail), `/game`, `python -m uexinfo.gamelog` ; spec `docs/ai/GAMELOG_SPEC.md` ; ancien `parser.py`/`reader.py`/`arrival.py` (auto-position) |
 | Données utilisateur | `~/.uexinfo/` (JSON caches, `config.toml`, `scan_prices.json`, `missions.json`, `voyages.json`) |
+| **Réglages en formulaire** | ⚙ ou `/config edit [onglet]` : tiroir à onglets (Vaisseaux, Overlay, Commerce, Scan, Affichage et traitement), `overlay/settings_form.py` (schéma, une commande existante par champ) + `static/settings.js`/`settings.css` ; testé par `tests/test_settings_form.py` |
 | **Interface souris** | Proposition `docs/PROPOSITION_MENUS_SOURIS.html` (2026-10-21). Commencé le 2026-10-30 : modes console / mixte / souris (bouton à côté de ⚙, `/config mode`), panneau en colonne à droite de la sortie, catalogue des boutons `overlay/menus.py` (testé par `tests/test_menus.py`), panneau `static/menu.js` + `menu.css` insérés par `_load_html`. Reste : boutons à paramètre (listes tirées de `vocab`, saisie libre via un filtre), clic/double-clic, minage, « Remplir la ligne » |
 
 ## 3. Taille des fichiers (points chauds du refactoring)
@@ -82,6 +83,8 @@ Plan existant : `docs/REFACTORING_PLAN.md`. État au 2026-10-06 :
   - ~~`display/result.py` jamais importé~~ — supprimé le 2026-10-29. Messages orphelins : `voyage_dashboard`, `opacity` (non traités par la page), `hint`, `scan_edit`, `mission_list_actions` (jamais émis).
   - État propre à une commande stocké en global (`ctx.select_fn`, `_overlay_send_fn`, `_select_event`, console de capture sans verrou) : bloque les fenêtres multiples.
   - Minage : aucune commande ; endpoints UEX existants non utilisés : `refineries_methods`, `refineries_yields`, `refineries_capacities`, `commodities_raw_prices`.
+
+- **Réglages jamais lus** (vérifié le 2026-11-24, hors de leur affichage dans `/config`) : `trade.min_profit_per_scu`, `trade.min_margin_percent`, `trade.max_distance`, `trade.illegal_commodities` (`/config trade profit|margin|illegal` n'a aucun effet), `sctrade.ttl`, `dev.enabled`, `dev.skip_processed`, `profile.username`, `voyage.calc.favoris` (rappelé dans le récapitulatif, pas utilisé par le calcul ; `--favoris` et `--com` annoncés « non implémentés »). Sections héritées `ships`, `cargo`, `position` : repli seulement. Absents du formulaire. À décider : les brancher dans `/trade` (filtre) ou les retirer.
 
 ## 5. Environnement de test (session cloud)
 

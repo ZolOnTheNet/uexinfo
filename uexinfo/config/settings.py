@@ -65,6 +65,8 @@ DEFAULT: dict = {
         "opacity": 0.95,
         "close": "normal",  # "normal" = ✕ ferme | "dblclick" = ✕ masque, double-clic ferme
         "clock": True,      # Afficher l'horloge en fond de fenêtre
+        "mode": "console",  # "console" | "mixte" | "souris" (overlay/menus.py)
+        "cmdhistory": 5,    # Commandes (avec résultat) réaffichées au démarrage
     },
     "display": {
         "magasins":    True,   # Afficher la liste des magasins dans la vue terminal

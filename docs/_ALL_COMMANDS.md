@@ -48,6 +48,8 @@
 - `/config scan session_gap <min>` : Gap entre sessions en minutes
 - `/config close normal|dblclick` : Comportement du bouton ✕ de l'overlay
 - `/config clock on|off` : Horloge en fond de l'overlay
+- `/config edit [ships|overlay|trade|scan|display]` : Réglages en formulaire, tiroir à onglets qui arrive de la droite (aussi par ⚙)
+- `/config version live|ptu <X.Y>` : Version de Star Citizen pour LIVE ou PTU ("" efface)
 - `/config mode console|mixte|souris` : Ligne de commande seule, boutons et ligne de commande, ou boutons seuls (aussi par le bouton à côté de ⚙)
 - `/config cmdhistory <n>` : Nombre de commandes+résultats conservés
 - `/config player` : Afficher la config joueur

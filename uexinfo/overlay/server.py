@@ -212,6 +212,10 @@ class OverlayServer:
             # Boutons du mode souris (catalogue fixe, uexinfo/overlay/menus.py)
             from uexinfo.overlay import menus as _menus
             await websocket.send(json.dumps({"type": "menus", "themes": _menus.THEMES}))
+            # Réglages en formulaire (uexinfo/overlay/settings_form.py)
+            from uexinfo.overlay import settings_form as _sf
+            await websocket.send(json.dumps(_sf.schema(self.ctx)))
+            await websocket.send(json.dumps(_sf.state(self.ctx)))
 
             # Envoyer l'historique de saisie (navigation ↑/↓)
             await websocket.send(json.dumps({"type": "history", "items": self._history}))
@@ -317,7 +321,7 @@ class OverlayServer:
                 elif _current_cmd is None or _current_cmd.done():
                     self.ctx._cancel_flag.clear()
                     _current_cmd = asyncio.create_task(self._dispatch(websocket, msg))
-                elif msg.get("type") == "cmd":
+                elif msg.get("type") in ("cmd", "settings_set", "settings_ship"):
                     # Commande en cours : mettre en file d'attente (remplace la précédente)
                     _queued_cmd = msg
 
@@ -339,6 +343,12 @@ class OverlayServer:
             src = msg.get("src") or "saisie"
             _applog.info("commande (%s) : %s", src, msg.get("text", "").strip())
             await self._handle_cmd(ws, msg.get("text", "").strip())
+        elif t in ("settings_set", "settings_ship"):
+            from uexinfo.overlay import settings_form as _sf
+            line = (_sf.set_line(msg.get("key", ""), msg.get("value", "")) if t == "settings_set"
+                    else _sf.ship_line(msg.get("action", ""), msg.get("name", ""), msg))
+            if line:
+                await self._handle_cmd(ws, line)
         elif t == "complete":
             await self._handle_complete(ws, msg.get("text", ""), msg.get("cursor", -1))
         elif t == "status":
@@ -561,6 +571,9 @@ class OverlayServer:
         if first in ("refresh", "r", "voyage", "v", "mission", "m",
                      "ship", "sh", "player", "p", "config", "c"):
             await self._send_vocab(ws)
+        if first in ("ship", "sh", "player", "p", "config", "c", "auto"):
+            from uexinfo.overlay import settings_form as _sf
+            await ws.send(json.dumps(_sf.state(self.ctx)))   # formulaire des réglages à jour
 
     def _exec_sync(self, line: str) -> tuple[str, bool]:
         """Exécute la commande de façon bloquante, retourne (output_ansi_fallback, needs_status).
