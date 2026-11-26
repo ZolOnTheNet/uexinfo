@@ -10,7 +10,8 @@
 - Fiche d'un vaisseau : « Enregistrer » ferme la fiche (retour à la flotte), nouveau bouton « Fermer » (sans enregistrer).
 - Conteneurs non enregistrés pour « C.O. Nomad » (« Vaisseau introuvable ») : `NameIndex.resolve` découpait le nom sur ses points (notation pointée). Le nom entier est maintenant essayé d'abord (exact ou début de nom). Le journal `logs/uexinfo.log` a donné la cause.
 - Liste de la flotte : la combinaison de conteneurs suit les SCU (« 24 SCU · 16×1 2×4 »).
-- Tests : 521 passent.
+- Grilles : saisie `<nombre>x<taille>` (`4x32` = 4 conteneurs de 32 SCU, suffixe `scu` permis), affichage `4×32□` comme le chargement de `/trade`. Pas de reprise de données (`config.toml` garde `{taille = nombre}`). Aide (`/help ship`, `/help config`), `_ALL_COMMANDS.md`, commande de la fiche et note dans `grids_ships_study.md` mises à jour. Changement d'habitude : un ancien `32x4` est lu « 32 conteneurs de 4 SCU » ; le message de confirmation montre la grille et le total.
+- Tests : 531 passent.
 
 ## 2026-10-21 — Proposition d'interface souris, version 2 (réponses de l'utilisateur)
 

@@ -280,7 +280,7 @@ def ship_line(action: str, name: str, data: dict) -> str:
             return ""
         if not set(grid) <= VALID_SIZES or min(grid.values(), default=0) < 0 or scu < 0:
             return ""
-        specs = [f"{k}x{n}" for k, n in sorted(grid.items(), reverse=True) if n] or ["32x0"]
+        specs = [f"{n}x{k}" for k, n in sorted(grid.items(), reverse=True) if n] or ["0x32"]
         return f'/ship cargo "{name}" {" ".join(specs)} {scu}'
     return ""
 

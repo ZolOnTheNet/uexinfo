@@ -134,3 +134,23 @@ def test_fleet_cargo_name_with_dots(ctx):
     run_command(sf.ship_line("cargo", "C.O. Nomad", {"cargo": {"16": 1, "2": 4}, "scu": 24}), ctx)
     s = next(s for s in sf.ships(ctx) if s["name"] == "C.O. Nomad")
     assert s["cargo"] == {"16": 1, "2": 4}
+
+
+# ── Saisie des grilles : <nombre>x<taille> ────────────────────────────────────
+@pytest.mark.parametrize("spec,expected", [
+    ("4x32", (32, 4)), ("2x16scu", (16, 2)), ("6X2", (2, 6)), ("1×24□", (24, 1)), ("0x32", (32, 0)),
+    ("4x7", None), ("x32", None), ("Freelancer", None), ("MAX", None),
+])
+def test_cargo_spec_is_number_then_size(spec, expected):
+    from uexinfo.data.cargo_grids import parse_cargo_spec
+    assert parse_cargo_spec(spec) == expected
+
+
+def test_cargo_grid_display_and_command_use_number_then_size(ctx):
+    from uexinfo.data.cargo_grids import format_cargo_config
+    assert format_cargo_config({32: 4, 2: 6}) == "4×32□  6×2□"
+    assert sf.ship_line("cargo", "X", {"cargo": {"32": 4, "2": 6}, "scu": 140}) == '/ship cargo "X" 4x32 6x2 140'
+    run_command("/ship add Cutlass Black", ctx)
+    run_command('/ship cargo "Drake Cutlass Black" 2x16 6x2', ctx)
+    s = sf.ships(ctx)[0]
+    assert s["cargo"] == {"16": 2, "2": 6} and s["scu"] == 44

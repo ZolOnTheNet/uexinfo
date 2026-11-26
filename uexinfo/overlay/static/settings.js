@@ -209,10 +209,10 @@ window.SettingsPanel = (() => {
   }
 
   // ── Flotte ─────────────────────────────────────────────────────────────────
-  /** Combinaison de conteneurs, du plus grand au plus petit : « · 16×1 2×4 ». */
+  /** Combinaison de conteneurs, du plus grand au plus petit : « · 1×16□ 4×2□ » (nombre × taille, comme /trade). */
   function _combo(cargo) {
     const parts = Object.entries(cargo || {}).filter(([, n]) => n > 0)
-      .sort((a, b) => b[0] - a[0]).map(([z, n]) => `${z}×${n}`);
+      .sort((a, b) => b[0] - a[0]).map(([z, n]) => `${n}×${z}□`);
     return parts.length ? ` <span class="st-combo">· ${parts.join(' ')}</span>` : '';
   }
   function renderFleet() {

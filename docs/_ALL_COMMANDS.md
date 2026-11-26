@@ -66,8 +66,8 @@
 - `/ship remove <nom>` : Retirer un vaisseau
 - `/ship set <nom>` : Définir le vaisseau actif
 - `/ship cargo <nom>` : Afficher les grilles cargo du vaisseau
-- `/ship cargo <nom> <32xN> [16xN] …` : Définir les grilles (particulier)
-- `/ship cargo <nom> --all <32xN> [16xN] …` : Définir les grilles (général)
+- `/ship cargo <nom> <n>x32 [<n>x16] …` : Définir les grilles (particulier) — `<nombre>x<taille>` : `4x32` = 4 conteneurs de 32 SCU (suffixe `scu` permis)
+- `/ship cargo <nom> --all <n>x32 [<n>x16] …` : Définir les grilles (général)
 - `/ship cargo <nom> --all` : Afficher la config générale du modèle
 - `/ship cargo <nom> --clear` : Effacer l'override général du modèle
 

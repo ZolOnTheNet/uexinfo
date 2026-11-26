@@ -659,9 +659,9 @@ def _ship(args: list[str], ctx) -> None:
                 if chosen:
                     rest = [chosen[0].value]
                 else:
-                    print_error("Usage : /ship cargo <nom> [--all|-a] [--clear|-c] [capacité] [32x<n>] ...")
+                    print_error("Usage : /ship cargo <nom> [--all|-a] [--clear|-c] [capacité] [<nombre>x<taille>] ...")
                     console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules[/{C.LABEL}]  [{C.DIM}](affiche config)[/{C.DIM}]")
-                    console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules 32x10 16x4[/{C.LABEL}]  [{C.DIM}](modifie)[/{C.DIM}]")
+                    console.print(f"  [{C.LABEL}]/ship cargo C2_Hercules 10x32 4x16[/{C.LABEL}]  [{C.DIM}](10 de 32 SCU, 4 de 16 ; modifie)[/{C.DIM}]")
                     return
             else:
                 print_warn("Aucun vaisseau configuré — /ship add <nom>")
@@ -741,12 +741,12 @@ def _ship(args: list[str], ctx) -> None:
                     cargo_specs[size] = qty
                 else:
                     print_error(f"Argument invalide : {arg}")
-                    console.print(f"[{C.DIM}]Format : <taille>x<quantité> (ex: 32x4)[/{C.DIM}]")
+                    console.print(f"[{C.DIM}]Format : <nombre>x<taille> (ex: 4x32 = 4 conteneurs de 32 SCU)[/{C.DIM}]")
                     return
 
             if not cargo_specs:
                 print_error("Spécifiez au moins une configuration cargo")
-                console.print(f"[{C.DIM}]Exemple : 32x10 16x4[/{C.DIM}]")
+                console.print(f"[{C.DIM}]Exemple : 10x32 4x16[/{C.DIM}]")
                 return
 
             # Sauvegarder le modèle
@@ -778,7 +778,7 @@ def _ship(args: list[str], ctx) -> None:
                     console.print(f"  [{C.DIM}]Modèle disponible : {format_cargo_config(grid)} = {total} {C.SCU}[/{C.DIM}]")
             return
 
-        # Sinon : modifier le vaisseau ; une quantité 0 retire la taille (« 32x0 » seul
+        # Sinon : modifier le vaisseau ; une quantité 0 retire la taille (« 0x32 » seul
         # efface la grille)
         cargo_specs: dict[int, int] = {}
         grid_given = False
@@ -797,12 +797,12 @@ def _ship(args: list[str], ctx) -> None:
                     cargo_specs[size] = qty
             else:
                 print_error(f"Argument invalide : {arg}")
-                console.print(f"[{C.DIM}]Format : <taille>x<quantité> (ex: 32x4)[/{C.DIM}]")
+                console.print(f"[{C.DIM}]Format : <nombre>x<taille> (ex: 4x32 = 4 conteneurs de 32 SCU)[/{C.DIM}]")
                 return
 
         if not grid_given and explicit_scu is None:
             print_error("Spécifiez au moins une configuration cargo ou une capacité")
-            console.print(f"[{C.DIM}]Exemples : 32x10 16x4  OU  696[/{C.DIM}]")
+            console.print(f"[{C.DIM}]Exemples : 10x32 4x16  OU  696[/{C.DIM}]")
             return
 
         # Mettre à jour le vaisseau

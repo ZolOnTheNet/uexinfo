@@ -11,8 +11,12 @@ Système d'extension :
 
 from __future__ import annotations
 
+import re
+
 import json
 from pathlib import Path
+
+from uexinfo.display.colors import SCU
 
 # ── Hauteur physique des conteneurs ──────────────────────────────────────────
 
@@ -200,59 +204,40 @@ def calculate_total_scu(config: dict[int, int]) -> int:
 
 
 def parse_cargo_spec(spec: str) -> tuple[int, int] | None:
-    """
-    Parse une spécification de cargo au format "<taille>x<quantité>".
+    """Spécification de conteneurs « <nombre>x<taille> » (« 4 conteneurs de 32 SCU »),
+    comme on le dit et comme /trade l'affiche ; suffixe `scu` ou `□` permis.
 
-    Args:
-        spec: chaîne au format "32x4" ou "16x2"
+    Renvoie (taille, nombre), ou None si invalide (taille hors VALID_SIZES, nombre < 0).
 
-    Returns:
-        (taille, quantité) ou None si invalide
-
-    Exemples :
-        >>> parse_cargo_spec("32x4")
+        >>> parse_cargo_spec("4x32")
         (32, 4)
-        >>> parse_cargo_spec("16x2")
+        >>> parse_cargo_spec("2x16scu")
         (16, 2)
-        >>> parse_cargo_spec("invalid")
-        None
+        >>> parse_cargo_spec("invalid") is None
+        True
     """
-    if "x" not in spec:
+    m = _SPEC.match(spec or "")
+    if not m:
         return None
-    parts = spec.lower().split("x")
-    if len(parts) != 2:
+    qty, size = int(m.group(1)), int(m.group(2))
+    if size not in VALID_SIZES:
         return None
-    try:
-        size = int(parts[0])
-        qty = int(parts[1])
-        if size not in VALID_SIZES:
-            return None
-        if qty < 0:
-            return None
-        return (size, qty)
-    except ValueError:
-        return None
+    return (size, qty)
+
+
+_SPEC = re.compile(r"^\s*(\d+)\s*[x×]\s*(\d+)\s*(?:scu|□)?\s*$", re.IGNORECASE)
 
 
 def format_cargo_config(config: dict[int, int]) -> str:
-    """
-    Formate une configuration de cargo pour l'affichage.
+    """Configuration {taille: nombre} → « 4×32□  2×16□ » (nombre × taille, plus grande d'abord).
 
-    Args:
-        config: dict {taille_scu: quantité}
-
-    Returns:
-        Chaîne formatée "32x4 16x2 8x1"
-
-    Exemples :
         >>> format_cargo_config({32: 4, 16: 2, 8: 1})
-        '32×4  16×2  8×1'
+        '4×32□  2×16□  1×8□'
     """
     if not config:
         return "(vide)"
-    # Trier par taille décroissante
-    sorted_items = sorted(config.items(), key=lambda x: -x[0])
-    return "  ".join(f"{size}×{qty}" for size, qty in sorted_items)
+    items = sorted(((int(z), int(n)) for z, n in config.items()), key=lambda x: -x[0])
+    return "  ".join(f"{qty}×{size}{SCU}" for size, qty in items)
 
 
 # ── Gestionnaire de grilles cargo ───────────────────────────────────────────

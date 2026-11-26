@@ -249,7 +249,7 @@ uexinfo/                         (racine du dépôt)
 | `config/__init__.py` | Docstring du package seulement. |
 | `config/settings.py` | Lecture/écriture de `config.toml`. |
 | `data/transport_network.json` | Graphe de transport (nœuds, arêtes), enrichi par `/nav populate` et `scripts/generate_locations.py`. |
-| `data/cargo_grids.py` | Grilles cargo des vaisseaux (tailles de conteneurs). |
+| `data/cargo_grids.py` | Grilles cargo des vaisseaux (tailles de conteneurs) ; saisie et affichage `<nombre>x<taille>` (`4x32` = 4 conteneurs de 32 SCU, affiché `4×32□` comme `/trade`). |
 
 ---
 

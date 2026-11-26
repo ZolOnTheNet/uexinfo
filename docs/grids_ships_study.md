@@ -1,5 +1,7 @@
 # Étude : Grilles cargo des vaisseaux Star Citizen
 
+> **Notation (2026-11-26) :** les listes ci-dessous écrivent `<taille>x<nombre>` (`32x10` = 10 conteneurs de 32 SCU). Depuis le 2026-11-26, `/ship cargo` se saisit et s'affiche dans l'autre ordre, `<nombre>x<taille>` (`10x32`).
+
 ## Contexte
 
 Les vaisseaux Star Citizen ont une capacité cargo totale en SCU, mais cette capacité
