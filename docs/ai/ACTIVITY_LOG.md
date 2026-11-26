@@ -8,7 +8,9 @@
 - Tiroir des réglages : poignée sur le bord gauche, largeur gardée dans `config.toml` (`overlay.settings_width`, 560 par défaut, message `settings_width` sans commande affichée) ; minimum = la rangée d'onglets, qui ne passe plus sur une 2e ligne.
 - Captures : Chromium sans tête fige les transitions CSS ; un `focus()` pendant l'ouverture fait défiler `body`. Injecter `*{transition:none}` dans la page de test.
 - Fiche d'un vaisseau : « Enregistrer » ferme la fiche (retour à la flotte), nouveau bouton « Fermer » (sans enregistrer).
-- Tests : 520 passent.
+- Conteneurs non enregistrés pour « C.O. Nomad » (« Vaisseau introuvable ») : `NameIndex.resolve` découpait le nom sur ses points (notation pointée). Le nom entier est maintenant essayé d'abord (exact ou début de nom). Le journal `logs/uexinfo.log` a donné la cause.
+- Liste de la flotte : la combinaison de conteneurs suit les SCU (« 24 SCU · 16×1 2×4 »).
+- Tests : 521 passent.
 
 ## 2026-10-21 — Proposition d'interface souris, version 2 (réponses de l'utilisateur)
 

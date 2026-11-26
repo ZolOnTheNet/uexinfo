@@ -209,6 +209,12 @@ window.SettingsPanel = (() => {
   }
 
   // ── Flotte ─────────────────────────────────────────────────────────────────
+  /** Combinaison de conteneurs, du plus grand au plus petit : « · 16×1 2×4 ». */
+  function _combo(cargo) {
+    const parts = Object.entries(cargo || {}).filter(([, n]) => n > 0)
+      .sort((a, b) => b[0] - a[0]).map(([z, n]) => `${z}×${n}`);
+    return parts.length ? ` <span class="st-combo">· ${parts.join(' ')}</span>` : '';
+  }
   function renderFleet() {
     const sec = Object.assign(document.createElement('div'), {className: 'st-sec', textContent: 'Ma flotte'});
     elBody.appendChild(sec);
@@ -222,7 +228,7 @@ window.SettingsPanel = (() => {
       const it = document.createElement('div');
       it.className = 'st-ship' + (s.active ? ' active' : '') + (s.name === shipName ? ' sel' : '');
       it.innerHTML = `<span class="st-ship-name">${s.active ? '&gt;&gt;&gt; ' + _h(s.name) + ' &lt;&lt;&lt;' : _h(s.name)}</span>`
-                   + `<span class="st-ship-scu">${s.scu ? s.scu + ' SCU' : '? SCU'}</span>`;
+                   + `<span class="st-ship-scu">${s.scu ? s.scu + ' SCU' : '? SCU'}${_combo(s.cargo)}</span>`;
       let t = null;   // le clic attend : un double-clic ne doit pas ouvrir la fiche
       it.addEventListener('click', () => { clearTimeout(t); t = setTimeout(() => openShip(s.name), 250); });
       it.addEventListener('dblclick', () => { clearTimeout(t); if (!s.active) shipAction('set', s.name); });

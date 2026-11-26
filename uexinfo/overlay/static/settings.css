@@ -97,6 +97,7 @@
 .st-ship.active .st-ship-name { color: var(--green); font-weight: bold; }
 .st-ship-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-ship-scu { color: var(--dim); white-space: nowrap; }
+.st-combo { color: var(--text); opacity: .75; }
 .st-add { display: flex; gap: 6px; }
 .st-add input { flex: 1; }
 

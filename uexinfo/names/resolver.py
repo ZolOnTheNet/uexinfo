@@ -307,6 +307,12 @@ class NameIndex:
         # Notation pointée : « stanton.lorville », « lorville.admin », « drak.cutlass »
         dotted = "." in q
         if dotted:
+            # Nom qui contient des points (« C.O. Nomad ») : le nom entier d'abord
+            whole = [m for m in (self._match_entity(q, e, False) for e in pool)
+                     if m and m.level >= PREFIX and not m.via_location]
+            if whole:
+                whole.sort(key=lambda m: (-m.level, m.entity.priority, len(m.entity.name)))
+                return Resolution(whole[:limit])
             *filters, last = [p.strip() for p in q.split(".")]
             filters = [_expand_filter(f) for f in filters if f]
             pool = [e for e in pool if all(any(f in tok for tok in e.tokens) for f in filters)]

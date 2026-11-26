@@ -125,3 +125,12 @@ def test_drawer_width_is_kept_and_bounded():
     assert not sf.store_width(cfg, "abc")
     cfg["overlay"]["settings_width"] = "n'importe"
     assert sf.width(cfg) == 560
+
+
+def test_fleet_cargo_name_with_dots(ctx):
+    """« C.O. Nomad » : les points du nom ne sont pas une notation pointée."""
+    from uexinfo.models.player import Ship
+    ctx.player.ships.append(Ship(name="C.O. Nomad", scu=24))
+    run_command(sf.ship_line("cargo", "C.O. Nomad", {"cargo": {"16": 1, "2": 4}, "scu": 24}), ctx)
+    s = next(s for s in sf.ships(ctx) if s["name"] == "C.O. Nomad")
+    assert s["cargo"] == {"16": 1, "2": 4}
