@@ -42,6 +42,8 @@ window.SettingsPanel = (() => {
   // ── Messages du serveur ────────────────────────────────────────────────────
   function schema(msg) {
     tabs = msg.tabs || []; sizes = msg.sizes || []; vehicles = msg.vehicles || [];
+    if (msg.width_min) widthMin = msg.width_min;
+    if (msg.width) wanted = msg.width;
     if (!tabs.some(t => t.id === tabId) && tabs.length) tabId = tabs[0].id;
     render();
   }
@@ -50,6 +52,32 @@ window.SettingsPanel = (() => {
     if (shipName && !ships.some(s => s.name === shipName)) shipName = null;   // retiré
     render();
   }
+
+  // ── Largeur du tiroir : poignée du bord gauche, gardée dans config.toml ──────
+  let widthMin = 420, wanted = 560;   // largeur demandée (config), appliquée à chaque rendu
+  function setWidth(px) {
+    // Minimum : la rangée d'onglets entière (jamais d'onglet sur une 2e ligne ni caché)
+    const tabsW = [...elTabs.children].reduce((w, b) => w + b.offsetWidth + 3, 20);
+    const min = Math.max(widthMin, tabsW), max = elDrawer.parentElement.clientWidth || window.innerWidth;
+    elDrawer.style.width = Math.round(Math.max(Math.min(min, max), Math.min(px, max))) + 'px';
+  }
+  const grip = Object.assign(document.createElement('div'), {className: 'st-grip', title: 'Glisser pour changer la largeur'});
+  elDrawer.appendChild(grip);
+  grip.addEventListener('pointerdown', e => {
+    e.preventDefault(); grip.setPointerCapture(e.pointerId);
+    const right = elDrawer.getBoundingClientRect().right;
+    elDrawer.classList.add('resizing');
+    const move = ev => { wanted = right - ev.clientX; setWidth(wanted); };
+    const up = () => {
+      grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up);
+      elDrawer.classList.remove('resizing');
+      wanted = parseInt(elDrawer.style.width, 10);
+      _post({type: 'settings_width', value: wanted});
+    };
+    grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
+  });
+
+  window.addEventListener('resize', () => setWidth(wanted));
 
   function isOpen() { return elDrawer.classList.contains('open'); }
   function open(tab) {
@@ -89,9 +117,10 @@ window.SettingsPanel = (() => {
     }
     if (keep) {
       const inp = elBody.querySelector(`[data-key="${CSS.escape(keep.key)}"]`);
-      if (inp) { inp.value = keep.val; inp.focus(); try { inp.setSelectionRange(keep.pos, keep.pos); } catch (_) {} }
+      if (inp) { inp.value = keep.val; inp.focus({preventScroll: true}); try { inp.setSelectionRange(keep.pos, keep.pos); } catch (_) {} }
     }
     elFoot.textContent = 'Chaque changement passe par la commande /config ou /ship, affichée dans la sortie.';
+    setWidth(wanted);
     if (shipName) renderShip();
   }
 
@@ -203,13 +232,54 @@ window.SettingsPanel = (() => {
 
     const add = document.createElement('div');
     add.className = 'st-add';
-    add.innerHTML = `<input type="text" list="st-vehicles" placeholder="Ajouter un vaisseau (nom UEX)" spellcheck="false">`
-                  + `<button type="button">＋ Ajouter</button><datalist id="st-vehicles">`
-                  + vehicles.map(v => `<option value="${_h(v)}">`).join('') + `</datalist>`;
-    const inp = add.querySelector('input');
-    const go = () => { if (inp.value.trim()) { shipAction('add', inp.value.trim()); inp.value = ''; } };
-    add.querySelector('button').addEventListener('click', go);
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    // Pas de <datalist> : sous WebKitGTK, Entrée sur une suggestion envoie le texte tapé
+    // (« HULL ») et non la suggestion (« MISC Hull C »). Liste maison : ↑↓ puis Entrée, ou clic.
+    add.innerHTML = `<input type="text" data-key="__ship_add" placeholder="Ajouter un vaisseau (nom UEX)" spellcheck="false" autocomplete="off">`
+                  + `<button type="button">＋ Ajouter</button><div class="st-sugg"></div>`;
+    const inp = add.querySelector('input'), box = add.querySelector('.st-sugg');
+    let found = [], hi = -1;
+    const go = name => {
+      name = (name ?? inp.value).trim();
+      if (name) { shipAction('add', name); inp.value = ''; }
+      found = []; hi = -1; draw();
+    };
+    function draw() {
+      box.innerHTML = found.map((v, i) => `<div class="st-sugg-opt${i === hi ? ' hi' : ''}" data-i="${i}">${_h(v)}</div>`).join('');
+      box.classList.toggle('open', found.length > 0);
+      const el = box.querySelector('.hi');   // défile la liste seule (scrollIntoView déplacerait la page)
+      if (el) {
+        if (el.offsetTop < box.scrollTop) box.scrollTop = el.offsetTop;
+        else if (el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight)
+          box.scrollTop = el.offsetTop + el.offsetHeight - box.clientHeight;
+      }
+    }
+    function filter() {
+      const words = inp.value.toLowerCase().split(/\s+/).filter(Boolean);
+      found = words.length ? vehicles.filter(v => { const n = v.toLowerCase(); return words.every(w => n.includes(w)); }).slice(0, 30) : [];
+      hi = found.length === 1 ? 0 : -1;
+      draw();
+    }
+    inp.addEventListener('input', filter);
+    inp.addEventListener('blur', () => setTimeout(() => { found = []; draw(); }, 150));
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (!found.length) return;
+        e.preventDefault();
+        hi = (hi + (e.key === 'ArrowDown' ? 1 : -1) + found.length) % found.length;
+        draw();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        go(hi >= 0 ? found[hi] : undefined);
+      } else if (e.key === 'Escape' && found.length) {
+        e.preventDefault(); e.stopPropagation();
+        found = []; hi = -1; draw();
+      }
+    });
+    box.addEventListener('mousedown', e => {   // mousedown : avant le blur du champ
+      const o = e.target.closest('.st-sugg-opt'); if (!o) return;
+      e.preventDefault(); go(found[+o.dataset.i]);
+    });
+    add.querySelector('button').addEventListener('click', () => go(hi >= 0 ? found[hi] : undefined));
     elBody.appendChild(add);
   }
 
@@ -278,6 +348,7 @@ window.SettingsPanel = (() => {
   window.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || !isOpen()) return;
     if (document.querySelector('#select-overlay.open, #scan-overlay.open')) return;
+    if (elBody.querySelector('.st-sugg.open')) return;   // le champ « Ajouter » ferme ses suggestions
     e.preventDefault(); e.stopImmediatePropagation();
     if (ddOpen) { ddOpen = null; render(); }
     else if (shipName) closeShip();

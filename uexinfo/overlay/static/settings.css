@@ -15,7 +15,11 @@
   visibility: hidden;
   font-size: 0.92em;
 }
-#settings-drawer { width: min(460px, 100%); z-index: 50; }
+#settings-drawer { width: 560px; max-width: 100%; z-index: 50; }
+#settings-drawer.resizing { transition: none; user-select: none; }
+/* Poignée de largeur, bord gauche */
+.st-grip { position: absolute; left: -3px; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 3; }
+.st-grip:hover, #settings-drawer.resizing .st-grip { background: rgba(0,188,212,0.35); }
 #ship-drawer     { width: min(360px, 92%); z-index: 2; background: #0a0d14; }
 #settings-drawer.open, #ship-drawer.open { transform: none; visibility: visible; }
 
@@ -27,7 +31,7 @@
 .st-close { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 1em; }
 .st-close:hover { color: var(--red); }
 
-.st-tabs { display: flex; flex-wrap: wrap; gap: 3px; padding: 6px 8px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.st-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 3px; padding: 6px 8px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .st-tab {
   background: rgba(255,255,255,0.04); color: var(--text); font-family: var(--font); font-size: 0.95em;
   border: 1px solid rgba(255,255,255,0.12); border-bottom: none; border-radius: 3px 3px 0 0;
@@ -38,6 +42,7 @@
 .st-ic { margin-right: 5px; }
 .st-short { display: none; }
 @media (max-width: 520px) { .st-long { display: none; } .st-short { display: inline; } }
+.st-tabs::-webkit-scrollbar { display: none; }
 
 .st-body { flex: 1; overflow-y: auto; padding: 6px 10px 10px; }
 .st-body::-webkit-scrollbar { width: 4px; }
@@ -108,3 +113,11 @@
 .st-actions button:hover, .st-add button:hover { background: rgba(255,255,255,0.12); }
 .st-actions button.primary { border-color: var(--accent); color: var(--accent); }
 .st-actions button.danger { border-color: rgba(239,83,80,0.5); color: var(--red); }
+
+/* Suggestions du champ « Ajouter un vaisseau » (remplace <datalist>) */
+.st-add { position: relative; flex-wrap: wrap; }
+.st-sugg { display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 5; max-height: 14em; overflow-y: auto;
+  border: 1px solid var(--accent); border-radius: 0 0 3px 3px; background: rgba(8,10,16,0.98); }
+.st-sugg.open { display: block; }
+.st-sugg-opt { padding: 2px 7px; cursor: pointer; color: var(--text); }
+.st-sugg-opt:hover, .st-sugg-opt.hi { background: rgba(0,188,212,0.18); color: var(--accent); }

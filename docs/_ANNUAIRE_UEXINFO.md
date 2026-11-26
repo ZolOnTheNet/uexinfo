@@ -5,7 +5,7 @@
 > Pour « qu'est-ce qui a été fait et quand », voir `docs/ai/ACTIVITY_LOG.md`. Pour les règles métier validées, voir `docs/ai/DECISIONS.md`.
 >
 > **Maintenance :** à chaque création, suppression, déplacement ou changement de rôle d'un fichier, mettre à jour la ligne correspondante, puis la date ci-dessous.
-> Dernière mise à jour : **2026-11-24** (223 fichiers suivis par git).
+> Dernière mise à jour : **2026-11-26** (223 fichiers suivis par git).
 
 **Légende des statuts :**
 ✅ à jour, c'est une référence · ⚠️ en partie dépassé, à vérifier contre le code · 🗄️ historique (décrit un état passé) · 💀 code mort (jamais importé) · 🔒 local, hors git
@@ -96,7 +96,7 @@ uexinfo/                         (racine du dépôt)
 | `overlay/static/index.html` | L'interface (HTML + CSS + JS, ~4 400 lignes) : console, complétion, menus, mots cliquables (référence `#type:id` au clic, D11), formulaires de scan. |
 | `overlay/static/menu.js` | Panneau de boutons du mode souris : thèmes, chemin cliquable, groupes, bouton de mode. Inséré dans la page par `_load_html`. |
 | `overlay/static/menu.css` | Styles du panneau de boutons (libellés longs, courts ou icônes selon la largeur). Inséré par `_load_html`. |
-| `overlay/static/settings.js` | Tiroir des réglages, qui arrive de la droite (⚙, `/config edit`) : onglets, listes déroulantes mot-clé + explication, flotte (clic : fiche du vaisseau, double-clic : vaisseau actif). Inséré par `_load_html`. |
+| `overlay/static/settings.js` | Tiroir des réglages, qui arrive de la droite (⚙, `/config edit`) : onglets, listes déroulantes mot-clé + explication, flotte (clic : fiche du vaisseau, double-clic : vaisseau actif ; ajout avec liste de suggestions ↑↓/Entrée, sans `<datalist>`), largeur réglée par la poignée du bord gauche (minimum : la rangée d'onglets) et gardée dans `overlay.settings_width`. Inséré par `_load_html`. |
 | `overlay/static/settings.css` | Styles du tiroir des réglages et de la fiche d'un vaisseau. Inséré par `_load_html`. |
 
 ### Routage des commandes — `cli/`

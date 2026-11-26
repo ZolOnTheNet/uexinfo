@@ -313,6 +313,31 @@ def ships(ctx) -> list[dict]:
     return out
 
 
+WIDTH_MIN, WIDTH_MAX = 420, 2000   # largeur du tiroir en px ; au minimum, les 5 onglets tiennent
+
+
+def width(cfg) -> int:
+    """Largeur enregistrée du tiroir des réglages, bornée."""
+    try:
+        w = int(_get(cfg, "overlay.settings_width"))
+    except (TypeError, ValueError):
+        w = DEFAULT["overlay"]["settings_width"]
+    return max(WIDTH_MIN, min(WIDTH_MAX, w))
+
+
+def store_width(cfg, value) -> bool:
+    """Retient la largeur choisie à la souris ; False si la valeur est invalide ou inchangée."""
+    try:
+        w = max(WIDTH_MIN, min(WIDTH_MAX, int(float(value))))
+    except (TypeError, ValueError):
+        return False
+    ov = cfg.setdefault("overlay", {})
+    if ov.get("settings_width") == w:
+        return False
+    ov["settings_width"] = w
+    return True
+
+
 def state(ctx) -> dict:
     """Message `settings` : valeurs des champs et flotte du joueur."""
     return {"type": "settings", "values": values(ctx.cfg), "ships": ships(ctx)}
@@ -325,6 +350,8 @@ def schema(ctx) -> dict:
     return {
         "type":     "settings_schema",
         "tabs":     TABS,
+        "width":    width(ctx.cfg),
+        "width_min": WIDTH_MIN,
         "sizes":    sorted(VALID_SIZES, reverse=True),
         "vehicles": sorted({v.name_full for v in (getattr(ctx.cache, "vehicles", None) or [])
                             if v.name_full}),

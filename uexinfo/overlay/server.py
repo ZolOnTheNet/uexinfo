@@ -357,6 +357,10 @@ class OverlayServer:
             await self._handle_opacity(msg.get("value", 0.76))
         elif t == "ui_mode":
             await self._handle_ui_mode(msg.get("value", ""))
+        elif t == "settings_width":
+            from uexinfo.overlay import settings_form as _sf
+            if _sf.store_width(self.ctx.cfg, msg.get("value")):
+                _settings.save(self.ctx.cfg)
         elif t == "cols":
             cols = max(40, int(msg.get("value", 100)))
             _fmt_mod.console._width = cols

@@ -3,6 +3,12 @@
 > Une entrée par session ou étape notable, la plus récente en haut.
 > Format : date — branche — ce qui a été fait — état des tests — suite prévue.
 
+## 2026-11-26 — main — Réglages : ajout d'un vaisseau, largeur du tiroir
+- Ajout d'un vaisseau : sous WebKitGTK, Entrée sur une suggestion de `<datalist>` envoyait le texte tapé (« HULL ») au lieu de « MISC Hull C ». Remplacé par une liste de suggestions maison dans `settings.js` (↑↓ puis Entrée, ou clic ; Échap la ferme).
+- Tiroir des réglages : poignée sur le bord gauche, largeur gardée dans `config.toml` (`overlay.settings_width`, 560 par défaut, message `settings_width` sans commande affichée) ; minimum = la rangée d'onglets, qui ne passe plus sur une 2e ligne.
+- Captures : Chromium sans tête fige les transitions CSS ; un `focus()` pendant l'ouverture fait défiler `body`. Injecter `*{transition:none}` dans la page de test.
+- Tests : 520 passent.
+
 ## 2026-10-21 — Proposition d'interface souris, version 2 (réponses de l'utilisateur)
 
 - Décisions : libellé « Trade », format long privilégié ; des groupes de boutons (pas de menu déroulant) avec chemin cliquable qui construit la commande et filtre quand il y a trop de boutons ; clic = exécute (sans paramètre) ou ouvre, double-clic = exécute sans paramètre ; minage par minerai et par lieu (ouvert sur le lieu le plus proche, raffinerie la plus proche) ; une seule fenêtre pour l'instant ; `/config cache clear` par type (clic = confirmation, double-clic = immédiat) ; jeton de sécurité accepté.

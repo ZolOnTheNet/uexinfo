@@ -67,6 +67,7 @@ DEFAULT: dict = {
         "clock": True,      # Afficher l'horloge en fond de fenêtre
         "mode": "console",  # "console" | "mixte" | "souris" (overlay/menus.py)
         "cmdhistory": 5,    # Commandes (avec résultat) réaffichées au démarrage
+        "settings_width": 560,  # Largeur du tiroir des réglages (px), réglée à la souris
     },
     "display": {
         "magasins":    True,   # Afficher la liste des magasins dans la vue terminal

@@ -113,3 +113,15 @@ def test_fleet_add_set_cargo_remove(ctx):
 ])
 def test_fleet_refuses_bad_actions(action, name, data):
     assert sf.ship_line(action, name, data) == ""
+
+
+# ── Largeur du tiroir ─────────────────────────────────────────────────────────
+def test_drawer_width_is_kept_and_bounded():
+    cfg = deepcopy(settings.DEFAULT)
+    assert sf.schema(SimpleNamespace(cfg=cfg, cache=None))["width"] == 560
+    assert sf.store_width(cfg, 700) and sf.width(cfg) == 700
+    assert not sf.store_width(cfg, "700")            # inchangée : rien à enregistrer
+    assert sf.store_width(cfg, 50) and sf.width(cfg) == sf.WIDTH_MIN
+    assert not sf.store_width(cfg, "abc")
+    cfg["overlay"]["settings_width"] = "n'importe"
+    assert sf.width(cfg) == 560
