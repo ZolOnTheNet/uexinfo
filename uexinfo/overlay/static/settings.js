@@ -305,6 +305,7 @@ window.SettingsPanel = (() => {
           <button type="button" data-a="save" class="primary">Enregistrer</button>
           ${s.active ? '' : '<button type="button" data-a="set">Vaisseau actif</button>'}
           <button type="button" data-a="remove" class="danger">Retirer</button>
+          <button type="button" data-a="close">Fermer</button>
         </div>
       </div>`;
     const inputs = [...elShip.querySelectorAll('[data-size]')];
@@ -330,6 +331,9 @@ window.SettingsPanel = (() => {
         const cargo = {};
         inputs.forEach(i => { const n = parseInt(i.value) || 0; if (n > 0) cargo[i.dataset.size] = n; });
         shipAction('cargo', s.name, {cargo, scu: parseInt(scu.value) || 0});
+        closeShip();   // enregistré : retour à la liste de la flotte
+      } else if (a === 'close') {
+        closeShip();
       } else if (a === 'set') {
         shipAction('set', s.name);
       } else if (a === 'remove') {
